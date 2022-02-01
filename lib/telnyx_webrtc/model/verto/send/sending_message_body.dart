@@ -1,10 +1,23 @@
 class SendingMessageBody {
-  SendingMessageBody(this.id, this.method, this.params);
+  SendingMessageBody(this.id, this.method, this.params, this.jsonrpc);
 
   final String id;
   final String method;
   final ParamRequest params;
-  final String jsonrpc = "2.0";
+  final String jsonrpc;
+
+  SendingMessageBody.fromJson(Map<String, dynamic> json)
+      : id = json['id'],
+        method = json['method'],
+        params = json['params'],
+        jsonrpc = json['jsonrpc'];
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'method': method,
+        'params': params,
+        'jsonrpc': jsonrpc,
+      };
 }
 
 class ParamRequest {

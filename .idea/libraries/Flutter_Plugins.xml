@@ -1,0 +1,14 @@
+<component name="libraryTable">
+  <library name="Flutter Plugins" type="FlutterPluginsLibraryType">
+    <CLASSES>
+      <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/path_provider-2.0.8" />
+      <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/path_provider_macos-2.0.5" />
+      <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/path_provider_linux-2.1.5" />
+      <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/flutter_webrtc-0.8.1" />
+      <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/path_provider_android-2.0.11" />
+      <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/path_provider_windows-2.0.5" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

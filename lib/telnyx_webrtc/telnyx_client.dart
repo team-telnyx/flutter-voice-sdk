@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/sending_message_body.dart';
@@ -57,9 +57,14 @@ class TelnyxClient {
     var loginParams = LoginParam(user, password, null, []);
 
     var loginMessage =
-        SendingMessageBody(uuid.toString(), "login", loginParams);
+        SendingMessageBody(uuid.toString(), "login", loginParams, "2.0");
 
-    txSocket.send(loginMessage);
+    //String jsonLoginMessage = jsonEncode(loginMessage);
+
+    var tempJson =
+        "{\n      \"id\": \"f3e6b8a0-ce18-46fb-8628-57c578c6dbfb\",\n      \"jsonrpc\": \"2.0\",\n      \"method\": \"login\",\n      \"params\": {\n        \"login\": \"TEST\",\n        \"loginParams\": [],\n        \"passwd\": \"TEST\",\n        \"userVariables\": {\n          \"push_device_token\": \"fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp\",\n          \"push_notification_provider\": \"android\"\n        }\n      }\n    }";
+
+    txSocket.send(tempJson);
   }
 
   void disconnect() {
@@ -89,9 +94,9 @@ class TelnyxClient {
   }
 
   void _onMessage(dynamic data) {
-    logger.i('Received WebSocket message');
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
+        logger.i('Received WebSocket message :: ${data.toString().trim()}');
       } else {
         logger.i('Received and ignored empty packet');
       }
