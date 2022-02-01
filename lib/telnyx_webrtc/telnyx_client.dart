@@ -15,36 +15,36 @@ class TelnyxClient {
   }
 
   void connect(String providedHostAddress) {
-     logger.i('connect()');
-     if (isConnected()) {
-       logger.i('WebSocket $providedHostAddress is already connected');
-       return;
-     }
-     logger.i('connecting to WebSocket $providedHostAddress');
-     try {
-       txSocket.onOpen = () {
-         _closed = false;
-         _connected = true;
-         logger.i('Web Socket is now connected');
-         _onOpen();
-       };
+    logger.i('connect()');
+    if (isConnected()) {
+      logger.i('WebSocket $providedHostAddress is already connected');
+      return;
+    }
+    logger.i('connecting to WebSocket $providedHostAddress');
+    try {
+      txSocket.onOpen = () {
+        _closed = false;
+        _connected = true;
+        logger.i('Web Socket is now connected');
+        _onOpen();
+      };
 
-       txSocket.onMessage = (dynamic data) {
-         _onMessage(data);
-       };
+      txSocket.onMessage = (dynamic data) {
+        _onMessage(data);
+      };
 
-       txSocket.onClose = (int closeCode, String closeReason) {
-         logger.i('Closed [$closeCode, $closeReason]!');
-         _connected = false;
-         _onClose(true, closeCode, closeReason);
-       };
+      txSocket.onClose = (int closeCode, String closeReason) {
+        logger.i('Closed [$closeCode, $closeReason]!');
+        _connected = false;
+        _onClose(true, closeCode, closeReason);
+      };
 
-       txSocket.connect(providedHostAddress);
-     } catch (e, s) {
-       logger.e(e.toString(), null, s);
-       _connected = false;
-       logger.e('WebSocket $providedHostAddress error: $e');
-     }
+      txSocket.connect(providedHostAddress);
+    } catch (e, s) {
+      logger.e(e.toString(), null, s);
+      _connected = false;
+      logger.e('WebSocket $providedHostAddress error: $e');
+    }
   }
 
   void credentialLogin(CredentialConfig config) {
@@ -52,8 +52,6 @@ class TelnyxClient {
     var user = config.sipUser;
     var password = config.sipPassword;
     var fcmToken = config.fcmToken;
-
-
   }
 
   void disconnect() {
@@ -66,8 +64,7 @@ class TelnyxClient {
     try {
       txSocket.close();
     } catch (error) {
-      logger
-          .e('close() | error closing the WebSocket: ' + error.toString());
+      logger.e('close() | error closing the WebSocket: ' + error.toString());
     }
   }
 
@@ -87,7 +84,6 @@ class TelnyxClient {
     logger.i('Received WebSocket message');
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
-
       } else {
         logger.i('Received and ignored empty packet');
       }
