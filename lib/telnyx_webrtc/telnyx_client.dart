@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/sending_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
 import 'package:uuid/uuid.dart';
 
@@ -51,7 +52,14 @@ class TelnyxClient {
     var uuid = const Uuid();
     var user = config.sipUser;
     var password = config.sipPassword;
-    var fcmToken = config.fcmToken;
+    //var fcmToken = config.fcmToken;
+
+    var loginParams = LoginParam(user, password, null, []);
+
+    var loginMessage =
+        SendingMessageBody(uuid.toString(), "login", loginParams);
+
+    txSocket.send(loginMessage);
   }
 
   void disconnect() {

@@ -3,7 +3,7 @@ class SendingMessageBody {
 
   final String id;
   final String method;
-  final String params;
+  final ParamRequest params;
   final String jsonrpc = "2.0";
 }
 
@@ -20,6 +20,6 @@ class LoginParam extends ParamRequest {
 
   final String login;
   final String passwd;
-  final String userVariables;
+  final String? userVariables;
   final List<String> loginParams;
 }
