@@ -54,17 +54,20 @@ class TelnyxClient {
     var password = config.sipPassword;
     //var fcmToken = config.fcmToken;
 
-    var loginParams = LoginParam(user, password, null, []);
+     var notificationParams = NotificationParam("fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp", "android");
+     var notificationParamsJson = jsonEncode(notificationParams);
 
+    var loginParams = LoginParam(user, password, notificationParamsJson, []);
+    var loginParamsJson = jsonEncode(loginParams);
     var loginMessage =
-        SendingMessageBody(uuid.toString(), "login", loginParams, "2.0");
+        LoginMessageBody("f3e6b8a0-ce18-46fb-8628-57c578c6dbfb", "login", loginParamsJson, "2.0");
 
-    //String jsonLoginMessage = jsonEncode(loginMessage);
+    String jsonLoginMessage = jsonEncode(loginMessage);
 
-    var tempJson =
-        "{\n      \"id\": \"f3e6b8a0-ce18-46fb-8628-57c578c6dbfb\",\n      \"jsonrpc\": \"2.0\",\n      \"method\": \"login\",\n      \"params\": {\n        \"login\": \"TEST\",\n        \"loginParams\": [],\n        \"passwd\": \"TEST\",\n        \"userVariables\": {\n          \"push_device_token\": \"fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp\",\n          \"push_notification_provider\": \"android\"\n        }\n      }\n    }";
+   // var tempJson =
+     //   "{\n      \"id\": \"f3e6b8a0-ce18-46fb-8628-57c578c6dbfb\",\n      \"jsonrpc\": \"2.0\",\n      \"method\": \"login\",\n      \"params\": {\n        \"login\": \"TEST\",\n        \"loginParams\": [],\n        \"passwd\": \"TEST\",\n        \"userVariables\": {\n          \"push_device_token\": \"fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp\",\n          \"push_notification_provider\": \"android\"\n        }\n      }\n    }";
 
-    txSocket.send(tempJson);
+    txSocket.send(jsonLoginMessage);
   }
 
   void disconnect() {
