@@ -105,6 +105,10 @@ class TelnyxClient {
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
         logger.i('Received WebSocket message :: ${data.toString().trim()}');
+
+        //ToDo Handle incoming message logic
+
+
       } else {
         logger.i('Received and ignored empty packet');
       }
