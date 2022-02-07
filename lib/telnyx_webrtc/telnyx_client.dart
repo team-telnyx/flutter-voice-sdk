@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/sending_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
 import 'package:uuid/uuid.dart';
 
@@ -54,18 +54,23 @@ class TelnyxClient {
     var password = config.sipPassword;
     //var fcmToken = config.fcmToken;
 
-     var notificationParams = NotificationParam("fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp", "android");
-     var notificationParamsJson = jsonEncode(notificationParams);
+    var notificationParams = UserVariables(
+        pushDeviceToken:
+            "fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp",
+        pushNotificationProvider: "android");
 
-    var loginParams = LoginParam(user, password, notificationParamsJson, []);
-    var loginParamsJson = jsonEncode(loginParams);
-    var loginMessage =
-        LoginMessageBody("f3e6b8a0-ce18-46fb-8628-57c578c6dbfb", "login", loginParamsJson, "2.0");
+    var loginParams = Params(
+        login: user,
+        passwd: password,
+        loginParams: [],
+        userVariables: notificationParams);
+    var loginMessage = LoginMessage(
+        id: uuid.toString(),
+        method: "login",
+        params: loginParams,
+        jsonrpc: "2.0");
 
     String jsonLoginMessage = jsonEncode(loginMessage);
-
-   // var tempJson =
-     //   "{\n      \"id\": \"f3e6b8a0-ce18-46fb-8628-57c578c6dbfb\",\n      \"jsonrpc\": \"2.0\",\n      \"method\": \"login\",\n      \"params\": {\n        \"login\": \"TEST\",\n        \"loginParams\": [],\n        \"passwd\": \"TEST\",\n        \"userVariables\": {\n          \"push_device_token\": \"fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp\",\n          \"push_notification_provider\": \"android\"\n        }\n      }\n    }";
 
     txSocket.send(jsonLoginMessage);
   }
