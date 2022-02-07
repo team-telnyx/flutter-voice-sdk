@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
 import 'package:uuid/uuid.dart';
@@ -107,6 +108,18 @@ class TelnyxClient {
         logger.i('Received WebSocket message :: ${data.toString().trim()}');
 
         //ToDo Handle incoming message logic
+        if (data.toString().trim().contains("params")) {
+          var paramJson = jsonEncode(data.toString());
+          logger.i('Received WebSocket message - Contains Param :: $paramJson');
+        }
+        
+        if (data.toString().trim().contains("state")) {
+          ReceivedMessage stateMessage = ReceivedMessage.fromJson(jsonDecode(data.toString()));
+          logger.i('Received WebSocket message - Contains State  :: $stateMessage');
+          if (stateMessage.stateParams?.state == "REGED") {
+            logger.i('REGISTERED :: $stateMessage');
+          }
+        }
 
 
       } else {
