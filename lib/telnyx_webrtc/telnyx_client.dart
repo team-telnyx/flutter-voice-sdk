@@ -6,7 +6,11 @@ import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_messa
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
 import 'package:uuid/uuid.dart';
 
+typedef OnSocketMessageReceived = void Function(ReceivedMessage msg);
+
 class TelnyxClient {
+  late OnSocketMessageReceived onSocketMessageReceived;
+
   TxSocket txSocket = TxSocket("wss://rtc.telnyx.com:443");
   bool _closed = false;
   bool _connected = false;
@@ -107,17 +111,19 @@ class TelnyxClient {
       if (data.toString().trim().isNotEmpty) {
         logger.i('Received WebSocket message :: ${data.toString().trim()}');
 
+        /*
         //ToDo Handle incoming message logic
         if (data.toString().trim().contains("params")) {
           var paramJson = jsonEncode(data.toString());
           logger.i('Received WebSocket message - Contains Param :: $paramJson');
-        }
+        }*/
         
         if (data.toString().trim().contains("state")) {
           ReceivedMessage stateMessage = ReceivedMessage.fromJson(jsonDecode(data.toString()));
-          logger.i('Received WebSocket message - Contains State  :: $stateMessage');
+          logger.i('Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
           if (stateMessage.stateParams?.state == "REGED") {
-            logger.i('REGISTERED :: $stateMessage');
+            logger.i('REGISTERED :: ${stateMessage.toString()}');
+            onSocketMessageReceived.call(stateMessage);
           }
         }
 

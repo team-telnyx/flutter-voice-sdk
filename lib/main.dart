@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
+import 'package:provider/provider.dart';
+import 'package:logger/logger.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,7 +33,8 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  TelnyxClient telnyxClient = TelnyxClient();
+  final logger = Logger();
+  final MainViewModel _mainViewModel = MainViewModel();
   TextEditingController sipUserController = TextEditingController();
   TextEditingController sipPasswordController = TextEditingController();
   TextEditingController sipNameController = TextEditingController();
@@ -39,7 +42,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void initState() {
-    telnyxClient.connect("wss://rtc.telnyx.com:443");
+    _mainViewModel.observeResponses();
+    _mainViewModel.connect();
     super.initState();
   }
 
@@ -51,76 +55,89 @@ class _MyHomePageState extends State<MyHomePage> {
           sipNameController.text,
           sipNumberController.text,
           null);
-      telnyxClient.credentialLogin(credentialConfig);
+      _mainViewModel.login(credentialConfig);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: sipUserController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'SIP Username',
+    bool registered = Provider.of<MainViewModel>(context) as bool;
+    if (registered) {
+      logger.i('Navigate to home screen!');
+    }
+
+    //ToDo Move login page to it's on screen.
+
+    return
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: MainViewModel()),
+        ],
+        child:  Scaffold(
+          appBar: AppBar(
+            title: Text(widget.title),
+          ),
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextFormField(
+                    controller: sipUserController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'SIP Username',
+                    ),
+                  ),
                 ),
-              ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextFormField(
+                    controller: sipPasswordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'SIP Password',
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextFormField(
+                    controller: sipNameController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Caller ID Name',
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextFormField(
+                    controller: sipNumberController,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      labelText: 'Caller ID Number',
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      primary: Colors.blue,
+                    ),
+                    onPressed: () {
+                      _attemptLogin();
+                    },
+                    child: const Text('Login'),
+                  ),
+                )
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: sipPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'SIP Password',
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: sipNameController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Caller ID Name',
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: sipNumberController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Caller ID Number',
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextButton(
-                style: TextButton.styleFrom(
-                  primary: Colors.blue,
-                ),
-                onPressed: () {
-                  _attemptLogin();
-                },
-                child: const Text('Login'),
-              ),
-            )
-          ],
+          ),
         ),
-      ),
-    );
+      );
   }
 }

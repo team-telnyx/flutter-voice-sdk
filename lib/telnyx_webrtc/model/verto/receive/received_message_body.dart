@@ -36,6 +36,11 @@ class ReceivedMessage {
     }
     return data;
   }
+
+  @override
+  String toString() {
+    return 'Received Message: {jsonrpc: $jsonrpc, id: $id method: $method, reattachedParams: $reattachedParams, stateParams: $stateParams}';
+  }
 }
 
 class ReattachedParams {
@@ -59,6 +64,11 @@ class ReattachedParams {
     }
     return data;
   }
+
+  @override
+  String toString() {
+    return 'Reattached Params : $reattachedSessions';
+  }
 }
 
 class StateParams {
@@ -74,5 +84,10 @@ class StateParams {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['state'] = state;
     return data;
+  }
+
+  @override
+  String toString() {
+    return 'State Params : $state';
   }
 }
