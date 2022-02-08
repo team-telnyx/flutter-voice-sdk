@@ -4,6 +4,7 @@ import 'package:telnyx_flutter_webrtc/view/screen/login_screen.dart';
 import 'package:provider/provider.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 

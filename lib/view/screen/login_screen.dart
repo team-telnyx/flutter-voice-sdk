@@ -14,7 +14,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final logger = Logger();
-  final MainViewModel _mainViewModel = MainViewModel();
   TextEditingController sipUserController = TextEditingController();
   TextEditingController sipPasswordController = TextEditingController();
   TextEditingController sipNameController = TextEditingController();
@@ -22,8 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void initState() {
-    _mainViewModel.observeResponses();
-    _mainViewModel.connect();
     super.initState();
   }
 
@@ -35,13 +32,16 @@ class _LoginScreenState extends State<LoginScreen> {
           sipNameController.text,
           sipNumberController.text,
           null);
-      _mainViewModel.login(credentialConfig);
+      Provider.of<MainViewModel>(context, listen: false).login(credentialConfig);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    bool registered = Provider.of<MainViewModel>(context) as bool;
+    Provider.of<MainViewModel>(context, listen: true).observeResponses();
+    Provider.of<MainViewModel>(context, listen: true).connect();
+    bool registered =
+        Provider.of<MainViewModel>(context, listen: true).registered;
     if (registered) {
       logger.i('Navigate to home screen!');
     }
