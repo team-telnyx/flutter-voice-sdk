@@ -19,11 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
   TextEditingController sipNameController = TextEditingController();
   TextEditingController sipNumberController = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-  }
-
   void _attemptLogin() {
     setState(() {
       var credentialConfig = CredentialConfig(
@@ -32,7 +27,8 @@ class _LoginScreenState extends State<LoginScreen> {
           sipNameController.text,
           sipNumberController.text,
           null);
-      Provider.of<MainViewModel>(context, listen: false).login(credentialConfig);
+      Provider.of<MainViewModel>(context, listen: false)
+          .login(credentialConfig);
     });
   }
 
@@ -43,7 +39,9 @@ class _LoginScreenState extends State<LoginScreen> {
     bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;
     if (registered) {
-      logger.i('Navigate to home screen!');
+      WidgetsBinding.instance?.addPostFrameCallback((_) {
+        Navigator.pushReplacementNamed(context, '/home');
+      });
     }
     return Scaffold(
       appBar: AppBar(
