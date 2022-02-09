@@ -2,15 +2,9 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
-
-/*import 'random_string.dart';
-
-import '../utils/device_info.dart'
-if (dart.library.js) '../utils/device_info_web.dart';
-import '../utils/websocket.dart'
-if (dart.library.js) '../utils/websocket_web.dart';
-import '../utils/turn.dart' if (dart.library.js) '../utils/turn_web.dart';*/
+import 'package:uuid/uuid.dart';
 
 enum SignalingState {
   ConnectionOpen,
@@ -28,6 +22,7 @@ enum CallState {
 
 class Session {
   Session({required this.sid, required this.pid});
+
   String pid;
   String sid;
   RTCPeerConnection? pc;
@@ -40,10 +35,13 @@ class Peer {
 
   final JsonEncoder _encoder = const JsonEncoder();
   final JsonDecoder _decoder = const JsonDecoder();
- // String _selfId = randomNumeric(6);
+
+  // String _selfId = randomNumeric(6);
   final String _selfId = "123456";
+
   //SimpleWebSocket? _socket;
   final TxSocket _socket;
+
   //final _host;
   final _port = 8086;
   var _turnCredential;
@@ -58,7 +56,7 @@ class Peer {
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
   Function(dynamic event)? onPeersUpdate;
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
   String get sdpSemantics =>
@@ -68,12 +66,12 @@ class Peer {
     'iceServers': [
       {
         'url': DefaultConfig.defaultStun,
-        'username':DefaultConfig.username,
+        'username': DefaultConfig.username,
         'credential': DefaultConfig.password
       },
       {
         'url': DefaultConfig.defaultTurn,
-        'username':DefaultConfig.username,
+        'username': DefaultConfig.username,
         'credential': DefaultConfig.password
       },
     ]
@@ -112,7 +110,15 @@ class Peer {
     }
   }
 
-  void invite(String peerId, String media, bool useScreen) async {
+  void invite(
+      String peerId,
+      String media,
+      bool useScreen,
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId) async {
     var sessionId = _selfId + '-' + peerId;
     Session session = await _createSession(null,
         peerId: peerId,
@@ -123,15 +129,16 @@ class Peer {
     if (media == 'data') {
       _createDataChannel(session);
     }
-    _createOffer(session, media);
+    _createOffer(session, media, callerName, callerNumber, destinationNumber,
+        clientState, callId);
     onCallStateChange?.call(session, CallState.CallStateNew);
   }
 
   void bye(String sessionId) {
-    _send('bye', {
+    /* _send('bye', {
       'session_id': sessionId,
       'from': _selfId,
-    });
+    });*/
     var sess = _sessions[sessionId];
     if (sess != null) {
       _closeSession(sess);
@@ -242,15 +249,15 @@ class Peer {
       'video': userScreen
           ? true
           : {
-        'mandatory': {
-          'minWidth':
-          '640', // Provide your own width, height and frame rate here
-          'minHeight': '480',
-          'minFrameRate': '30',
-        },
-        'facingMode': 'user',
-        'optional': [],
-      }
+              'mandatory': {
+                'minWidth':
+                    '640', // Provide your own width, height and frame rate here
+                'minHeight': '480',
+                'minFrameRate': '30',
+              },
+              'facingMode': 'user',
+              'optional': [],
+            }
     };
 
     MediaStream stream = userScreen
@@ -262,9 +269,9 @@ class Peer {
 
   Future<Session> _createSession(Session? session,
       {required String peerId,
-        required String sessionId,
-        required String media,
-        required bool screenSharing}) async {
+      required String sessionId,
+      required String media,
+      required bool screenSharing}) async {
     var newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data')
       _localStream = await createStream(media, screenSharing);
@@ -283,7 +290,7 @@ class Peer {
           await pc.addStream(_localStream!);
           break;
         case 'unified-plan':
-        // Unified-Plan
+          // Unified-Plan
           pc.onTrack = (event) {
             if (event.track.kind == 'video') {
               onAddRemoteStream?.call(newSession, event.streams[0]);
@@ -346,7 +353,7 @@ class Peer {
       // This delay is needed to allow enough time to try an ICE candidate
       // before skipping to the next one. 1 second is just an heuristic value
       // and should be thoroughly tested in your own environment.
-      await Future.delayed(
+      /* await Future.delayed(
           const Duration(seconds: 1),
               () => _send('candidate', {
             'to': peerId,
@@ -357,7 +364,7 @@ class Peer {
               'candidate': candidate.candidate,
             },
             'session_id': sessionId,
-          }));
+          }));*/
     };
 
     pc.onIceConnectionState = (state) {};
@@ -391,26 +398,50 @@ class Peer {
     RTCDataChannelInit dataChannelDict = RTCDataChannelInit()
       ..maxRetransmits = 30;
     RTCDataChannel channel =
-    await session.pc!.createDataChannel(label, dataChannelDict);
+        await session.pc!.createDataChannel(label, dataChannelDict);
     _addDataChannel(session, channel);
   }
 
-  Future<void> _createOffer(Session session, String media) async {
+  Future<void> _createOffer(
+      Session session,
+      String media,
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId) async {
     try {
       RTCSessionDescription s =
-      await session.pc!.createOffer(media == 'data' ? _dcConstraints : {});
+          await session.pc!.createOffer(media == 'data' ? _dcConstraints : {});
       await session.pc!.setLocalDescription(s);
 
-      //ToDo generate invite message body here.
+      var dialogParams = DialogParams(
+          attach: false,
+          audio: true,
+          callID: callId,
+          callerIdName: callerNumber,
+          callerIdNumber: callerNumber,
+          clientState: clientState,
+          destinationNumber: destinationNumber,
+          remoteCallerIdName: "",
+          screenShare: false,
+          useStereo: false,
+          userVariables: [],
+          video: false);
+      var inviteParams = InviteParams(
+          dialogParams: dialogParams,
+          sdp: s.sdp,
+          sessionId: session.sid,
+          userAgent: "Flutter-1.0");
+      var inviteMessage = InviteMessage(
+          id: const Uuid().toString(),
+          jsonrpc: "2.0",
+          method: "telnyx_rtc.invite",
+          params: inviteParams);
 
+      String jsonInviteMessage = jsonEncode(inviteMessage);
 
-      _send('offer', {
-        'to': session.pid,
-        'from': _selfId,
-        'description': {'sdp': s.sdp, 'type': s.type},
-        'session_id': session.sid,
-        'media': media,
-      });
+      _send(jsonInviteMessage);
     } catch (e) {
       print(e.toString());
     }
@@ -419,24 +450,21 @@ class Peer {
   Future<void> _createAnswer(Session session, String media) async {
     try {
       RTCSessionDescription s =
-      await session.pc!.createAnswer(media == 'data' ? _dcConstraints : {});
+          await session.pc!.createAnswer(media == 'data' ? _dcConstraints : {});
       await session.pc!.setLocalDescription(s);
-      _send('answer', {
+      /*_send('answer', {
         'to': session.pid,
         'from': _selfId,
         'description': {'sdp': s.sdp, 'type': s.type},
         'session_id': session.sid,
-      });
+      });*/
     } catch (e) {
       print(e.toString());
     }
   }
 
-  _send(event, data) {
-    var request = {};
-    request["type"] = event;
-    request["data"] = data;
-    _socket.send(_encoder.convert(request));
+  _send(event) {
+    _socket.send(event);
   }
 
   Future<void> _cleanSessions() async {

@@ -14,14 +14,11 @@ class Call {
 
   void newInvite(String callerName, String callerNumber,
       String destinationNumber, String clientState) {
-
-    var uuid = const Uuid().toString();
     var inviteCallId = const Uuid().toString();
     callId = inviteCallId;
 
     peerConnection = Peer(_txSocket);
-    peerConnection.invite("0", "audio", false);
-
-
+    peerConnection.invite("0", "audio", false, callerName, callerNumber,
+        destinationNumber, clientState, callId);
   }
 }

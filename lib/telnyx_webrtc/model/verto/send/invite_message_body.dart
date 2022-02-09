@@ -2,7 +2,7 @@ class InviteMessage {
   String? id;
   String? jsonrpc;
   String? method;
-  Params? params;
+  InviteParams? params;
 
   InviteMessage({this.id, this.jsonrpc, this.method, this.params});
 
@@ -11,7 +11,7 @@ class InviteMessage {
     jsonrpc = json['jsonrpc'];
     method = json['method'];
     params =
-    json['params'] != null ? Params.fromJson(json['params']) : null;
+    json['params'] != null ? InviteParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -26,15 +26,15 @@ class InviteMessage {
   }
 }
 
-class Params {
+class InviteParams {
   DialogParams? dialogParams;
   String? sdp;
   String? sessionId;
   String? userAgent;
 
-  Params({this.dialogParams, this.sdp, this.sessionId, this.userAgent});
+  InviteParams({this.dialogParams, this.sdp, this.sessionId, this.userAgent});
 
-  Params.fromJson(Map<String, dynamic> json) {
+  InviteParams.fromJson(Map<String, dynamic> json) {
     dialogParams = json['dialogParams'] != null
         ? DialogParams.fromJson(json['dialogParams'])
         : null;
