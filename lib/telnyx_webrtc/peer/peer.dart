@@ -400,6 +400,10 @@ class Peer {
       RTCSessionDescription s =
       await session.pc!.createOffer(media == 'data' ? _dcConstraints : {});
       await session.pc!.setLocalDescription(s);
+
+      //ToDo generate invite message body here.
+
+
       _send('offer', {
         'to': session.pid,
         'from': _selfId,

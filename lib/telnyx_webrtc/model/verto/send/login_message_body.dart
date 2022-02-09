@@ -74,7 +74,7 @@ class UserVariables {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = Map<String, dynamic>();
+    final Map<String, dynamic> data = <String, dynamic>{};
     data['push_device_token'] = pushDeviceToken;
     data['push_notification_provider'] = pushNotificationProvider;
     return data;
