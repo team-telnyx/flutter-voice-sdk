@@ -8,7 +8,7 @@ class Call {
 
   final TxSocket _txSocket;
   final TelnyxClient _telnyxClient;
-  final String _sessionId;
+  final String? _sessionId;
   late String callId;
   late Peer peerConnection;
 

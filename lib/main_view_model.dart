@@ -30,4 +30,8 @@ class MainViewModel with ChangeNotifier {
       _telnyxClient.credentialLogin(credentialConfig);
   }
 
+  void call(String destination) {
+    _telnyxClient.createCall().newInvite("Oliverz", "+353877189671", destination, "Fake State");
+  }
+
 }

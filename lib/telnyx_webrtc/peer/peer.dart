@@ -97,12 +97,6 @@ class Peer {
     _socket.close();
   }
 
-  void switchCamera() {
-    if (_localStream != null) {
-      Helper.switchCamera(_localStream!.getVideoTracks()[0]);
-    }
-  }
-
   void muteMic() {
     if (_localStream != null) {
       bool enabled = _localStream!.getAudioTracks()[0].enabled;
@@ -245,8 +239,8 @@ class Peer {
 
   Future<MediaStream> createStream(String media, bool userScreen) async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': userScreen ? false : true,
-      'video': userScreen
+      'audio': true,
+      /*'video': userScreen
           ? true
           : {
               'mandatory': {
@@ -257,7 +251,7 @@ class Peer {
               },
               'facingMode': 'user',
               'optional': [],
-            }
+            }*/
     };
 
     MediaStream stream = userScreen

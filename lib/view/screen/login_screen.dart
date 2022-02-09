@@ -30,8 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
     // You can request multiple permissions at once.
     Map<Permission, PermissionStatus> statuses = await [
       Permission.microphone,
+      Permission.bluetooth
     ].request();
     print(statuses[Permission.microphone]);
+    print(statuses[Permission.bluetooth]);
   }
 
   void _attemptLogin() {

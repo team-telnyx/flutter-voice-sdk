@@ -19,7 +19,6 @@ class TelnyxClient {
   final logger = Logger();
 
   late String? sessionId;
-  late Call call;
 
   bool isConnected() {
     return _connected;
@@ -58,8 +57,8 @@ class TelnyxClient {
     }
   }
 
-  void createCall() {
-    call = Call(txSocket, this, "");
+  Call createCall() {
+    return Call(txSocket, this, sessionId);
   }
 
   void credentialLogin(CredentialConfig config) {
@@ -130,21 +129,24 @@ class TelnyxClient {
         //Login success
         if (data.toString().trim().contains("result")) {
           var paramJson = jsonEncode(data.toString());
-          logger.i('Received WebSocket message - Contains Result :: $paramJson');
-          ResultMessage resultMessage = ResultMessage.fromJson(jsonDecode(data.toString()));
+          logger
+              .i('Received WebSocket message - Contains Result :: $paramJson');
+          ResultMessage resultMessage =
+              ResultMessage.fromJson(jsonDecode(data.toString()));
           sessionId = resultMessage.result?.sessid;
+          logger.i('Client Session ID Set :: $sessionId');
         }
-        
+
         if (data.toString().trim().contains("state")) {
-          ReceivedMessage stateMessage = ReceivedMessage.fromJson(jsonDecode(data.toString()));
-          logger.i('Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
+          ReceivedMessage stateMessage =
+              ReceivedMessage.fromJson(jsonDecode(data.toString()));
+          logger.i(
+              'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
           if (stateMessage.stateParams?.state == "REGED") {
             logger.i('REGISTERED :: ${stateMessage.toString()}');
             onSocketMessageReceived.call(stateMessage);
           }
         }
-
-
       } else {
         logger.i('Received and ignored empty packet');
       }

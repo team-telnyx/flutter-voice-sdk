@@ -23,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _callDestination() {
     //Provider.of<MainViewModel>(context, listen: false).login(credentialConfig);
+    Provider.of<MainViewModel>(context, listen: false).call(destinationController.text);
     logger.i('Calling!');
   }
 
