@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:logger/logger.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
@@ -15,6 +17,9 @@ class TelnyxClient {
   bool _closed = false;
   bool _connected = false;
   final logger = Logger();
+
+  late String? sessionId;
+  late Call call;
 
   bool isConnected() {
     return _connected;
@@ -51,6 +56,10 @@ class TelnyxClient {
       _connected = false;
       logger.e('WebSocket $providedHostAddress error: $e');
     }
+  }
+
+  void createCall() {
+    call = Call(txSocket, this, "");
   }
 
   void credentialLogin(CredentialConfig config) {
@@ -117,6 +126,14 @@ class TelnyxClient {
           var paramJson = jsonEncode(data.toString());
           logger.i('Received WebSocket message - Contains Param :: $paramJson');
         }*/
+
+        //Login success
+        if (data.toString().trim().contains("result")) {
+          var paramJson = jsonEncode(data.toString());
+          logger.i('Received WebSocket message - Contains Result :: $paramJson');
+          ResultMessage resultMessage = ResultMessage.fromJson(jsonDecode(data.toString()));
+          sessionId = resultMessage.result?.sessid;
+        }
         
         if (data.toString().trim().contains("state")) {
           ReceivedMessage stateMessage = ReceivedMessage.fromJson(jsonDecode(data.toString()));
