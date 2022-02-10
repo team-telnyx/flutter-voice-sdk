@@ -2,7 +2,7 @@ class LoginMessage {
   String? id;
   String? jsonrpc;
   String? method;
-  Params? params;
+  LoginParams? params;
 
   LoginMessage({this.id, this.jsonrpc, this.method, this.params});
 
@@ -11,7 +11,7 @@ class LoginMessage {
     jsonrpc = json['jsonrpc'];
     method = json['method'];
     params =
-    json['params'] != null ? Params.fromJson(json['params']) : null;
+    json['params'] != null ? LoginParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -26,15 +26,15 @@ class LoginMessage {
   }
 }
 
-class Params {
+class LoginParams {
   String? login;
   List<String>? loginParams;
   String? passwd;
   UserVariables? userVariables;
 
-  Params({this.login, this.loginParams, this.passwd, this.userVariables});
+  LoginParams({this.login, this.loginParams, this.passwd, this.userVariables});
 
-  Params.fromJson(Map<String, dynamic> json) {
+  LoginParams.fromJson(Map<String, dynamic> json) {
     login = json['login'];
     if (json['loginParams'] != null) {
       loginParams = <String>[];

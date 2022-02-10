@@ -3,6 +3,7 @@ import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
@@ -73,7 +74,7 @@ class TelnyxClient {
             "fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp",
         pushNotificationProvider: "android");
 
-    var loginParams = Params(
+    var loginParams = LoginParams(
         login: user,
         passwd: password,
         loginParams: [],
@@ -132,13 +133,17 @@ class TelnyxClient {
         } else
         //Received Telnyx Method Message
         if (data.toString().trim().contains("method")) {
-          var messageJson =  jsonDecode(data.toString());
+          var messageJson = jsonDecode(data.toString());
           logger.i(
               'Received WebSocket message - Contains Method :: $messageJson');
           switch (messageJson['method']) {
             case SocketMethod.INVITE:
               {
                 logger.i('INCOMING INVITATION :: $messageJson');
+                IncomingInvitation invite =
+                    IncomingInvitation.fromJson(jsonDecode(data.toString()));
+                //ToDo inform of invitation to ViewModel (UPDATE UI) so that we can then accept/decline
+
                 break;
               }
             case SocketMethod.ANSWER:
