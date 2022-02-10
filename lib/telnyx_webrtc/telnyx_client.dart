@@ -137,6 +137,17 @@ class TelnyxClient {
           logger.i('Client Session ID Set :: $sessionId');
         }
 
+        //Login success
+        if (data.toString().trim().contains("method")) {
+          var paramJson = jsonEncode(data.toString());
+          logger
+              .i('Received WebSocket message - Contains Result :: $paramJson');
+          ResultMessage resultMessage =
+          ResultMessage.fromJson(jsonDecode(data.toString()));
+          sessionId = resultMessage.result?.sessid;
+          logger.i('Client Session ID Set :: $sessionId');
+        }
+
         if (data.toString().trim().contains("state")) {
           ReceivedMessage stateMessage =
               ReceivedMessage.fromJson(jsonDecode(data.toString()));
