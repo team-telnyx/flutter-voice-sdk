@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
@@ -119,13 +120,6 @@ class TelnyxClient {
       if (data.toString().trim().isNotEmpty) {
         logger.i('Received WebSocket message :: ${data.toString().trim()}');
 
-        /*
-        //ToDo Handle incoming message logic
-        if (data.toString().trim().contains("params")) {
-          var paramJson = jsonEncode(data.toString());
-          logger.i('Received WebSocket message - Contains Param :: $paramJson');
-        }*/
-
         //Login success
         if (data.toString().trim().contains("result")) {
           var paramJson = jsonEncode(data.toString());
@@ -135,27 +129,35 @@ class TelnyxClient {
               ResultMessage.fromJson(jsonDecode(data.toString()));
           sessionId = resultMessage.result?.sessid;
           logger.i('Client Session ID Set :: $sessionId');
-        }
-
-        //Login success
+        } else
+        //Received Telnyx Method Message
         if (data.toString().trim().contains("method")) {
-          var paramJson = jsonEncode(data.toString());
-          logger
-              .i('Received WebSocket message - Contains Result :: $paramJson');
-          ResultMessage resultMessage =
-          ResultMessage.fromJson(jsonDecode(data.toString()));
-          sessionId = resultMessage.result?.sessid;
-          logger.i('Client Session ID Set :: $sessionId');
-        }
-
-        if (data.toString().trim().contains("state")) {
-          ReceivedMessage stateMessage =
-              ReceivedMessage.fromJson(jsonDecode(data.toString()));
+          var messageJson =  jsonDecode(data.toString());
           logger.i(
-              'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
-          if (stateMessage.stateParams?.state == "REGED") {
-            logger.i('REGISTERED :: ${stateMessage.toString()}');
-            onSocketMessageReceived.call(stateMessage);
+              'Received WebSocket message - Contains Method :: $messageJson');
+          switch (messageJson['method']) {
+            case SocketMethod.INVITE:
+              {
+                logger.i('INCOMING INVITATION :: $messageJson');
+                break;
+              }
+            case SocketMethod.ANSWER:
+              {
+                logger.i('INVITATION ANSWERED :: $messageJson');
+                break;
+              }
+            case SocketMethod.GATEWAY_STATE:
+              {
+                ReceivedMessage stateMessage =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                logger.i(
+                    'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
+                if (stateMessage.stateParams?.state == "REGED") {
+                  logger.i('REGISTERED :: ${stateMessage.toString()}');
+                  onSocketMessageReceived.call(stateMessage);
+                }
+                break;
+              }
           }
         }
       } else {
