@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
     bool invitation =
         Provider.of<MainViewModel>(context, listen: true).ongoingInvitation;
     if (invitation) {
-      return const InvitationWidget();
+      return const InvitationWidget(title: 'Home');
     } else {
       return Scaffold(
         appBar: AppBar(

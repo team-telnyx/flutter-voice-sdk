@@ -55,4 +55,8 @@ class MainViewModel with ChangeNotifier {
         .createCall()
         .newInvite("Oliverz", "+353877189671", destination, "Fake State");
   }
+
+  void accept() {
+    _telnyxClient.createCall().acceptCall(_telnyxClient.getInvite(), "callerName", "+353877189671", "Fake State");
+  }
 }

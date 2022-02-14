@@ -28,6 +28,7 @@ class IncomingInvitation {
 
 class Params {
   String? callID;
+  Variables? variables;
   String? sdp;
   String? callerIdName;
   String? callerIdNumber;
@@ -39,6 +40,7 @@ class Params {
 
   Params(
       {this.callID,
+        this.variables,
         this.sdp,
         this.callerIdName,
         this.callerIdNumber,
@@ -50,6 +52,9 @@ class Params {
 
   Params.fromJson(Map<String, dynamic> json) {
     callID = json['callID'];
+    variables = json['variables'] != null
+        ? Variables.fromJson(json['variables'])
+        : null;
     sdp = json['sdp'];
     callerIdName = json['caller_id_name'];
     callerIdNumber = json['caller_id_number'];
@@ -63,6 +68,9 @@ class Params {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['callID'] = callID;
+    if (variables != null) {
+      data['variables'] = variables!.toJson();
+    }
     data['sdp'] = sdp;
     data['caller_id_name'] = callerIdName;
     data['caller_id_number'] = callerIdNumber;
@@ -71,6 +79,71 @@ class Params {
     data['telnyx_session_id'] = telnyxSessionId;
     data['telnyx_leg_id'] = telnyxLegId;
     data['display_direction'] = displayDirection;
+    return data;
+  }
+}
+
+class Variables {
+  String? eventName;
+  String? coreUUID;
+  String? freeSWITCHHostname;
+  String? freeSWITCHSwitchname;
+  String? freeSWITCHIPv4;
+  String? freeSWITCHIPv6;
+  String? eventDateLocal;
+  String? eventDateGMT;
+  String? eventDateTimestamp;
+  String? eventCallingFile;
+  String? eventCallingFunction;
+  String? eventCallingLineNumber;
+  String? eventSequence;
+
+  Variables(
+      {this.eventName,
+        this.coreUUID,
+        this.freeSWITCHHostname,
+        this.freeSWITCHSwitchname,
+        this.freeSWITCHIPv4,
+        this.freeSWITCHIPv6,
+        this.eventDateLocal,
+        this.eventDateGMT,
+        this.eventDateTimestamp,
+        this.eventCallingFile,
+        this.eventCallingFunction,
+        this.eventCallingLineNumber,
+        this.eventSequence});
+
+  Variables.fromJson(Map<String, dynamic> json) {
+    eventName = json['Event-Name'];
+    coreUUID = json['Core-UUID'];
+    freeSWITCHHostname = json['FreeSWITCH-Hostname'];
+    freeSWITCHSwitchname = json['FreeSWITCH-Switchname'];
+    freeSWITCHIPv4 = json['FreeSWITCH-IPv4'];
+    freeSWITCHIPv6 = json['FreeSWITCH-IPv6'];
+    eventDateLocal = json['Event-Date-Local'];
+    eventDateGMT = json['Event-Date-GMT'];
+    eventDateTimestamp = json['Event-Date-Timestamp'];
+    eventCallingFile = json['Event-Calling-File'];
+    eventCallingFunction = json['Event-Calling-Function'];
+    eventCallingLineNumber = json['Event-Calling-Line-Number'];
+    eventSequence = json['Event-Sequence'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['Event-Name'] = eventName;
+    data['Core-UUID'] = coreUUID;
+    data['FreeSWITCH-Hostname'] = freeSWITCHHostname;
+    data['FreeSWITCH-Switchname'] = freeSWITCHSwitchname;
+    data['FreeSWITCH-IPv4'] = freeSWITCHIPv4;
+    data['FreeSWITCH-IPv6'] = freeSWITCHIPv6;
+    data['Event-Date-Local'] = eventDateLocal;
+    data['Event-Date-GMT'] = eventDateGMT;
+    data['Event-Date-Timestamp'] = eventDateTimestamp;
+    data['Event-Calling-File'] = eventCallingFile;
+    data['Event-Calling-Function'] = eventCallingFunction;
+    data['Event-Calling-Line-Number'] = eventCallingLineNumber;
+    data['Event-Sequence'] = eventSequence;
     return data;
   }
 }

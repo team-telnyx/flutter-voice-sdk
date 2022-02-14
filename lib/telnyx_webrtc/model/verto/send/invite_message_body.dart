@@ -7,7 +7,7 @@ class InviteMessage {
   InviteMessage({this.id, this.jsonrpc, this.method, this.params});
 
   InviteMessage.fromJson(Map<String, dynamic> json) {
-    id = json['id'];
+    id = json['id'].toString();
     jsonrpc = json['jsonrpc'];
     method = json['method'];
     params =

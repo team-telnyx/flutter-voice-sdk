@@ -107,7 +107,6 @@ class Peer {
   void invite(
       String peerId,
       String media,
-      bool useScreen,
       String callerName,
       String callerNumber,
       String destinationNumber,
@@ -115,15 +114,34 @@ class Peer {
       String callId) async {
     var sessionId = _selfId + '-' + peerId;
     Session session = await _createSession(null,
-        peerId: peerId,
-        sessionId: sessionId,
-        media: media,
-        screenSharing: useScreen);
+        peerId: peerId, sessionId: sessionId, media: media);
     _sessions[sessionId] = session;
     if (media == 'data') {
       _createDataChannel(session);
     }
     _createOffer(session, media, callerName, callerNumber, destinationNumber,
+        clientState, callId);
+    onCallStateChange?.call(session, CallState.CallStateInvite);
+  }
+
+  void accept(
+      String peerId,
+      String media,
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId) async {
+    var sessionId = _selfId + '-' + peerId;
+    Session session = await _createSession(null,
+        peerId: peerId, sessionId: sessionId, media: media);
+
+    _sessions[sessionId] = session;
+    if (media == 'data') {
+      _createDataChannel(session);
+    }
+
+    _createAnswer(session, media, callerName, callerNumber, destinationNumber,
         clientState, callId);
     onCallStateChange?.call(session, CallState.CallStateNew);
   }
@@ -139,7 +157,7 @@ class Peer {
     }
   }
 
-  void onMessage(message) async {
+  /*void onMessage(message) async {
     Map<String, dynamic> mapData = message;
     var data = mapData['data'];
 
@@ -163,14 +181,11 @@ class Peer {
           var sessionId = data['session_id'];
           var session = _sessions[sessionId];
           var newSession = await _createSession(session,
-              peerId: peerId,
-              sessionId: sessionId,
-              media: media,
-              screenSharing: false);
+              peerId: peerId, sessionId: sessionId, media: media);
           _sessions[sessionId] = newSession;
           await newSession.pc?.setRemoteDescription(
               RTCSessionDescription(description['sdp'], description['type']));
-          await _createAnswer(newSession, media);
+          //await _createAnswer(newSession, media);
           if (newSession.remoteCandidates.isNotEmpty) {
             newSession.remoteCandidates.forEach((candidate) async {
               await newSession.pc?.addCandidate(candidate);
@@ -235,20 +250,17 @@ class Peer {
       default:
         break;
     }
-  }
+  }*/
 
-  Future<MediaStream> createStream(String media, bool userScreen) async {
+  Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
       'audio': {
-        "exact": {
-          "OfferToReceiveAudio": true
-        }
+        "exact": {"OfferToReceiveAudio": true}
       },
     };
 
-    MediaStream stream = userScreen
-        ? await navigator.mediaDevices.getDisplayMedia(mediaConstraints)
-        : await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    MediaStream stream =
+        await navigator.mediaDevices.getUserMedia(mediaConstraints);
     onLocalStream?.call(stream);
     return stream;
   }
@@ -256,11 +268,9 @@ class Peer {
   Future<Session> _createSession(Session? session,
       {required String peerId,
       required String sessionId,
-      required String media,
-      required bool screenSharing}) async {
+      required String media}) async {
     var newSession = session ?? Session(sid: sessionId, pid: peerId);
-    if (media != 'data')
-      _localStream = await createStream(media, screenSharing);
+    if (media != 'data') _localStream = await createStream(media);
     print(_iceServers);
     RTCPeerConnection pc = await createPeerConnection({
       ..._iceServers,
@@ -433,17 +443,45 @@ class Peer {
     }
   }
 
-  Future<void> _createAnswer(Session session, String media) async {
+  Future<void> _createAnswer(
+      Session session,
+      String media,
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId) async {
     try {
       RTCSessionDescription s =
           await session.pc!.createAnswer(media == 'data' ? _dcConstraints : {});
       await session.pc!.setLocalDescription(s);
-      /*_send('answer', {
-        'to': session.pid,
-        'from': _selfId,
-        'description': {'sdp': s.sdp, 'type': s.type},
-        'session_id': session.sid,
-      });*/
+
+      var dialogParams = DialogParams(
+          attach: false,
+          audio: true,
+          callID: callId,
+          callerIdName: callerNumber,
+          callerIdNumber: callerNumber,
+          clientState: clientState,
+          destinationNumber: destinationNumber,
+          remoteCallerIdName: "",
+          screenShare: false,
+          useStereo: false,
+          userVariables: [],
+          video: false);
+      var inviteParams = InviteParams(
+          dialogParams: dialogParams,
+          sdp: s.sdp,
+          sessionId: session.sid,
+          userAgent: "Flutter-1.0");
+      var answerMessage = InviteMessage(
+          id: const Uuid().toString(),
+          jsonrpc: "2.0",
+          method: "telnyx_rtc.answer",
+          params: inviteParams);
+
+      String jsonAnswerMessage = jsonEncode(answerMessage);
+      _send(jsonAnswerMessage);
     } catch (e) {
       print(e.toString());
     }
