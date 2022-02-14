@@ -35,6 +35,11 @@ class MainViewModel with ChangeNotifier {
             _ongoingInvitation = true;
             break;
           }
+        case SocketMethod.BYE:
+          {
+            _ongoingInvitation = false;
+            break;
+          }
       }
       notifyListeners();
     };

@@ -157,6 +157,11 @@ class TelnyxClient {
                 logger.i('INVITATION ANSWERED :: $messageJson');
                 break;
               }
+            case SocketMethod.BYE:
+              {
+                onSocketMessageReceived(SocketMethod.BYE);
+                break;
+              }
             case SocketMethod.GATEWAY_STATE:
               {
                 ReceivedMessage stateMessage =
