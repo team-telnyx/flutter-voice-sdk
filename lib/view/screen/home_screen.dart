@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/invitation_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key, required this.title}) : super(key: key);
@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
     bool invitation =
         Provider.of<MainViewModel>(context, listen: true).ongoingInvitation;
     if (invitation) {
-      return const Text("Invitation....");
+      return const InvitationWidget();
     } else {
       return Scaffold(
         appBar: AppBar(
