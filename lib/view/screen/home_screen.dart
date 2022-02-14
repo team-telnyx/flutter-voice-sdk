@@ -22,46 +22,53 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _callDestination() {
-    //Provider.of<MainViewModel>(context, listen: false).login(credentialConfig);
-    Provider.of<MainViewModel>(context, listen: false).call(destinationController.text);
+    Provider.of<MainViewModel>(context, listen: false)
+        .call(destinationController.text);
     logger.i('Calling!');
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: destinationController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Destination',
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextButton(
-                style: TextButton.styleFrom(
-                  primary: Colors.blue,
-                ),
-                onPressed: () {
-                  _callDestination();
-                },
-                child: const Text('Call'),
-              ),
-            )
-          ],
+    Provider.of<MainViewModel>(context, listen: true).observeResponses();
+    bool invitation =
+        Provider.of<MainViewModel>(context, listen: true).ongoingInvitation;
+    if (invitation) {
+      return const Text("Invitation....");
+    } else {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text(widget.title),
         ),
-      ),
-    );
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextFormField(
+                  controller: destinationController,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: 'Destination',
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    primary: Colors.blue,
+                  ),
+                  onPressed: () {
+                    _callDestination();
+                  },
+                  child: const Text('Call'),
+                ),
+              )
+            ],
+          ),
+        ),
+      );
+    }
   }
 }

@@ -3,14 +3,13 @@ import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
 import 'package:uuid/uuid.dart';
 
-typedef OnSocketMessageReceived = void Function(ReceivedMessage msg);
+typedef OnSocketMessageReceived = void Function(String method);
 
 class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
@@ -137,13 +136,20 @@ class TelnyxClient {
           logger.i(
               'Received WebSocket message - Contains Method :: $messageJson');
           switch (messageJson['method']) {
+            case SocketMethod.CLIENT_READY:
+              {
+                ReceivedMessage clientReadyMessage =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                onSocketMessageReceived.call(SocketMethod.CLIENT_READY);
+                break;
+              }
             case SocketMethod.INVITE:
               {
                 logger.i('INCOMING INVITATION :: $messageJson');
-                IncomingInvitation invite =
-                    IncomingInvitation.fromJson(jsonDecode(data.toString()));
+                ReceivedMessage invite =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                onSocketMessageReceived.call(SocketMethod.INVITE);
                 //ToDo inform of invitation to ViewModel (UPDATE UI) so that we can then accept/decline
-
                 break;
               }
             case SocketMethod.ANSWER:
@@ -159,7 +165,7 @@ class TelnyxClient {
                     'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
                 if (stateMessage.stateParams?.state == "REGED") {
                   logger.i('REGISTERED :: ${stateMessage.toString()}');
-                  onSocketMessageReceived.call(stateMessage);
+                  onSocketMessageReceived.call(SocketMethod.GATEWAY_STATE);
                 }
                 break;
               }
