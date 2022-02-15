@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/peer/peer.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
@@ -10,7 +12,7 @@ class Call {
 
   final TxSocket _txSocket;
   final TelnyxClient _telnyxClient;
-  final String? _sessionId;
+  final String _sessionId;
   late String callId;
   late Peer peerConnection;
 
@@ -19,9 +21,11 @@ class Call {
     var inviteCallId = const Uuid().toString();
     callId = inviteCallId;
 
+    var base64State =  base64.encode(utf8.encode(clientState));
+
     peerConnection = Peer(_txSocket);
     peerConnection.invite("0", "audio", callerName, callerNumber,
-        destinationNumber, clientState, callId);
+        destinationNumber, base64State, callId, _sessionId);
   }
 
   void acceptCall(IncomingInvitation invite, String callerName, String callerNumber,

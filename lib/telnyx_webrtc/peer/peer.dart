@@ -25,7 +25,7 @@ class Session {
 
   String pid;
   String sid;
-  RTCPeerConnection? pc;
+  RTCPeerConnection? peerConnection;
   RTCDataChannel? dc;
   List<RTCIceCandidate> remoteCandidates = [];
 }
@@ -86,10 +86,12 @@ class Peer {
 
   final Map<String, dynamic> _dcConstraints = {
     'mandatory': {
-      'OfferToReceiveAudio': false,
+      'OfferToReceiveAudio': true,
       'OfferToReceiveVideo': false,
     },
-    'optional': [],
+    'optional': [
+      {'DtlsSrtpKeyAgreement': true},
+    ],
   };
 
   close() async {
@@ -111,17 +113,67 @@ class Peer {
       String callerNumber,
       String destinationNumber,
       String clientState,
-      String callId) async {
+      String callId,
+      String telnyxSessionId) async {
     var sessionId = _selfId + '-' + peerId;
+
     Session session = await _createSession(null,
         peerId: peerId, sessionId: sessionId, media: media);
+
     _sessions[sessionId] = session;
     if (media == 'data') {
       _createDataChannel(session);
     }
+
     _createOffer(session, media, callerName, callerNumber, destinationNumber,
-        clientState, callId);
+         clientState, callId, telnyxSessionId);
     onCallStateChange?.call(session, CallState.CallStateInvite);
+  }
+
+  Future<void> _createOffer(
+      Session session,
+      String media,
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId,
+      String sessionId) async {
+    try {
+      RTCSessionDescription s =
+      await session.peerConnection!.createOffer(media == 'data' ? _dcConstraints : {});
+      await session.peerConnection!.setLocalDescription(s);
+
+      var dialogParams = DialogParams(
+          attach: false,
+          audio: true,
+          callID: callId,
+          callerIdName: callerNumber,
+          callerIdNumber: callerNumber,
+          clientState: clientState,
+          destinationNumber: destinationNumber,
+          remoteCallerIdName: "",
+          screenShare: false,
+          useStereo: false,
+          userVariables: [],
+          video: false);
+      var inviteParams = InviteParams(
+          dialogParams: dialogParams,
+          sdp: s.sdp,
+          sessionId: sessionId,
+          userAgent: "Flutter-1.0");
+      var inviteMessage = InviteMessage(
+          id: const Uuid().toString(),
+          jsonrpc: "2.0",
+          method: "telnyx_rtc.invite",
+          params: inviteParams);
+
+      String jsonInviteMessage = jsonEncode(inviteMessage);
+
+      _send(jsonInviteMessage);
+    } catch (e) {
+      print(e.toString());
+    }
   }
 
   void accept(
@@ -254,9 +306,8 @@ class Peer {
 
   Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': {
-        "exact": {"OfferToReceiveAudio": true}
-      },
+      'audio': true,
+      'video': false
     };
 
     MediaStream stream =
@@ -265,6 +316,30 @@ class Peer {
     return stream;
   }
 
+  /*Future<MediaStream> createStream(String media, bool userScreen) async {
+    final Map<String, dynamic> mediaConstraints = {
+      'audio': userScreen ? false : true,
+      'video': userScreen
+          ? true
+          : {
+        'mandatory': {
+          'minWidth':
+          '640', // Provide your own width, height and frame rate here
+          'minHeight': '480',
+          'minFrameRate': '30',
+        },
+        'facingMode': 'user',
+        'optional': [],
+      }
+    };
+
+    MediaStream stream = userScreen
+        ? await navigator.mediaDevices.getDisplayMedia(mediaConstraints)
+        : await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    onLocalStream?.call(stream);
+    return stream;
+  }*/
+
   Future<Session> _createSession(Session? session,
       {required String peerId,
       required String sessionId,
@@ -272,111 +347,60 @@ class Peer {
     var newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') _localStream = await createStream(media);
     print(_iceServers);
-    RTCPeerConnection pc = await createPeerConnection({
+
+    RTCPeerConnection peerConnection = await createPeerConnection({
       ..._iceServers,
       ...{'sdpSemantics': sdpSemantics}
-    }, _config);
+    }, _dcConstraints);
     if (media != 'data') {
       switch (sdpSemantics) {
         case 'plan-b':
-          pc.onAddStream = (MediaStream stream) {
+          peerConnection.onAddStream = (MediaStream stream) {
             onAddRemoteStream?.call(newSession, stream);
             _remoteStreams.add(stream);
           };
-          await pc.addStream(_localStream!);
+          await peerConnection.addStream(_localStream!);
           break;
         case 'unified-plan':
           // Unified-Plan
-          pc.onTrack = (event) {
+          peerConnection.onTrack = (event) {
             if (event.track.kind == 'video') {
+              onAddRemoteStream?.call(newSession, event.streams[0]);
+            } else if (event.track.kind == 'audio') {
               onAddRemoteStream?.call(newSession, event.streams[0]);
             }
           };
           _localStream!.getTracks().forEach((track) {
-            pc.addTrack(track, _localStream!);
+            peerConnection.addTrack(track, _localStream!);
           });
           break;
       }
-
-      // Unified-Plan: Simuclast
-      /*
-      await pc.addTransceiver(
-        track: _localStream.getAudioTracks()[0],
-        init: RTCRtpTransceiverInit(
-            direction: TransceiverDirection.SendOnly, streams: [_localStream]),
-      );
-      await pc.addTransceiver(
-        track: _localStream.getVideoTracks()[0],
-        init: RTCRtpTransceiverInit(
-            direction: TransceiverDirection.SendOnly,
-            streams: [
-              _localStream
-            ],
-            sendEncodings: [
-              RTCRtpEncoding(rid: 'f', active: true),
-              RTCRtpEncoding(
-                rid: 'h',
-                active: true,
-                scaleResolutionDownBy: 2.0,
-                maxBitrate: 150000,
-              ),
-              RTCRtpEncoding(
-                rid: 'q',
-                active: true,
-                scaleResolutionDownBy: 4.0,
-                maxBitrate: 100000,
-              ),
-            ]),
-      );*/
-      /*
-        var sender = pc.getSenders().find(s => s.track.kind == "video");
-        var parameters = sender.getParameters();
-        if(!parameters)
-          parameters = {};
-        parameters.encodings = [
-          { rid: "h", active: true, maxBitrate: 900000 },
-          { rid: "m", active: true, maxBitrate: 300000, scaleResolutionDownBy: 2 },
-          { rid: "l", active: true, maxBitrate: 100000, scaleResolutionDownBy: 4 }
-        ];
-        sender.setParameters(parameters);
-      */
     }
-    pc.onIceCandidate = (candidate) async {
+    peerConnection.onIceCandidate = (candidate) async {
+      peerConnection.addCandidate(candidate);
+      print("Adding Candidate!");
       if (candidate == null) {
         print('onIceCandidate: complete!');
         return;
       }
-      // This delay is needed to allow enough time to try an ICE candidate
-      // before skipping to the next one. 1 second is just an heuristic value
-      // and should be thoroughly tested in your own environment.
-      /* await Future.delayed(
-          const Duration(seconds: 1),
-              () => _send('candidate', {
-            'to': peerId,
-            'from': _selfId,
-            'candidate': {
-              'sdpMLineIndex': candidate.sdpMlineIndex,
-              'sdpMid': candidate.sdpMid,
-              'candidate': candidate.candidate,
-            },
-            'session_id': sessionId,
-          }));*/
     };
 
-    pc.onIceConnectionState = (state) {};
+    peerConnection.onIceConnectionState = (state) {
+      print("ICE Connection State change :: $state");
+    };
 
-    pc.onRemoveStream = (stream) {
+    peerConnection.onRemoveStream = (stream) {
       onRemoveRemoteStream?.call(newSession, stream);
       _remoteStreams.removeWhere((it) {
         return (it.id == stream.id);
       });
     };
 
-    pc.onDataChannel = (channel) {
+    peerConnection.onDataChannel = (channel) {
       _addDataChannel(newSession, channel);
     };
 
-    newSession.pc = pc;
+    newSession.peerConnection = peerConnection;
     return newSession;
   }
 
@@ -394,53 +418,8 @@ class Peer {
     RTCDataChannelInit dataChannelDict = RTCDataChannelInit()
       ..maxRetransmits = 30;
     RTCDataChannel channel =
-        await session.pc!.createDataChannel(label, dataChannelDict);
+        await session.peerConnection!.createDataChannel(label, dataChannelDict);
     _addDataChannel(session, channel);
-  }
-
-  Future<void> _createOffer(
-      Session session,
-      String media,
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId) async {
-    try {
-      RTCSessionDescription s =
-          await session.pc!.createOffer(media == 'data' ? _dcConstraints : {});
-      await session.pc!.setLocalDescription(s);
-
-      var dialogParams = DialogParams(
-          attach: false,
-          audio: true,
-          callID: callId,
-          callerIdName: callerNumber,
-          callerIdNumber: callerNumber,
-          clientState: clientState,
-          destinationNumber: destinationNumber,
-          remoteCallerIdName: "",
-          screenShare: false,
-          useStereo: false,
-          userVariables: [],
-          video: false);
-      var inviteParams = InviteParams(
-          dialogParams: dialogParams,
-          sdp: s.sdp,
-          sessionId: session.sid,
-          userAgent: "Flutter-1.0");
-      var inviteMessage = InviteMessage(
-          id: const Uuid().toString(),
-          jsonrpc: "2.0",
-          method: "telnyx_rtc.invite",
-          params: inviteParams);
-
-      String jsonInviteMessage = jsonEncode(inviteMessage);
-
-      _send(jsonInviteMessage);
-    } catch (e) {
-      print(e.toString());
-    }
   }
 
   Future<void> _createAnswer(
@@ -453,8 +432,8 @@ class Peer {
       String callId) async {
     try {
       RTCSessionDescription s =
-          await session.pc!.createAnswer(media == 'data' ? _dcConstraints : {});
-      await session.pc!.setLocalDescription(s);
+          await session.peerConnection!.createAnswer(media == 'data' ? _dcConstraints : {});
+      await session.peerConnection!.setLocalDescription(s);
 
       var dialogParams = DialogParams(
           attach: false,
@@ -500,7 +479,7 @@ class Peer {
       _localStream = null;
     }
     _sessions.forEach((key, sess) async {
-      await sess.pc?.close();
+      await sess.peerConnection?.close();
       await sess.dc?.close();
     });
     _sessions.clear();
@@ -526,7 +505,7 @@ class Peer {
     await _localStream?.dispose();
     _localStream = null;
 
-    await session.pc?.close();
+    await session.peerConnection?.close();
     await session.dc?.close();
   }
 }

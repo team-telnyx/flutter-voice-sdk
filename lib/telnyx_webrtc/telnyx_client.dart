@@ -62,7 +62,7 @@ class TelnyxClient {
   }
 
   Call createCall() {
-    return Call(txSocket, this, sessionId);
+    return Call(txSocket, this, sessionId!);
   }
 
   IncomingInvitation getInvite() {
@@ -154,7 +154,7 @@ class TelnyxClient {
               {
                 logger.i('INCOMING INVITATION :: $messageJson');
                 IncomingInvitation invite =
-                IncomingInvitation.fromJson(jsonDecode(data.toString()));
+                    IncomingInvitation.fromJson(jsonDecode(data.toString()));
                 currentInvite = invite;
                 onSocketMessageReceived.call(SocketMethod.INVITE);
                 break;
