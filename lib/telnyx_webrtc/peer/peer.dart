@@ -140,16 +140,18 @@ class Peer {
       String callId,
       String sessionId) async {
     try {
-      RTCSessionDescription s = await session.peerConnection!
-          .createOffer(media == 'data' ? _dcConstraints : {});
-      await session.peerConnection!.setLocalDescription(s);
 
+      RTCSessionDescription s = await session.peerConnection!
+          .createOffer(_dcConstraints);
+      await session.peerConnection!.setLocalDescription(s);
+      String? sdpUsed = "";
+      session.peerConnection?.getLocalDescription().then((value) => sdpUsed = value?.sdp.toString());
       Timer(const Duration(seconds: 1), () {
         var dialogParams = DialogParams(
             attach: false,
             audio: true,
             callID: callId,
-            callerIdName: callerNumber,
+            callerIdName: callerName,
             callerIdNumber: callerNumber,
             clientState: clientState,
             destinationNumber: destinationNumber,
@@ -160,7 +162,7 @@ class Peer {
             video: false);
         var inviteParams = InviteParams(
             dialogParams: dialogParams,
-            sdp: s.sdp,
+            sdp: sdpUsed,
             sessionId: sessionId,
             userAgent: "Flutter-1.0");
         var inviteMessage = InviteMessage(
