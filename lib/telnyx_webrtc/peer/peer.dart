@@ -126,7 +126,7 @@ class Peer {
     }
 
     _createOffer(session, media, callerName, callerNumber, destinationNumber,
-         clientState, callId, telnyxSessionId);
+        clientState, callId, telnyxSessionId);
     onCallStateChange?.call(session, CallState.CallStateInvite);
   }
 
@@ -140,37 +140,39 @@ class Peer {
       String callId,
       String sessionId) async {
     try {
-      RTCSessionDescription s =
-      await session.peerConnection!.createOffer(media == 'data' ? _dcConstraints : {});
+      RTCSessionDescription s = await session.peerConnection!
+          .createOffer(media == 'data' ? _dcConstraints : {});
       await session.peerConnection!.setLocalDescription(s);
 
-      var dialogParams = DialogParams(
-          attach: false,
-          audio: true,
-          callID: callId,
-          callerIdName: callerNumber,
-          callerIdNumber: callerNumber,
-          clientState: clientState,
-          destinationNumber: destinationNumber,
-          remoteCallerIdName: "",
-          screenShare: false,
-          useStereo: false,
-          userVariables: [],
-          video: false);
-      var inviteParams = InviteParams(
-          dialogParams: dialogParams,
-          sdp: s.sdp,
-          sessionId: sessionId,
-          userAgent: "Flutter-1.0");
-      var inviteMessage = InviteMessage(
-          id: const Uuid().toString(),
-          jsonrpc: "2.0",
-          method: "telnyx_rtc.invite",
-          params: inviteParams);
+      Timer(const Duration(seconds: 1), () {
+        var dialogParams = DialogParams(
+            attach: false,
+            audio: true,
+            callID: callId,
+            callerIdName: callerNumber,
+            callerIdNumber: callerNumber,
+            clientState: clientState,
+            destinationNumber: destinationNumber,
+            remoteCallerIdName: "",
+            screenShare: false,
+            useStereo: false,
+            userVariables: [],
+            video: false);
+        var inviteParams = InviteParams(
+            dialogParams: dialogParams,
+            sdp: s.sdp,
+            sessionId: sessionId,
+            userAgent: "Flutter-1.0");
+        var inviteMessage = InviteMessage(
+            id: const Uuid().toString(),
+            jsonrpc: "2.0",
+            method: "telnyx_rtc.invite",
+            params: inviteParams);
 
-      String jsonInviteMessage = jsonEncode(inviteMessage);
+        String jsonInviteMessage = jsonEncode(inviteMessage);
 
-      _send(jsonInviteMessage);
+        _send(jsonInviteMessage);
+      });
     } catch (e) {
       print(e.toString());
     }
@@ -431,8 +433,8 @@ class Peer {
       String clientState,
       String callId) async {
     try {
-      RTCSessionDescription s =
-          await session.peerConnection!.createAnswer(media == 'data' ? _dcConstraints : {});
+      RTCSessionDescription s = await session.peerConnection!
+          .createAnswer(media == 'data' ? _dcConstraints : {});
       await session.peerConnection!.setLocalDescription(s);
 
       var dialogParams = DialogParams(
