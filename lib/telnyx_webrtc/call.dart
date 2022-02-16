@@ -35,6 +35,6 @@ class Call {
 
     peerConnection = Peer(_txSocket);
     peerConnection.accept("0", "audio", callerName, callerNumber,
-        destinationNum!, clientState, callId!);
+        destinationNum!, clientState, callId!, invite);
   }
 }

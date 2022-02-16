@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
 import 'package:uuid/uuid.dart';
@@ -140,12 +141,13 @@ class Peer {
       String callId,
       String sessionId) async {
     try {
-
-      RTCSessionDescription s = await session.peerConnection!
-          .createOffer(_dcConstraints);
+      RTCSessionDescription s =
+          await session.peerConnection!.createOffer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
       String? sdpUsed = "";
-      session.peerConnection?.getLocalDescription().then((value) => sdpUsed = value?.sdp.toString());
+      session.peerConnection
+          ?.getLocalDescription()
+          .then((value) => sdpUsed = value?.sdp.toString());
       Timer(const Duration(seconds: 1), () {
         var dialogParams = DialogParams(
             attach: false,
@@ -187,19 +189,85 @@ class Peer {
       String callerNumber,
       String destinationNumber,
       String clientState,
-      String callId) async {
+      String callId, IncomingInvitation invite) async {
     var sessionId = _selfId + '-' + peerId;
     Session session = await _createSession(null,
         peerId: peerId, sessionId: sessionId, media: media);
-
     _sessions[sessionId] = session;
-    if (media == 'data') {
-      _createDataChannel(session);
-    }
+
+   await session.peerConnection?.setRemoteDescription(
+        RTCSessionDescription(invite.params?.sdp, "offer"));
+
+    session.peerConnection?.onSignalingState = (state) {
+      print("New state $state");
+      if (state == RTCSignalingState.RTCSignalingStateHaveRemoteOffer) {
+        // answer here
+        print("Answer here");
+      }
+    };
 
     _createAnswer(session, media, callerName, callerNumber, destinationNumber,
         clientState, callId);
+
+    if (session.remoteCandidates.length > 0) {
+      session.remoteCandidates.forEach((candidate) async {
+        await session.peerConnection?.addCandidate(candidate);
+      });
+      session.remoteCandidates.clear();
+    }
+
     onCallStateChange?.call(session, CallState.CallStateNew);
+  }
+
+  Future<void> _createAnswer(
+      Session session,
+      String media,
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId) async {
+    try {
+      RTCSessionDescription s =
+          await session.peerConnection!.createAnswer(_dcConstraints);
+      await session.peerConnection!.setLocalDescription(s);
+
+      String? sdpUsed = "";
+      session.peerConnection
+          ?.getLocalDescription()
+          .then((value) => sdpUsed = value?.sdp.toString());
+
+      Timer(const Duration(seconds: 1), () {
+        var dialogParams = DialogParams(
+            attach: false,
+            audio: true,
+            callID: callId,
+            callerIdName: callerNumber,
+            callerIdNumber: callerNumber,
+            clientState: clientState,
+            destinationNumber: destinationNumber,
+            remoteCallerIdName: "",
+            screenShare: false,
+            useStereo: false,
+            userVariables: [],
+            video: false);
+        var inviteParams = InviteParams(
+            dialogParams: dialogParams,
+            sdp: sdpUsed,
+            sessionId: session.sid,
+            userAgent: "Flutter-1.0");
+        var answerMessage = InviteMessage(
+            id: const Uuid().toString(),
+            jsonrpc: "2.0",
+            method: "telnyx_rtc.answer",
+            params: inviteParams);
+
+        String jsonAnswerMessage = jsonEncode(answerMessage);
+        _send(jsonAnswerMessage);
+      });
+    } catch (e) {
+      print(e.toString());
+    }
   }
 
   void bye(String sessionId) {
@@ -393,6 +461,14 @@ class Peer {
       print("ICE Connection State change :: $state");
     };
 
+   /*peerConnection.onSignalingState = (state) {
+      print("ICE Signalling state weeeeee :: $state");
+      if (state == RTCSignalingState.RTCSignalingStateHaveRemoteOffer) {
+        print("ICE Signalling state weeeeee :: $state");
+        // answer here
+      }
+    };*/
+
     peerConnection.onRemoveStream = (stream) {
       onRemoveRemoteStream?.call(newSession, stream);
       _remoteStreams.removeWhere((it) {
@@ -424,50 +500,6 @@ class Peer {
     RTCDataChannel channel =
         await session.peerConnection!.createDataChannel(label, dataChannelDict);
     _addDataChannel(session, channel);
-  }
-
-  Future<void> _createAnswer(
-      Session session,
-      String media,
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId) async {
-    try {
-      RTCSessionDescription s = await session.peerConnection!
-          .createAnswer(media == 'data' ? _dcConstraints : {});
-      await session.peerConnection!.setLocalDescription(s);
-
-      var dialogParams = DialogParams(
-          attach: false,
-          audio: true,
-          callID: callId,
-          callerIdName: callerNumber,
-          callerIdNumber: callerNumber,
-          clientState: clientState,
-          destinationNumber: destinationNumber,
-          remoteCallerIdName: "",
-          screenShare: false,
-          useStereo: false,
-          userVariables: [],
-          video: false);
-      var inviteParams = InviteParams(
-          dialogParams: dialogParams,
-          sdp: s.sdp,
-          sessionId: session.sid,
-          userAgent: "Flutter-1.0");
-      var answerMessage = InviteMessage(
-          id: const Uuid().toString(),
-          jsonrpc: "2.0",
-          method: "telnyx_rtc.answer",
-          params: inviteParams);
-
-      String jsonAnswerMessage = jsonEncode(answerMessage);
-      _send(jsonAnswerMessage);
-    } catch (e) {
-      print(e.toString());
-    }
   }
 
   _send(event) {
