@@ -205,6 +205,20 @@
             </list>
           </value>
         </entry>
+        <entry key="permission_handler">
+          <value>
+            <list>
+              <option value="$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/permission_handler-8.3.0/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="permission_handler_platform_interface">
+          <value>
+            <list>
+              <option value="$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/permission_handler_platform_interface-3.7.0/lib" />
+            </list>
+          </value>
+        </entry>
         <entry key="platform">
           <value>
             <list>
@@ -354,6 +368,8 @@
       <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/path_provider_macos-2.0.5/lib" />
       <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/path_provider_platform_interface-2.0.3/lib" />
       <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/path_provider_windows-2.0.5/lib" />
+      <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/permission_handler-8.3.0/lib" />
+      <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/permission_handler_platform_interface-3.7.0/lib" />
       <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/platform-3.1.0/lib" />
       <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/plugin_platform_interface-2.1.2/lib" />
       <root url="file://$USER_HOME$/Downloads/flutter2/.pub-cache/hosted/pub.dartlang.org/process-4.2.4/lib" />
