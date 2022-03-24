@@ -1,12 +1,12 @@
-class InviteMessage {
+class InviteAnswerMessage {
   String? id;
   String? jsonrpc;
   String? method;
   InviteParams? params;
 
-  InviteMessage({this.id, this.jsonrpc, this.method, this.params});
+  InviteAnswerMessage({this.id, this.jsonrpc, this.method, this.params});
 
-  InviteMessage.fromJson(Map<String, dynamic> json) {
+  InviteAnswerMessage.fromJson(Map<String, dynamic> json) {
     id = json['id'].toString();
     jsonrpc = json['jsonrpc'];
     method = json['method'];

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/modify_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/peer/peer.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
@@ -23,15 +25,15 @@ class Call {
     var inviteCallId = const Uuid().toString();
     callId = inviteCallId;
 
-    var base64State =  base64.encode(utf8.encode(clientState));
+    var base64State = base64.encode(utf8.encode(clientState));
 
     peerConnection = Peer(_txSocket);
     peerConnection.invite("0", "audio", callerName, callerNumber,
         destinationNumber, base64State, callId, _sessionId);
   }
 
-  void acceptCall(IncomingInvitation invite, String callerName, String callerNumber,
-      String clientState) {
+  void acceptCall(IncomingInvitation invite, String callerName,
+      String callerNumber, String clientState) {
     var callId = invite.params?.callID;
     var destinationNum = invite.params?.calleeIdNumber;
 
@@ -46,13 +48,38 @@ class Call {
 
   void onHoldUnholdPressed(Uuid callId) {
     if (onHold) {
-
+      _sendHoldModifier("unhold");
     } else {
-      
+      _sendHoldModifier("hold");
     }
   }
 
-  void _sendHoldModifier() {
+  void _sendHoldModifier(String action) {
+    var uuid = const Uuid();
+    var dialogParams = DialogParams(
+        attach: false,
+        audio: true,
+        callID: callId,
+        callerIdName: "",
+        callerIdNumber: "",
+        clientState: "",
+        destinationNumber: "",
+        remoteCallerIdName: "",
+        screenShare: false,
+        useStereo: false,
+        userVariables: [],
+        video: false);
 
+    var modifyParams = ModifyParams(
+        action: action, dialogParams: dialogParams, sessionId: _sessionId);
+
+    var modifyMessage = ModifyMessage(
+        id: uuid.toString(),
+        method: "telnyx_rtc.modify",
+        params: modifyParams,
+        jsonrpc: "2.0");
+
+    String jsonModifyMessage = jsonEncode(modifyMessage);
+    _txSocket.send(jsonModifyMessage);
   }
 }

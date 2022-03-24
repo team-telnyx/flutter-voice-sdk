@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
@@ -168,7 +168,7 @@ class Peer {
             sdp: sdpUsed,
             sessionId: sessionId,
             userAgent: "Flutter-1.0");
-        var inviteMessage = InviteMessage(
+        var inviteMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
             jsonrpc: "2.0",
             method: "telnyx_rtc.invite",
@@ -257,7 +257,7 @@ class Peer {
             sdp: sdpUsed,
             sessionId: session.sid,
             userAgent: "Flutter-1.0");
-        var answerMessage = InviteMessage(
+        var answerMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
             jsonrpc: "2.0",
             method: "telnyx_rtc.answer",
