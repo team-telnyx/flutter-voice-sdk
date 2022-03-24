@@ -5,7 +5,6 @@ import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
-
 import 'model/verto/receive/incoming_invitation_body.dart';
 
 class Call {
@@ -16,6 +15,8 @@ class Call {
   final String _sessionId;
   late String callId;
   late Peer peerConnection;
+
+  bool onHold = false;
 
   void newInvite(String callerName, String callerNumber,
       String destinationNumber, String clientState) {
@@ -41,5 +42,17 @@ class Call {
 
   void onMuteUnmutePressed() {
     peerConnection.muteUnmuteMic();
+  }
+
+  void onHoldUnholdPressed(Uuid callId) {
+    if (onHold) {
+
+    } else {
+      
+    }
+  }
+
+  void _sendHoldModifier() {
+
   }
 }
