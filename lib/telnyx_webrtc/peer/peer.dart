@@ -101,7 +101,7 @@ class Peer {
     _socket.close();
   }
 
-  void muteMic() {
+  void muteUnmuteMic() {
     if (_localStream != null) {
       bool enabled = _localStream!.getAudioTracks()[0].enabled;
       _localStream!.getAudioTracks()[0].enabled = !enabled;

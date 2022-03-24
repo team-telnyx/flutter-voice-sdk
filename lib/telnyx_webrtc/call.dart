@@ -38,4 +38,8 @@ class Call {
     peerConnection.accept("0", "audio", callerName, callerNumber,
         destinationNum!, clientState, callId!, invite);
   }
+
+  void onMuteUnmutePressed() {
+    peerConnection.muteUnmuteMic();
+  }
 }
