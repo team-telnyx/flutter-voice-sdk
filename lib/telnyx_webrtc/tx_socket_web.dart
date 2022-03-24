@@ -37,4 +37,22 @@ class TxSocketWeb {
       onClose.call(500, e.toString());
     }
   }
+
+  send(data) {
+    if (_socket.readyState == WebSocket.OPEN) {
+      _socket.send(data);
+      logger.i('TxSocket :: send : \n\n$data');
+    } else {
+      logger.i('WebSocket not connected, message $data not sent');
+    }
+  }
+
+  close() {
+    _socket.close();
+  }
+
+  bool isConnecting() {
+    return _socket.readyState == WebSocket.CONNECTING;
+  }
+
 }
