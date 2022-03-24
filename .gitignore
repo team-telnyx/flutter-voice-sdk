@@ -32,3 +32,4 @@ doc/api/
 .flutter-plugins
 .idea/libraries/Dart_Packages.xml
 .idea/libraries/Flutter_Plugins.xml
+.flutter-plugins-dependencies

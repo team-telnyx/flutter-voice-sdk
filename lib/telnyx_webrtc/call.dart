@@ -2,7 +2,8 @@ import 'dart:convert';
 
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/peer/peer.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
+    if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 
 import 'model/verto/receive/incoming_invitation_body.dart';

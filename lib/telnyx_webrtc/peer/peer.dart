@@ -4,7 +4,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_message_body.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
+    if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 
 enum SignalingState {

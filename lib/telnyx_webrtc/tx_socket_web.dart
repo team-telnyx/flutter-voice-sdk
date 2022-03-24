@@ -6,8 +6,8 @@ typedef OnMessageCallback = void Function(dynamic msg);
 typedef OnCloseCallback = void Function(int code, String reason);
 typedef OnOpenCallback = void Function();
 
-class TxSocketWeb {
-  TxSocketWeb(this.hostAddress) {
+class TxSocket {
+  TxSocket(this.hostAddress) {
     hostAddress = hostAddress.replaceAll('https:', 'wss:');
   }
 
@@ -54,5 +54,4 @@ class TxSocketWeb {
   bool isConnecting() {
     return _socket.readyState == WebSocket.CONNECTING;
   }
-
 }
