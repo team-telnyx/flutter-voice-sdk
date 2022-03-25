@@ -19,9 +19,18 @@ class Call {
   late Peer peerConnection;
 
   bool onHold = false;
+  String sessionCallerName = "";
+  String sessionCallerNumber = "";
+  String sessionDestinationNumber = "";
+  String sessionClientState = "";
 
   void newInvite(String callerName, String callerNumber,
       String destinationNumber, String clientState) {
+    sessionCallerName = callerName;
+    sessionCallerNumber = callerNumber;
+    sessionDestinationNumber = destinationNumber;
+    sessionClientState = clientState;
+
     var inviteCallId = const Uuid().toString();
     callId = inviteCallId;
 
@@ -60,10 +69,10 @@ class Call {
         attach: false,
         audio: true,
         callID: callId,
-        callerIdName: "",
-        callerIdNumber: "",
-        clientState: "",
-        destinationNumber: "",
+        callerIdName: sessionCallerName,
+        callerIdNumber: sessionCallerNumber,
+        clientState: sessionClientState,
+        destinationNumber: sessionDestinationNumber,
         remoteCallerIdName: "",
         screenShare: false,
         useStereo: false,
