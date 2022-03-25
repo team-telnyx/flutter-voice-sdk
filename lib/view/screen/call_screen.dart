@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
-import 'package:flutter_dialpad/flutter_dialpad.dart';
 
 class CallScreen extends StatefulWidget {
   const CallScreen({Key? key, required this.title}) : super(key: key);
@@ -40,21 +39,24 @@ class _CallScreenState extends State<CallScreen> {
         title: Text(widget.title),
       ),
       body: Center(
-        child:  SafeArea(
-            child:
-            DialPad(
-                enableDtmf: true,
-                outputMask: "",
-                backspaceButtonIconColor: Colors.red,
-                keyPressed: (value){
-                  //ToDo DTMF
-                  print('$value was pressed');
-                },
-                makeCall: (number){
-                  //ToDo end call
-                }
+        child:  Column(
+          children: [
+            const Text("Ongoing call..."),
+            Row(
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    primary: Colors.red[400],
+                  ),
+                  onPressed: () {
+                    print("Decline Call");
+                  },
+                  child: const Text('End Call'),
+                ),
+              ],
             )
-        ),
+          ],
+        )
       ),
     );
   }

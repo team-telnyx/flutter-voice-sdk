@@ -79,13 +79,6 @@ class Peer {
     ]
   };
 
-  final Map<String, dynamic> _config = {
-    'mandatory': {},
-    'optional': [
-      {'DtlsSrtpKeyAgreement': true},
-    ]
-  };
-
   final Map<String, dynamic> _dcConstraints = {
     'mandatory': {
       'OfferToReceiveAudio': true,
