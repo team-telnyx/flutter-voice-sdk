@@ -28,6 +28,7 @@ class MyApp extends StatelessWidget {
         routes: {
           '/': (context) => const LoginScreen(title: 'Telnyx Login'),
           '/home': (context) => const HomeScreen(title: 'Home'),
+          '/call': (context) => const HomeScreen(title: 'Ongoing Call'),
         },
       ),
     );

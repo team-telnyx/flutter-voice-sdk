@@ -55,7 +55,7 @@ class Call {
     peerConnection.muteUnmuteMic();
   }
 
-  void onHoldUnholdPressed(Uuid callId) {
+  void onHoldUnholdPressed() {
     if (onHold) {
       _sendHoldModifier("unhold");
     } else {

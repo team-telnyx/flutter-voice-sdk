@@ -23,6 +23,7 @@ class TelnyxClient {
 
   late String? sessionId;
   late IncomingInvitation currentInvite;
+  late Call call;
 
   bool isConnected() {
     return _connected;
@@ -62,7 +63,8 @@ class TelnyxClient {
   }
 
   Call createCall() {
-    return Call(txSocket, this, sessionId!);
+    call = Call(txSocket, this, sessionId!);
+    return call;
   }
 
   IncomingInvitation getInvite() {
