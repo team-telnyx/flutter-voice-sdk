@@ -6,6 +6,7 @@ class DialPad extends StatefulWidget {
   final ValueSetter<String>? makeCall;
   final ValueSetter<String>? keyPressed;
   final bool? hideDialButton;
+
   // buttonColor is the color of the button on the dial pad. defaults to Colors.gray
   final Color? buttonColor;
   final Color? buttonTextColor;
@@ -14,21 +15,22 @@ class DialPad extends StatefulWidget {
   final IconData? dialButtonIcon;
   final Color? backspaceButtonIconColor;
   final Color? dialOutputTextColor;
+
   // outputMask is the mask applied to the output text. Defaults to (000) 000-0000
   final String? outputMask;
 
   DialPad(
       {this.makeCall,
-        this.keyPressed,
-        this.hideDialButton,
-        this.outputMask,
-        this.buttonColor,
-        this.buttonTextColor,
-        this.dialButtonColor,
-        this.dialButtonIconColor,
-        this.dialButtonIcon,
-        this.dialOutputTextColor,
-        this.backspaceButtonIconColor});
+      this.keyPressed,
+      this.hideDialButton,
+      this.outputMask,
+      this.buttonColor,
+      this.buttonTextColor,
+      this.dialButtonColor,
+      this.dialButtonIconColor,
+      this.dialButtonIcon,
+      this.dialOutputTextColor,
+      this.backspaceButtonIconColor});
 
   @override
   _DialPadState createState() => _DialPadState();
@@ -55,8 +57,8 @@ class _DialPadState extends State<DialPad> {
 
   @override
   void initState() {
-    textEditingController = MaskedTextController(
-        mask: widget.outputMask ?? '(000) 000-0000');
+    textEditingController =
+        MaskedTextController(mask: widget.outputMask ?? '(000) 000-0000');
     super.initState();
   }
 
@@ -135,19 +137,21 @@ class _DialPadState extends State<DialPad> {
                 child: widget.hideDialButton != null && widget.hideDialButton!
                     ? Container()
                     : Center(
-                  child: DialButton(
-                    icon: widget.dialButtonIcon ?? Icons.phone,
-                    color: widget.dialButtonColor != null ? widget.dialButtonColor! : Colors.green,
-                    onTap: (value) {
-                      widget.makeCall!(_value);
-                    },
-                  ),
-                ),
+                        child: DialButton(
+                          icon: widget.dialButtonIcon ?? Icons.phone,
+                          color: widget.dialButtonColor != null
+                              ? widget.dialButtonColor!
+                              : Colors.green,
+                          onTap: (value) {
+                            widget.makeCall!(_value);
+                          },
+                        ),
+                      ),
               ),
               Expanded(
                 child: Padding(
                   padding:
-                  EdgeInsets.only(right: screenSize.height * 0.03685504),
+                      EdgeInsets.only(right: screenSize.height * 0.03685504),
                   child: IconButton(
                     icon: Icon(
                       Icons.backspace,
@@ -159,13 +163,13 @@ class _DialPadState extends State<DialPad> {
                     onPressed: _value.isEmpty
                         ? null
                         : () {
-                      if (_value.isNotEmpty) {
-                        setState(() {
-                          _value = _value.substring(0, _value.length - 1);
-                          textEditingController!.text = _value;
-                        });
-                      }
-                    },
+                            if (_value.isNotEmpty) {
+                              setState(() {
+                                _value = _value.substring(0, _value.length - 1);
+                                textEditingController!.text = _value;
+                              });
+                            }
+                          },
                   ),
                 ),
               )
@@ -187,16 +191,17 @@ class DialButton extends StatefulWidget {
   final Color? iconColor;
   final ValueSetter<String?>? onTap;
   final bool? shouldAnimate;
+
   DialButton(
       {this.key,
-        this.title,
-        this.subtitle,
-        this.color,
-        this.textColor,
-        this.icon,
-        this.iconColor,
-        this.shouldAnimate,
-        this.onTap});
+      this.title,
+      this.subtitle,
+      this.color,
+      this.textColor,
+      this.icon,
+      this.iconColor,
+      this.shouldAnimate,
+      this.onTap});
 
   @override
   _DialButtonState createState() => _DialButtonState();
@@ -210,12 +215,11 @@ class _DialButtonState extends State<DialButton>
 
   @override
   void initState() {
-    _animationController =
-        AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _colorTween = ColorTween(
-        begin: widget.color ?? Colors.white24,
-        end: Colors.white)
-        .animate(_animationController);
+    _animationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 300));
+    _colorTween =
+        ColorTween(begin: widget.color ?? Colors.white24, end: Colors.white)
+            .animate(_animationController);
 
     super.initState();
   }
@@ -254,45 +258,48 @@ class _DialButtonState extends State<DialButton>
           child: AnimatedBuilder(
               animation: _colorTween,
               builder: (context, child) => Container(
-                color: _colorTween.value,
-                height: sizeFactor,
-                width: sizeFactor,
-                child: Center(
-                    child: widget.icon == null
-                        ? widget.subtitle != null
-                        ? Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        const SizedBox(
-                          height: 8,
-                        ),
-                        Text(
-                          widget.title!,
-                          style: TextStyle(
-                              fontSize: sizeFactor / 2,
-                              color: widget.textColor ?? Colors.black),
-                        ),
-                        Text(widget.subtitle!,
-                            style: TextStyle(
-                                color: widget.textColor ?? Colors.black))
-                      ],
-                    )
-                        : Padding(
-                        padding: EdgeInsets.only(
-                            top: widget.title == "*" ? 10 : 0),
-                        child: Text(
-                          widget.title!,
-                          style: TextStyle(
-                              fontSize: widget.title == "*" &&
-                                  widget.subtitle == null
-                                  ? screenSize.height * 0.0862069
-                                  : sizeFactor / 2,
-                              color: widget.textColor ?? Colors.black),
-                        ))
-                        : Icon(widget.icon,
-                        size: sizeFactor / 2,
-                        color: widget.iconColor ?? Colors.white)),
-              ))),
+                    color: _colorTween.value,
+                    height: sizeFactor,
+                    width: sizeFactor,
+                    child: Center(
+                        child: widget.icon == null
+                            ? widget.subtitle != null
+                                ? Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: <Widget>[
+                                      const SizedBox(
+                                        height: 8,
+                                      ),
+                                      Text(
+                                        widget.title!,
+                                        style: TextStyle(
+                                            fontSize: sizeFactor / 2,
+                                            color: widget.textColor ??
+                                                Colors.black),
+                                      ),
+                                      Text(widget.subtitle!,
+                                          style: TextStyle(
+                                              color: widget.textColor ??
+                                                  Colors.black))
+                                    ],
+                                  )
+                                : Padding(
+                                    padding: EdgeInsets.only(
+                                        top: widget.title == "*" ? 10 : 0),
+                                    child: Text(
+                                      widget.title!,
+                                      style: TextStyle(
+                                          fontSize: widget.title == "*" &&
+                                                  widget.subtitle == null
+                                              ? screenSize.height * 0.0862069
+                                              : sizeFactor / 2,
+                                          color:
+                                              widget.textColor ?? Colors.black),
+                                    ))
+                            : Icon(widget.icon,
+                                size: sizeFactor / 2,
+                                color: widget.iconColor ?? Colors.white)),
+                  ))),
     );
   }
 }
