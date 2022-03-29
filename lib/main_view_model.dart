@@ -78,6 +78,10 @@ class MainViewModel with ChangeNotifier {
     _ongoingCall = false;
   }
 
+  void dtmf(String tone) {
+    _telnyxClient.call.dtmf(_telnyxClient.currentInvite.params?.callID, tone);
+  }
+
   void muteUnmute() {
     _telnyxClient.call.onMuteUnmutePressed();
   }

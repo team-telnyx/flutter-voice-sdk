@@ -27,24 +27,44 @@ class _CallScreenState extends State<CallScreen> {
   @override
   Widget build(BuildContext context) {
     Provider.of<MainViewModel>(context, listen: true).observeResponses();
-    Provider.of<MainViewModel>(context, listen: true).connect();
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
       ),
       body: Center(
-        child:  Column(
-          children: [
-            DialPad(
-                outputMask: "",
-                backspaceButtonIconColor: Colors.red,
-                makeCall: (number){
-                  print(number);
-                }
-            )
-          ],
-        )
-      ),
+          child: Column(
+        children: [
+          DialPad(
+            outputMask: "",
+            backspaceButtonIconColor: Colors.red,
+            dialButtonColor: Colors.red,
+            makeCall: (number) {
+              //End call
+              Provider.of<MainViewModel>(context, listen: true).endCall();
+            },
+            keyPressed: (number) {
+              Provider.of<MainViewModel>(context, listen: true).dtmf(number);
+            },
+          ),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+            IconButton(
+                onPressed: () {
+                  print("mic");
+                  Provider.of<MainViewModel>(context, listen: true)
+                      .muteUnmute();
+                },
+                icon: const Icon(Icons.mic)),
+            IconButton(
+                onPressed: () {
+                  print("pause");
+                  Provider.of<MainViewModel>(context, listen: true)
+                      .holdUnhold();
+                },
+                icon: const Icon(Icons.pause))
+          ])
+        ],
+      )),
     );
   }
 }

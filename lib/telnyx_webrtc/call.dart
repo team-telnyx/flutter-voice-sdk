@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/bye_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/info_dtmf_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/modify_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/peer/peer.dart';
@@ -73,6 +75,35 @@ class Call {
     if (peerConnection != null) {
       peerConnection?.closeSession(_sessionId);
     }
+  }
+
+  void dtmf(String? callID, String tone) {
+    var uuid = const Uuid();
+    var dialogParams = DialogParams(
+        attach: false,
+        audio: true,
+        callID: callId,
+        callerIdName: sessionCallerName,
+        callerIdNumber: sessionCallerNumber,
+        clientState: sessionClientState,
+        destinationNumber: sessionDestinationNumber,
+        remoteCallerIdName: "",
+        screenShare: false,
+        useStereo: false,
+        userVariables: [],
+        video: false);
+
+    var infoParams = InfoParams(
+        dialogParams: dialogParams, dtmf: tone, sessionId: _sessionId);
+
+    var dtmfMessageBody = DtmfInfoMessage(
+        id: uuid.toString(),
+        jsonrpc: "2.0",
+        method: "telnyx_rtc.info",
+        params: infoParams);
+
+    String jsonDtmfMessage = jsonEncode(dtmfMessageBody);
+    _txSocket.send(jsonDtmfMessage);
   }
 
   void onMuteUnmutePressed() {
