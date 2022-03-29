@@ -26,7 +26,7 @@ class InvitationWidget extends StatelessWidget {
                     onPressed: () {
                       print("Accept Call");
                       Provider.of<MainViewModel>(context, listen: false).accept();
-                      Navigator.pushReplacementNamed(context, '/call');
+                      Navigator.pushNamed(context, '/call');
                     },
                     child: const Text('Accept'),
                   ),
