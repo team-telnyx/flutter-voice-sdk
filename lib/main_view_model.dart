@@ -62,9 +62,20 @@ class MainViewModel with ChangeNotifier {
   }
 
   void accept() {
-    _telnyxClient.createCall().acceptCall(_telnyxClient.getInvite(), "callerName", "+353877189671", "Fake State");
+    _telnyxClient.createCall().acceptCall(
+        _telnyxClient.getInvite(), "callerName", "+353877189671", "Fake State");
     _ongoingInvitation = false;
     _ongoingCall = true;
+  }
+
+  void endCall() {
+    if (_ongoingCall) {
+      _telnyxClient.call.endCall(_telnyxClient.currentInvite.params?.callID);
+    } else {
+      _telnyxClient.createCall().endCall(_telnyxClient.currentInvite.params?.callID);
+    }
+    _ongoingInvitation = false;
+    _ongoingCall = false;
   }
 
   void muteUnmute() {

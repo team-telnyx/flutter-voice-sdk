@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 class ByeMessage {
   String? id;
   String? jsonrpc;
@@ -69,4 +71,11 @@ class ByeDialogParams {
     data['callId'] = callId;
     return data;
   }
+}
+
+enum CauseCode {
+  USER_BUSY,
+  NORMAL_CLEARING,
+  INVALID_GATEWAY,
+  ORIGINATOR_CANCEL
 }

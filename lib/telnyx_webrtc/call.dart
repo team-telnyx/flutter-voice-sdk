@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/bye_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/modify_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/peer/peer.dart';
@@ -16,7 +17,7 @@ class Call {
   final TelnyxClient _telnyxClient;
   final String _sessionId;
   late String callId;
-  late Peer peerConnection;
+  Peer? peerConnection;
 
   bool onHold = false;
   String sessionCallerName = "";
@@ -37,7 +38,7 @@ class Call {
     var base64State = base64.encode(utf8.encode(clientState));
 
     peerConnection = Peer(_txSocket);
-    peerConnection.invite("0", "audio", callerName, callerNumber,
+    peerConnection?.invite("0", "audio", callerName, callerNumber,
         destinationNumber, base64State, callId, _sessionId);
   }
 
@@ -47,16 +48,35 @@ class Call {
     var destinationNum = invite.params?.calleeIdNumber;
 
     peerConnection = Peer(_txSocket);
-    peerConnection.accept("0", "audio", callerName, callerNumber,
+    peerConnection?.accept("0", "audio", callerName, callerNumber,
         destinationNum!, clientState, callId!, invite);
   }
 
-  void endCall() {
-    peerConnection.bye(_sessionId);
+  void endCall(String? callID) {
+    var uuid = const Uuid();
+    var byeDialogParams = ByeDialogParams(callId: callID);
+
+    var byeParams = ByeParams(
+        cause: CauseCode.USER_BUSY.name,
+        causeCode: CauseCode.USER_BUSY.index + 1,
+        dialogParams: byeDialogParams,
+        sessionId: _sessionId);
+
+    var byeMessage = ByeMessage(
+        id: uuid.toString(),
+        jsonrpc: "2.0",
+        method: "telnyx_rtc.bye",
+        params: byeParams);
+
+    String jsonByeMessage = jsonEncode(byeMessage);
+    _txSocket.send(jsonByeMessage);
+    if (peerConnection != null) {
+      peerConnection?.closeSession(_sessionId);
+    }
   }
 
   void onMuteUnmutePressed() {
-    peerConnection.muteUnmuteMic();
+    peerConnection?.muteUnmuteMic();
   }
 
   void onHoldUnholdPressed() {

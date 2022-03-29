@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/bye_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
@@ -183,13 +184,14 @@ class Peer {
       String callerNumber,
       String destinationNumber,
       String clientState,
-      String callId, IncomingInvitation invite) async {
+      String callId,
+      IncomingInvitation invite) async {
     var sessionId = _selfId + '-' + peerId;
     Session session = await _createSession(null,
         peerId: peerId, sessionId: sessionId, media: media);
     _sessions[sessionId] = session;
 
-   await session.peerConnection?.setRemoteDescription(
+    await session.peerConnection?.setRemoteDescription(
         RTCSessionDescription(invite.params?.sdp, "offer"));
 
     session.peerConnection?.onSignalingState = (state) {
@@ -264,9 +266,7 @@ class Peer {
     }
   }
 
-  void bye(String sessionId) {
-    var uuid = const Uuid();
-
+  void closeSession(String sessionId) {
     var sess = _sessions[sessionId];
     if (sess != null) {
       _closeSession(sess);
@@ -453,7 +453,7 @@ class Peer {
       print("ICE Connection State change :: $state");
     };
 
-   /*peerConnection.onSignalingState = (state) {
+    /*peerConnection.onSignalingState = (state) {
       print("ICE Signalling state weeeeee :: $state");
       if (state == RTCSignalingState.RTCSignalingStateHaveRemoteOffer) {
         print("ICE Signalling state weeeeee :: $state");

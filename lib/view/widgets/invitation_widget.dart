@@ -35,6 +35,8 @@ class InvitationWidget extends StatelessWidget {
                       primary: Colors.red[400],
                     ),
                     onPressed: () {
+                      Provider.of<MainViewModel>(context, listen: false)
+                          .endCall();
                       print("Decline Call");
                     },
                     child: const Text('Decline'),
