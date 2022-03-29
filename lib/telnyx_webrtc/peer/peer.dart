@@ -265,10 +265,8 @@ class Peer {
   }
 
   void bye(String sessionId) {
-    /* _send('bye', {
-      'session_id': sessionId,
-      'from': _selfId,
-    });*/
+    var uuid = const Uuid();
+
     var sess = _sessions[sessionId];
     if (sess != null) {
       _closeSession(sess);

@@ -51,6 +51,10 @@ class Call {
         destinationNum!, clientState, callId!, invite);
   }
 
+  void endCall() {
+    peerConnection.bye(_sessionId);
+  }
+
   void onMuteUnmutePressed() {
     peerConnection.muteUnmuteMic();
   }
