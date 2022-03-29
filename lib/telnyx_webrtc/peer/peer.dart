@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/bye_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
@@ -143,7 +142,7 @@ class Peer {
       session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
-      Timer(const Duration(seconds: 1), () {
+      Timer(const Duration(seconds: 2), () {
         var dialogParams = DialogParams(
             attach: false,
             audio: true,
@@ -233,7 +232,7 @@ class Peer {
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
 
-      Timer(const Duration(seconds: 1), () {
+      Timer(const Duration(seconds: 2), () {
         var dialogParams = DialogParams(
             attach: false,
             audio: true,

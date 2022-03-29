@@ -40,10 +40,11 @@ class _CallScreenState extends State<CallScreen> {
             dialButtonColor: Colors.red,
             makeCall: (number) {
               //End call
-              Provider.of<MainViewModel>(context, listen: true).endCall();
+              Provider.of<MainViewModel>(context, listen: false).endCall();
+              Navigator.pop(context);
             },
             keyPressed: (number) {
-              Provider.of<MainViewModel>(context, listen: true).dtmf(number);
+              Provider.of<MainViewModel>(context, listen: false).dtmf(number);
             },
           ),
           const SizedBox(height: 8),
@@ -51,14 +52,14 @@ class _CallScreenState extends State<CallScreen> {
             IconButton(
                 onPressed: () {
                   print("mic");
-                  Provider.of<MainViewModel>(context, listen: true)
+                  Provider.of<MainViewModel>(context, listen: false)
                       .muteUnmute();
                 },
                 icon: const Icon(Icons.mic)),
             IconButton(
                 onPressed: () {
                   print("pause");
-                  Provider.of<MainViewModel>(context, listen: true)
+                  Provider.of<MainViewModel>(context, listen: false)
                       .holdUnhold();
                 },
                 icon: const Icon(Icons.pause))

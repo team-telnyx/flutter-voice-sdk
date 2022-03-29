@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/cupertino.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/bye_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/info_dtmf_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
@@ -18,7 +17,7 @@ class Call {
   final TxSocket _txSocket;
   final TelnyxClient _telnyxClient;
   final String _sessionId;
-  late String callId;
+  late String? callId;
   Peer? peerConnection;
 
   bool onHold = false;
@@ -40,13 +39,15 @@ class Call {
     var base64State = base64.encode(utf8.encode(clientState));
 
     peerConnection = Peer(_txSocket);
+
+    //Todo check if call id is null, and log that call ID is missing from invitation.
     peerConnection?.invite("0", "audio", callerName, callerNumber,
-        destinationNumber, base64State, callId, _sessionId);
+        destinationNumber, base64State, callId!, _sessionId);
   }
 
   void acceptCall(IncomingInvitation invite, String callerName,
       String callerNumber, String clientState) {
-    var callId = invite.params?.callID;
+    callId = invite.params?.callID;
     var destinationNum = invite.params?.calleeIdNumber;
 
     peerConnection = Peer(_txSocket);
