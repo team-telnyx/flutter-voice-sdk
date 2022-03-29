@@ -1,5 +1,5 @@
-import 'dart:html';
-
+// ignore: avoid_web_libraries_in_flutter
+//import 'dart:html';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
@@ -31,12 +31,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _checkPermissions() async {
     if (kIsWeb) {
-      PermissionStatus permission = (await window.navigator.permissions?.query({'name': 'microphone'})) as PermissionStatus;
-      await window.navigator.mediaDevices?.getUserMedia({'name': 'microphone'});
+ //     PermissionStatus permission = (await window.navigator.permissions?.query({'name': 'microphone'})) as PermissionStatus;
+    //  await window.navigator.mediaDevices?.getUserMedia({'name': 'microphone'});
     } else {
       // You can request multiple permissions at once.
       Map<Permission, PermissionStatus> statuses =
-      await [Permission.microphone, Permission.bluetooth].request();
+      await [Permission.microphone, Permission.bluetooth, Permission.bluetoothConnect].request();
       print(statuses[Permission.microphone]);
       print(statuses[Permission.bluetooth]);
     }

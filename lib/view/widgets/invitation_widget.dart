@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 
-
 class InvitationWidget extends StatelessWidget {
   const InvitationWidget({Key? key, required this.title}) : super(key: key);
   final String title;
@@ -25,7 +24,8 @@ class InvitationWidget extends StatelessWidget {
                     ),
                     onPressed: () {
                       print("Accept Call");
-                      Provider.of<MainViewModel>(context, listen: false).accept();
+                      Provider.of<MainViewModel>(context, listen: false)
+                          .accept();
                       Navigator.pushNamed(context, '/call');
                     },
                     child: const Text('Accept'),

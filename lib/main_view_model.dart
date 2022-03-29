@@ -10,6 +10,7 @@ class MainViewModel with ChangeNotifier {
 
   bool _registered = false;
   bool _ongoingInvitation = false;
+  bool _ongoingCall = false;
 
   bool get registered {
     return _registered;
@@ -17,6 +18,10 @@ class MainViewModel with ChangeNotifier {
 
   bool get ongoingInvitation {
     return _ongoingInvitation;
+  }
+
+  bool get ongoingCall {
+    return _ongoingCall;
   }
 
   void observeResponses() {
@@ -59,6 +64,7 @@ class MainViewModel with ChangeNotifier {
   void accept() {
     _telnyxClient.createCall().acceptCall(_telnyxClient.getInvite(), "callerName", "+353877189671", "Fake State");
     _ongoingInvitation = false;
+    _ongoingCall = true;
   }
 
   void muteUnmute() {
