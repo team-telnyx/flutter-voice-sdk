@@ -26,7 +26,6 @@ class InvitationWidget extends StatelessWidget {
                       print("Accept Call");
                       Provider.of<MainViewModel>(context, listen: false)
                           .accept();
-                      Navigator.pushNamed(context, '/call');
                     },
                     child: const Text('Accept'),
                   ),

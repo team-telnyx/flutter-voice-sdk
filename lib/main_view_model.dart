@@ -37,9 +37,15 @@ class MainViewModel with ChangeNotifier {
             _ongoingInvitation = true;
             break;
           }
+        case SocketMethod.ANSWER:
+          {
+            _ongoingCall = true;
+            break;
+          }
         case SocketMethod.BYE:
           {
             _ongoingInvitation = false;
+            _ongoingCall = false;
             break;
           }
       }
@@ -66,20 +72,22 @@ class MainViewModel with ChangeNotifier {
         _telnyxClient.getInvite(), "callerName", "+353877189671", "Fake State");
     _ongoingInvitation = false;
     _ongoingCall = true;
+    notifyListeners();
   }
 
   void endCall() {
     if (_ongoingCall) {
-      _telnyxClient.call.endCall(_telnyxClient.currentInvite.params?.callID);
+      _telnyxClient.call.endCall(_telnyxClient.call.callId);
     } else {
-      _telnyxClient.createCall().endCall(_telnyxClient.currentInvite.params?.callID);
+      _telnyxClient.createCall().endCall(_telnyxClient.call.callId);
     }
     _ongoingInvitation = false;
     _ongoingCall = false;
+    notifyListeners();
   }
 
   void dtmf(String tone) {
-    _telnyxClient.call.dtmf(_telnyxClient.currentInvite.params?.callID, tone);
+    _telnyxClient.call.dtmf(_telnyxClient.call.callId, tone);
   }
 
   void muteUnmute() {

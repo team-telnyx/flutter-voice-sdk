@@ -114,8 +114,10 @@ class Call {
   void onHoldUnholdPressed() {
     if (onHold) {
       _sendHoldModifier("unhold");
+      onHold = false;
     } else {
       _sendHoldModifier("hold");
+      onHold = true;
     }
   }
 

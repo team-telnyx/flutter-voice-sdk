@@ -204,7 +204,7 @@ class Peer {
     _createAnswer(session, media, callerName, callerNumber, destinationNumber,
         clientState, callId);
 
-    if (session.remoteCandidates.length > 0) {
+    if (session.remoteCandidates.isNotEmpty) {
       session.remoteCandidates.forEach((candidate) async {
         await session.peerConnection?.addCandidate(candidate);
       });
@@ -485,7 +485,7 @@ class Peer {
   }
 
   Future<void> _createDataChannel(Session session,
-      {label: 'fileTransfer'}) async {
+      {label = 'fileTransfer'}) async {
     RTCDataChannelInit dataChannelDict = RTCDataChannelInit()
       ..maxRetransmits = 30;
     RTCDataChannel channel =

@@ -41,7 +41,6 @@ class _CallScreenState extends State<CallScreen> {
             makeCall: (number) {
               //End call
               Provider.of<MainViewModel>(context, listen: false).endCall();
-              Navigator.pop(context);
             },
             keyPressed: (number) {
               Provider.of<MainViewModel>(context, listen: false).dtmf(number);

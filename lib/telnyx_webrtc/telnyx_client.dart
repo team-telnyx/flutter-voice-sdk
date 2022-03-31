@@ -164,10 +164,12 @@ class TelnyxClient {
             case SocketMethod.ANSWER:
               {
                 logger.i('INVITATION ANSWERED :: $messageJson');
+                onSocketMessageReceived.call(SocketMethod.ANSWER);
                 break;
               }
             case SocketMethod.BYE:
               {
+                logger.i('BYE RECEIVED :: $messageJson');
                 onSocketMessageReceived(SocketMethod.BYE);
                 break;
               }
