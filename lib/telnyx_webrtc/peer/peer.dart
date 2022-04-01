@@ -97,26 +97,16 @@ class Peer {
     }
   }
 
-  void invite(
-      String peerId,
-      String media,
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId,
-      String telnyxSessionId) async {
-    var sessionId = _selfId + '-' + peerId;
+  void invite(String callerName, String callerNumber, String destinationNumber,
+      String clientState, String callId, String telnyxSessionId) async {
+    var sessionId = _selfId;
 
     Session session = await _createSession(null,
-        peerId: peerId, sessionId: sessionId, media: media);
+        peerId: "0", sessionId: sessionId, media: "audio");
 
     _sessions[sessionId] = session;
-    if (media == 'data') {
-      _createDataChannel(session);
-    }
 
-    _createOffer(session, media, callerName, callerNumber, destinationNumber,
+    _createOffer(session, "audio", callerName, callerNumber, destinationNumber,
         clientState, callId, telnyxSessionId);
     onCallStateChange?.call(session, CallState.CallStateInvite);
   }
@@ -183,24 +173,17 @@ class Peer {
     }
   }
 
-  void accept(
-      String peerId,
-      String media,
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId,
-      IncomingInvitation invite) async {
-    var sessionId = _selfId + '-' + peerId;
+  void accept(String callerName, String callerNumber, String destinationNumber,
+      String clientState, String callId, IncomingInvitation invite) async {
+    var sessionId = _selfId;
     Session session = await _createSession(null,
-        peerId: peerId, sessionId: sessionId, media: media);
+        peerId: "0", sessionId: sessionId, media: "audio");
     _sessions[sessionId] = session;
 
     await session.peerConnection?.setRemoteDescription(
         RTCSessionDescription(invite.params?.sdp, "offer"));
 
-    _createAnswer(session, media, callerName, callerNumber, destinationNumber,
+    _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
         clientState, callId);
 
     onCallStateChange?.call(session, CallState.CallStateNew);
@@ -218,7 +201,7 @@ class Peer {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session != null) {
           if (session.peerConnection != null) {
-            logger.e("Peer :: Add Ice Candidate!");
+            logger.i("Peer :: Add Ice Candidate!");
             await session.peerConnection?.addCandidate(candidate);
           } else {
             session.remoteCandidates.add(candidate);
@@ -327,13 +310,13 @@ class Peer {
     peerConnection.onIceCandidate = (candidate) async {
       peerConnection.addCandidate(candidate);
       if (candidate == null) {
-        logger.e("Peer :: onIceCandidate: complete!");
+        logger.i("Peer :: onIceCandidate: complete!");
         return;
       }
     };
 
     peerConnection.onIceConnectionState = (state) {
-      logger.e("Peer :: ICE Connection State change :: $state");
+      logger.i("Peer :: ICE Connection State change :: $state");
     };
 
     peerConnection.onRemoveStream = (stream) {

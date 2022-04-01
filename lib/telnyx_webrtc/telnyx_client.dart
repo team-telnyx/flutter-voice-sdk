@@ -10,6 +10,7 @@ import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_messa
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 
 typedef OnSocketMessageReceived = void Function(String method);
 
@@ -63,7 +64,7 @@ class TelnyxClient {
   }
 
   Call createCall() {
-    call = Call(txSocket, this, sessionId!);
+    call = Call(txSocket, sessionId!);
     return call;
   }
 
@@ -75,12 +76,16 @@ class TelnyxClient {
     var uuid = const Uuid();
     var user = config.sipUser;
     var password = config.sipPassword;
-    //var fcmToken = config.fcmToken;
+    var fcmToken = config.fcmToken;
+    UserVariables? notificationParams;
 
-    var notificationParams = UserVariables(
-        pushDeviceToken:
-            "fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp",
-        pushNotificationProvider: "android");
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      notificationParams = UserVariables(
+          pushDeviceToken: fcmToken, pushNotificationProvider: "android");
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      notificationParams = UserVariables(
+          pushDeviceToken: fcmToken, pushNotificationProvider: "ios");
+    }
 
     var loginParams = LoginParams(
         login: user,
