@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
@@ -7,6 +8,7 @@ import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answ
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
+import 'package:logger/logger.dart';
 
 enum SignalingState {
   ConnectionOpen,
@@ -35,18 +37,12 @@ class Session {
 class Peer {
   Peer(this._socket);
 
-  final JsonEncoder _encoder = const JsonEncoder();
-  final JsonDecoder _decoder = const JsonDecoder();
+  final logger = Logger();
 
-  // String _selfId = randomNumeric(6);
-  final String _selfId = "123456";
+  final String _selfId = randomNumeric(6);
 
-  //SimpleWebSocket? _socket;
   final TxSocket _socket;
 
-  //final _host;
-  final _port = 8086;
-  var _turnCredential;
   final Map<String, Session> _sessions = {};
   MediaStream? _localStream;
   final List<MediaStream> _remoteStreams = <MediaStream>[];
@@ -136,7 +132,7 @@ class Peer {
       String sessionId) async {
     try {
       RTCSessionDescription s =
-      await session.peerConnection!.createOffer(_dcConstraints);
+          await session.peerConnection!.createOffer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
       if (session.remoteCandidates.isNotEmpty) {
@@ -183,7 +179,7 @@ class Peer {
         _send(jsonInviteMessage);
       });
     } catch (e) {
-      print(e.toString());
+      logger.e("Peer :: " + e.toString());
     }
   }
 
@@ -204,14 +200,6 @@ class Peer {
     await session.peerConnection?.setRemoteDescription(
         RTCSessionDescription(invite.params?.sdp, "offer"));
 
-    /*session.peerConnection?.onSignalingState = (state) {
-      print("New state $state");
-      if (state == RTCSignalingState.RTCSignalingStateStable) {
-        // answer here
-        print("Answer here");
-      }
-    };*/
-
     _createAnswer(session, media, callerName, callerNumber, destinationNumber,
         clientState, callId);
 
@@ -227,32 +215,19 @@ class Peer {
       String clientState,
       String callId) async {
     try {
-
-      /*if (session.remoteCandidates.isNotEmpty) {
-      session.remoteCandidates.forEach((candidate) async {
-        await session.peerConnection?.addCandidate(candidate);
-      });
-      session.remoteCandidates.clear();
-    }*/
-
       session.peerConnection?.onIceCandidate = (candidate) async {
-        print("Candidate on accept attempt!");
         if (session != null) {
           if (session.peerConnection != null) {
-            print("Candidate on accept!");
+            logger.e("Peer :: Add Ice Candidate!");
             await session.peerConnection?.addCandidate(candidate);
           } else {
-            print("Candidate on remote accept!");
             session.remoteCandidates.add(candidate);
           }
-        } /*else {
-          _sessions[sessionId] = Session(pid: peerId, sid: sessionId)
-            ..remoteCandidates.add(candidate);
-        }*/
+        }
       };
 
       RTCSessionDescription s =
-      await session.peerConnection!.createAnswer(_dcConstraints);
+          await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
       await Future.delayed(const Duration(seconds: 1));
@@ -291,7 +266,7 @@ class Peer {
         _send(jsonAnswerMessage);
       });
     } catch (e) {
-      print(e.toString());
+      logger.e("Peer :: " + e.toString());
     }
   }
 
@@ -301,101 +276,6 @@ class Peer {
       _closeSession(sess);
     }
   }
-
-  /*void onMessage(message) async {
-    Map<String, dynamic> mapData = message;
-    var data = mapData['data'];
-
-    switch (mapData['type']) {
-      case 'peers':
-        {
-          List<dynamic> peers = data;
-          if (onPeersUpdate != null) {
-            Map<String, dynamic> event = Map<String, dynamic>();
-            event['self'] = _selfId;
-            event['peers'] = peers;
-            onPeersUpdate?.call(event);
-          }
-        }
-        break;
-      case 'offer':
-        {
-          var peerId = data['from'];
-          var description = data['description'];
-          var media = data['media'];
-          var sessionId = data['session_id'];
-          var session = _sessions[sessionId];
-          var newSession = await _createSession(session,
-              peerId: peerId, sessionId: sessionId, media: media);
-          _sessions[sessionId] = newSession;
-          await newSession.pc?.setRemoteDescription(
-              RTCSessionDescription(description['sdp'], description['type']));
-          //await _createAnswer(newSession, media);
-          if (newSession.remoteCandidates.isNotEmpty) {
-            newSession.remoteCandidates.forEach((candidate) async {
-              await newSession.pc?.addCandidate(candidate);
-            });
-            newSession.remoteCandidates.clear();
-          }
-          onCallStateChange?.call(newSession, CallState.CallStateNew);
-        }
-        break;
-      case 'answer':
-        {
-          var description = data['description'];
-          var sessionId = data['session_id'];
-          var session = _sessions[sessionId];
-          session?.pc?.setRemoteDescription(
-              RTCSessionDescription(description['sdp'], description['type']));
-        }
-        break;
-      case 'candidate':
-        {
-          var peerId = data['from'];
-          var candidateMap = data['candidate'];
-          var sessionId = data['session_id'];
-          var session = _sessions[sessionId];
-          RTCIceCandidate candidate = RTCIceCandidate(candidateMap['candidate'],
-              candidateMap['sdpMid'], candidateMap['sdpMLineIndex']);
-
-          if (session != null) {
-            if (session.pc != null) {
-              await session.pc?.addCandidate(candidate);
-            } else {
-              session.remoteCandidates.add(candidate);
-            }
-          } else {
-            _sessions[sessionId] = Session(pid: peerId, sid: sessionId)
-              ..remoteCandidates.add(candidate);
-          }
-        }
-        break;
-      case 'leave':
-        {
-          var peerId = data as String;
-          _closeSessionByPeerId(peerId);
-        }
-        break;
-      case 'bye':
-        {
-          var sessionId = data['session_id'];
-          print('bye: ' + sessionId);
-          var session = _sessions.remove(sessionId);
-          if (session != null) {
-            onCallStateChange?.call(session, CallState.CallStateBye);
-            _closeSession(session);
-          }
-        }
-        break;
-      case 'keepalive':
-        {
-          print('keepalive response!');
-        }
-        break;
-      default:
-        break;
-    }
-  }*/
 
   Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
@@ -409,37 +289,12 @@ class Peer {
     return stream;
   }
 
-  /*Future<MediaStream> createStream(String media, bool userScreen) async {
-    final Map<String, dynamic> mediaConstraints = {
-      'audio': userScreen ? false : true,
-      'video': userScreen
-          ? true
-          : {
-        'mandatory': {
-          'minWidth':
-          '640', // Provide your own width, height and frame rate here
-          'minHeight': '480',
-          'minFrameRate': '30',
-        },
-        'facingMode': 'user',
-        'optional': [],
-      }
-    };
-
-    MediaStream stream = userScreen
-        ? await navigator.mediaDevices.getDisplayMedia(mediaConstraints)
-        : await navigator.mediaDevices.getUserMedia(mediaConstraints);
-    onLocalStream?.call(stream);
-    return stream;
-  }*/
-
   Future<Session> _createSession(Session? session,
       {required String peerId,
       required String sessionId,
       required String media}) async {
     var newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') _localStream = await createStream(media);
-    print(_iceServers);
 
     RTCPeerConnection peerConnection = await createPeerConnection({
       ..._iceServers,
@@ -470,28 +325,16 @@ class Peer {
       }
     }
     peerConnection.onIceCandidate = (candidate) async {
-      print("Adding Candidate!");
-      print(candidate.candidate);
-      print(candidate.sdpMid);
-      print(candidate.sdpMLineIndex);
       peerConnection.addCandidate(candidate);
       if (candidate == null) {
-        print('onIceCandidate: complete!');
+        logger.e("Peer :: onIceCandidate: complete!");
         return;
       }
     };
 
     peerConnection.onIceConnectionState = (state) {
-      print("ICE Connection State change :: $state");
+      logger.e("Peer :: ICE Connection State change :: $state");
     };
-
-    /*peerConnection.onSignalingState = (state) {
-      print("ICE Signalling state weeeeee :: $state");
-      if (state == RTCSignalingState.RTCSignalingStateHaveRemoteOffer) {
-        print("ICE Signalling state weeeeee :: $state");
-        // answer here
-      }
-    };*/
 
     peerConnection.onRemoveStream = (stream) {
       onRemoveRemoteStream?.call(newSession, stream);
@@ -569,3 +412,16 @@ class Peer {
     await session.dc?.close();
   }
 }
+
+int randomBetween(int from, int to) {
+  if (from > to) throw Exception('$from cannot be > $to');
+  var rand = Random();
+  return ((to - from) * rand.nextDouble()).toInt() + from;
+}
+
+String randomString(int length, {int from = 33, int to = 126}) {
+  return String.fromCharCodes(
+      List.generate(length, (index) => randomBetween(from, to)));
+}
+
+String randomNumeric(int length) => randomString(length, from: 48, to: 57);
