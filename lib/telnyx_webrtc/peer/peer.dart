@@ -136,13 +136,24 @@ class Peer {
       String sessionId) async {
     try {
       RTCSessionDescription s =
-          await session.peerConnection!.createOffer(_dcConstraints);
+      await session.peerConnection!.createOffer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
+
+      if (session.remoteCandidates.isNotEmpty) {
+        session.remoteCandidates.forEach((candidate) async {
+          await session.peerConnection?.addCandidate(candidate);
+        });
+        session.remoteCandidates.clear();
+      }
+
+      await Future.delayed(const Duration(seconds: 1));
+
       String? sdpUsed = "";
       session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
-      Timer(const Duration(seconds: 2), () {
+
+      Timer(const Duration(seconds: 1), () {
         var dialogParams = DialogParams(
             attach: false,
             audio: true,
@@ -193,23 +204,16 @@ class Peer {
     await session.peerConnection?.setRemoteDescription(
         RTCSessionDescription(invite.params?.sdp, "offer"));
 
-    session.peerConnection?.onSignalingState = (state) {
+    /*session.peerConnection?.onSignalingState = (state) {
       print("New state $state");
-      if (state == RTCSignalingState.RTCSignalingStateHaveRemoteOffer) {
+      if (state == RTCSignalingState.RTCSignalingStateStable) {
         // answer here
         print("Answer here");
       }
-    };
+    };*/
 
     _createAnswer(session, media, callerName, callerNumber, destinationNumber,
         clientState, callId);
-
-    if (session.remoteCandidates.isNotEmpty) {
-      session.remoteCandidates.forEach((candidate) async {
-        await session.peerConnection?.addCandidate(candidate);
-      });
-      session.remoteCandidates.clear();
-    }
 
     onCallStateChange?.call(session, CallState.CallStateNew);
   }
@@ -223,16 +227,42 @@ class Peer {
       String clientState,
       String callId) async {
     try {
+
+      /*if (session.remoteCandidates.isNotEmpty) {
+      session.remoteCandidates.forEach((candidate) async {
+        await session.peerConnection?.addCandidate(candidate);
+      });
+      session.remoteCandidates.clear();
+    }*/
+
+      session.peerConnection?.onIceCandidate = (candidate) async {
+        print("Candidate on accept attempt!");
+        if (session != null) {
+          if (session.peerConnection != null) {
+            print("Candidate on accept!");
+            await session.peerConnection?.addCandidate(candidate);
+          } else {
+            print("Candidate on remote accept!");
+            session.remoteCandidates.add(candidate);
+          }
+        } /*else {
+          _sessions[sessionId] = Session(pid: peerId, sid: sessionId)
+            ..remoteCandidates.add(candidate);
+        }*/
+      };
+
       RTCSessionDescription s =
-          await session.peerConnection!.createAnswer(_dcConstraints);
+      await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
+
+      await Future.delayed(const Duration(seconds: 1));
 
       String? sdpUsed = "";
       session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
 
-      Timer(const Duration(seconds: 2), () {
+      Timer(const Duration(seconds: 1), () {
         var dialogParams = DialogParams(
             attach: false,
             audio: true,
@@ -440,8 +470,11 @@ class Peer {
       }
     }
     peerConnection.onIceCandidate = (candidate) async {
-      peerConnection.addCandidate(candidate);
       print("Adding Candidate!");
+      print(candidate.candidate);
+      print(candidate.sdpMid);
+      print(candidate.sdpMLineIndex);
+      peerConnection.addCandidate(candidate);
       if (candidate == null) {
         print('onIceCandidate: complete!');
         return;

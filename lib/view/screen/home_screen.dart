@@ -44,7 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (invitation) {
       return const InvitationWidget(title: 'Home');
     } else if (ongoingCall) {
-      return const CallScreen(title: "Ongoing Call");
+      return CallScreen(
+          title: "Ongoing Call",
+          call: Provider.of<MainViewModel>(context, listen: false).currentCall);
     } else {
       return Scaffold(
         appBar: AppBar(

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 
 class CallScreen extends StatefulWidget {
-  const CallScreen({Key? key, required this.title}) : super(key: key);
+  const CallScreen({Key? key, required this.title, this.call})
+      : super(key: key);
   final String title;
+  final Call? call;
 
   @override
   State<CallScreen> createState() => _CallScreenState();
@@ -34,6 +37,9 @@ class _CallScreenState extends State<CallScreen> {
       body: Center(
           child: Column(
         children: [
+          const SizedBox(height: 8),
+          Text(widget.call?.sessionDestinationNumber ?? "Unknown Caller"),
+          const SizedBox(height: 8),
           DialPad(
             outputMask: "",
             backspaceButtonIconColor: Colors.red,

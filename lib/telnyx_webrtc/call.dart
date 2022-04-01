@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/bye_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/send_bye_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/info_dtmf_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/modify_message_body.dart';
@@ -33,14 +33,10 @@ class Call {
     sessionDestinationNumber = destinationNumber;
     sessionClientState = clientState;
 
-    var inviteCallId = const Uuid().toString();
-    callId = inviteCallId;
-
+    callId = const Uuid().toString();
     var base64State = base64.encode(utf8.encode(clientState));
 
     peerConnection = Peer(_txSocket);
-
-    //Todo check if call id is null, and log that call ID is missing from invitation.
     peerConnection?.invite("0", "audio", callerName, callerNumber,
         destinationNumber, base64State, callId!, _sessionId);
   }
@@ -48,6 +44,12 @@ class Call {
   void acceptCall(IncomingInvitation invite, String callerName,
       String callerNumber, String clientState) {
     callId = invite.params?.callID;
+
+    sessionCallerName = callerName;
+    sessionCallerNumber = callerNumber;
+    sessionDestinationNumber = invite.params?.callerIdName ?? "Unknown Caller";
+    sessionClientState = clientState;
+
     var destinationNum = invite.params?.calleeIdNumber;
 
     peerConnection = Peer(_txSocket);
@@ -59,13 +61,13 @@ class Call {
     var uuid = const Uuid();
     var byeDialogParams = ByeDialogParams(callId: callID);
 
-    var byeParams = ByeParams(
+    var byeParams = SendByeParams(
         cause: CauseCode.USER_BUSY.name,
         causeCode: CauseCode.USER_BUSY.index + 1,
         dialogParams: byeDialogParams,
         sessionId: _sessionId);
 
-    var byeMessage = ByeMessage(
+    var byeMessage = SendByeMessage(
         id: uuid.toString(),
         jsonrpc: "2.0",
         method: "telnyx_rtc.bye",

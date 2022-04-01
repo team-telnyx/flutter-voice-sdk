@@ -1,19 +1,19 @@
 // ignore_for_file: constant_identifier_names
 
-class ByeMessage {
+class SendByeMessage {
   String? id;
   String? jsonrpc;
   String? method;
-  ByeParams? params;
+  SendByeParams? params;
 
-  ByeMessage({this.id, this.jsonrpc, this.method, this.params});
+  SendByeMessage({this.id, this.jsonrpc, this.method, this.params});
 
-  ByeMessage.fromJson(Map<String, dynamic> json) {
+  SendByeMessage.fromJson(Map<String, dynamic> json) {
     id = json['id'];
     jsonrpc = json['jsonrpc'];
     method = json['method'];
     params =
-    json['params'] != null ? ByeParams.fromJson(json['params']) : null;
+    json['params'] != null ? SendByeParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -28,15 +28,15 @@ class ByeMessage {
   }
 }
 
-class ByeParams {
+class SendByeParams {
   String? cause;
   int? causeCode;
   ByeDialogParams? dialogParams;
   String? sessionId;
 
-  ByeParams({this.cause, this.causeCode, this.dialogParams, this.sessionId});
+  SendByeParams({this.cause, this.causeCode, this.dialogParams, this.sessionId});
 
-  ByeParams.fromJson(Map<String, dynamic> json) {
+  SendByeParams.fromJson(Map<String, dynamic> json) {
     cause = json['cause'];
     causeCode = json['causeCode'];
     dialogParams = json['dialogParams'] != null
