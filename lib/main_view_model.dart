@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/telnyx_message.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
 import 'package:logger/logger.dart';
 
@@ -12,6 +14,7 @@ class MainViewModel with ChangeNotifier {
   bool _registered = false;
   bool _ongoingInvitation = false;
   bool _ongoingCall = false;
+  IncomingInviteParams? _incomingInvite;
 
   bool get registered {
     return _registered;
@@ -29,9 +32,13 @@ class MainViewModel with ChangeNotifier {
       return _telnyxClient.call;
   }
 
+  IncomingInviteParams? get incomingInvitation {
+    return _incomingInvite;
+  }
+
   void observeResponses() {
-    _telnyxClient.onSocketMessageReceived = (String method) {
-      switch (method) {
+    _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
+      switch (message.socketMethod) {
         case SocketMethod.CLIENT_READY:
           {
             _registered = true;
@@ -40,6 +47,7 @@ class MainViewModel with ChangeNotifier {
         case SocketMethod.INVITE:
           {
             _ongoingInvitation = true;
+            _incomingInvite = message.message.inviteParams;
             break;
           }
         case SocketMethod.ANSWER:

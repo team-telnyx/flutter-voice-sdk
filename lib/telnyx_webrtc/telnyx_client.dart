@@ -7,12 +7,13 @@ import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/telnyx_message.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 
-typedef OnSocketMessageReceived = void Function(String method);
+typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 
 class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
@@ -23,7 +24,7 @@ class TelnyxClient {
   final logger = Logger();
 
   late String? sessionId;
-  late IncomingInvitation currentInvite;
+  late ReceivedMessage currentInvite;
   late Call call;
 
   bool isConnected() {
@@ -68,7 +69,7 @@ class TelnyxClient {
     return call;
   }
 
-  IncomingInvitation getInvite() {
+  ReceivedMessage getInvite() {
     return currentInvite;
   }
 
@@ -154,39 +155,55 @@ class TelnyxClient {
               {
                 ReceivedMessage clientReadyMessage =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                onSocketMessageReceived.call(SocketMethod.CLIENT_READY);
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.CLIENT_READY,
+                    message: clientReadyMessage);
+                onSocketMessageReceived.call(message);
                 break;
               }
             case SocketMethod.INVITE:
               {
                 logger.i('INCOMING INVITATION :: $messageJson');
-                IncomingInvitation invite =
-                    IncomingInvitation.fromJson(jsonDecode(data.toString()));
+                ReceivedMessage invite =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 currentInvite = invite;
-                onSocketMessageReceived.call(SocketMethod.INVITE);
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.INVITE, message: invite);
+                onSocketMessageReceived.call(message);
                 break;
               }
             case SocketMethod.ANSWER:
               {
                 logger.i('INVITATION ANSWERED :: $messageJson');
-                onSocketMessageReceived.call(SocketMethod.ANSWER);
+                ReceivedMessage inviteAnswer =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.ANSWER, message: inviteAnswer);
+                onSocketMessageReceived.call(message);
                 break;
               }
             case SocketMethod.BYE:
               {
                 logger.i('BYE RECEIVED :: $messageJson');
-                onSocketMessageReceived(SocketMethod.BYE);
+                ReceivedMessage bye =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                var message =
+                    TelnyxMessage(socketMethod: SocketMethod.BYE, message: bye);
+                onSocketMessageReceived(message);
                 break;
               }
             case SocketMethod.GATEWAY_STATE:
               {
                 ReceivedMessage stateMessage =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.GATEWAY_STATE,
+                    message: stateMessage);
                 logger.i(
                     'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
                 if (stateMessage.stateParams?.state == "REGED") {
                   logger.i('REGISTERED :: ${stateMessage.toString()}');
-                  onSocketMessageReceived.call(SocketMethod.GATEWAY_STATE);
+                  onSocketMessageReceived.call(message);
                 }
                 break;
               }

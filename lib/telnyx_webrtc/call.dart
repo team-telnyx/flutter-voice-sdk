@@ -1,15 +1,14 @@
 import 'dart:convert';
 
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/send_bye_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/info_dtmf_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/modify_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/peer/peer.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
-import 'model/verto/receive/incoming_invitation_body.dart';
 
 class Call {
   Call(this._txSocket, this._sessionId);
@@ -40,16 +39,17 @@ class Call {
         base64State, callId!, _sessionId);
   }
 
-  void acceptCall(IncomingInvitation invite, String callerName,
+  void acceptCall(ReceivedMessage invite, String callerName,
       String callerNumber, String clientState) {
-    callId = invite.params?.callID;
+    callId = invite.inviteParams?.callID;
 
     sessionCallerName = callerName;
     sessionCallerNumber = callerNumber;
-    sessionDestinationNumber = invite.params?.callerIdName ?? "Unknown Caller";
+    sessionDestinationNumber =
+        invite.inviteParams?.callerIdName ?? "Unknown Caller";
     sessionClientState = clientState;
 
-    var destinationNum = invite.params?.calleeIdNumber;
+    var destinationNum = invite.inviteParams?.calleeIdNumber;
 
     peerConnection = Peer(_txSocket);
     peerConnection?.accept(callerName, callerNumber, destinationNum!,

@@ -3,12 +3,13 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
+
+import '../model/verto/receive/received_message_body.dart';
 
 enum SignalingState {
   ConnectionOpen,
@@ -174,14 +175,14 @@ class Peer {
   }
 
   void accept(String callerName, String callerNumber, String destinationNumber,
-      String clientState, String callId, IncomingInvitation invite) async {
+      String clientState, String callId, ReceivedMessage invite) async {
     var sessionId = _selfId;
     Session session = await _createSession(null,
         peerId: "0", sessionId: sessionId, media: "audio");
     _sessions[sessionId] = session;
 
     await session.peerConnection?.setRemoteDescription(
-        RTCSessionDescription(invite.params?.sdp, "offer"));
+        RTCSessionDescription(invite.inviteParams?.sdp, "offer"));
 
     _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
         clientState, callId);

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
 class InvitationWidget extends StatelessWidget {
-  const InvitationWidget({Key? key, required this.title}) : super(key: key);
+  const InvitationWidget({Key? key, required this.title, this.invitation})
+      : super(key: key);
   final String title;
+  final IncomingInviteParams? invitation;
 
   @override
   Widget build(BuildContext context) {
@@ -16,6 +19,8 @@ class InvitationWidget extends StatelessWidget {
           child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
+                Text(invitation?.callerIdName ?? "Unknown Caller"),
+                Text(invitation?.callerIdNumber ?? "Unknown Number"),
                 const Text("Incoming Call"),
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   TextButton(
