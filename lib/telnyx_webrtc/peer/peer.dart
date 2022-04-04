@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
@@ -162,7 +163,7 @@ class Peer {
         var inviteMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
             jsonrpc: "2.0",
-            method: "telnyx_rtc.invite",
+            method: SocketMethod.INVITE,
             params: inviteParams);
 
         String jsonInviteMessage = jsonEncode(inviteMessage);
@@ -243,7 +244,7 @@ class Peer {
         var answerMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
             jsonrpc: "2.0",
-            method: "telnyx_rtc.answer",
+            method: SocketMethod.ANSWER,
             params: inviteParams);
 
         String jsonAnswerMessage = jsonEncode(answerMessage);

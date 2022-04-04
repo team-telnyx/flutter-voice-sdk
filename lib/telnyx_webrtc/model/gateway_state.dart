@@ -10,4 +10,5 @@ class GatewayState {
   static const FAIL_WAIT = "FAIL_WAIT";
   static const EXPIRED = "EXPIRED";
   static const NOREG = "NOREG";
+  static const IDLE = "IDLE";
 }

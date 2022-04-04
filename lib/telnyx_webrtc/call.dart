@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/send_bye_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/info_dtmf_message_body.dart';
@@ -69,7 +70,7 @@ class Call {
     var byeMessage = SendByeMessage(
         id: uuid.toString(),
         jsonrpc: "2.0",
-        method: "telnyx_rtc.bye",
+        method: SocketMethod.BYE,
         params: byeParams);
 
     String jsonByeMessage = jsonEncode(byeMessage);
@@ -101,7 +102,7 @@ class Call {
     var dtmfMessageBody = DtmfInfoMessage(
         id: uuid.toString(),
         jsonrpc: "2.0",
-        method: "telnyx_rtc.info",
+        method: SocketMethod.INFO,
         params: infoParams);
 
     String jsonDtmfMessage = jsonEncode(dtmfMessageBody);
@@ -143,7 +144,7 @@ class Call {
 
     var modifyMessage = ModifyMessage(
         id: uuid.toString(),
-        method: "telnyx_rtc.modify",
+        method: SocketMethod.MODIFY,
         params: modifyParams,
         jsonrpc: "2.0");
 

@@ -49,7 +49,8 @@ class _LoginScreenState extends State<LoginScreen> {
           sipPasswordController.text,
           sipNameController.text,
           sipNumberController.text,
-          null);
+          null,
+          true);
       Provider.of<MainViewModel>(context, listen: false)
           .login(credentialConfig);
     });

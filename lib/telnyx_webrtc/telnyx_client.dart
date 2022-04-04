@@ -1,12 +1,13 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/telnyx_message.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
@@ -28,11 +29,29 @@ class TelnyxClient {
   late ReceivedMessage currentInvite;
   late Call call;
 
+  // Gateway registration variables
+  static const int RETRY_REGISTER_TIME = 3;
+  static const int RETRY_CONNECT_TIME = 3;
+  static const int GATEWAY_RESPONSE_DELAY = 3000;
+
+  late Timer _gatewayResponseTimer;
+  bool _autoReconnectLogin = true;
+  bool _waitingForReg = true;
+  int _registrationRetryCounter = 0;
+  int _connectRetryCounter = 0;
+  String _gatewayState = GatewayState.IDLE;
+
+  late String storedHostAddress;
+  late CredentialConfig storedCredentialConfig;
+
   bool isConnected() {
     return _connected;
   }
 
   void connect(String providedHostAddress) {
+    storedHostAddress = providedHostAddress;
+    _invalidateGatewayResponseTimer();
+    _resetGatewayCounters();
     logger.i('connect()');
     if (isConnected()) {
       logger.i('WebSocket $providedHostAddress is already connected');
@@ -65,6 +84,15 @@ class TelnyxClient {
     }
   }
 
+  void _reconnectToSocket() {
+    txSocket.close();
+    txSocket.connect(storedHostAddress);
+    // Delay to allow connection
+    Timer(const Duration(seconds: 1), () {
+      credentialLogin(storedCredentialConfig);
+    });
+  }
+
   Call createCall() {
     call = Call(txSocket, sessionId!);
     return call;
@@ -75,11 +103,13 @@ class TelnyxClient {
   }
 
   void credentialLogin(CredentialConfig config) {
+    storedCredentialConfig = config;
     var uuid = const Uuid();
     var user = config.sipUser;
     var password = config.sipPassword;
     var fcmToken = config.fcmToken;
     UserVariables? notificationParams;
+    _autoReconnectLogin = config.autoReconnect ?? true;
 
     if (defaultTargetPlatform == TargetPlatform.android) {
       notificationParams = UserVariables(
@@ -96,7 +126,7 @@ class TelnyxClient {
         userVariables: notificationParams);
     var loginMessage = LoginMessage(
         id: uuid.toString(),
-        method: "login",
+        method: SocketMethod.LOGIN,
         params: loginParams,
         jsonrpc: "2.0");
 
@@ -106,6 +136,8 @@ class TelnyxClient {
   }
 
   void disconnect() {
+    _invalidateGatewayResponseTimer();
+    _resetGatewayCounters();
     logger.i('disconnect()');
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
@@ -154,12 +186,31 @@ class TelnyxClient {
           switch (messageJson['method']) {
             case SocketMethod.CLIENT_READY:
               {
-                ReceivedMessage clientReadyMessage =
-                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                var message = TelnyxMessage(
-                    socketMethod: SocketMethod.CLIENT_READY,
-                    message: clientReadyMessage);
-                onSocketMessageReceived.call(message);
+                if (_gatewayState != GatewayState.REGED) {
+                  logger.i('Retrieving Gateway state...');
+                  if (_waitingForReg) {
+                    _requestGatewayStatus();
+                    _gatewayResponseTimer = Timer(
+                        const Duration(milliseconds: GATEWAY_RESPONSE_DELAY),
+                        () {
+                      if (_registrationRetryCounter < RETRY_REGISTER_TIME) {
+                        if (_waitingForReg) {
+                          _onMessage(messageJson);
+                        }
+                        _registrationRetryCounter++;
+                      } else {
+                        logger.i('GATEWAY REGISTRATION TIMEOUT');
+                      }
+                    });
+                  }
+                } else {
+                  ReceivedMessage clientReadyMessage =
+                      ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                  var message = TelnyxMessage(
+                      socketMethod: SocketMethod.CLIENT_READY,
+                      message: clientReadyMessage);
+                  onSocketMessageReceived.call(message);
+                }
                 break;
               }
             case SocketMethod.INVITE:
@@ -203,36 +254,64 @@ class TelnyxClient {
                 logger.i(
                     'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
                 switch (stateMessage.stateParams?.state) {
-                  case GatewayState.REGED: {
-                    logger.i('GATEWAY REGISTERED :: ${stateMessage.toString()}');
-                    onSocketMessageReceived.call(message);
-                    break;
-                  }
-                  case GatewayState.NOREG: {
-                    logger.i('GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
-                    onSocketMessageReceived.call(message);
-                    break;
-                  }
-                  case GatewayState.FAILED: {
-                    logger.i('GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}');
-                    onSocketMessageReceived.call(message);
-                    break;
-                  }
-                  case GatewayState.FAIL_WAIT: {
-                    logger.i('GATEWAY REGISTRATION FAILED :: Wait for Retry :: ${stateMessage.toString()}');
-                    //ToDo handle fail wait retry logic
-                    break;
-                  }
-                  case GatewayState.EXPIRED: {
-                    logger.i('GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
-                    onSocketMessageReceived.call(message);
-                    break;
-                  }
-                  default: {
-                    //ToDo invalidate and print error
-                    //invalidateGatewayResponseTimer()
-                    //socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
-                  }
+                  case GatewayState.REGED:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTERED :: ${stateMessage.toString()}');
+                      _invalidateGatewayResponseTimer();
+                      _gatewayState = GatewayState.REGED;
+                      _waitingForReg = false;
+                      onSocketMessageReceived.call(message);
+                      break;
+                    }
+                  case GatewayState.NOREG:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.NOREG;
+                      _invalidateGatewayResponseTimer();
+                      onSocketMessageReceived.call(message);
+                      break;
+                    }
+                  case GatewayState.FAILED:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.FAILED;
+                      _invalidateGatewayResponseTimer();
+                      onSocketMessageReceived.call(message);
+                      break;
+                    }
+                  case GatewayState.FAIL_WAIT:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION FAILED :: Wait for Retry :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.FAIL_WAIT;
+                      if (_autoReconnectLogin &&
+                          _connectRetryCounter < RETRY_CONNECT_TIME) {
+                        _connectRetryCounter++;
+                        _reconnectToSocket();
+                      } else {
+                        _invalidateGatewayResponseTimer();
+                        logger
+                            .i('GATEWAY REGISTRATION FAILED AFTER REATTEMPTS');
+                      }
+                      break;
+                    }
+                  case GatewayState.EXPIRED:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.EXPIRED;
+                      _invalidateGatewayResponseTimer();
+                      onSocketMessageReceived.call(message);
+                      break;
+                    }
+                  default:
+                    {
+                      _invalidateGatewayResponseTimer();
+                      logger.i('GATEWAY REGISTRATION FAILED');
+                    }
                 }
                 break;
               }
@@ -242,5 +321,30 @@ class TelnyxClient {
         logger.i('Received and ignored empty packet');
       }
     }
+  }
+
+  void _requestGatewayStatus() {
+    if (_waitingForReg) {
+      var uuid = const Uuid();
+      var gatewayRequestParams = GatewayRequestStateParams();
+      var gatewayRequestMessage = GatewayRequestMessage(
+          id: uuid.toString(),
+          method: SocketMethod.GATEWAY_STATE,
+          params: gatewayRequestParams,
+          jsonrpc: "2.0");
+
+      String jsonGatewayRequestMessage = jsonEncode(gatewayRequestMessage);
+
+      txSocket.send(jsonGatewayRequestMessage);
+    }
+  }
+
+  void _invalidateGatewayResponseTimer() {
+    _gatewayResponseTimer.cancel();
+  }
+
+  void _resetGatewayCounters() {
+    _registrationRetryCounter = 0;
+    _connectRetryCounter = 0;
   }
 }
