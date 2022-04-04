@@ -28,7 +28,7 @@ class TelnyxClient {
   TxSocket txSocket = TxSocket("wss://rtc.telnyx.com:443");
   bool _closed = false;
   bool _connected = false;
-  final logger = Logger();
+  final _logger = Logger();
 
   late String? sessionId;
   late ReceivedMessage currentInvite;
@@ -62,17 +62,17 @@ class TelnyxClient {
     storedHostAddress = providedHostAddress;
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
-    logger.i('connect()');
+    _logger.i('connect()');
     if (isConnected()) {
-      logger.i('WebSocket $providedHostAddress is already connected');
+      _logger.i('WebSocket $providedHostAddress is already connected');
       return;
     }
-    logger.i('connecting to WebSocket $providedHostAddress');
+    _logger.i('connecting to WebSocket $providedHostAddress');
     try {
       txSocket.onOpen = () {
         _closed = false;
         _connected = true;
-        logger.i('Web Socket is now connected');
+        _logger.i('Web Socket is now connected');
         _onOpen();
       };
 
@@ -81,16 +81,16 @@ class TelnyxClient {
       };
 
       txSocket.onClose = (int closeCode, String closeReason) {
-        logger.i('Closed [$closeCode, $closeReason]!');
+        _logger.i('Closed [$closeCode, $closeReason]!');
         _connected = false;
         _onClose(true, closeCode, closeReason);
       };
 
       txSocket.connect(providedHostAddress);
     } catch (e, s) {
-      logger.e(e.toString(), null, s);
+      _logger.e(e.toString(), null, s);
       _connected = false;
-      logger.e('WebSocket $providedHostAddress error: $e');
+      _logger.e('WebSocket $providedHostAddress error: $e');
     }
   }
 
@@ -181,7 +181,7 @@ class TelnyxClient {
   void disconnect() {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
-    logger.i('disconnect()');
+    _logger.i('disconnect()');
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
     _closed = true;
@@ -190,47 +190,47 @@ class TelnyxClient {
     try {
       txSocket.close();
     } catch (error) {
-      logger.e('close() | error closing the WebSocket: ' + error.toString());
+      _logger.e('close() | error closing the WebSocket: ' + error.toString());
     }
   }
 
   /// WebSocket Event Handlers
   void _onOpen() {
-    logger.i('WebSocket connected');
+    _logger.i('WebSocket connected');
   }
 
   void _onClose(bool wasClean, int code, String reason) {
-    logger.i('WebSocket closed');
+    _logger.i('WebSocket closed');
     if (wasClean == false) {
-      logger.i('WebSocket abrupt disconnection');
+      _logger.i('WebSocket abrupt disconnection');
     }
   }
 
   void _onMessage(dynamic data) {
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
-        logger.i('Received WebSocket message :: ${data.toString().trim()}');
+        _logger.i('Received WebSocket message :: ${data.toString().trim()}');
 
         //Login success
         if (data.toString().trim().contains("result")) {
           var paramJson = jsonEncode(data.toString());
-          logger
+          _logger
               .i('Received WebSocket message - Contains Result :: $paramJson');
           ResultMessage resultMessage =
               ResultMessage.fromJson(jsonDecode(data.toString()));
           sessionId = resultMessage.result?.sessid;
-          logger.i('Client Session ID Set :: $sessionId');
+          _logger.i('Client Session ID Set :: $sessionId');
         } else
         //Received Telnyx Method Message
         if (data.toString().trim().contains("method")) {
           var messageJson = jsonDecode(data.toString());
-          logger.i(
+          _logger.i(
               'Received WebSocket message - Contains Method :: $messageJson');
           switch (messageJson['method']) {
             case SocketMethod.CLIENT_READY:
               {
                 if (_gatewayState != GatewayState.REGED) {
-                  logger.i('Retrieving Gateway state...');
+                  _logger.i('Retrieving Gateway state...');
                   if (_waitingForReg) {
                     _requestGatewayStatus();
                     _gatewayResponseTimer = Timer(
@@ -242,7 +242,7 @@ class TelnyxClient {
                         }
                         _registrationRetryCounter++;
                       } else {
-                        logger.i('GATEWAY REGISTRATION TIMEOUT');
+                        _logger.i('GATEWAY REGISTRATION TIMEOUT');
                         var error = TelnyxSocketError(
                             errorCode:
                                 TelnyxErrorConstants.gatewayTimeoutErrorCode,
@@ -264,7 +264,7 @@ class TelnyxClient {
               }
             case SocketMethod.INVITE:
               {
-                logger.i('INCOMING INVITATION :: $messageJson');
+                _logger.i('INCOMING INVITATION :: $messageJson');
                 ReceivedMessage invite =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 currentInvite = invite;
@@ -275,7 +275,7 @@ class TelnyxClient {
               }
             case SocketMethod.ANSWER:
               {
-                logger.i('INVITATION ANSWERED :: $messageJson');
+                _logger.i('INVITATION ANSWERED :: $messageJson');
                 ReceivedMessage inviteAnswer =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 var message = TelnyxMessage(
@@ -285,7 +285,7 @@ class TelnyxClient {
               }
             case SocketMethod.BYE:
               {
-                logger.i('BYE RECEIVED :: $messageJson');
+                _logger.i('BYE RECEIVED :: $messageJson');
                 ReceivedMessage bye =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 var message =
@@ -300,12 +300,12 @@ class TelnyxClient {
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.GATEWAY_STATE,
                     message: stateMessage);
-                logger.i(
+                _logger.i(
                     'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
                 switch (stateMessage.stateParams?.state) {
                   case GatewayState.REGED:
                     {
-                      logger.i(
+                      _logger.i(
                           'GATEWAY REGISTERED :: ${stateMessage.toString()}');
                       _invalidateGatewayResponseTimer();
                       _gatewayState = GatewayState.REGED;
@@ -318,7 +318,7 @@ class TelnyxClient {
                     }
                   case GatewayState.NOREG:
                     {
-                      logger.i(
+                      _logger.i(
                           'GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.NOREG;
                       _invalidateGatewayResponseTimer();
@@ -327,7 +327,7 @@ class TelnyxClient {
                     }
                   case GatewayState.FAILED:
                     {
-                      logger.i(
+                      _logger.i(
                           'GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.FAILED;
                       _invalidateGatewayResponseTimer();
@@ -341,7 +341,7 @@ class TelnyxClient {
                     }
                   case GatewayState.FAIL_WAIT:
                     {
-                      logger.i(
+                      _logger.i(
                           'GATEWAY REGISTRATION FAILED :: Wait for Retry :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.FAIL_WAIT;
                       if (_autoReconnectLogin &&
@@ -350,7 +350,7 @@ class TelnyxClient {
                         _reconnectToSocket();
                       } else {
                         _invalidateGatewayResponseTimer();
-                        logger
+                        _logger
                             .i('GATEWAY REGISTRATION FAILED AFTER REATTEMPTS');
                         var error = TelnyxSocketError(
                             errorCode:
@@ -363,7 +363,7 @@ class TelnyxClient {
                     }
                   case GatewayState.EXPIRED:
                     {
-                      logger.i(
+                      _logger.i(
                           'GATEWAY REGISTRATION EXPIRED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.EXPIRED;
                       _invalidateGatewayResponseTimer();
@@ -377,27 +377,27 @@ class TelnyxClient {
                     }
                   case GatewayState.UNREGED:
                     {
-                      logger.i('GATEWAY UNREGED :: ${stateMessage.toString()}');
+                      _logger.i('GATEWAY UNREGED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.UNREGED;
                       break;
                     }
                   case GatewayState.TRYING:
                     {
-                      logger.i(
+                      _logger.i(
                           'GATEWAY REGISTRATION TRYING :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.TRYING;
                       break;
                     }
                   case GatewayState.REGISTER:
                     {
-                      logger.i(
+                      _logger.i(
                           'GATEWAY REGISTERING :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.REGISTER;
                       break;
                     }
                   case GatewayState.UNREGISTER:
                     {
-                      logger.i(
+                      _logger.i(
                           'GATEWAY UNREGISTERED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.UNREGISTER;
                       break;
@@ -405,7 +405,7 @@ class TelnyxClient {
                   default:
                     {
                       _invalidateGatewayResponseTimer();
-                      logger.i('GATEWAY REGISTRATION FAILED');
+                      _logger.i('GATEWAY REGISTRATION FAILED');
                     }
                 }
                 break;
@@ -413,7 +413,7 @@ class TelnyxClient {
           }
         }
       } else {
-        logger.i('Received and ignored empty packet');
+        _logger.i('Received and ignored empty packet');
       }
     }
   }

@@ -12,7 +12,7 @@ class TxSocket {
   }
 
   String hostAddress;
-  final logger = Logger();
+  final _logger = Logger();
 
   late WebSocket _socket;
   late OnOpenCallback onOpen;
@@ -41,9 +41,9 @@ class TxSocket {
   send(data) {
     if (_socket.readyState == WebSocket.OPEN) {
       _socket.send(data);
-      logger.i('TxSocket :: send : \n\n$data');
+      _logger.i('TxSocket :: send : \n\n$data');
     } else {
-      logger.i('WebSocket not connected, message $data not sent');
+      _logger.i('WebSocket not connected, message $data not sent');
     }
   }
 

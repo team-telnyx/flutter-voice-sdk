@@ -39,7 +39,7 @@ class Session {
 class Peer {
   Peer(this._socket);
 
-  final logger = Logger();
+  final _logger = Logger();
 
   final String _selfId = randomNumeric(6);
 
@@ -171,7 +171,7 @@ class Peer {
         _send(jsonInviteMessage);
       });
     } catch (e) {
-      logger.e("Peer :: " + e.toString());
+      _logger.e("Peer :: " + e.toString());
     }
   }
 
@@ -203,7 +203,7 @@ class Peer {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session != null) {
           if (session.peerConnection != null) {
-            logger.i("Peer :: Add Ice Candidate!");
+            _logger.i("Peer :: Add Ice Candidate!");
             await session.peerConnection?.addCandidate(candidate);
           } else {
             session.remoteCandidates.add(candidate);
@@ -251,7 +251,7 @@ class Peer {
         _send(jsonAnswerMessage);
       });
     } catch (e) {
-      logger.e("Peer :: " + e.toString());
+      _logger.e("Peer :: " + e.toString());
     }
   }
 
@@ -312,13 +312,13 @@ class Peer {
     peerConnection.onIceCandidate = (candidate) async {
       peerConnection.addCandidate(candidate);
       if (candidate == null) {
-        logger.i("Peer :: onIceCandidate: complete!");
+        _logger.i("Peer :: onIceCandidate: complete!");
         return;
       }
     };
 
     peerConnection.onIceConnectionState = (state) {
-      logger.i("Peer :: ICE Connection State change :: $state");
+      _logger.i("Peer :: ICE Connection State change :: $state");
     };
 
     peerConnection.onRemoveStream = (stream) {

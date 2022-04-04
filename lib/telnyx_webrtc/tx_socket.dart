@@ -9,7 +9,7 @@ class TxSocket {
   TxSocket(this.hostAddress);
 
   final String hostAddress;
-  final logger = Logger();
+  final _logger = Logger();
 
   late WebSocket _socket;
   late OnOpenCallback onOpen;
@@ -32,7 +32,7 @@ class TxSocket {
 
   void send(dynamic data) {
     _socket.add(data);
-    logger.i('TxSocket :: send : \n\n$data');
+    _logger.i('TxSocket :: send : \n\n$data');
   }
 
   void close() {
