@@ -17,10 +17,7 @@ class CallScreen extends StatefulWidget {
 
 class _CallScreenState extends State<CallScreen> {
   final logger = Logger();
-  TextEditingController sipUserController = TextEditingController();
-  TextEditingController sipPasswordController = TextEditingController();
-  TextEditingController sipNameController = TextEditingController();
-  TextEditingController sipNumberController = TextEditingController();
+  TextEditingController callInputController = TextEditingController();
 
   @override
   initState() {
@@ -37,11 +34,10 @@ class _CallScreenState extends State<CallScreen> {
       body: Center(
           child: Column(
         children: [
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(widget.call?.sessionDestinationNumber ?? "Unknown Caller"),
           const SizedBox(height: 8),
           DialPad(
-            outputMask: "",
             backspaceButtonIconColor: Colors.red,
             dialButtonColor: Colors.red,
             makeCall: (number) {
@@ -49,6 +45,8 @@ class _CallScreenState extends State<CallScreen> {
               Provider.of<MainViewModel>(context, listen: false).endCall();
             },
             keyPressed: (number) {
+              callInputController.text =
+                  callInputController.value.text + number;
               Provider.of<MainViewModel>(context, listen: false).dtmf(number);
             },
           ),
