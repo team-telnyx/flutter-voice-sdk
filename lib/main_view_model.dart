@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
@@ -29,7 +30,7 @@ class MainViewModel with ChangeNotifier {
   }
 
   Call get currentCall {
-      return _telnyxClient.call;
+    return _telnyxClient.call;
   }
 
   IncomingInviteParams? get incomingInvitation {
@@ -37,6 +38,7 @@ class MainViewModel with ChangeNotifier {
   }
 
   void observeResponses() {
+    // Observe Socket Messages Received
     _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
       switch (message.socketMethod) {
         case SocketMethod.CLIENT_READY:
@@ -59,6 +61,33 @@ class MainViewModel with ChangeNotifier {
           {
             _ongoingInvitation = false;
             _ongoingCall = false;
+            break;
+          }
+      }
+      notifyListeners();
+    };
+
+    // Observe Socket Error Messages
+    _telnyxClient.onSocketErrorReceived = (TelnyxSocketError error) {
+      switch (error.errorCode) {
+        case -32000:
+          {
+            //Todo handle token error
+            break;
+          }
+        case -32001:
+          {
+            //Todo handle credential error
+            break;
+          }
+        case -32003:
+          {
+            //Todo handle gateway timeout error
+            break;
+          }
+        case -32004:
+          {
+            //ToDo hande gateway failure error
             break;
           }
       }
