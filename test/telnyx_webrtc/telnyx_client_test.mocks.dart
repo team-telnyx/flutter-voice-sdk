@@ -2,18 +2,17 @@
 // in telnyx_flutter_webrtc/test/telnyx_webrtc/telnyx_client_test.dart.
 // Do not manually edit this file.
 
-import 'package:logger/logger.dart' as _i3;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart' as _i5;
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart' as _i4;
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart'
-    as _i9;
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_message.dart'
-    as _i7;
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_socket_error.dart'
     as _i8;
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_message.dart'
+    as _i6;
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_socket_error.dart'
+    as _i7;
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart'
-    as _i4;
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart' as _i6;
+    as _i3;
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart' as _i5;
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart' as _i2;
 
 // ignore_for_file: type=lint
@@ -28,39 +27,37 @@ import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart' as _i2;
 
 class _FakeTxSocket_0 extends _i1.Fake implements _i2.TxSocket {}
 
-class _FakeLogger_1 extends _i1.Fake implements _i3.Logger {}
+class _FakeReceivedMessage_1 extends _i1.Fake implements _i3.ReceivedMessage {}
 
-class _FakeReceivedMessage_2 extends _i1.Fake implements _i4.ReceivedMessage {}
-
-class _FakeCall_3 extends _i1.Fake implements _i5.Call {}
+class _FakeCall_2 extends _i1.Fake implements _i4.Call {}
 
 /// A class which mocks [TelnyxClient].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockTelnyxClient extends _i1.Mock implements _i6.TelnyxClient {
+class MockTelnyxClient extends _i1.Mock implements _i5.TelnyxClient {
   MockTelnyxClient() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i6.OnSocketMessageReceived get onSocketMessageReceived =>
+  _i5.OnSocketMessageReceived get onSocketMessageReceived =>
       (super.noSuchMethod(Invocation.getter(#onSocketMessageReceived),
-              returnValue: (_i7.TelnyxMessage message) {})
-          as _i6.OnSocketMessageReceived);
+              returnValue: (_i6.TelnyxMessage message) {})
+          as _i5.OnSocketMessageReceived);
   @override
   set onSocketMessageReceived(
-          _i6.OnSocketMessageReceived? _onSocketMessageReceived) =>
+          _i5.OnSocketMessageReceived? _onSocketMessageReceived) =>
       super.noSuchMethod(
           Invocation.setter(#onSocketMessageReceived, _onSocketMessageReceived),
           returnValueForMissingStub: null);
   @override
-  _i6.OnSocketErrorReceived get onSocketErrorReceived =>
+  _i5.OnSocketErrorReceived get onSocketErrorReceived =>
       (super.noSuchMethod(Invocation.getter(#onSocketErrorReceived),
-              returnValue: (_i8.TelnyxSocketError message) {})
-          as _i6.OnSocketErrorReceived);
+              returnValue: (_i7.TelnyxSocketError message) {})
+          as _i5.OnSocketErrorReceived);
   @override
   set onSocketErrorReceived(
-          _i6.OnSocketErrorReceived? _onSocketErrorReceived) =>
+          _i5.OnSocketErrorReceived? _onSocketErrorReceived) =>
       super.noSuchMethod(
           Invocation.setter(#onSocketErrorReceived, _onSocketErrorReceived),
           returnValueForMissingStub: null);
@@ -72,26 +69,23 @@ class MockTelnyxClient extends _i1.Mock implements _i6.TelnyxClient {
       super.noSuchMethod(Invocation.setter(#txSocket, _txSocket),
           returnValueForMissingStub: null);
   @override
-  _i3.Logger get _logger => (super.noSuchMethod(Invocation.getter(#logger),
-      returnValue: _FakeLogger_1()) as _i3.Logger);
-  @override
   set sessionId(String? _sessionId) =>
       super.noSuchMethod(Invocation.setter(#sessionId, _sessionId),
           returnValueForMissingStub: null);
   @override
-  _i4.ReceivedMessage get currentInvite =>
+  _i3.ReceivedMessage get currentInvite =>
       (super.noSuchMethod(Invocation.getter(#currentInvite),
-          returnValue: _FakeReceivedMessage_2()) as _i4.ReceivedMessage);
+          returnValue: _FakeReceivedMessage_1()) as _i3.ReceivedMessage);
   @override
-  set currentInvite(_i4.ReceivedMessage? _currentInvite) =>
+  set currentInvite(_i3.ReceivedMessage? _currentInvite) =>
       super.noSuchMethod(Invocation.setter(#currentInvite, _currentInvite),
           returnValueForMissingStub: null);
   @override
-  _i5.Call get call =>
-      (super.noSuchMethod(Invocation.getter(#call), returnValue: _FakeCall_3())
-          as _i5.Call);
+  _i4.Call get call =>
+      (super.noSuchMethod(Invocation.getter(#call), returnValue: _FakeCall_2())
+          as _i4.Call);
   @override
-  set call(_i5.Call? _call) =>
+  set call(_i4.Call? _call) =>
       super.noSuchMethod(Invocation.setter(#call, _call),
           returnValueForMissingStub: null);
   @override
@@ -103,12 +97,12 @@ class MockTelnyxClient extends _i1.Mock implements _i6.TelnyxClient {
       Invocation.setter(#storedHostAddress, _storedHostAddress),
       returnValueForMissingStub: null);
   @override
-  set storedCredentialConfig(_i9.CredentialConfig? _storedCredentialConfig) =>
+  set storedCredentialConfig(_i8.CredentialConfig? _storedCredentialConfig) =>
       super.noSuchMethod(
           Invocation.setter(#storedCredentialConfig, _storedCredentialConfig),
           returnValueForMissingStub: null);
   @override
-  set storedTokenConfig(_i9.TokenConfig? _storedTokenConfig) => super
+  set storedTokenConfig(_i8.TokenConfig? _storedTokenConfig) => super
       .noSuchMethod(Invocation.setter(#storedTokenConfig, _storedTokenConfig),
           returnValueForMissingStub: null);
   @override
@@ -123,19 +117,19 @@ class MockTelnyxClient extends _i1.Mock implements _i6.TelnyxClient {
       super.noSuchMethod(Invocation.method(#connect, [providedHostAddress]),
           returnValueForMissingStub: null);
   @override
-  _i5.Call createCall() =>
+  _i4.Call createCall() =>
       (super.noSuchMethod(Invocation.method(#createCall, []),
-          returnValue: _FakeCall_3()) as _i5.Call);
+          returnValue: _FakeCall_2()) as _i4.Call);
   @override
-  _i4.ReceivedMessage getInvite() =>
+  _i3.ReceivedMessage getInvite() =>
       (super.noSuchMethod(Invocation.method(#getInvite, []),
-          returnValue: _FakeReceivedMessage_2()) as _i4.ReceivedMessage);
+          returnValue: _FakeReceivedMessage_1()) as _i3.ReceivedMessage);
   @override
-  void credentialLogin(_i9.CredentialConfig? config) =>
+  void credentialLogin(_i8.CredentialConfig? config) =>
       super.noSuchMethod(Invocation.method(#credentialLogin, [config]),
           returnValueForMissingStub: null);
   @override
-  void tokenLogin(_i9.TokenConfig? config) =>
+  void tokenLogin(_i8.TokenConfig? config) =>
       super.noSuchMethod(Invocation.method(#tokenLogin, [config]),
           returnValueForMissingStub: null);
   @override
