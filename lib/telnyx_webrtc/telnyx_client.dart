@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
@@ -201,9 +202,37 @@ class TelnyxClient {
                     message: stateMessage);
                 logger.i(
                     'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
-                if (stateMessage.stateParams?.state == "REGED") {
-                  logger.i('REGISTERED :: ${stateMessage.toString()}');
-                  onSocketMessageReceived.call(message);
+                switch (stateMessage.stateParams?.state) {
+                  case GatewayState.REGED: {
+                    logger.i('GATEWAY REGISTERED :: ${stateMessage.toString()}');
+                    onSocketMessageReceived.call(message);
+                    break;
+                  }
+                  case GatewayState.NOREG: {
+                    logger.i('GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
+                    onSocketMessageReceived.call(message);
+                    break;
+                  }
+                  case GatewayState.FAILED: {
+                    logger.i('GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}');
+                    onSocketMessageReceived.call(message);
+                    break;
+                  }
+                  case GatewayState.FAIL_WAIT: {
+                    logger.i('GATEWAY REGISTRATION FAILED :: Wait for Retry :: ${stateMessage.toString()}');
+                    //ToDo handle fail wait retry logic
+                    break;
+                  }
+                  case GatewayState.EXPIRED: {
+                    logger.i('GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
+                    onSocketMessageReceived.call(message);
+                    break;
+                  }
+                  default: {
+                    //ToDo invalidate and print error
+                    //invalidateGatewayResponseTimer()
+                    //socketResponseLiveData.postValue(SocketResponse.error("Gateway registration has failed with an unknown error"))
+                  }
                 }
                 break;
               }
