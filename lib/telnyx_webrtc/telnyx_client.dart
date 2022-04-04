@@ -1,20 +1,29 @@
+// ignore_for_file: constant_identifier_names
+
+import 'dart:async';
 import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/incoming_invitation_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/invite_message_body.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_message.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
+    if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart';
 
-typedef OnSocketMessageReceived = void Function(String method);
+typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
+typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
 class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
+  late OnSocketErrorReceived onSocketErrorReceived;
 
   TxSocket txSocket = TxSocket("wss://rtc.telnyx.com:443");
   bool _closed = false;
@@ -22,13 +31,36 @@ class TelnyxClient {
   final logger = Logger();
 
   late String? sessionId;
-  late IncomingInvitation currentInvite;
+  late ReceivedMessage currentInvite;
+  late Call call;
+
+  // Gateway registration variables
+  static const int RETRY_REGISTER_TIME = 3;
+  static const int RETRY_CONNECT_TIME = 3;
+  static const int GATEWAY_RESPONSE_DELAY = 3000;
+
+  Timer? _gatewayResponseTimer;
+  bool _autoReconnectLogin = true;
+  bool _waitingForReg = true;
+  int _registrationRetryCounter = 0;
+  int _connectRetryCounter = 0;
+  String _gatewayState = GatewayState.IDLE;
+
+  late String storedHostAddress;
+  late CredentialConfig storedCredentialConfig;
 
   bool isConnected() {
     return _connected;
   }
 
+  String getGatewayStatus() {
+    return _gatewayState;
+  }
+
   void connect(String providedHostAddress) {
+    storedHostAddress = providedHostAddress;
+    _invalidateGatewayResponseTimer();
+    _resetGatewayCounters();
     logger.i('connect()');
     if (isConnected()) {
       logger.i('WebSocket $providedHostAddress is already connected');
@@ -61,24 +93,40 @@ class TelnyxClient {
     }
   }
 
-  Call createCall() {
-    return Call(txSocket, this, sessionId!);
+  void _reconnectToSocket() {
+    txSocket.close();
+    txSocket.connect(storedHostAddress);
+    // Delay to allow connection
+    Timer(const Duration(seconds: 1), () {
+      credentialLogin(storedCredentialConfig);
+    });
   }
 
-  IncomingInvitation getInvite() {
+  Call createCall() {
+    call = Call(txSocket, sessionId!);
+    return call;
+  }
+
+  ReceivedMessage getInvite() {
     return currentInvite;
   }
 
   void credentialLogin(CredentialConfig config) {
+    storedCredentialConfig = config;
     var uuid = const Uuid();
     var user = config.sipUser;
     var password = config.sipPassword;
-    //var fcmToken = config.fcmToken;
+    var fcmToken = config.fcmToken;
+    UserVariables? notificationParams;
+    _autoReconnectLogin = config.autoReconnect ?? true;
 
-    var notificationParams = UserVariables(
-        pushDeviceToken:
-            "fJeOHNkMTO6_6b-C4tnlBU:APA91bGJHEVNDR5JHfX7JShwF0sRRgppfexzYvJgm1qZWK4Wm3xd5N0sId8sZ6LKUjsP8DDXabBLKTg_RLeWDOclqz0drx3c4d35TRdxP4eCzkh6kgKJIxJP495C6BuXWKTWqcSu3Gsp",
-        pushNotificationProvider: "android");
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      notificationParams = UserVariables(
+          pushDeviceToken: fcmToken, pushNotificationProvider: "android");
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      notificationParams = UserVariables(
+          pushDeviceToken: fcmToken, pushNotificationProvider: "ios");
+    }
 
     var loginParams = LoginParams(
         login: user,
@@ -87,7 +135,7 @@ class TelnyxClient {
         userVariables: notificationParams);
     var loginMessage = LoginMessage(
         id: uuid.toString(),
-        method: "login",
+        method: SocketMethod.LOGIN,
         params: loginParams,
         jsonrpc: "2.0");
 
@@ -97,6 +145,8 @@ class TelnyxClient {
   }
 
   void disconnect() {
+    _invalidateGatewayResponseTimer();
+    _resetGatewayCounters();
     logger.i('disconnect()');
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
@@ -145,39 +195,184 @@ class TelnyxClient {
           switch (messageJson['method']) {
             case SocketMethod.CLIENT_READY:
               {
-                ReceivedMessage clientReadyMessage =
-                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                onSocketMessageReceived.call(SocketMethod.CLIENT_READY);
+                if (_gatewayState != GatewayState.REGED) {
+                  logger.i('Retrieving Gateway state...');
+                  if (_waitingForReg) {
+                    _requestGatewayStatus();
+                    _gatewayResponseTimer = Timer(
+                        const Duration(milliseconds: GATEWAY_RESPONSE_DELAY),
+                        () {
+                      if (_registrationRetryCounter < RETRY_REGISTER_TIME) {
+                        if (_waitingForReg) {
+                          _onMessage(data);
+                        }
+                        _registrationRetryCounter++;
+                      } else {
+                        logger.i('GATEWAY REGISTRATION TIMEOUT');
+                        var error = TelnyxSocketError(
+                            errorCode:
+                                TelnyxErrorConstants.gatewayTimeoutErrorCode,
+                            errorMessage:
+                                TelnyxErrorConstants.gatewayTimeoutError);
+                        onSocketErrorReceived(error);
+                      }
+                    });
+                  }
+                } else {
+                  ReceivedMessage clientReadyMessage =
+                      ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                  var message = TelnyxMessage(
+                      socketMethod: SocketMethod.CLIENT_READY,
+                      message: clientReadyMessage);
+                  onSocketMessageReceived.call(message);
+                }
                 break;
               }
             case SocketMethod.INVITE:
               {
                 logger.i('INCOMING INVITATION :: $messageJson');
-                IncomingInvitation invite =
-                    IncomingInvitation.fromJson(jsonDecode(data.toString()));
+                ReceivedMessage invite =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 currentInvite = invite;
-                onSocketMessageReceived.call(SocketMethod.INVITE);
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.INVITE, message: invite);
+                onSocketMessageReceived.call(message);
                 break;
               }
             case SocketMethod.ANSWER:
               {
                 logger.i('INVITATION ANSWERED :: $messageJson');
+                ReceivedMessage inviteAnswer =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.ANSWER, message: inviteAnswer);
+                onSocketMessageReceived.call(message);
                 break;
               }
             case SocketMethod.BYE:
               {
-                onSocketMessageReceived(SocketMethod.BYE);
+                logger.i('BYE RECEIVED :: $messageJson');
+                ReceivedMessage bye =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                var message =
+                    TelnyxMessage(socketMethod: SocketMethod.BYE, message: bye);
+                onSocketMessageReceived(message);
                 break;
               }
             case SocketMethod.GATEWAY_STATE:
               {
                 ReceivedMessage stateMessage =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.GATEWAY_STATE,
+                    message: stateMessage);
                 logger.i(
                     'Received WebSocket message - Contains State  :: ${stateMessage.toString()}');
-                if (stateMessage.stateParams?.state == "REGED") {
-                  logger.i('REGISTERED :: ${stateMessage.toString()}');
-                  onSocketMessageReceived.call(SocketMethod.GATEWAY_STATE);
+                switch (stateMessage.stateParams?.state) {
+                  case GatewayState.REGED:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTERED :: ${stateMessage.toString()}');
+                      _invalidateGatewayResponseTimer();
+                      _gatewayState = GatewayState.REGED;
+                      _waitingForReg = false;
+                      var message = TelnyxMessage(
+                          socketMethod: SocketMethod.CLIENT_READY,
+                          message: stateMessage);
+                      onSocketMessageReceived.call(message);
+                      break;
+                    }
+                  case GatewayState.NOREG:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.NOREG;
+                      _invalidateGatewayResponseTimer();
+                      onSocketMessageReceived.call(message);
+                      break;
+                    }
+                  case GatewayState.FAILED:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.FAILED;
+                      _invalidateGatewayResponseTimer();
+                      var error = TelnyxSocketError(
+                          errorCode:
+                              TelnyxErrorConstants.gatewayFailedErrorCode,
+                          errorMessage:
+                              TelnyxErrorConstants.gatewayFailedError);
+                      onSocketErrorReceived(error);
+                      break;
+                    }
+                  case GatewayState.FAIL_WAIT:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION FAILED :: Wait for Retry :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.FAIL_WAIT;
+                      if (_autoReconnectLogin &&
+                          _connectRetryCounter < RETRY_CONNECT_TIME) {
+                        _connectRetryCounter++;
+                        _reconnectToSocket();
+                      } else {
+                        _invalidateGatewayResponseTimer();
+                        logger
+                            .i('GATEWAY REGISTRATION FAILED AFTER REATTEMPTS');
+                        var error = TelnyxSocketError(
+                            errorCode:
+                                TelnyxErrorConstants.gatewayFailedErrorCode,
+                            errorMessage:
+                                TelnyxErrorConstants.gatewayFailedError);
+                        onSocketErrorReceived(error);
+                      }
+                      break;
+                    }
+                  case GatewayState.EXPIRED:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION EXPIRED :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.EXPIRED;
+                      _invalidateGatewayResponseTimer();
+                      var error = TelnyxSocketError(
+                          errorCode:
+                              TelnyxErrorConstants.gatewayTimeoutErrorCode,
+                          errorMessage:
+                              TelnyxErrorConstants.gatewayTimeoutError);
+                      onSocketErrorReceived(error);
+                      break;
+                    }
+                  case GatewayState.UNREGED:
+                    {
+                      logger.i('GATEWAY UNREGED :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.UNREGED;
+                      break;
+                    }
+                  case GatewayState.TRYING:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION TRYING :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.TRYING;
+                      break;
+                    }
+                  case GatewayState.REGISTER:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTERING :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.REGISTER;
+                      break;
+                    }
+                  case GatewayState.UNREGISTER:
+                    {
+                      logger.i(
+                          'GATEWAY UNREGISTERED :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.UNREGISTER;
+                      break;
+                    }
+                  default:
+                    {
+                      _invalidateGatewayResponseTimer();
+                      logger.i('GATEWAY REGISTRATION FAILED');
+                    }
                 }
                 break;
               }
@@ -187,5 +382,30 @@ class TelnyxClient {
         logger.i('Received and ignored empty packet');
       }
     }
+  }
+
+  void _requestGatewayStatus() {
+    if (_waitingForReg) {
+      var uuid = const Uuid();
+      var gatewayRequestParams = GatewayRequestStateParams();
+      var gatewayRequestMessage = GatewayRequestMessage(
+          id: uuid.toString(),
+          method: SocketMethod.GATEWAY_STATE,
+          params: gatewayRequestParams,
+          jsonrpc: "2.0");
+
+      String jsonGatewayRequestMessage = jsonEncode(gatewayRequestMessage);
+
+      txSocket.send(jsonGatewayRequestMessage);
+    }
+  }
+
+  void _invalidateGatewayResponseTimer() {
+    _gatewayResponseTimer?.cancel();
+  }
+
+  void _resetGatewayCounters() {
+    _registrationRetryCounter = 0;
+    _connectRetryCounter = 0;
   }
 }

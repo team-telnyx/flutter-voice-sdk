@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
+import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/invitation_widget.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -16,9 +17,19 @@ class _HomeScreenState extends State<HomeScreen> {
   final logger = Logger();
   TextEditingController destinationController = TextEditingController();
 
+  bool invitation = false;
+  bool ongoingCall = false;
+
   @override
   void initState() {
     super.initState();
+  }
+
+  void _observeResponses() {
+    Provider.of<MainViewModel>(context, listen: true).observeResponses();
+    invitation =
+        Provider.of<MainViewModel>(context, listen: true).ongoingInvitation;
+    ongoingCall = Provider.of<MainViewModel>(context, listen: true).ongoingCall;
   }
 
   void _callDestination() {
@@ -29,11 +40,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Provider.of<MainViewModel>(context, listen: true).observeResponses();
-    bool invitation =
-        Provider.of<MainViewModel>(context, listen: true).ongoingInvitation;
+    _observeResponses();
     if (invitation) {
-      return const InvitationWidget(title: 'Home');
+      return InvitationWidget(title: 'Home', invitation: Provider.of<MainViewModel>(context, listen: false).incomingInvitation);
+    } else if (ongoingCall) {
+      return CallScreen(
+          title: "Ongoing Call",
+          call: Provider.of<MainViewModel>(context, listen: false).currentCall);
     } else {
       return Scaffold(
         appBar: AppBar(
