@@ -3,7 +3,7 @@ import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/telnyx_message.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
 import 'package:logger/logger.dart';
 

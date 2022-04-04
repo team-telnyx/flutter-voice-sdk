@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'dart:async';
 import 'dart:convert';
 import 'package:logger/logger.dart';
@@ -5,20 +7,23 @@ import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/login_result_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/send/login_message_body.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/telnyx_message.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
+typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
 class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
+  late OnSocketErrorReceived onSocketErrorReceived;
 
   TxSocket txSocket = TxSocket("wss://rtc.telnyx.com:443");
   bool _closed = false;
@@ -34,7 +39,7 @@ class TelnyxClient {
   static const int RETRY_CONNECT_TIME = 3;
   static const int GATEWAY_RESPONSE_DELAY = 3000;
 
-  late Timer _gatewayResponseTimer;
+  Timer? _gatewayResponseTimer;
   bool _autoReconnectLogin = true;
   bool _waitingForReg = true;
   int _registrationRetryCounter = 0;
@@ -46,6 +51,10 @@ class TelnyxClient {
 
   bool isConnected() {
     return _connected;
+  }
+
+  String getGatewayStatus() {
+    return _gatewayState;
   }
 
   void connect(String providedHostAddress) {
@@ -195,11 +204,17 @@ class TelnyxClient {
                         () {
                       if (_registrationRetryCounter < RETRY_REGISTER_TIME) {
                         if (_waitingForReg) {
-                          _onMessage(messageJson);
+                          _onMessage(data);
                         }
                         _registrationRetryCounter++;
                       } else {
                         logger.i('GATEWAY REGISTRATION TIMEOUT');
+                        var error = TelnyxSocketError(
+                            errorCode:
+                                TelnyxErrorConstants.gatewayTimeoutErrorCode,
+                            errorMessage:
+                                TelnyxErrorConstants.gatewayTimeoutError);
+                        onSocketErrorReceived(error);
                       }
                     });
                   }
@@ -261,6 +276,9 @@ class TelnyxClient {
                       _invalidateGatewayResponseTimer();
                       _gatewayState = GatewayState.REGED;
                       _waitingForReg = false;
+                      var message = TelnyxMessage(
+                          socketMethod: SocketMethod.CLIENT_READY,
+                          message: stateMessage);
                       onSocketMessageReceived.call(message);
                       break;
                     }
@@ -279,7 +297,12 @@ class TelnyxClient {
                           'GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.FAILED;
                       _invalidateGatewayResponseTimer();
-                      onSocketMessageReceived.call(message);
+                      var error = TelnyxSocketError(
+                          errorCode:
+                              TelnyxErrorConstants.gatewayFailedErrorCode,
+                          errorMessage:
+                              TelnyxErrorConstants.gatewayFailedError);
+                      onSocketErrorReceived(error);
                       break;
                     }
                   case GatewayState.FAIL_WAIT:
@@ -295,16 +318,54 @@ class TelnyxClient {
                         _invalidateGatewayResponseTimer();
                         logger
                             .i('GATEWAY REGISTRATION FAILED AFTER REATTEMPTS');
+                        var error = TelnyxSocketError(
+                            errorCode:
+                                TelnyxErrorConstants.gatewayFailedErrorCode,
+                            errorMessage:
+                                TelnyxErrorConstants.gatewayFailedError);
+                        onSocketErrorReceived(error);
                       }
                       break;
                     }
                   case GatewayState.EXPIRED:
                     {
                       logger.i(
-                          'GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
+                          'GATEWAY REGISTRATION EXPIRED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.EXPIRED;
                       _invalidateGatewayResponseTimer();
-                      onSocketMessageReceived.call(message);
+                      var error = TelnyxSocketError(
+                          errorCode:
+                              TelnyxErrorConstants.gatewayTimeoutErrorCode,
+                          errorMessage:
+                              TelnyxErrorConstants.gatewayTimeoutError);
+                      onSocketErrorReceived(error);
+                      break;
+                    }
+                  case GatewayState.UNREGED:
+                    {
+                      logger.i('GATEWAY UNREGED :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.UNREGED;
+                      break;
+                    }
+                  case GatewayState.TRYING:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTRATION TRYING :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.TRYING;
+                      break;
+                    }
+                  case GatewayState.REGISTER:
+                    {
+                      logger.i(
+                          'GATEWAY REGISTERING :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.REGISTER;
+                      break;
+                    }
+                  case GatewayState.UNREGISTER:
+                    {
+                      logger.i(
+                          'GATEWAY UNREGISTERED :: ${stateMessage.toString()}');
+                      _gatewayState = GatewayState.UNREGISTER;
                       break;
                     }
                   default:
@@ -340,7 +401,7 @@ class TelnyxClient {
   }
 
   void _invalidateGatewayResponseTimer() {
-    _gatewayResponseTimer.cancel();
+    _gatewayResponseTimer?.cancel();
   }
 
   void _resetGatewayCounters() {
