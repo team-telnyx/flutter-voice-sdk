@@ -47,7 +47,8 @@ class TelnyxClient {
   String _gatewayState = GatewayState.IDLE;
 
   late String storedHostAddress;
-  late CredentialConfig storedCredentialConfig;
+  CredentialConfig? storedCredentialConfig;
+  TokenConfig? storedTokenConfig;
 
   bool isConnected() {
     return _connected;
@@ -98,7 +99,11 @@ class TelnyxClient {
     txSocket.connect(storedHostAddress);
     // Delay to allow connection
     Timer(const Duration(seconds: 1), () {
-      credentialLogin(storedCredentialConfig);
+      if (storedCredentialConfig != null) {
+        credentialLogin(storedCredentialConfig!);
+      } else if (storedTokenConfig != null) {
+        tokenLogin(storedTokenConfig!);
+      }
     });
   }
 
@@ -133,6 +138,35 @@ class TelnyxClient {
         passwd: password,
         loginParams: [],
         userVariables: notificationParams);
+    var loginMessage = LoginMessage(
+        id: uuid.toString(),
+        method: SocketMethod.LOGIN,
+        params: loginParams,
+        jsonrpc: "2.0");
+
+    String jsonLoginMessage = jsonEncode(loginMessage);
+
+    txSocket.send(jsonLoginMessage);
+  }
+
+  void tokenLogin(TokenConfig config) {
+    storedTokenConfig = config;
+    var uuid = const Uuid();
+    var token = config.sipToken;
+    var fcmToken = config.fcmToken;
+    UserVariables? notificationParams;
+    _autoReconnectLogin = config.autoReconnect ?? true;
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      notificationParams = UserVariables(
+          pushDeviceToken: fcmToken, pushNotificationProvider: "android");
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      notificationParams = UserVariables(
+          pushDeviceToken: fcmToken, pushNotificationProvider: "ios");
+    }
+
+    var loginParams = LoginParams(
+        loginToken: token, loginParams: [], userVariables: notificationParams);
     var loginMessage = LoginMessage(
         id: uuid.toString(),
         method: SocketMethod.LOGIN,
