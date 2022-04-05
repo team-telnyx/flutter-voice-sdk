@@ -50,8 +50,4 @@ class TxSocket {
   close() {
     _socket.close();
   }
-
-  bool isConnecting() {
-    return _socket.readyState == WebSocket.CONNECTING;
-  }
 }

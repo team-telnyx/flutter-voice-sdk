@@ -17,17 +17,18 @@ class TxSocket {
   late OnCloseCallback onClose;
 
   void connect(String providedHostAddress) async {
-      try {
-        _socket = await WebSocket.connect(providedHostAddress);
-        onOpen.call();
-        _socket.listen((dynamic data) {
-          onMessage.call(data);
-        }, onDone: () {
-          onClose.call(_socket.closeCode ?? 0, _socket.closeReason ?? "Closed for unknown reason");
-        });
-      } catch (e) {
-        onClose.call(500, e.toString());
-      }
+    try {
+      _socket = await WebSocket.connect(providedHostAddress);
+      onOpen.call();
+      _socket.listen((dynamic data) {
+        onMessage.call(data);
+      }, onDone: () {
+        onClose.call(_socket.closeCode ?? 0,
+            _socket.closeReason ?? "Closed for unknown reason");
+      });
+    } catch (e) {
+      onClose.call(500, e.toString());
+    }
   }
 
   void send(dynamic data) {
@@ -37,9 +38,5 @@ class TxSocket {
 
   void close() {
     _socket.close();
-  }
-
-  bool isConnecting() {
-    return _socket.readyState == WebSocket.connecting;
   }
 }
