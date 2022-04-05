@@ -2,7 +2,7 @@ class GatewayStateMessage {
   String? jsonrpc;
   int? id;
   String? method;
-  StateParams? stateParams;
+  GatewayStateParams? stateParams;
 
   GatewayStateMessage({this.jsonrpc, this.id, this.method, this.stateParams});
 
@@ -11,7 +11,7 @@ class GatewayStateMessage {
     id = json['id'];
     method = json['method'];
     stateParams =
-        json['params'] != null ? StateParams.fromJson(json['params']) : null;
+        json['params'] != null ? GatewayStateParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -26,12 +26,12 @@ class GatewayStateMessage {
   }
 }
 
-class StateParams {
+class GatewayStateParams {
   String? state;
 
-  StateParams({this.state});
+  GatewayStateParams({this.state});
 
-  StateParams.fromJson(Map<String, dynamic> json) {
+  GatewayStateParams.fromJson(Map<String, dynamic> json) {
     state = json['state'];
   }
 

@@ -13,14 +13,16 @@ import '/model/verto/receive/received_message_body.dart';
 import '/model/verto/send/gateway_request_message_body.dart';
 import '/model/verto/send/login_message_body.dart';
 import '/model/telnyx_message.dart';
-import '/tx_socket.dart'
-    if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/tx_socket.dart'
+    if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
+/// The TelnyxClient class that can be used to control the SDK. Such as connect,
+/// disconnect, check gateway status or create instance of [Call]
 class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
   late OnSocketErrorReceived onSocketErrorReceived;
@@ -30,7 +32,11 @@ class TelnyxClient {
   bool _connected = false;
   final _logger = Logger();
 
+  /// The current session ID related to this client
   String? sessionId;
+
+  /// The current instance of [Call] associated with this client. Can be used
+  /// to call call related functions such as hold/mute
   late Call call;
 
   // Gateway registration variables
@@ -49,14 +55,18 @@ class TelnyxClient {
   CredentialConfig? storedCredentialConfig;
   TokenConfig? storedTokenConfig;
 
+  /// Returns whether or not the client is connected to the socket connection
   bool isConnected() {
     return _connected;
   }
 
+  /// Returns the current Gateway state for the socket connection
   String getGatewayStatus() {
     return _gatewayState;
   }
 
+  /// Uses the provided [providedHostAddress] to create a socket connection for
+  /// communication with the Telnyx backend
   void connect(String providedHostAddress) {
     storedHostAddress = providedHostAddress;
     _invalidateGatewayResponseTimer();
@@ -106,6 +116,12 @@ class TelnyxClient {
     });
   }
 
+  /// Creates an instance of [Call] that can be used to create invitations or
+  /// perform common call related functions such as ending the call or placing
+  /// yourself on hold/mute.
+  ///
+  /// Throws an [ArgumentError] if there is no session ID set, meaning there is
+  /// no active connection.
   Call createCall() {
     if (sessionId != null) {
       call = Call(txSocket, sessionId!);
@@ -115,6 +131,10 @@ class TelnyxClient {
     }
   }
 
+  /// Uses the provided [config] to send a credential login message to the Telnyx backend.
+  /// If successful, the gateway registration process will start.
+  ///
+  /// May return a [TelnyxSocketError] in the case of an authentication error
   void credentialLogin(CredentialConfig config) {
     storedCredentialConfig = config;
     var uuid = const Uuid();
@@ -148,6 +168,10 @@ class TelnyxClient {
     txSocket.send(jsonLoginMessage);
   }
 
+  /// Uses the provided [config] to send a token login message to the Telnyx backend.
+  /// If successful, the gateway registration process will start.
+  ///
+  /// May return a [TelnyxSocketError] in the case of an authentication error
   void tokenLogin(TokenConfig config) {
     storedTokenConfig = config;
     var uuid = const Uuid();
@@ -177,6 +201,7 @@ class TelnyxClient {
     txSocket.send(jsonLoginMessage);
   }
 
+  /// Closes the socket connection, effectively logging the user out.
   void disconnect() {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();

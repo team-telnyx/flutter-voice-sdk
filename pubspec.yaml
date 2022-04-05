@@ -41,7 +41,6 @@ dev_dependencies:
   provider: ^6.0.2
   permission_handler: ^9.2.0
   flutter_masked_text2: ^0.9.1
-  logger: ^1.1.0
   telnyx_webrtc:
     path: ./packages/telnyx_webrtc
 

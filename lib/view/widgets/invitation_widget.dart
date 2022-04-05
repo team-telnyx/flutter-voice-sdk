@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
 class InvitationWidget extends StatelessWidget {
   const InvitationWidget({Key? key, required this.title, this.invitation})

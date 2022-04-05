@@ -5,11 +5,12 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
-import '../tx_socket.dart' if (dart.library.js) '../tx_socket_web.dart';
+import 'package:telnyx_webrtc/tx_socket.dart'
+    if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
 
-import '../model/verto/receive/received_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
 enum SignalingState {
   ConnectionOpen,

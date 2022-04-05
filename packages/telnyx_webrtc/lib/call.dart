@@ -7,10 +7,12 @@ import '/model/verto/send/info_dtmf_message_body.dart';
 import '/model/verto/send/invite_answer_message_body.dart';
 import '/model/verto/send/modify_message_body.dart';
 import '/peer/peer.dart';
-import '../tx_socket.dart'
-    if (dart.library.js) 'package:telnyx_flutter_webrtc/telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/tx_socket.dart'
+    if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 
+/// The Call class which is used for call related methods such as hold/mute or
+/// creating invitations, declining calls, etc.
 class Call {
   Call(this._txSocket, this._sessionId);
 
@@ -25,6 +27,8 @@ class Call {
   String sessionDestinationNumber = "";
   String sessionClientState = "";
 
+  /// Creates an invitation to send to a [destinationNumber] or SIP Destination
+  /// using the provided [callerName], [callerNumber] and a [clientState]
   void newInvite(String callerName, String callerNumber,
       String destinationNumber, String clientState) {
     sessionCallerName = callerName;
@@ -40,6 +44,8 @@ class Call {
         base64State, callId!, _sessionId);
   }
 
+  /// Accepts the incoming call specified via the [invite] parameter, sending
+  /// your local specified [callerName], [callerNumber] and [clientState]
   void acceptCall(IncomingInviteParams invite, String callerName,
       String callerNumber, String clientState) {
     callId = invite.callID;
@@ -56,6 +62,7 @@ class Call {
         clientState, callId!, invite);
   }
 
+  /// Attempts to end the call identified via the [callID]
   void endCall(String? callID) {
     var uuid = const Uuid();
     var byeDialogParams = ByeDialogParams(callId: callID);
@@ -79,6 +86,8 @@ class Call {
     }
   }
 
+  /// Sends a DTMF message with the chosen [tone] to the call
+  /// specified via the [callID]
   void dtmf(String? callID, String tone) {
     var uuid = const Uuid();
     var dialogParams = DialogParams(
@@ -108,10 +117,13 @@ class Call {
     _txSocket.send(jsonDtmfMessage);
   }
 
+  /// Either mutes or unmutes local audio based on the current mute state
   void onMuteUnmutePressed() {
     peerConnection?.muteUnmuteMic();
   }
 
+  /// Either places the call on hold, or unholds the call based on the current
+  /// hold state.
   void onHoldUnholdPressed() {
     if (onHold) {
       _sendHoldModifier("unhold");
