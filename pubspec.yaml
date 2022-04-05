@@ -38,19 +38,11 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # SDK Dependencies
-  flutter_lints: ^1.0.4
-  flutter_webrtc: ^0.8.4
-  logger: ^1.1.0
-  uuid: ^3.0.6
-  mockito: ^5.1.0
-  build_runner: ^2.1.8
-
-  # Sample Application Dependencies
   provider: ^6.0.2
   permission_handler: ^9.2.0
   flutter_masked_text2: ^0.9.1
+  telnyx_webrtc:
+    path: packages/telnyx_webrtc
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

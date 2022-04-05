@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
+import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 
 class CallScreen extends StatefulWidget {
   const CallScreen({Key? key, required this.title, this.call})
