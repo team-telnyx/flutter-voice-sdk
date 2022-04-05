@@ -40,17 +40,17 @@ class Call {
         base64State, callId!, _sessionId);
   }
 
-  void acceptCall(ReceivedMessage invite, String callerName,
+  void acceptCall(IncomingInviteParams invite, String callerName,
       String callerNumber, String clientState) {
-    callId = invite.inviteParams?.callID;
+    callId = invite.callID;
 
     sessionCallerName = callerName;
     sessionCallerNumber = callerNumber;
     sessionDestinationNumber =
-        invite.inviteParams?.callerIdName ?? "Unknown Caller";
+        invite.callerIdName ?? "Unknown Caller";
     sessionClientState = clientState;
 
-    var destinationNum = invite.inviteParams?.calleeIdNumber;
+    var destinationNum = invite.callerIdNumber;
 
     peerConnection = Peer(_txSocket);
     peerConnection?.accept(callerName, callerNumber, destinationNum!,

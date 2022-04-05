@@ -176,14 +176,14 @@ class Peer {
   }
 
   void accept(String callerName, String callerNumber, String destinationNumber,
-      String clientState, String callId, ReceivedMessage invite) async {
+      String clientState, String callId, IncomingInviteParams invite) async {
     var sessionId = _selfId;
     Session session = await _createSession(null,
         peerId: "0", sessionId: sessionId, media: "audio");
     _sessions[sessionId] = session;
 
     await session.peerConnection?.setRemoteDescription(
-        RTCSessionDescription(invite.inviteParams?.sdp, "offer"));
+        RTCSessionDescription(invite.sdp, "offer"));
 
     _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
         clientState, callId);

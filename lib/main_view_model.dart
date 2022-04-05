@@ -110,11 +110,15 @@ class MainViewModel with ChangeNotifier {
   }
 
   void accept() {
-    _telnyxClient.createCall().acceptCall(
-        _telnyxClient.getInvite(), "callerName", "+353877189671", "Fake State");
-    _ongoingInvitation = false;
-    _ongoingCall = true;
-    notifyListeners();
+    if (_incomingInvite != null) {
+      _telnyxClient.createCall().acceptCall(
+          _incomingInvite!, "callerName", "+353877189671", "Fake State");
+      _ongoingInvitation = false;
+      _ongoingCall = true;
+      notifyListeners();
+    } else {
+      throw ArgumentError(_incomingInvite);
+    }
   }
 
   void endCall() {

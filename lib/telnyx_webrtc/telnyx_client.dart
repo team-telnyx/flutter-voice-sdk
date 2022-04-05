@@ -30,8 +30,7 @@ class TelnyxClient {
   bool _connected = false;
   final _logger = Logger();
 
-  late String? sessionId;
-  late ReceivedMessage currentInvite;
+  String? sessionId;
   late Call call;
 
   // Gateway registration variables
@@ -108,12 +107,12 @@ class TelnyxClient {
   }
 
   Call createCall() {
-    call = Call(txSocket, sessionId!);
-    return call;
-  }
-
-  ReceivedMessage getInvite() {
-    return currentInvite;
+    if (sessionId != null) {
+      call = Call(txSocket, sessionId!);
+      return call;
+    } else {
+      throw ArgumentError(sessionId);
+    }
   }
 
   void credentialLogin(CredentialConfig config) {
@@ -267,7 +266,6 @@ class TelnyxClient {
                 _logger.i('INCOMING INVITATION :: $messageJson');
                 ReceivedMessage invite =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                currentInvite = invite;
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.INVITE, message: invite);
                 onSocketMessageReceived.call(message);
@@ -377,7 +375,8 @@ class TelnyxClient {
                     }
                   case GatewayState.UNREGED:
                     {
-                      _logger.i('GATEWAY UNREGED :: ${stateMessage.toString()}');
+                      _logger
+                          .i('GATEWAY UNREGED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.UNREGED;
                       break;
                     }
