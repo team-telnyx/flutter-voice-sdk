@@ -47,6 +47,7 @@ class TelnyxClient {
   Timer? _gatewayResponseTimer;
   bool _autoReconnectLogin = true;
   bool _waitingForReg = true;
+  bool _registered = false;
   int _registrationRetryCounter = 0;
   int _connectRetryCounter = 0;
   String _gatewayState = GatewayState.IDLE;
@@ -231,6 +232,7 @@ class TelnyxClient {
   }
 
   void _onMessage(dynamic data) {
+    _logger.i('DEBUG MESSAGE: ${data.toString().trim()}');
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
         _logger.i('Received WebSocket message :: ${data.toString().trim()}');
@@ -328,15 +330,18 @@ class TelnyxClient {
                 switch (stateMessage.stateParams?.state) {
                   case GatewayState.REGED:
                     {
-                      _logger.i(
-                          'GATEWAY REGISTERED :: ${stateMessage.toString()}');
-                      _invalidateGatewayResponseTimer();
-                      _gatewayState = GatewayState.REGED;
-                      _waitingForReg = false;
-                      var message = TelnyxMessage(
-                          socketMethod: SocketMethod.CLIENT_READY,
-                          message: stateMessage);
-                      onSocketMessageReceived.call(message);
+                      if (!_registered) {
+                        _logger.i(
+                            'GATEWAY REGISTERED :: ${stateMessage.toString()}');
+                        _invalidateGatewayResponseTimer();
+                        _gatewayState = GatewayState.REGED;
+                        _waitingForReg = false;
+                        var message = TelnyxMessage(
+                            socketMethod: SocketMethod.CLIENT_READY,
+                            message: stateMessage);
+                        onSocketMessageReceived.call(message);
+                        _registered = true;
+                      }
                       break;
                     }
                   case GatewayState.NOREG:
@@ -344,6 +349,7 @@ class TelnyxClient {
                       _logger.i(
                           'GATEWAY REGISTRATION TIMEOUT :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.NOREG;
+                      _waitingForReg = true;
                       _invalidateGatewayResponseTimer();
                       onSocketMessageReceived.call(message);
                       break;
@@ -364,11 +370,14 @@ class TelnyxClient {
                     }
                   case GatewayState.FAIL_WAIT:
                     {
+                      //ToDo check differencdes in flow if we create the call, or if we answer the call. Creating the call is the issue (double check this. Also declining a call doesn't work)
                       _logger.i(
                           'GATEWAY REGISTRATION FAILED :: Wait for Retry :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.FAIL_WAIT;
                       if (_autoReconnectLogin &&
                           _connectRetryCounter < RETRY_CONNECT_TIME) {
+                        _logger.i(
+                            'ATTEMPTING GATEWAY REREGISTRATION $_connectRetryCounter / $RETRY_CONNECT_TIME :: ${stateMessage.toString()}');
                         _connectRetryCounter++;
                         _reconnectToSocket();
                       } else {
@@ -429,7 +438,7 @@ class TelnyxClient {
                   default:
                     {
                       _invalidateGatewayResponseTimer();
-                      _logger.i('GATEWAY REGISTRATION FAILED');
+                      _logger.i('GATEWAY REGISTRATION FAILED :: Unknown State');
                     }
                 }
                 break;

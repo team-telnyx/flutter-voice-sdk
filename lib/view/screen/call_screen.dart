@@ -20,11 +20,6 @@ class _CallScreenState extends State<CallScreen> {
   TextEditingController callInputController = TextEditingController();
 
   @override
-  initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

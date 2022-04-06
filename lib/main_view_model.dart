@@ -125,7 +125,7 @@ class MainViewModel with ChangeNotifier {
     if (_ongoingCall) {
       _telnyxClient.call.endCall(_telnyxClient.call.callId);
     } else {
-      _telnyxClient.createCall().endCall(_telnyxClient.call.callId);
+      _telnyxClient.createCall().endCall(_incomingInvite?.callID);
     }
     _ongoingInvitation = false;
     _ongoingCall = false;
