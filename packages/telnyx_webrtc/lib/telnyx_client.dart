@@ -371,7 +371,6 @@ class TelnyxClient {
                     }
                   case GatewayState.FAIL_WAIT:
                     {
-                      //ToDo check differencdes in flow if we create the call, or if we answer the call. Creating the call is the issue (double check this. Also declining a call doesn't work)
                       _logger.i(
                           'GATEWAY REGISTRATION FAILED :: Wait for Retry :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.FAIL_WAIT;
