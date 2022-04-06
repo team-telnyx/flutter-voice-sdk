@@ -54,6 +54,8 @@ class MainViewModel with ChangeNotifier {
           }
         case SocketMethod.ANSWER:
           {
+            var answerMessage = message.message.inviteParams?.sdp.toString();
+            print(answerMessage);
             _ongoingCall = true;
             break;
           }

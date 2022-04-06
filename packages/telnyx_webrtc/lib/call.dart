@@ -44,6 +44,14 @@ class Call {
         base64State, callId!, _sessionId);
   }
 
+  void onRemoteSessionReceived(String? sdp) {
+    if (sdp != null) {
+      peerConnection?.remoteSessionReceived(sdp);
+    } else {
+      ArgumentError(sdp);
+    }
+  }
+
   /// Accepts the incoming call specified via the [invite] parameter, sending
   /// your local specified [callerName], [callerNumber] and [clientState]
   void acceptCall(IncomingInviteParams invite, String callerName,

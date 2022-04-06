@@ -303,6 +303,7 @@ class TelnyxClient {
                 _logger.i('INVITATION ANSWERED :: $messageJson');
                 ReceivedMessage inviteAnswer =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                call.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.ANSWER, message: inviteAnswer);
                 onSocketMessageReceived.call(message);

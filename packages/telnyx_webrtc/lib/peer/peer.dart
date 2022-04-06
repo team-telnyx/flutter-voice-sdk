@@ -175,6 +175,11 @@ class Peer {
     }
   }
 
+  void remoteSessionReceived(String sdp) async {
+    await _sessions[_selfId]?.peerConnection
+        ?.setRemoteDescription(RTCSessionDescription(sdp, "answer"));
+  }
+
   void accept(String callerName, String callerNumber, String destinationNumber,
       String clientState, String callId, IncomingInviteParams invite) async {
     var sessionId = _selfId;
