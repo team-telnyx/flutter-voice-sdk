@@ -26,7 +26,6 @@ class _CallScreenState extends State<CallScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Provider.of<MainViewModel>(context, listen: true).observeResponses();
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
