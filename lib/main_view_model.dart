@@ -8,6 +8,8 @@ import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/call.dart';
 
+import 'package:fluttertoast/fluttertoast.dart';
+
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
   final TelnyxClient _telnyxClient = TelnyxClient();
@@ -69,6 +71,12 @@ class MainViewModel with ChangeNotifier {
 
     // Observe Socket Error Messages
     _telnyxClient.onSocketErrorReceived = (TelnyxSocketError error) {
+      Fluttertoast.showToast(
+        msg: "${error.errorCode} : ${error.errorMessage}",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+      );
       switch (error.errorCode) {
         case -32000:
           {
