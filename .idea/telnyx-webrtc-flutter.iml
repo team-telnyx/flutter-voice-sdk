@@ -30,6 +30,9 @@
       <excludeFolder url="file://$MODULE_DIR$/ios/.symlinks/plugins/permission_handler_apple/build" />
       <excludeFolder url="file://$MODULE_DIR$/ios/.symlinks/plugins/permission_handler_apple/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/ios/.symlinks/plugins/permission_handler_apple/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/telnyx_webrtc/build" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/telnyx_webrtc/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/telnyx_webrtc/.dart_tool" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

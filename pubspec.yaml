@@ -38,19 +38,12 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # The "flutter_lints" package below contains a set of recommended lints to
-  # encourage good coding practices. The lint set provided by the package is
-  # activated in the `analysis_options.yaml` file located at the root of your
-  # package. See that file for information about deactivating specific lint
-  # rules and activating additional ones.
-  flutter_lints: ^1.0.4
-  flutter_webrtc: ^0.8.4
-  logger: ^1.1.0
-  uuid: ^3.0.6
   provider: ^6.0.2
   permission_handler: ^9.2.0
   flutter_masked_text2: ^0.9.1
+  fluttertoast: ^8.0.9
+  telnyx_webrtc:
+    path: ./packages/telnyx_webrtc
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

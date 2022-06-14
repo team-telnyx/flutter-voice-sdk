@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
+import 'package:telnyx_webrtc/call.dart';
 
 class CallScreen extends StatefulWidget {
   const CallScreen({Key? key, required this.title, this.call})
@@ -20,13 +20,7 @@ class _CallScreenState extends State<CallScreen> {
   TextEditingController callInputController = TextEditingController();
 
   @override
-  initState() {
-    super.initState();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    Provider.of<MainViewModel>(context, listen: true).observeResponses();
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),

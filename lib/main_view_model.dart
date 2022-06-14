@@ -1,12 +1,14 @@
 import 'package:flutter/foundation.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/call.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/socket_method.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_socket_error.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/verto/receive/received_message_body.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/model/telnyx_message.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/model/socket_method.dart';
+import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
+import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
+import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:logger/logger.dart';
+import 'package:telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/call.dart';
+
+import 'package:fluttertoast/fluttertoast.dart';
 
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
@@ -69,6 +71,12 @@ class MainViewModel with ChangeNotifier {
 
     // Observe Socket Error Messages
     _telnyxClient.onSocketErrorReceived = (TelnyxSocketError error) {
+      Fluttertoast.showToast(
+        msg: "${error.errorCode} : ${error.errorMessage}",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+      );
       switch (error.errorCode) {
         case -32000:
           {
@@ -106,22 +114,26 @@ class MainViewModel with ChangeNotifier {
   void call(String destination) {
     _telnyxClient
         .createCall()
-        .newInvite("Oliverz", "+353877189671", destination, "Fake State");
+        .newInvite("callerName", "Fake Number", destination, "Fake State");
   }
 
   void accept() {
-    _telnyxClient.createCall().acceptCall(
-        _telnyxClient.getInvite(), "callerName", "+353877189671", "Fake State");
-    _ongoingInvitation = false;
-    _ongoingCall = true;
-    notifyListeners();
+    if (_incomingInvite != null) {
+      _telnyxClient.createCall().acceptCall(
+          _incomingInvite!, "callerName", "Fake Number", "Fake State");
+      _ongoingInvitation = false;
+      _ongoingCall = true;
+      notifyListeners();
+    } else {
+      throw ArgumentError(_incomingInvite);
+    }
   }
 
   void endCall() {
     if (_ongoingCall) {
       _telnyxClient.call.endCall(_telnyxClient.call.callId);
     } else {
-      _telnyxClient.createCall().endCall(_telnyxClient.call.callId);
+      _telnyxClient.createCall().endCall(_incomingInvite?.callID);
     }
     _ongoingInvitation = false;
     _ongoingCall = false;

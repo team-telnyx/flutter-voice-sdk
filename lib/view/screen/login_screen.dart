@@ -1,12 +1,10 @@
 // ignore: avoid_web_libraries_in_flutter
-//import 'dart:html';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
-import 'package:telnyx_flutter_webrtc/telnyx_webrtc/config/telnyx_config.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key, required this.title}) : super(key: key);
@@ -30,16 +28,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _checkPermissions() async {
-    if (kIsWeb) {
- //     PermissionStatus permission = (await window.navigator.permissions?.query({'name': 'microphone'})) as PermissionStatus;
-    //  await window.navigator.mediaDevices?.getUserMedia({'name': 'microphone'});
-    } else {
-      // You can request multiple permissions at once.
       Map<Permission, PermissionStatus> statuses =
       await [Permission.microphone, Permission.bluetooth, Permission.bluetoothConnect].request();
       print(statuses[Permission.microphone]);
       print(statuses[Permission.bluetooth]);
-    }
   }
 
   void _attemptLogin() {
