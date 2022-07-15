@@ -52,7 +52,7 @@ class TelnyxClient {
   int _connectRetryCounter = 0;
   String _gatewayState = GatewayState.IDLE;
 
-  late String storedHostAddress;
+  final String _storedHostAddress = "wss://rtc.telnyx.com:443";
   CredentialConfig? storedCredentialConfig;
   TokenConfig? storedTokenConfig;
 
@@ -66,18 +66,17 @@ class TelnyxClient {
     return _gatewayState;
   }
 
-  /// Uses the provided [providedHostAddress] to create a socket connection for
+  /// Create a socket connection for
   /// communication with the Telnyx backend
-  void connect(String providedHostAddress) {
-    storedHostAddress = providedHostAddress;
+  void connect() {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
     _logger.i('connect()');
     if (isConnected()) {
-      _logger.i('WebSocket $providedHostAddress is already connected');
+      _logger.i('WebSocket $_storedHostAddress is already connected');
       return;
     }
-    _logger.i('connecting to WebSocket $providedHostAddress');
+    _logger.i('connecting to WebSocket $_storedHostAddress');
     try {
       txSocket.onOpen = () {
         _closed = false;
@@ -96,17 +95,17 @@ class TelnyxClient {
         _onClose(true, closeCode, closeReason);
       };
 
-      txSocket.connect(providedHostAddress);
+      txSocket.connect();
     } catch (e, s) {
       _logger.e(e.toString(), null, s);
       _connected = false;
-      _logger.e('WebSocket $providedHostAddress error: $e');
+      _logger.e('WebSocket $_storedHostAddress error: $e');
     }
   }
 
   void _reconnectToSocket() {
     txSocket.close();
-    txSocket.connect(storedHostAddress);
+    txSocket.connect();
     // Delay to allow connection
     Timer(const Duration(seconds: 1), () {
       if (storedCredentialConfig != null) {

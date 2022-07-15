@@ -35,3 +35,17 @@ on the iOS platform, you need to add the microphone permission to your Info.plis
     <key>NSMicrophoneUsageDescription</key>
     <string>$(PRODUCT_NAME) Microphone Usage!</string>
 ```
+
+### Telnyx Client
+TelnyxClient() is the core class of the SDK, and can be used to connect to our backend socket connection, create calls, check state and disconnect, etc.
+
+Once an instance is created, you can call the .connect() method to connect to the socket. An error will appear as a socket response if there is no network available:
+
+```dart
+   TelnyxClient _telnyxClient = TelnyxClient();
+  
+```
+
+
+
+
