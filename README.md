@@ -14,4 +14,21 @@ In order to start making and receiving calls using the TelnyxRTC SDK you will ne
 
 For more information on how to generate SIP credentials check the [Telnyx WebRTC quickstart guide](https://developers.telnyx.com/docs/v2/webrtc/quickstart).
 
-### SIP Credentials
+### Platform Specific Configuration
+
+## Android
+If you are implementing the SDK into an Android application it is important to remember to add the following permissions to your AndroidManifest in order to allow Audio and Internet permissions:
+
+```xml
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+```
+
+## iOS
+on the iOS platform, you need to add the microphone permission to your Info.plist file:
+
+```xml
+    <key>NSMicrophoneUsageDescription</key>
+    <string>$(PRODUCT_NAME) Microphone Usage!</string>
+```
