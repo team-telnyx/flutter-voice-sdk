@@ -96,6 +96,61 @@ class TokenConfig {
 }
  ```
 
+### Creating a call invitation
+In order to make a call invitation, we first create an instance of the Call class with the .createCall() method. This creates a Call class which can be used to interact with calls (invite, accept, decline, etc).
+To then send an invite, we can use the .newInvite() method which requires you to provide your callerName, callerNumber, the destinationNumber (or SIP credential), and your clientState (any String value).
+
+```dart
+    _telnyxClient
+        .createCall()
+        .newInvite("callerName", "000000000", destination, "State");
+```
+
+### Accepting a call
+In order to be able to accept a call, we first need to listen for invitations. We do this by getting the Telnyx Socket Response callbacks:
+
+```dart
+ // Observe Socket Messages Received
+_telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
+  switch (message.socketMethod) {
+        case SocketMethod.CLIENT_READY:
+        {
+           // Fires once client has correctly been setup and logged into, you can now make calls. 
+           break;
+        }
+        case SocketMethod.LOGIN:
+        {
+            // Handle a successful login - Update UI or Navigate to new screen, etc. 
+            break;
+        }
+        case SocketMethod.INVITE:
+        {
+            // Handle an invitation Update UI or Navigate to new screen, etc. 
+            // Then, through an answer button of some kind we can accept the call with:
+            _incomingInvite = message.message.inviteParams;
+            _telnyxClient.createCall().acceptCall(
+                _incomingInvite, "callerName", "000000000", "State");
+            break;
+        }
+        case SocketMethod.ANSWER:
+        {
+           // Handle a received call answer - Update UI or Navigate to new screen, etc.
+          break;
+        }
+        case SocketMethod.BYE:
+        {
+           // Handle a call rejection or ending - Update UI or Navigate to new screen, etc.
+           break;
+      }
+    }
+    notifyListeners();
+};
+```
+
+We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations. 
+
+
+
 
 
 
