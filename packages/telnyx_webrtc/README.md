@@ -13,6 +13,10 @@ Enable Telnyx real-time communication services on Flutter applications (Android 
 ### SIP Credentials
 In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
 
+  <p align="center">
+               <img width="50%" height="50%" align="center" src="https://user-images.githubusercontent.com/9112652/179225050-9d316a97-c668-4dde-8bc7-e3f2589c7d61.png">
+  </p>
+
 1. Access to https://portal.telnyx.com/
 2. Sign up for a Telnyx Account.
 3. Create a Credential Connection to configure how you connect your calls.
