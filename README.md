@@ -1,16 +1,17 @@
-# telnyx_flutter_webrtc
+# Telnyx Flutter WebRTC SDK
 
-Telnyx's Dart and Flutter based WebRTC solution
+Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
-## Getting Started
+## Usage
 
-This project is a starting point for a Flutter application.
+### SIP Credentials
+In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
 
-A few resources to get you started if this is your first Flutter project:
+1. Access to https://portal.telnyx.com/
+2. Sign up for a Telnyx Account.
+3. Create a Credential Connection to configure how you connect your calls.
+4. Create an Outbound Voice Profile to configure your outbound call settings and assign it to your Credential Connection.
 
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
+For more information on how to generate SIP credentials check the [Telnyx WebRTC quickstart guide](https://developers.telnyx.com/docs/v2/webrtc/quickstart).
 
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### SIP Credentials
