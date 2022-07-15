@@ -3,10 +3,10 @@
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
 ## Features
-- Create / Receive calls
-- Hold calls
-- Mute calls
-- Dual Tone Multi Frequency
+- [x] Create / Receive calls
+- [x] Hold calls
+- [x] Mute calls
+- [x] Dual Tone Multi Frequency
 
 ## Usage
 
