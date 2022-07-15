@@ -3,7 +3,10 @@
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
 ## Features
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- Create / Receive calls
+- Hold calls
+- Mute calls
+- Dual Tone Multi Frequency
 
 ## Usage
 
