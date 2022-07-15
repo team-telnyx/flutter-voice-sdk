@@ -104,7 +104,7 @@ class MainViewModel with ChangeNotifier {
   }
 
   void connect() {
-    _telnyxClient.connect("wss://rtc.telnyx.com:443");
+    _telnyxClient.connect();
   }
 
   void login(CredentialConfig credentialConfig) {
