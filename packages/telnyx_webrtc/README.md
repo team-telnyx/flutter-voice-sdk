@@ -100,7 +100,17 @@ class TokenConfig {
   final bool? autoReconnect;
 }
  ```
+ 
+####  Adding push notifications - Android platform
+The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application. 
 
+For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
+ 
+####  Adding push notifications - iOS platform
+The iOS Platform makes use of the Apple Push Notification Service (APNS) and Pushkit in order to deliver and receive push notifications
+  
+For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?lang=ios)
+ 
 ### Creating a call invitation
 In order to make a call invitation, we first create an instance of the Call class with the .createCall() method. This creates a Call class which can be used to interact with calls (invite, accept, decline, etc).
 To then send an invite, we can use the .newInvite() method which requires you to provide your callerName, callerNumber, the destinationNumber (or SIP credential), and your clientState (any String value).
