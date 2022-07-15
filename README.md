@@ -6,16 +6,14 @@ Enable Telnyx real-time communication services on Flutter applications (Android 
 - [x] Create / Receive calls
 - [x] Hold calls
 - [x] Mute calls
-- [x] Dual Tone Multi Frequency 
+- [x] Dual Tone Multi Frequency
 
 ## Usage
 
 ### SIP Credentials
 In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
 
-  <p align="center">
-               <img width="50%" height="50%" align="center" src="https://user-images.githubusercontent.com/9112652/179225050-9d316a97-c668-4dde-8bc7-e3f2589c7d61.png">
-         </p>
+![Screenshot 2022-07-15 at 13 51 45](https://user-images.githubusercontent.com/9112652/179226614-f0477f38-6131-4cef-9c7a-3366f23a89b6.png)
 
 1. Access to https://portal.telnyx.com/
 2. Sign up for a Telnyx Account.
@@ -154,7 +152,7 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
 };
 ```
 
-We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations.
+We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations. 
 
 ### Decline / End Call
 
@@ -197,13 +195,3 @@ Questions? Comments? Building something rad? [Join our Slack channel](https://jo
 ## License
 
 [`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
-
-
-
-
-
-
-
-
-
-
