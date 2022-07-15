@@ -149,6 +149,51 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
 
 We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations. 
 
+### Decline / End Call
+
+In order to end a call, we can get a stored instance of Call and call the .endCall(callID) method. To decline an incoming call we first create the call with the .createCall() method and then call the .endCall(callID) method:
+
+```dart
+    if (_ongoingCall) {
+      _telnyxClient.call.endCall(_telnyxClient.call.callId);
+    } else {
+      _telnyxClient.createCall().endCall(_incomingInvite?.callID);
+    }
+```
+
+### DTMF (Dual Tone Multi Frequency)
+
+In order to send a DTMF message while on a call you can call the .dtmf(callID, tone), method where tone is a String value of the character you would like pressed:
+
+```dart
+    _telnyxClient.call.dtmf(_telnyxClient.call.callId, tone);
+```
+
+### Mute a call
+
+To mute a call, you can simply call the .onMuteUnmutePressed() method:
+
+```dart
+    _telnyxClient.call.onMuteUnmutePressed();
+```
+
+### Put a call on hold
+
+To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
+
+```dart
+    _telnyxClient.call.onHoldUnholdPressed();
+```
+
+Questions? Comments? Building something rad? [Join our Slack channel](https://joinslack.telnyx.com/) and share.
+
+## License
+
+[`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
+
+
+
+
 
 
 
