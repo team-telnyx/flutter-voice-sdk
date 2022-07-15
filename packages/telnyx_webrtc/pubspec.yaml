@@ -10,12 +10,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_lints: ^1.0.4
-  flutter_webrtc: ^0.8.4
+  flutter_lints: ^2.0.1
+  flutter_webrtc: ^0.8.12
   logger: ^1.1.0
   uuid: ^3.0.6
-  mockito: ^5.1.0
-  build_runner: ^2.1.8
+  mockito: ^5.2.0
+  build_runner: ^2.2.0
 
 dev_dependencies:
   flutter_test:
