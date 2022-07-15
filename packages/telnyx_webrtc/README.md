@@ -1,39 +1,37 @@
-<!-- 
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# Telnyx Flutter WebRTC SDK
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/guides/libraries/writing-package-pages). 
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-library-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/developing-packages). 
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
 ## Features
-
 TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder. 
+### SIP Credentials
+In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
 
-```dart
-const like = 'sample';
+1. Access to https://portal.telnyx.com/
+2. Sign up for a Telnyx Account.
+3. Create a Credential Connection to configure how you connect your calls.
+4. Create an Outbound Voice Profile to configure your outbound call settings and assign it to your Credential Connection.
+
+For more information on how to generate SIP credentials check the [Telnyx WebRTC quickstart guide](https://developers.telnyx.com/docs/v2/webrtc/quickstart).
+
+### Platform Specific Configuration
+
+## Android
+If you are implementing the SDK into an Android application it is important to remember to add the following permissions to your AndroidManifest in order to allow Audio and Internet permissions:
+
+```xml
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 ```
 
-## Additional information
+## iOS
+on the iOS platform, you need to add the microphone permission to your Info.plist file:
 
-TODO: Tell users more about the package: where to find more information, how to 
-contribute to the package, how to file issues, what response they can expect 
-from the package authors, and more.
+```xml
+    <key>NSMicrophoneUsageDescription</key>
+    <string>$(PRODUCT_NAME) Microphone Usage!</string>
+```
