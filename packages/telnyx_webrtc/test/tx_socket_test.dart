@@ -9,8 +9,8 @@ import 'tx_socket_test.mocks.dart';
 void main() {
   test('verify that connect calls without error', () {
     var txSocket = MockTxSocket();
-    txSocket.connect("wss://rtc.telnyx.com:443");
-    verify(txSocket.connect("wss://rtc.telnyx.com:443"));
+    txSocket.connect();
+    verify(txSocket.connect());
   });
 
   test('verify close calls socket close method without error', () {
