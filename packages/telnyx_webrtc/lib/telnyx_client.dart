@@ -140,7 +140,7 @@ class TelnyxClient {
     var uuid = const Uuid();
     var user = config.sipUser;
     var password = config.sipPassword;
-    var fcmToken = config.fcmToken;
+    var fcmToken = config.notificationToken;
     UserVariables? notificationParams;
     _autoReconnectLogin = config.autoReconnect ?? true;
 
@@ -176,7 +176,7 @@ class TelnyxClient {
     storedTokenConfig = config;
     var uuid = const Uuid();
     var token = config.sipToken;
-    var fcmToken = config.fcmToken;
+    var fcmToken = config.notificationToken;
     UserVariables? notificationParams;
     _autoReconnectLogin = config.autoReconnect ?? true;
 
@@ -214,7 +214,7 @@ class TelnyxClient {
     try {
       txSocket.close();
     } catch (error) {
-      _logger.e('close() | error closing the WebSocket: ' + error.toString());
+      _logger.e('close() | error closing the WebSocket: $error');
     }
   }
 

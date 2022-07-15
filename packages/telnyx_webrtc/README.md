@@ -42,9 +42,60 @@ TelnyxClient() is the core class of the SDK, and can be used to connect to our b
 Once an instance is created, you can call the .connect() method to connect to the socket. An error will appear as a socket response if there is no network available:
 
 ```dart
-   TelnyxClient _telnyxClient = TelnyxClient();
-  
+    TelnyxClient _telnyxClient = TelnyxClient();
+    _telnyxClient.connect();
 ```
+
+### Logging into Telnyx Client
+To log into the Telnyx WebRTC client, you'll need to authenticate using a Telnyx SIP Connection. Follow our [quickstart guide](https://developers.telnyx.com/docs/v2/webrtc/quickstart) to create **JWTs** (JSON Web Tokens) to authenticate. To log in with a token we use the tokinLogin() method. You can also authenticate directly with the SIP Connection `username` and `password` with the credentialLogin() method:
+
+ ```dart
+    _telnyxClient.tokenLogin(tokenConfig)
+                     //OR
+    _telnyxClient.credentialLogin(credentialConfig)             
+ ```
+
+**Note:** **tokenConfig** and **credentialConfig** are simple classes that represent login settings for the client to use. They look like this:
+
+ ```dart
+ /// Creates an instance of CredentialConfig which can be used to log in
+///
+/// Uses the [sipUser] and [sipPassword] fields to log in
+/// [sipCallerIDName] and [sipCallerIDNumber] will be the Name and Number associated
+/// [notificationToken] is the token used to register the device for notifications if required (FCM or APNS)
+/// The [autoReconnect] flag decided whether or not to attempt a reconnect (3 attempts) in the case of a login failure with
+/// legitimate credentials
+class CredentialConfig {
+  CredentialConfig(this.sipUser, this.sipPassword, this.sipCallerIDName,
+      this.sipCallerIDNumber, this.notificationToken, this.autoReconnect);
+
+  final String sipUser;
+  final String sipPassword;
+  final String sipCallerIDName;
+  final String sipCallerIDNumber;
+  final String? notificationToken;
+  final bool? autoReconnect;
+}
+
+/// Creates an instance of TokenConfig which can be used to log in
+///
+/// Uses the [sipToken] field to log in
+/// [sipCallerIDName] and [sipCallerIDNumber] will be the Name and Number associated
+/// [notificationToken] is the token used to register the device for notifications if required (FCM or APNS)
+/// The [autoReconnect] flag decided whether or not to attempt a reconnect (3 attempts) in the case of a login failure with
+/// legitimate credentials
+class TokenConfig {
+  TokenConfig(this.sipToken, this.sipCallerIDName, this.sipCallerIDNumber,
+      this.notificationToken, this.autoReconnect);
+
+  final String sipToken;
+  final String sipCallerIDName;
+  final String sipCallerIDNumber;
+  final String? notificationToken;
+  final bool? autoReconnect;
+}
+ ```
+
 
 
 
