@@ -23,7 +23,7 @@ class CredentialConfig {
 /// [sipCallerIDName] and [sipCallerIDNumber] will be the Name and Number associated
 /// [notificationToken] is the token used to register the device for notifications if required (FCM or APNS)
 /// The [autoReconnect] flag decided whether or not to attempt a reconnect (3 attempts) in the case of a login failure with
-/// legitimate credentials
+/// a legitimate token
 class TokenConfig {
   TokenConfig(this.sipToken, this.sipCallerIDName, this.sipCallerIDNumber,
       this.notificationToken, this.autoReconnect);
