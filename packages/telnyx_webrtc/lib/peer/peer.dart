@@ -171,7 +171,7 @@ class Peer {
         _send(jsonInviteMessage);
       });
     } catch (e) {
-      _logger.e("Peer :: " + e.toString());
+      _logger.e("Peer :: $e");
     }
   }
 
@@ -256,7 +256,7 @@ class Peer {
         _send(jsonAnswerMessage);
       });
     } catch (e) {
-      _logger.e("Peer :: " + e.toString());
+      _logger.e("Peer :: $e");
     }
   }
 
