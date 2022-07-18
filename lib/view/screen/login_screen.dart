@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
     bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;
     if (registered) {
-      WidgetsBinding.instance?.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');
       });
     }
