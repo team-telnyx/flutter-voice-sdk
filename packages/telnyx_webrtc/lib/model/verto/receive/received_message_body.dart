@@ -52,7 +52,7 @@ class ReceivedMessage {
 }
 
 class ReattachedParams {
-  List<void>? reattachedSessions;
+  List<dynamic>? reattachedSessions;
 
   ReattachedParams({this.reattachedSessions});
 

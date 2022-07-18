@@ -206,13 +206,11 @@ class Peer {
       String callId) async {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
-        if (session != null) {
-          if (session.peerConnection != null) {
-            _logger.i("Peer :: Add Ice Candidate!");
-            await session.peerConnection?.addCandidate(candidate);
-          } else {
-            session.remoteCandidates.add(candidate);
-          }
+        if (session.peerConnection != null) {
+          _logger.i("Peer :: Add Ice Candidate!");
+          await session.peerConnection?.addCandidate(candidate);
+        } else {
+          session.remoteCandidates.add(candidate);
         }
       };
 

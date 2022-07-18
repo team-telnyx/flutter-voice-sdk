@@ -28,7 +28,7 @@ class GatewayRequestMessage {
 }
 
 class GatewayRequestStateParams {
-  List<void>? gatewayRequestParams;
+  List<dynamic>? gatewayRequestParams;
 
   GatewayRequestStateParams({this.gatewayRequestParams});
 
