@@ -128,9 +128,11 @@ class Peer {
       await session.peerConnection!.setLocalDescription(s);
 
       if (session.remoteCandidates.isNotEmpty) {
-        session.remoteCandidates.forEach((candidate) async {
-          await session.peerConnection?.addCandidate(candidate);
-        });
+        for (var candidate in session.remoteCandidates) {
+          if (candidate.candidate != null) {
+            await session.peerConnection?.addCandidate(candidate);
+          }
+        }
         session.remoteCandidates.clear();
       }
 
@@ -176,7 +178,8 @@ class Peer {
   }
 
   void remoteSessionReceived(String sdp) async {
-    await _sessions[_selfId]?.peerConnection
+    await _sessions[_selfId]
+        ?.peerConnection
         ?.setRemoteDescription(RTCSessionDescription(sdp, "answer"));
   }
 
@@ -208,7 +211,9 @@ class Peer {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
           _logger.i("Peer :: Add Ice Candidate!");
-          await session.peerConnection?.addCandidate(candidate);
+          if (candidate.candidate != null) {
+            await session.peerConnection?.addCandidate(candidate);
+          }
         } else {
           session.remoteCandidates.add(candidate);
         }
@@ -314,7 +319,7 @@ class Peer {
     }
     peerConnection.onIceCandidate = (candidate) async {
       peerConnection.addCandidate(candidate);
-      if (candidate == null) {
+      if (candidate.candidate == null) {
         _logger.i("Peer :: onIceCandidate: complete!");
         return;
       }
@@ -348,14 +353,14 @@ class Peer {
     onDataChannel?.call(session, channel);
   }
 
-  Future<void> _createDataChannel(Session session,
+  /*Future<void> _createDataChannel(Session session,
       {label = 'fileTransfer'}) async {
     RTCDataChannelInit dataChannelDict = RTCDataChannelInit()
       ..maxRetransmits = 30;
     RTCDataChannel channel =
         await session.peerConnection!.createDataChannel(label, dataChannelDict);
     _addDataChannel(session, channel);
-  }
+  }*/
 
   _send(event) {
     _socket.send(event);
@@ -376,18 +381,18 @@ class Peer {
     _sessions.clear();
   }
 
-  void _closeSessionByPeerId(String peerId) {
-    var session;
+  /*void _closeSessionByPeerId(String peerId) {
+    Session? session;
     _sessions.removeWhere((String key, Session sess) {
       var ids = key.split('-');
       session = sess;
       return peerId == ids[0] || peerId == ids[1];
     });
     if (session != null) {
-      _closeSession(session);
-      onCallStateChange?.call(session, CallState.CallStateBye);
+      _closeSession(session!);
+      onCallStateChange?.call(session!, CallState.CallStateBye);
     }
-  }
+  }*/
 
   Future<void> _closeSession(Session session) async {
     _localStream?.getTracks().forEach((element) async {

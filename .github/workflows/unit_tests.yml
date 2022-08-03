@@ -1,0 +1,31 @@
+name: Flutter Test
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron:  '*/30 5,17 * * *'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: packages/telnyx_webrtc
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-java@v2
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - run: flutter --version
+
+      - name: Get all Flutter Packages
+        run: flutter pub get
+
+      - name: Run Flutter Test
+        run: flutter test

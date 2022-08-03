@@ -1,6 +1,8 @@
 ![Pub Version](https://img.shields.io/pub/v/telnyx_webrtc?color=blue&logo=telnyx)
 [![Flutter Test](https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml)
 
+For the example app implementation please visit this [root repository](https://github.com/team-telnyx/telnyx-webrtc-flutter)
+
 # Telnyx Flutter WebRTC SDK
 
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
@@ -103,15 +105,15 @@ class TokenConfig {
   final bool? autoReconnect;
 }
  ```
- 
- ####  Adding push notifications - Android platform
-The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application. 
+
+####  Adding push notifications - Android platform
+The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
 
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
- 
+
 ####  Adding push notifications - iOS platform
 The iOS Platform makes use of the Apple Push Notification Service (APNS) and Pushkit in order to deliver and receive push notifications
-  
+
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?lang=ios)
 
 ### Creating a call invitation
@@ -165,7 +167,7 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
 };
 ```
 
-We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations. 
+We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations.
 
 ### Decline / End Call
 
@@ -208,3 +210,13 @@ Questions? Comments? Building something rad? [Join our Slack channel](https://jo
 ## License
 
 [`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
+
+
+
+
+
+
+
+
+
+
