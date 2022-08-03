@@ -13,7 +13,7 @@ import 'telnyx_client_test.mocks.dart';
 void main() {
   test('verify that connect updates boolean properly', () {
     var telnyxClient = TelnyxClient();
-    telnyxClient.connect("wss://rtc.telnyx.com:443");
+    telnyxClient.connect();
     telnyxClient.isConnected();
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
@@ -23,7 +23,7 @@ void main() {
 
   test('verify that disconnect updates boolean properly', () {
     var telnyxClient = TelnyxClient();
-    telnyxClient.connect("wss://rtc.telnyx.com:443");
+    telnyxClient.connect();
     telnyxClient.isConnected();
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
@@ -41,7 +41,7 @@ void main() {
   test('verify create call returns a Call without issue when sessionId is set',
       () {
     var telnyxClient = TelnyxClient();
-    telnyxClient.connect("wss://rtc.telnyx.com:443");
+    telnyxClient.connect();
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
       var call = telnyxClient.createCall();
@@ -57,7 +57,7 @@ void main() {
 
   test('verify credential login calls socket send method without error', () {
     var telnyxClient = TelnyxClient();
-    telnyxClient.connect("wss://rtc.telnyx.com:443");
+    telnyxClient.connect();
     var credLogin =
         CredentialConfig("test", "test", "test", "test", "test", false);
     // Give time to connect, verify isConnected() adjusts
@@ -70,7 +70,7 @@ void main() {
 
   test('verify token login calls socket send method without error', () {
     var telnyxClient = TelnyxClient();
-    telnyxClient.connect("wss://rtc.telnyx.com:443");
+    telnyxClient.connect();
     var tokenLogin = TokenConfig("test", "test", "test", "test", false);
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
@@ -83,7 +83,7 @@ void main() {
   test('verify getGatewayStatus returns IDLE at start of instance creation',
       () {
     var telnyxClient = TelnyxClient();
-    telnyxClient.connect("wss://rtc.telnyx.com:443");
+    telnyxClient.connect();
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
       // called twice, once for connect, and again for login

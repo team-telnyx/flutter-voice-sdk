@@ -17,18 +17,18 @@ class GatewayRequestMessage {
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
-    data['id'] = this.id;
-    data['jsonrpc'] = this.jsonrpc;
-    data['method'] = this.method;
-    if (this.params != null) {
-      data['params'] = this.params!.toJson();
+    data['id'] = id;
+    data['jsonrpc'] = jsonrpc;
+    data['method'] = method;
+    if (params != null) {
+      data['params'] = params!.toJson();
     }
     return data;
   }
 }
 
 class GatewayRequestStateParams {
-  List<void>? gatewayRequestParams;
+  List<dynamic>? gatewayRequestParams;
 
   GatewayRequestStateParams({this.gatewayRequestParams});
 
