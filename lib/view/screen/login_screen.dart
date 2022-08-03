@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key, required this.title}) : super(key: key);
@@ -23,15 +24,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   initState() {
-    _checkPermissions();
+    if (!kIsWeb) {
+      _checkPermissions();
+    }
     super.initState();
   }
 
   Future<void> _checkPermissions() async {
-      Map<Permission, PermissionStatus> statuses =
-      await [Permission.microphone, Permission.bluetooth, Permission.bluetoothConnect].request();
-      print(statuses[Permission.microphone]);
-      print(statuses[Permission.bluetooth]);
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.microphone,
+      Permission.bluetooth,
+      Permission.bluetoothConnect
+    ].request();
+    print(statuses[Permission.microphone]);
+    print(statuses[Permission.bluetooth]);
   }
 
   void _attemptLogin() {
@@ -55,7 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
     bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;
     if (registered) {
-      WidgetsBinding.instance?.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');
       });
     }
