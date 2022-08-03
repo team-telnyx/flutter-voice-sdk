@@ -1,3 +1,6 @@
+![Pub Version](https://img.shields.io/pub/v/telnyx_webrtc?color=blue&logo=telnyx)
+[![Flutter Test](https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml)
+
 For the example app implementation please visit this [root repository](https://github.com/team-telnyx/telnyx-webrtc-flutter)
 
 # Telnyx Flutter WebRTC SDK
