@@ -10,8 +10,9 @@ class GatewayStateMessage {
     jsonrpc = json['jsonrpc'];
     id = json['id'];
     method = json['method'];
-    stateParams =
-        json['params'] != null ? GatewayStateParams.fromJson(json['params']) : null;
+    stateParams = json['params'] != null
+        ? GatewayStateParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
