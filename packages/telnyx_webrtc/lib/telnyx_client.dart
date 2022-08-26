@@ -119,16 +119,8 @@ class TelnyxClient {
   /// Creates an instance of [Call] that can be used to create invitations or
   /// perform common call related functions such as ending the call or placing
   /// yourself on hold/mute.
-  ///
-  /// Throws an [ArgumentError] if there is no session ID set, meaning there is
-  /// no active connection.
   Call createCall() {
-    if (sessid != null) {
-      call = Call(txSocket, sessid!);
-      return call;
-    } else {
-      throw ArgumentError(sessid);
-    }
+      return Call(txSocket, sessid!);
   }
 
   /// Uses the provided [config] to send a credential login message to the Telnyx backend.
