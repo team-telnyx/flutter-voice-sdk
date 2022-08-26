@@ -114,13 +114,13 @@ class MainViewModel with ChangeNotifier {
   void call(String destination) {
     _telnyxClient
         .createCall()
-        .newInvite("callerName", "Fake Number", destination, "Fake State");
+        .newInvite("callerName", "+353877189671", destination, "Fake State");
   }
 
   void accept() {
     if (_incomingInvite != null) {
       _telnyxClient.createCall().acceptCall(
-          _incomingInvite!, "callerName", "Fake Number", "Fake State");
+          _incomingInvite!, "callerName", "+353877189671", "Fake State");
       _ongoingInvitation = false;
       _ongoingCall = true;
       notifyListeners();

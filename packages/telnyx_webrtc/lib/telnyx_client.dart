@@ -32,7 +32,7 @@ class TelnyxClient {
   final _logger = Logger();
 
   /// The current session ID related to this client
-  String sessid = const Uuid().toString();
+  String sessid = const Uuid().v4();
 
   /// The current instance of [Call] associated with this client. Can be used
   /// to call call related functions such as hold/mute
@@ -128,7 +128,7 @@ class TelnyxClient {
   /// May return a [TelnyxSocketError] in the case of an authentication error
   void credentialLogin(CredentialConfig config) {
     storedCredentialConfig = config;
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var user = config.sipUser;
     var password = config.sipPassword;
     var fcmToken = config.notificationToken;
@@ -149,7 +149,7 @@ class TelnyxClient {
         loginParams: [],
         userVariables: notificationParams);
     var loginMessage = LoginMessage(
-        id: uuid.toString(),
+        id: uuid,
         method: SocketMethod.LOGIN,
         params: loginParams,
         jsonrpc: "2.0");
@@ -165,7 +165,7 @@ class TelnyxClient {
   /// May return a [TelnyxSocketError] in the case of an authentication error
   void tokenLogin(TokenConfig config) {
     storedTokenConfig = config;
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var token = config.sipToken;
     var fcmToken = config.notificationToken;
     UserVariables? notificationParams;
@@ -182,7 +182,7 @@ class TelnyxClient {
     var loginParams = LoginParams(
         loginToken: token, loginParams: [], userVariables: notificationParams);
     var loginMessage = LoginMessage(
-        id: uuid.toString(),
+        id: uuid,
         method: SocketMethod.LOGIN,
         params: loginParams,
         jsonrpc: "2.0");
@@ -310,6 +310,7 @@ class TelnyxClient {
                 _logger.i('RINGING RECEIVED :: $messageJson');
                 ReceivedMessage ringing =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                _logger.i('Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}');
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.RINGING, message: ringing);
                 onSocketMessageReceived(message);

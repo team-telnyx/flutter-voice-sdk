@@ -36,7 +36,7 @@ class Call {
     sessionDestinationNumber = destinationNumber;
     sessionClientState = clientState;
 
-    callId = const Uuid().toString();
+    callId = const Uuid().v4();
     var base64State = base64.encode(utf8.encode(clientState));
 
     peerConnection = Peer(_txSocket);
@@ -72,7 +72,7 @@ class Call {
 
   /// Attempts to end the call identified via the [callID]
   void endCall(String? callID) {
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var byeDialogParams = ByeDialogParams(callId: callID);
 
     var byeParams = SendByeParams(
@@ -82,7 +82,7 @@ class Call {
         sessid: _sessid);
 
     var byeMessage = SendByeMessage(
-        id: uuid.toString(),
+        id: uuid,
         jsonrpc: "2.0",
         method: SocketMethod.BYE,
         params: byeParams);
@@ -97,7 +97,7 @@ class Call {
   /// Sends a DTMF message with the chosen [tone] to the call
   /// specified via the [callID]
   void dtmf(String? callID, String tone) {
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var dialogParams = DialogParams(
         attach: false,
         audio: true,
@@ -116,7 +116,7 @@ class Call {
         dialogParams: dialogParams, dtmf: tone, sessid: _sessid);
 
     var dtmfMessageBody = DtmfInfoMessage(
-        id: uuid.toString(),
+        id: uuid,
         jsonrpc: "2.0",
         method: SocketMethod.INFO,
         params: infoParams);
@@ -143,7 +143,7 @@ class Call {
   }
 
   void _sendHoldModifier(String action) {
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var dialogParams = DialogParams(
         attach: false,
         audio: true,
