@@ -31,16 +31,16 @@ class ModifyMessage {
 class ModifyParams {
   String? action;
   DialogParams? dialogParams;
-  String? sessionId;
+  String? sessid;
 
-  ModifyParams({this.action, this.dialogParams, this.sessionId});
+  ModifyParams({this.action, this.dialogParams, this.sessid});
 
   ModifyParams.fromJson(Map<String, dynamic> json) {
     action = json['action'];
     dialogParams = json['dialogParams'] != null
         ? DialogParams.fromJson(json['dialogParams'])
         : null;
-    sessionId = json['sessionId'];
+    sessid = json['sessionId'];
   }
 
   Map<String, dynamic> toJson() {
@@ -49,7 +49,7 @@ class ModifyParams {
     if (dialogParams != null) {
       data['dialogParams'] = dialogParams!.toJson();
     }
-    data['sessionId'] = sessionId;
+    data['sessionId'] = sessid;
     return data;
   }
 }

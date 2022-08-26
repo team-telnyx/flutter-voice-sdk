@@ -8,7 +8,6 @@ import '/config/telnyx_config.dart';
 import '/model/gateway_state.dart';
 import '/model/socket_method.dart';
 import '/model/telnyx_socket_error.dart';
-import '/model/verto/receive/login_result_message_body.dart';
 import '/model/verto/receive/received_message_body.dart';
 import '/model/verto/send/gateway_request_message_body.dart';
 import '/model/verto/send/login_message_body.dart';
@@ -33,7 +32,7 @@ class TelnyxClient {
   final _logger = Logger();
 
   /// The current session ID related to this client
-  String? sessionId;
+  String sessid = Uuid().toString();
 
   /// The current instance of [Call] associated with this client. Can be used
   /// to call call related functions such as hold/mute
@@ -69,8 +68,6 @@ class TelnyxClient {
   /// Create a socket connection for
   /// communication with the Telnyx backend
   void connect() {
-    _invalidateGatewayResponseTimer();
-    _resetGatewayCounters();
     _logger.i('connect()');
     if (isConnected()) {
       _logger.i('WebSocket $_storedHostAddress is already connected');
@@ -119,16 +116,10 @@ class TelnyxClient {
   /// Creates an instance of [Call] that can be used to create invitations or
   /// perform common call related functions such as ending the call or placing
   /// yourself on hold/mute.
-  ///
-  /// Throws an [ArgumentError] if there is no session ID set, meaning there is
-  /// no active connection.
   Call createCall() {
-    if (sessionId != null) {
-      call = Call(txSocket, sessionId!);
-      return call;
-    } else {
-      throw ArgumentError(sessionId);
-    }
+    // Set global call parameter
+    call = Call(txSocket, sessid);
+    return call;
   }
 
   /// Uses the provided [config] to send a credential login message to the Telnyx backend.
@@ -241,10 +232,6 @@ class TelnyxClient {
           var paramJson = jsonEncode(data.toString());
           _logger
               .i('Received WebSocket message - Contains Result :: $paramJson');
-          ResultMessage resultMessage =
-              ResultMessage.fromJson(jsonDecode(data.toString()));
-          sessionId = resultMessage.result?.sessid;
-          _logger.i('Client Session ID Set :: $sessionId');
         } else
         //Received Telnyx Method Message
         if (data.toString().trim().contains("method")) {
@@ -334,6 +321,7 @@ class TelnyxClient {
                         _logger.i(
                             'GATEWAY REGISTERED :: ${stateMessage.toString()}');
                         _invalidateGatewayResponseTimer();
+                        _resetGatewayCounters();
                         _gatewayState = GatewayState.REGED;
                         _waitingForReg = false;
                         var message = TelnyxMessage(
@@ -351,6 +339,7 @@ class TelnyxClient {
                       _gatewayState = GatewayState.NOREG;
                       _waitingForReg = true;
                       _invalidateGatewayResponseTimer();
+                      _resetGatewayCounters();
                       onSocketMessageReceived.call(message);
                       break;
                     }
@@ -381,6 +370,7 @@ class TelnyxClient {
                         _reconnectToSocket();
                       } else {
                         _invalidateGatewayResponseTimer();
+                        _resetGatewayCounters();
                         _logger
                             .i('GATEWAY REGISTRATION FAILED AFTER REATTEMPTS');
                         var error = TelnyxSocketError(
@@ -398,6 +388,7 @@ class TelnyxClient {
                           'GATEWAY REGISTRATION EXPIRED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.EXPIRED;
                       _invalidateGatewayResponseTimer();
+                      _resetGatewayCounters();
                       var error = TelnyxSocketError(
                           errorCode:
                               TelnyxErrorConstants.gatewayTimeoutErrorCode,
@@ -437,6 +428,7 @@ class TelnyxClient {
                   default:
                     {
                       _invalidateGatewayResponseTimer();
+                      _resetGatewayCounters();
                       _logger.i('GATEWAY REGISTRATION FAILED :: Unknown State');
                     }
                 }

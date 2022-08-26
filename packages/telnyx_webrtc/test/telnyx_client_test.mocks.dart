@@ -62,7 +62,7 @@ class MockTelnyxClient extends _i1.Mock implements _i4.TelnyxClient {
       super.noSuchMethod(Invocation.setter(#txSocket, _txSocket),
           returnValueForMissingStub: null);
   @override
-  set sessionId(String? _sessionId) =>
+  set sessid(String? _sessionId) =>
       super.noSuchMethod(Invocation.setter(#sessionId, _sessionId),
           returnValueForMissingStub: null);
   @override

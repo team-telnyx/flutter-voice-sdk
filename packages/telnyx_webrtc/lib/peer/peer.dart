@@ -160,7 +160,7 @@ class Peer {
         var inviteParams = InviteParams(
             dialogParams: dialogParams,
             sdp: sdpUsed,
-            sessionId: sessionId,
+            sessid: sessionId,
             userAgent: "Flutter-1.0");
         var inviteMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
@@ -247,7 +247,7 @@ class Peer {
         var inviteParams = InviteParams(
             dialogParams: dialogParams,
             sdp: sdpUsed,
-            sessionId: session.sid,
+            sessid: session.sid,
             userAgent: "Flutter-1.0");
         var answerMessage = InviteAnswerMessage(
             id: const Uuid().toString(),

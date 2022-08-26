@@ -32,10 +32,10 @@ class SendByeParams {
   String? cause;
   int? causeCode;
   ByeDialogParams? dialogParams;
-  String? sessionId;
+  String? sessid;
 
   SendByeParams(
-      {this.cause, this.causeCode, this.dialogParams, this.sessionId});
+      {this.cause, this.causeCode, this.dialogParams, this.sessid});
 
   SendByeParams.fromJson(Map<String, dynamic> json) {
     cause = json['cause'];
@@ -43,7 +43,7 @@ class SendByeParams {
     dialogParams = json['dialogParams'] != null
         ? ByeDialogParams.fromJson(json['dialogParams'])
         : null;
-    sessionId = json['sessionId'];
+    sessid = json['sessionId'];
   }
 
   Map<String, dynamic> toJson() {
@@ -53,7 +53,7 @@ class SendByeParams {
     if (dialogParams != null) {
       data['dialogParams'] = dialogParams!.toJson();
     }
-    data['sessionId'] = sessionId;
+    data['sessionId'] = sessid;
     return data;
   }
 }
