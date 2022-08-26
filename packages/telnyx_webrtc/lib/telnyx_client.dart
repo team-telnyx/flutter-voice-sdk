@@ -33,7 +33,7 @@ class TelnyxClient {
   final _logger = Logger();
 
   /// The current session ID related to this client
-  String? sessid;
+  String sessid = Uuid().toString();
 
   /// The current instance of [Call] associated with this client. Can be used
   /// to call call related functions such as hold/mute
@@ -231,10 +231,6 @@ class TelnyxClient {
           var paramJson = jsonEncode(data.toString());
           _logger
               .i('Received WebSocket message - Contains Result :: $paramJson');
-          ResultMessage resultMessage =
-              ResultMessage.fromJson(jsonDecode(data.toString()));
-          sessid = resultMessage.result?.sessid;
-          _logger.i('Client Session ID Set :: $sessid');
         } else
         //Received Telnyx Method Message
         if (data.toString().trim().contains("method")) {
