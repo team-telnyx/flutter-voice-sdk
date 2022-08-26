@@ -69,8 +69,6 @@ class TelnyxClient {
   /// Create a socket connection for
   /// communication with the Telnyx backend
   void connect() {
-    _invalidateGatewayResponseTimer();
-    _resetGatewayCounters();
     _logger.i('connect()');
     if (isConnected()) {
       _logger.i('WebSocket $_storedHostAddress is already connected');
@@ -326,6 +324,7 @@ class TelnyxClient {
                         _logger.i(
                             'GATEWAY REGISTERED :: ${stateMessage.toString()}');
                         _invalidateGatewayResponseTimer();
+                        _resetGatewayCounters();
                         _gatewayState = GatewayState.REGED;
                         _waitingForReg = false;
                         var message = TelnyxMessage(
@@ -343,6 +342,7 @@ class TelnyxClient {
                       _gatewayState = GatewayState.NOREG;
                       _waitingForReg = true;
                       _invalidateGatewayResponseTimer();
+                      _resetGatewayCounters();
                       onSocketMessageReceived.call(message);
                       break;
                     }
@@ -373,6 +373,7 @@ class TelnyxClient {
                         _reconnectToSocket();
                       } else {
                         _invalidateGatewayResponseTimer();
+                        _resetGatewayCounters();
                         _logger
                             .i('GATEWAY REGISTRATION FAILED AFTER REATTEMPTS');
                         var error = TelnyxSocketError(
@@ -390,6 +391,7 @@ class TelnyxClient {
                           'GATEWAY REGISTRATION EXPIRED :: ${stateMessage.toString()}');
                       _gatewayState = GatewayState.EXPIRED;
                       _invalidateGatewayResponseTimer();
+                      _resetGatewayCounters();
                       var error = TelnyxSocketError(
                           errorCode:
                               TelnyxErrorConstants.gatewayTimeoutErrorCode,
@@ -429,6 +431,7 @@ class TelnyxClient {
                   default:
                     {
                       _invalidateGatewayResponseTimer();
+                      _resetGatewayCounters();
                       _logger.i('GATEWAY REGISTRATION FAILED :: Unknown State');
                     }
                 }
