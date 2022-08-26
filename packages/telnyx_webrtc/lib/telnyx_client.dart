@@ -118,7 +118,7 @@ class TelnyxClient {
   /// perform common call related functions such as ending the call or placing
   /// yourself on hold/mute.
   Call createCall() {
-      return Call(txSocket, sessid!);
+      return Call(txSocket, sessid);
   }
 
   /// Uses the provided [config] to send a credential login message to the Telnyx backend.
