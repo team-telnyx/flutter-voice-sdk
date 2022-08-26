@@ -32,7 +32,7 @@ class TelnyxClient {
   final _logger = Logger();
 
   /// The current session ID related to this client
-  String sessid = Uuid().toString();
+  String sessid = const Uuid().toString();
 
   /// The current instance of [Call] associated with this client. Can be used
   /// to call call related functions such as hold/mute
@@ -302,6 +302,16 @@ class TelnyxClient {
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 var message =
                     TelnyxMessage(socketMethod: SocketMethod.BYE, message: bye);
+                onSocketMessageReceived(message);
+                break;
+              }
+            case SocketMethod.RINGING:
+              {
+                _logger.i('RINGING RECEIVED :: $messageJson');
+                ReceivedMessage ringing =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.RINGING, message: ringing);
                 onSocketMessageReceived(message);
                 break;
               }
