@@ -14,10 +14,10 @@ import 'package:uuid/uuid.dart';
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
-  Call(this._txSocket, this._sessionId);
+  Call(this._txSocket, this._sessid);
 
   final TxSocket _txSocket;
-  final String _sessionId;
+  final String _sessid;
   late String? callId;
   Peer? peerConnection;
 
@@ -41,7 +41,7 @@ class Call {
 
     peerConnection = Peer(_txSocket);
     peerConnection?.invite(callerName, callerNumber, destinationNumber,
-        base64State, callId!, _sessionId);
+        base64State, callId!, _sessid);
   }
 
   void onRemoteSessionReceived(String? sdp) {
@@ -79,7 +79,7 @@ class Call {
         cause: CauseCode.USER_BUSY.name,
         causeCode: CauseCode.USER_BUSY.index + 1,
         dialogParams: byeDialogParams,
-        sessionId: _sessionId);
+        sessid: _sessid);
 
     var byeMessage = SendByeMessage(
         id: uuid.toString(),
@@ -90,7 +90,7 @@ class Call {
     String jsonByeMessage = jsonEncode(byeMessage);
     _txSocket.send(jsonByeMessage);
     if (peerConnection != null) {
-      peerConnection?.closeSession(_sessionId);
+      peerConnection?.closeSession(_sessid);
     }
   }
 
@@ -113,7 +113,7 @@ class Call {
         video: false);
 
     var infoParams = InfoParams(
-        dialogParams: dialogParams, dtmf: tone, sessionId: _sessionId);
+        dialogParams: dialogParams, dtmf: tone, sessid: _sessid);
 
     var dtmfMessageBody = DtmfInfoMessage(
         id: uuid.toString(),
@@ -159,7 +159,7 @@ class Call {
         video: false);
 
     var modifyParams = ModifyParams(
-        action: action, dialogParams: dialogParams, sessionId: _sessionId);
+        action: action, dialogParams: dialogParams, sessid: _sessid);
 
     var modifyMessage = ModifyMessage(
         id: uuid.toString(),

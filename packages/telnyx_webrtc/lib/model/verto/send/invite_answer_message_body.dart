@@ -29,17 +29,17 @@ class InviteAnswerMessage {
 class InviteParams {
   DialogParams? dialogParams;
   String? sdp;
-  String? sessionId;
+  String? sessid;
   String? userAgent;
 
-  InviteParams({this.dialogParams, this.sdp, this.sessionId, this.userAgent});
+  InviteParams({this.dialogParams, this.sdp, this.sessid, this.userAgent});
 
   InviteParams.fromJson(Map<String, dynamic> json) {
     dialogParams = json['dialogParams'] != null
         ? DialogParams.fromJson(json['dialogParams'])
         : null;
     sdp = json['sdp'];
-    sessionId = json['sessionId'];
+    sessid = json['sessionId'];
     userAgent = json['User-Agent'];
   }
 
@@ -49,7 +49,7 @@ class InviteParams {
       data['dialogParams'] = dialogParams!.toJson();
     }
     data['sdp'] = sdp;
-    data['sessionId'] = sessionId;
+    data['sessionId'] = sessid;
     data['User-Agent'] = userAgent;
     return data;
   }

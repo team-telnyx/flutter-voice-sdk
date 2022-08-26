@@ -31,16 +31,16 @@ class DtmfInfoMessage {
 class InfoParams {
   DialogParams? dialogParams;
   String? dtmf;
-  String? sessionId;
+  String? sessid;
 
-  InfoParams({this.dialogParams, this.dtmf, this.sessionId});
+  InfoParams({this.dialogParams, this.dtmf, this.sessid});
 
   InfoParams.fromJson(Map<String, dynamic> json) {
     dialogParams = json['dialogParams'] != null
         ? DialogParams.fromJson(json['dialogParams'])
         : null;
     dtmf = json['dtmf'];
-    sessionId = json['sessionId'];
+    sessid = json['sessionId'];
   }
 
   Map<String, dynamic> toJson() {
@@ -49,7 +49,7 @@ class InfoParams {
       data['dialogParams'] = dialogParams!.toJson();
     }
     data['dtmf'] = dtmf;
-    data['sessionId'] = sessionId;
+    data['sessionId'] = sessid;
     return data;
   }
 }

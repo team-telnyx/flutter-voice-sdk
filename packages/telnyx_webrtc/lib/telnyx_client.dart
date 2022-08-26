@@ -33,7 +33,7 @@ class TelnyxClient {
   final _logger = Logger();
 
   /// The current session ID related to this client
-  String? sessionId;
+  String? sessid;
 
   /// The current instance of [Call] associated with this client. Can be used
   /// to call call related functions such as hold/mute
@@ -123,11 +123,11 @@ class TelnyxClient {
   /// Throws an [ArgumentError] if there is no session ID set, meaning there is
   /// no active connection.
   Call createCall() {
-    if (sessionId != null) {
-      call = Call(txSocket, sessionId!);
+    if (sessid != null) {
+      call = Call(txSocket, sessid!);
       return call;
     } else {
-      throw ArgumentError(sessionId);
+      throw ArgumentError(sessid);
     }
   }
 
@@ -243,8 +243,8 @@ class TelnyxClient {
               .i('Received WebSocket message - Contains Result :: $paramJson');
           ResultMessage resultMessage =
               ResultMessage.fromJson(jsonDecode(data.toString()));
-          sessionId = resultMessage.result?.sessid;
-          _logger.i('Client Session ID Set :: $sessionId');
+          sessid = resultMessage.result?.sessid;
+          _logger.i('Client Session ID Set :: $sessid');
         } else
         //Received Telnyx Method Message
         if (data.toString().trim().contains("method")) {
