@@ -1,3 +1,8 @@
+## 0.0.4
+
+- Improved stability by providing session ID to backend rather than waiting and setting one
+- Fixed gateway retry error that would continuously retry and never timeout
+
 ## 0.0.3
 
 - Static code analysis fixes
