@@ -8,7 +8,6 @@ import '/config/telnyx_config.dart';
 import '/model/gateway_state.dart';
 import '/model/socket_method.dart';
 import '/model/telnyx_socket_error.dart';
-import '/model/verto/receive/login_result_message_body.dart';
 import '/model/verto/receive/received_message_body.dart';
 import '/model/verto/send/gateway_request_message_body.dart';
 import '/model/verto/send/login_message_body.dart';
@@ -118,7 +117,9 @@ class TelnyxClient {
   /// perform common call related functions such as ending the call or placing
   /// yourself on hold/mute.
   Call createCall() {
-      return Call(txSocket, sessid);
+    // Set global call parameter
+    call = Call(txSocket, sessid);
+    return call;
   }
 
   /// Uses the provided [config] to send a credential login message to the Telnyx backend.
