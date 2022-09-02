@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:telnyx_webrtc/model/jsonrpc.dart';
+
 import '/model/socket_method.dart';
 import '/model/verto/receive/received_message_body.dart';
 import '/model/verto/send/send_bye_message_body.dart';
@@ -36,7 +38,7 @@ class Call {
     sessionDestinationNumber = destinationNumber;
     sessionClientState = clientState;
 
-    callId = const Uuid().toString();
+    callId = const Uuid().v4();
     var base64State = base64.encode(utf8.encode(clientState));
 
     peerConnection = Peer(_txSocket);
@@ -72,7 +74,7 @@ class Call {
 
   /// Attempts to end the call identified via the [callID]
   void endCall(String? callID) {
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var byeDialogParams = ByeDialogParams(callId: callID);
 
     var byeParams = SendByeParams(
@@ -82,8 +84,8 @@ class Call {
         sessid: _sessid);
 
     var byeMessage = SendByeMessage(
-        id: uuid.toString(),
-        jsonrpc: "2.0",
+        id: uuid,
+        jsonrpc: JsonRPCConstant.jsonrpc,
         method: SocketMethod.BYE,
         params: byeParams);
 
@@ -97,7 +99,7 @@ class Call {
   /// Sends a DTMF message with the chosen [tone] to the call
   /// specified via the [callID]
   void dtmf(String? callID, String tone) {
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var dialogParams = DialogParams(
         attach: false,
         audio: true,
@@ -112,12 +114,12 @@ class Call {
         userVariables: [],
         video: false);
 
-    var infoParams = InfoParams(
-        dialogParams: dialogParams, dtmf: tone, sessid: _sessid);
+    var infoParams =
+        InfoParams(dialogParams: dialogParams, dtmf: tone, sessid: _sessid);
 
     var dtmfMessageBody = DtmfInfoMessage(
-        id: uuid.toString(),
-        jsonrpc: "2.0",
+        id: uuid,
+        jsonrpc: JsonRPCConstant.jsonrpc,
         method: SocketMethod.INFO,
         params: infoParams);
 
@@ -143,7 +145,7 @@ class Call {
   }
 
   void _sendHoldModifier(String action) {
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var dialogParams = DialogParams(
         attach: false,
         audio: true,
@@ -165,7 +167,7 @@ class Call {
         id: uuid.toString(),
         method: SocketMethod.MODIFY,
         params: modifyParams,
-        jsonrpc: "2.0");
+        jsonrpc: JsonRPCConstant.jsonrpc);
 
     String jsonModifyMessage = jsonEncode(modifyMessage);
     _txSocket.send(jsonModifyMessage);

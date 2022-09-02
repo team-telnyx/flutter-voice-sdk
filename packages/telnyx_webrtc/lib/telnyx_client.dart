@@ -17,6 +17,8 @@ import 'package:telnyx_webrtc/tx_socket.dart'
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 
+import 'model/jsonrpc.dart';
+
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
@@ -32,7 +34,7 @@ class TelnyxClient {
   final _logger = Logger();
 
   /// The current session ID related to this client
-  String sessid = const Uuid().toString();
+  String sessid = const Uuid().v4();
 
   /// The current instance of [Call] associated with this client. Can be used
   /// to call call related functions such as hold/mute
@@ -50,6 +52,9 @@ class TelnyxClient {
   int _registrationRetryCounter = 0;
   int _connectRetryCounter = 0;
   String _gatewayState = GatewayState.IDLE;
+
+  // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
+  bool earlySDP = false;
 
   final String _storedHostAddress = "wss://rtc.telnyx.com:443";
   CredentialConfig? storedCredentialConfig;
@@ -128,7 +133,7 @@ class TelnyxClient {
   /// May return a [TelnyxSocketError] in the case of an authentication error
   void credentialLogin(CredentialConfig config) {
     storedCredentialConfig = config;
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var user = config.sipUser;
     var password = config.sipPassword;
     var fcmToken = config.notificationToken;
@@ -149,10 +154,10 @@ class TelnyxClient {
         loginParams: [],
         userVariables: notificationParams);
     var loginMessage = LoginMessage(
-        id: uuid.toString(),
+        id: uuid,
         method: SocketMethod.LOGIN,
         params: loginParams,
-        jsonrpc: "2.0");
+        jsonrpc: JsonRPCConstant.jsonrpc);
 
     String jsonLoginMessage = jsonEncode(loginMessage);
 
@@ -165,7 +170,7 @@ class TelnyxClient {
   /// May return a [TelnyxSocketError] in the case of an authentication error
   void tokenLogin(TokenConfig config) {
     storedTokenConfig = config;
-    var uuid = const Uuid();
+    var uuid = const Uuid().v4();
     var token = config.sipToken;
     var fcmToken = config.notificationToken;
     UserVariables? notificationParams;
@@ -182,10 +187,10 @@ class TelnyxClient {
     var loginParams = LoginParams(
         loginToken: token, loginParams: [], userVariables: notificationParams);
     var loginMessage = LoginMessage(
-        id: uuid.toString(),
+        id: uuid,
         method: SocketMethod.LOGIN,
         params: loginParams,
-        jsonrpc: "2.0");
+        jsonrpc: JsonRPCConstant.jsonrpc);
 
     String jsonLoginMessage = jsonEncode(loginMessage);
 
@@ -284,15 +289,37 @@ class TelnyxClient {
                 onSocketMessageReceived.call(message);
                 break;
               }
+            case SocketMethod.MEDIA:
+              {
+                _logger.i('MEDIA RECEIVED :: $messageJson');
+                ReceivedMessage mediaReceived =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                if (mediaReceived.inviteParams?.sdp != null) {
+                  call.onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
+                  earlySDP = true;
+                } else {
+                  _logger.d('No SDP contained within Media Message');
+                }
+                break;
+              }
             case SocketMethod.ANSWER:
               {
                 _logger.i('INVITATION ANSWERED :: $messageJson');
                 ReceivedMessage inviteAnswer =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                call.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.ANSWER, message: inviteAnswer);
-                onSocketMessageReceived.call(message);
+                if (inviteAnswer.inviteParams?.sdp != null) {
+                  call.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
+                  onSocketMessageReceived.call(message);
+                } else if (earlySDP) {
+                  onSocketMessageReceived.call(message);
+                } else {
+                  _logger.d(
+                      'No SDP provided for Answer or Media, cannot initialize call');
+                  call.endCall(inviteAnswer.inviteParams?.callID);
+                }
+                earlySDP = false;
                 break;
               }
             case SocketMethod.BYE:
@@ -310,6 +337,8 @@ class TelnyxClient {
                 _logger.i('RINGING RECEIVED :: $messageJson');
                 ReceivedMessage ringing =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                _logger.i(
+                    'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}');
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.RINGING, message: ringing);
                 onSocketMessageReceived(message);
@@ -460,7 +489,7 @@ class TelnyxClient {
           id: uuid.toString(),
           method: SocketMethod.GATEWAY_STATE,
           params: gatewayRequestParams,
-          jsonrpc: "2.0");
+          jsonrpc: JsonRPCConstant.jsonrpc);
 
       String jsonGatewayRequestMessage = jsonEncode(gatewayRequestMessage);
 

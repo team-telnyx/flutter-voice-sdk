@@ -34,8 +34,7 @@ class SendByeParams {
   ByeDialogParams? dialogParams;
   String? sessid;
 
-  SendByeParams(
-      {this.cause, this.causeCode, this.dialogParams, this.sessid});
+  SendByeParams({this.cause, this.causeCode, this.dialogParams, this.sessid});
 
   SendByeParams.fromJson(Map<String, dynamic> json) {
     cause = json['cause'];

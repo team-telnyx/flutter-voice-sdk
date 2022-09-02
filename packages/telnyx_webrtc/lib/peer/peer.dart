@@ -12,6 +12,8 @@ import 'package:logger/logger.dart';
 
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
+import '../model/jsonrpc.dart';
+
 enum SignalingState {
   ConnectionOpen,
   ConnectionClosed,
@@ -130,6 +132,7 @@ class Peer {
       if (session.remoteCandidates.isNotEmpty) {
         for (var candidate in session.remoteCandidates) {
           if (candidate.candidate != null) {
+            _logger.i("adding $candidate");
             await session.peerConnection?.addCandidate(candidate);
           }
         }
@@ -164,7 +167,7 @@ class Peer {
             userAgent: "Flutter-1.0");
         var inviteMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
-            jsonrpc: "2.0",
+            jsonrpc: JsonRPCConstant.jsonrpc,
             method: SocketMethod.INVITE,
             params: inviteParams);
 
@@ -251,7 +254,7 @@ class Peer {
             userAgent: "Flutter-1.0");
         var answerMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
-            jsonrpc: "2.0",
+            jsonrpc: JsonRPCConstant.jsonrpc,
             method: SocketMethod.ANSWER,
             params: inviteParams);
 
@@ -318,7 +321,12 @@ class Peer {
       }
     }
     peerConnection.onIceCandidate = (candidate) async {
-      peerConnection.addCandidate(candidate);
+      if (!candidate.candidate.toString().contains("127.0.0.1")) {
+        _logger.i("Peer :: Adding ICE candidate :: ${candidate.toString()}");
+        peerConnection.addCandidate(candidate);
+      } else {
+        _logger.i("Peer :: Local candidate skipped!");
+      }
       if (candidate.candidate == null) {
         _logger.i("Peer :: onIceCandidate: complete!");
         return;
@@ -327,6 +335,13 @@ class Peer {
 
     peerConnection.onIceConnectionState = (state) {
       _logger.i("Peer :: ICE Connection State change :: $state");
+      switch (state) {
+        case RTCIceConnectionState.RTCIceConnectionStateFailed:
+          peerConnection.restartIce();
+          return;
+        default:
+          return;
+      }
     };
 
     peerConnection.onRemoveStream = (stream) {

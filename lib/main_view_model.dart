@@ -19,6 +19,9 @@ class MainViewModel with ChangeNotifier {
   bool _ongoingCall = false;
   IncomingInviteParams? _incomingInvite;
 
+  String _localName = '';
+  String _localNumber = '';
+
   bool get registered {
     return _registered;
   }
@@ -108,19 +111,21 @@ class MainViewModel with ChangeNotifier {
   }
 
   void login(CredentialConfig credentialConfig) {
+    _localName = credentialConfig.sipCallerIDName;
+    _localNumber = credentialConfig.sipCallerIDNumber;
     _telnyxClient.credentialLogin(credentialConfig);
   }
 
   void call(String destination) {
     _telnyxClient
         .createCall()
-        .newInvite("callerName", "Fake Number", destination, "Fake State");
+        .newInvite(_localName, _localNumber, destination, "Fake State");
   }
 
   void accept() {
     if (_incomingInvite != null) {
       _telnyxClient.createCall().acceptCall(
-          _incomingInvite!, "callerName", "Fake Number", "Fake State");
+          _incomingInvite!, _localName, _localNumber, "Fake State");
       _ongoingInvitation = false;
       _ongoingCall = true;
       notifyListeners();
