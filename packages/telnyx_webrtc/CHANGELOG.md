@@ -1,3 +1,8 @@
+## 0.0.5
+
+- Enable PSTN call integration via early SDP contained in Telnyx Media Message
+- Fixed ICE candidate error that would add a local IP ICE Candidate
+
 ## 0.0.4
 
 - Improved stability by providing session ID to backend rather than waiting and setting one
