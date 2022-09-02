@@ -130,8 +130,8 @@ class Peer {
       if (session.remoteCandidates.isNotEmpty) {
         for (var candidate in session.remoteCandidates) {
           if (candidate.candidate != null) {
-              _logger.i("adding $candidate");
-              await session.peerConnection?.addCandidate(candidate);
+            _logger.i("adding $candidate");
+            await session.peerConnection?.addCandidate(candidate);
           }
         }
         session.remoteCandidates.clear();
@@ -333,7 +333,7 @@ class Peer {
 
     peerConnection.onIceConnectionState = (state) {
       _logger.i("Peer :: ICE Connection State change :: $state");
-      switch (state){
+      switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
           peerConnection.restartIce();
           return;
