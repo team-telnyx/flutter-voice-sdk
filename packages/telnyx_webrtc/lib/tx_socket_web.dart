@@ -19,9 +19,9 @@ class TxSocket {
   late OnMessageCallback onMessage;
   late OnCloseCallback onClose;
 
-  connect(String providedHostAddress) async {
+  connect() async {
     try {
-      _socket = WebSocket(providedHostAddress);
+      _socket = WebSocket(hostAddress);
       _socket.onOpen.listen((e) {
         onOpen.call();
       });

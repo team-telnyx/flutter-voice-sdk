@@ -12,6 +12,8 @@ import 'package:logger/logger.dart';
 
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
+import '../model/jsonrpc.dart';
+
 enum SignalingState {
   ConnectionOpen,
   ConnectionClosed,
@@ -165,7 +167,7 @@ class Peer {
             userAgent: "Flutter-1.0");
         var inviteMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
-            jsonrpc: "2.0",
+            jsonrpc: JsonRPCConstant.jsonrpc,
             method: SocketMethod.INVITE,
             params: inviteParams);
 
@@ -252,7 +254,7 @@ class Peer {
             userAgent: "Flutter-1.0");
         var answerMessage = InviteAnswerMessage(
             id: const Uuid().toString(),
-            jsonrpc: "2.0",
+            jsonrpc: JsonRPCConstant.jsonrpc,
             method: SocketMethod.ANSWER,
             params: inviteParams);
 

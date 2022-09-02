@@ -17,6 +17,8 @@ import 'package:telnyx_webrtc/tx_socket.dart'
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 
+import 'model/jsonrpc.dart';
+
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
@@ -155,7 +157,7 @@ class TelnyxClient {
         id: uuid,
         method: SocketMethod.LOGIN,
         params: loginParams,
-        jsonrpc: "2.0");
+        jsonrpc: JsonRPCConstant.jsonrpc);
 
     String jsonLoginMessage = jsonEncode(loginMessage);
 
@@ -188,7 +190,7 @@ class TelnyxClient {
         id: uuid,
         method: SocketMethod.LOGIN,
         params: loginParams,
-        jsonrpc: "2.0");
+        jsonrpc: JsonRPCConstant.jsonrpc);
 
     String jsonLoginMessage = jsonEncode(loginMessage);
 
@@ -487,7 +489,7 @@ class TelnyxClient {
           id: uuid.toString(),
           method: SocketMethod.GATEWAY_STATE,
           params: gatewayRequestParams,
-          jsonrpc: "2.0");
+          jsonrpc: JsonRPCConstant.jsonrpc);
 
       String jsonGatewayRequestMessage = jsonEncode(gatewayRequestMessage);
 
