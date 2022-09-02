@@ -82,10 +82,7 @@ class Call {
         sessid: _sessid);
 
     var byeMessage = SendByeMessage(
-        id: uuid,
-        jsonrpc: "2.0",
-        method: SocketMethod.BYE,
-        params: byeParams);
+        id: uuid, jsonrpc: "2.0", method: SocketMethod.BYE, params: byeParams);
 
     String jsonByeMessage = jsonEncode(byeMessage);
     _txSocket.send(jsonByeMessage);
@@ -112,8 +109,8 @@ class Call {
         userVariables: [],
         video: false);
 
-    var infoParams = InfoParams(
-        dialogParams: dialogParams, dtmf: tone, sessid: _sessid);
+    var infoParams =
+        InfoParams(dialogParams: dialogParams, dtmf: tone, sessid: _sessid);
 
     var dtmfMessageBody = DtmfInfoMessage(
         id: uuid,

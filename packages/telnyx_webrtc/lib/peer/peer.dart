@@ -130,7 +130,8 @@ class Peer {
       if (session.remoteCandidates.isNotEmpty) {
         for (var candidate in session.remoteCandidates) {
           if (candidate.candidate != null) {
-            await session.peerConnection?.addCandidate(candidate);
+              _logger.i("adding $candidate");
+              await session.peerConnection?.addCandidate(candidate);
           }
         }
         session.remoteCandidates.clear();
@@ -318,7 +319,12 @@ class Peer {
       }
     }
     peerConnection.onIceCandidate = (candidate) async {
-      peerConnection.addCandidate(candidate);
+      if (!candidate.candidate.toString().contains("127.0.0.1")) {
+        _logger.i("Peer :: Adding ICE candidate :: ${candidate.toString()}");
+        peerConnection.addCandidate(candidate);
+      } else {
+        _logger.i("Peer :: Local candidate skipped!");
+      }
       if (candidate.candidate == null) {
         _logger.i("Peer :: onIceCandidate: complete!");
         return;
@@ -327,6 +333,13 @@ class Peer {
 
     peerConnection.onIceConnectionState = (state) {
       _logger.i("Peer :: ICE Connection State change :: $state");
+      switch (state){
+        case RTCIceConnectionState.RTCIceConnectionStateFailed:
+          peerConnection.restartIce();
+          return;
+        default:
+          return;
+      }
     };
 
     peerConnection.onRemoveStream = (stream) {
