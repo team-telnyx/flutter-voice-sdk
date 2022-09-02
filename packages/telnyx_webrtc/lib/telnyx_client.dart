@@ -51,6 +51,9 @@ class TelnyxClient {
   int _connectRetryCounter = 0;
   String _gatewayState = GatewayState.IDLE;
 
+  // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
+  bool earlySDP = false;
+
   final String _storedHostAddress = "wss://rtc.telnyx.com:443";
   CredentialConfig? storedCredentialConfig;
   TokenConfig? storedTokenConfig;
@@ -284,15 +287,37 @@ class TelnyxClient {
                 onSocketMessageReceived.call(message);
                 break;
               }
+            case SocketMethod.MEDIA:
+              {
+                _logger.i('MEDIA RECEIVED :: $messageJson');
+                ReceivedMessage mediaReceived =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                if (mediaReceived.inviteParams?.sdp != null) {
+                  call.onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
+                  earlySDP = true;
+                } else {
+                  _logger.d('No SDP contained within Media Message');
+                }
+                break;
+              }
             case SocketMethod.ANSWER:
               {
                 _logger.i('INVITATION ANSWERED :: $messageJson');
                 ReceivedMessage inviteAnswer =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                call.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.ANSWER, message: inviteAnswer);
-                onSocketMessageReceived.call(message);
+                if (inviteAnswer.inviteParams?.sdp != null) {
+                  call.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
+                  onSocketMessageReceived.call(message);
+                } else if (earlySDP) {
+                  onSocketMessageReceived.call(message);
+                } else {
+                  _logger.d(
+                      'No SDP provided for Answer or Media, cannot initialize call');
+                  call.endCall(inviteAnswer.inviteParams?.callID);
+                }
+                earlySDP = false;
                 break;
               }
             case SocketMethod.BYE:
@@ -310,7 +335,8 @@ class TelnyxClient {
                 _logger.i('RINGING RECEIVED :: $messageJson');
                 ReceivedMessage ringing =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                _logger.i('Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}');
+                _logger.i(
+                    'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}');
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.RINGING, message: ringing);
                 onSocketMessageReceived(message);
