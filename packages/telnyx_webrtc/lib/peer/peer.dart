@@ -98,6 +98,8 @@ class Peer {
     if (_localStream != null) {
       bool enabled = _localStream!.getAudioTracks()[0].enabled;
       _localStream!.getAudioTracks()[0].enabled = !enabled;
+    } else {
+      _logger.d("Peer :: No local stream :: Unable to Mute / Unmute");
     }
   }
 
@@ -105,6 +107,8 @@ class Peer {
  void enableSpeakerPhone(bool enable) {
     if (_localStream != null) {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
+    } else {
+      _logger.d("Peer :: No local stream :: Unable to toggle speaker mode");
     }
   }
   
