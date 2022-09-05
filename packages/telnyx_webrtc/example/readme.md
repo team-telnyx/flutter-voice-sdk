@@ -3,7 +3,7 @@
 
 For the example app implementation please visit this [root repository](https://github.com/team-telnyx/telnyx-webrtc-flutter)
 
-# Telnyx Flutter WebRTC SDK
+# Telnyx Flutter Voice SDK
 
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
