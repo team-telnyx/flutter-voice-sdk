@@ -1,14 +1,13 @@
 import 'package:flutter/foundation.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+import 'package:logger/logger.dart';
+import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
+import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
-import 'package:telnyx_webrtc/model/telnyx_message.dart';
-import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
-import 'package:telnyx_webrtc/call.dart';
-
-import 'package:fluttertoast/fluttertoast.dart';
 
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
@@ -17,6 +16,7 @@ class MainViewModel with ChangeNotifier {
   bool _registered = false;
   bool _ongoingInvitation = false;
   bool _ongoingCall = false;
+  bool _speakerPhone = true;
   IncomingInviteParams? _incomingInvite;
 
   String _localName = '';
@@ -122,10 +122,17 @@ class MainViewModel with ChangeNotifier {
         .newInvite(_localName, _localNumber, destination, "Fake State");
   }
 
+  void toggleSpeakerPhone() {
+    _speakerPhone = !_speakerPhone;
+    _telnyxClient.call.enableSpeakerPhone(_speakerPhone);
+    notifyListeners();
+  }
+
   void accept() {
     if (_incomingInvite != null) {
-      _telnyxClient.createCall().acceptCall(
-          _incomingInvite!, _localName, _localNumber, "Fake State");
+      _telnyxClient
+          .createCall()
+          .acceptCall(_incomingInvite!, _localName, _localNumber, "Fake State");
       _ongoingInvitation = false;
       _ongoingCall = true;
       notifyListeners();

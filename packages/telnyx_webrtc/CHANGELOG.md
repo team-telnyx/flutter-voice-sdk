@@ -1,3 +1,7 @@
+## 0.0.6
+
+- Enable speaker mode toggle
+
 ## 0.0.5
 
 - Enable PSTN call integration via early SDP contained in Telnyx Media Message
