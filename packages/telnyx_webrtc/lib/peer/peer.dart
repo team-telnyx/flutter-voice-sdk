@@ -101,6 +101,13 @@ class Peer {
     }
   }
 
+
+ void enableSpeakerPhone(bool enable) {
+    if (_localStream != null) {
+      _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
+    }
+  }
+  
   void invite(String callerName, String callerNumber, String destinationNumber,
       String clientState, String callId, String telnyxSessionId) async {
     var sessionId = _selfId;

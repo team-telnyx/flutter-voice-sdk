@@ -132,6 +132,10 @@ class Call {
     peerConnection?.muteUnmuteMic();
   }
 
+  void enableSpeakerPhone(bool enable) {
+    peerConnection?.enableSpeakerPhone(enable);
+  }
+  
   /// Either places the call on hold, or unholds the call based on the current
   /// hold state.
   void onHoldUnholdPressed() {
