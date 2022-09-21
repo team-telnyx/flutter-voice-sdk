@@ -1,3 +1,8 @@
+## 0.0.7
+
+- General bug fixes
+- Code formatting for readability 
+
 ## 0.0.6
 
 - Enable speaker mode toggle
