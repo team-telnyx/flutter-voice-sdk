@@ -42,7 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     _observeResponses();
     if (invitation) {
-      return InvitationWidget(title: 'Home', invitation: Provider.of<MainViewModel>(context, listen: false).incomingInvitation);
+      return InvitationWidget(
+          title: 'Home',
+          invitation: Provider.of<MainViewModel>(context, listen: false)
+              .incomingInvitation);
     } else if (ongoingCall) {
       return CallScreen(
           title: "Ongoing Call",

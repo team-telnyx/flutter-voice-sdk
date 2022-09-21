@@ -103,15 +103,14 @@ class Peer {
     }
   }
 
-
- void enableSpeakerPhone(bool enable) {
+  void enableSpeakerPhone(bool enable) {
     if (_localStream != null) {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
     } else {
       _logger.d("Peer :: No local stream :: Unable to toggle speaker mode");
     }
   }
-  
+
   void invite(String callerName, String callerNumber, String destinationNumber,
       String clientState, String callId, String telnyxSessionId) async {
     var sessionId = _selfId;
