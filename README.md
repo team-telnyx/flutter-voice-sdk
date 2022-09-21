@@ -195,6 +195,14 @@ To mute a call, you can simply call the .onMuteUnmutePressed() method:
     _telnyxClient.call.onMuteUnmutePressed();
 ```
 
+### Toggle loud speaker
+
+To toggle loud speaker, you can simply call .enableSpeakerPhone(bool):
+
+```dart
+    _telnyxClient.call.enableSpeakerPhone(true);
+```
+
 ### Put a call on hold
 
 To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
