@@ -8,5 +8,6 @@ class SocketMethod {
   static const RINGING = "telnyx_rtc.ringing";
   static const CLIENT_READY = "telnyx_rtc.clientReady";
   static const GATEWAY_STATE = "telnyx_rtc.gatewayState";
+  static const PING = "telnyx_rtc.ping";
   static const LOGIN = "login";
 }

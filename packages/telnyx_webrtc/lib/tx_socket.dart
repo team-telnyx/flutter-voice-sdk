@@ -19,6 +19,8 @@ class TxSocket {
   void connect() async {
     try {
       _socket = await WebSocket.connect(hostAddress);
+      _socket.pingInterval = const Duration(seconds: 10);
+      _socket.timeout(const Duration(seconds: 30));
       onOpen.call();
       _socket.listen((dynamic data) {
         onMessage.call(data);
