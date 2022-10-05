@@ -39,7 +39,7 @@ class InviteParams {
         ? DialogParams.fromJson(json['dialogParams'])
         : null;
     sdp = json['sdp'];
-    sessid = json['sessionId'];
+    sessid = json['sessid'];
     userAgent = json['User-Agent'];
   }
 
@@ -49,7 +49,7 @@ class InviteParams {
       data['dialogParams'] = dialogParams!.toJson();
     }
     data['sdp'] = sdp;
-    data['sessionId'] = sessid;
+    data['sessid'] = sessid;
     data['User-Agent'] = userAgent;
     return data;
   }
