@@ -1,3 +1,9 @@
+## 0.0.8
+
+- Implement Ping / Pong socket functionality to socket alive
+- Fix serialized variable names for enhanced backend functionality
+- Code formatting 
+
 ## 0.0.7
 
 - General bug fixes
