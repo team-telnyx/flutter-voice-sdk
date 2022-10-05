@@ -40,7 +40,7 @@ class InfoParams {
         ? DialogParams.fromJson(json['dialogParams'])
         : null;
     dtmf = json['dtmf'];
-    sessid = json['sessionId'];
+    sessid = json['sessid'];
   }
 
   Map<String, dynamic> toJson() {
@@ -49,7 +49,7 @@ class InfoParams {
       data['dialogParams'] = dialogParams!.toJson();
     }
     data['dtmf'] = dtmf;
-    data['sessionId'] = sessid;
+    data['sessid'] = sessid;
     return data;
   }
 }

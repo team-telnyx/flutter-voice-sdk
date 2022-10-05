@@ -18,6 +18,7 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 
 import 'model/jsonrpc.dart';
+import 'model/verto/send/pong_message_body.dart';
 
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
@@ -244,6 +245,17 @@ class TelnyxClient {
           _logger.i(
               'Received WebSocket message - Contains Method :: $messageJson');
           switch (messageJson['method']) {
+            case SocketMethod.PING:
+              {
+                var result = Result(message: "PONG", sessid: sessid);
+                var pongMessage = PongMessage(
+                    jsonrpc: JsonRPCConstant.jsonrpc,
+                    id: const Uuid().v4(),
+                    result: result);
+                String jsonPongMessage = jsonEncode(pongMessage);
+                txSocket.send(jsonPongMessage);
+                break;
+              }
             case SocketMethod.CLIENT_READY:
               {
                 if (_gatewayState != GatewayState.REGED) {

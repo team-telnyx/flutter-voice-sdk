@@ -42,7 +42,7 @@ class SendByeParams {
     dialogParams = json['dialogParams'] != null
         ? ByeDialogParams.fromJson(json['dialogParams'])
         : null;
-    sessid = json['sessionId'];
+    sessid = json['sessid'];
   }
 
   Map<String, dynamic> toJson() {
@@ -52,7 +52,7 @@ class SendByeParams {
     if (dialogParams != null) {
       data['dialogParams'] = dialogParams!.toJson();
     }
-    data['sessionId'] = sessid;
+    data['sessid'] = sessid;
     return data;
   }
 }

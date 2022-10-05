@@ -176,7 +176,7 @@ class Peer {
             sessid: sessionId,
             userAgent: "Flutter-1.0");
         var inviteMessage = InviteAnswerMessage(
-            id: const Uuid().toString(),
+            id: const Uuid().v4(),
             jsonrpc: JsonRPCConstant.jsonrpc,
             method: SocketMethod.INVITE,
             params: inviteParams);
@@ -263,7 +263,7 @@ class Peer {
             sessid: session.sid,
             userAgent: "Flutter-1.0");
         var answerMessage = InviteAnswerMessage(
-            id: const Uuid().toString(),
+            id: const Uuid().v4(),
             jsonrpc: JsonRPCConstant.jsonrpc,
             method: SocketMethod.ANSWER,
             params: inviteParams);
