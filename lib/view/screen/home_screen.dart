@@ -41,8 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void handleOptionClick(String value) {
     switch (value) {
       case 'Logout':
-        Provider.of<MainViewModel>(context, listen: false)
-            .disconnect();
+        Provider.of<MainViewModel>(context, listen: false).disconnect();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           Navigator.of(context).pushReplacementNamed('/');
         });

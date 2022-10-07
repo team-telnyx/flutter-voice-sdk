@@ -1,3 +1,8 @@
+## 0.0.9
+
+- Fix disconnect functionality allowing subsequent logins
+- Update sample app with new disconnect functionality
+
 ## 0.0.8
 
 - Implement Ping / Pong socket functionality to socket alive
