@@ -110,6 +110,12 @@ class MainViewModel with ChangeNotifier {
     _telnyxClient.connect();
   }
 
+  void disconnect() {
+    _telnyxClient.disconnect();
+    _registered = false;
+    notifyListeners();
+  }
+
   void login(CredentialConfig credentialConfig) {
     _localName = credentialConfig.sipCallerIDName;
     _localNumber = credentialConfig.sipCallerIDNumber;
