@@ -207,6 +207,7 @@ class TelnyxClient {
     // Don't wait for the WebSocket 'close' event, do it now.
     _closed = true;
     _connected = false;
+    _registered = false;
     _onClose(true, 0, 'Client send disconnect');
     try {
       txSocket.close();
