@@ -8,16 +8,14 @@ import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/login_screen.dart';
 import 'package:provider/provider.dart';
 
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print('Handling a background message ${message.messageId}');
+  print("Handling a background message: ${message.messageId}");
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await Firebase.initializeApp();
-
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
@@ -41,8 +39,70 @@ const AndroidNotificationChannel channel = AndroidNotificationChannel(
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    var initializationSettingsAndroid =
+        const AndroidInitializationSettings('@mipmap/ic_launcher');
+    var initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      RemoteNotification? notification = message.notification;
+      AndroidNotification? android = message.notification?.android;
+      if (notification != null && android != null) {
+        flutterLocalNotificationsPlugin.show(
+            notification.hashCode,
+            notification.title,
+            notification.body,
+            NotificationDetails(
+              android: AndroidNotificationDetails(
+                channel.id,
+                channel.name,
+                color: Colors.blue,
+                icon: "@mipmap/ic_launcher",
+              ),
+            ));
+      }
+    });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      RemoteNotification? notification = message.notification;
+      AndroidNotification? android = message.notification?.android;
+      if (notification != null && android != null) {
+        showDialog(
+            context: context,
+            builder: (_) {
+              return AlertDialog(
+                title: Text(notification.title!),
+                content: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [Text(notification.body!)],
+                  ),
+                ),
+              );
+            });
+      }
+    });
+
+    getToken();
+  }
+
+  late String token;
+
+  getToken() async {
+    token = (await FirebaseMessaging.instance.getToken())!;
+  }
 
   // This widget is the root of your application.
   @override
