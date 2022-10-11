@@ -1,4 +1,5 @@
 // ignore: avoid_web_libraries_in_flutter
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
@@ -40,14 +41,16 @@ class _LoginScreenState extends State<LoginScreen> {
     print(statuses[Permission.bluetooth]);
   }
 
-  void _attemptLogin() {
+  Future<void> _attemptLogin() async {
+    var token = (await FirebaseMessaging.instance.getToken())!;
+    logger.i("Firebase notification token :: $token");
     setState(() {
       var credentialConfig = CredentialConfig(
           sipUserController.text,
           sipPasswordController.text,
           sipNameController.text,
           sipNumberController.text,
-          null,
+          token,
           true);
       Provider.of<MainViewModel>(context, listen: false)
           .login(credentialConfig);

@@ -1,12 +1,18 @@
+import 'dart:convert';
+
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
+import 'package:telnyx_flutter_webrtc/model/push_notification.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/login_screen.dart';
+import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
+
+final logger = Logger();
 
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -57,51 +63,43 @@ class _MyAppState extends State<MyApp> {
     flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      RemoteNotification? notification = message.notification;
-      AndroidNotification? android = message.notification?.android;
-      if (notification != null && android != null) {
-        flutterLocalNotificationsPlugin.show(
-            notification.hashCode,
-            notification.title,
-            notification.body,
-            NotificationDetails(
-              android: AndroidNotificationDetails(
-                channel.id,
-                channel.name,
-                color: Colors.blue,
-                icon: "@mipmap/ic_launcher",
-              ),
-            ));
-      }
+      var metadata = Metadata.fromJson(jsonDecode(message.data["metadata"]));
+      var received = message.data["message"];
+
+      print("Handling onMessage: $received");
+      flutterLocalNotificationsPlugin.show(
+          message.hashCode,
+          received,
+          metadata.caller_name,
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              channel.id,
+              channel.name,
+              color: Colors.blue,
+              icon: "@mipmap/ic_launcher",
+            ),
+          ));
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      RemoteNotification? notification = message.notification;
-      AndroidNotification? android = message.notification?.android;
-      if (notification != null && android != null) {
-        showDialog(
-            context: context,
-            builder: (_) {
-              return AlertDialog(
-                title: Text(notification.title!),
-                content: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [Text(notification.body!)],
-                  ),
+      var metadata = Metadata.fromJson(message.data["metadata"]);
+      var received = message.data["message"];
+
+      print("Handling onMessage: $received");
+      showDialog(
+          context: context,
+          builder: (_) {
+            return AlertDialog(
+              title: Text(received),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [Text(metadata.caller_name!)],
                 ),
-              );
-            });
-      }
+              ),
+            );
+          });
     });
-
-    getToken();
-  }
-
-  late String token;
-
-  getToken() async {
-    token = (await FirebaseMessaging.instance.getToken())!;
   }
 
   // This widget is the root of your application.
