@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:telnyx_flutter_webrtc/model/push_notification.dart';
+import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/login_screen.dart';
@@ -16,17 +16,16 @@ final logger = Logger();
 
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print("Handling a background message: ${message.messageId}");
+  print('Handling a background message ${message.messageId}');
+  print('Notification Message: ${message.data}');
+  NotificationService.showNotification(message);
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
 
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
     alert: true,
@@ -36,14 +35,6 @@ Future<void> main() async {
 
   runApp(const MyApp());
 }
-
-const AndroidNotificationChannel channel = AndroidNotificationChannel(
-  'high_importance_channel', // id
-  'High Importance Notifications', // title
-  importance: Importance.high,
-);
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -56,49 +47,18 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    var initializationSettingsAndroid =
-        const AndroidInitializationSettings('@mipmap/ic_launcher');
-    var initializationSettings =
-        InitializationSettings(android: initializationSettingsAndroid);
-    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    NotificationService.initialize();
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       var metadata = Metadata.fromJson(jsonDecode(message.data["metadata"]));
       var received = message.data["message"];
-
-      print("Handling onMessage: $received");
-      flutterLocalNotificationsPlugin.show(
-          message.hashCode,
-          received,
-          metadata.caller_name,
-          NotificationDetails(
-            android: AndroidNotificationDetails(
-              channel.id,
-              channel.name,
-              color: Colors.blue,
-              icon: "@mipmap/ic_launcher",
-            ),
-          ));
+      NotificationService.showNotification(message);
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       var metadata = Metadata.fromJson(message.data["metadata"]);
       var received = message.data["message"];
-
-      print("Handling onMessage: $received");
-      showDialog(
-          context: context,
-          builder: (_) {
-            return AlertDialog(
-              title: Text(received),
-              content: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [Text(metadata.caller_name!)],
-                ),
-              ),
-            );
-          });
+      NotificationService.showNotification(message);
     });
   }
 
