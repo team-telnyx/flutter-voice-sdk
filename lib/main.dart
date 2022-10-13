@@ -14,19 +14,20 @@ import 'package:provider/provider.dart';
 
 final logger = Logger();
 
+// Android Only - Push Notifications
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('Handling a background message ${message.messageId}');
   print('Notification Message: ${message.data}');
-  NotificationService.showNotification(message);
+  AndroidNotificationService.showNotification(message);
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Android Only - Push Notifications
   await Firebase.initializeApp();
-
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
     alert: true,
     badge: true,
@@ -47,18 +48,18 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    NotificationService.initialize();
 
+    // Android Only - Push Notifications
+    AndroidNotificationService.initialize();
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       var metadata = Metadata.fromJson(jsonDecode(message.data["metadata"]));
       var received = message.data["message"];
-      NotificationService.showNotification(message);
+      AndroidNotificationService.showNotification(message);
     });
-
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       var metadata = Metadata.fromJson(message.data["metadata"]);
       var received = message.data["message"];
-      NotificationService.showNotification(message);
+      AndroidNotificationService.showNotification(message);
     });
   }
 
