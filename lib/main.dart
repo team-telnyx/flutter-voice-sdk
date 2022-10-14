@@ -52,13 +52,9 @@ class _MyAppState extends State<MyApp> {
     // Android Only - Push Notifications
     AndroidNotificationService.initialize();
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      var metadata = Metadata.fromJson(jsonDecode(message.data["metadata"]));
-      var received = message.data["message"];
       AndroidNotificationService.showNotification(message);
     });
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      var metadata = Metadata.fromJson(message.data["metadata"]);
-      var received = message.data["message"];
       AndroidNotificationService.showNotification(message);
     });
   }

@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:telnyx_flutter_webrtc/model/push_notification.dart';
 
 class AndroidNotificationService {
   static final FlutterLocalNotificationsPlugin
@@ -17,7 +20,7 @@ class AndroidNotificationService {
 
     await flutterLocalNotificationsPlugin
         .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(channel);
 
     AndroidInitializationSettings androidInitializationSettings =
@@ -49,10 +52,13 @@ class AndroidNotificationService {
       playSound: true,
     );
 
+    var metadata = Metadata.fromJson(jsonDecode(message.data["metadata"]));
+    var received = message.data["message"];
+
     await _flutterLocalNotificationsPlugin.show(
         message.data.hashCode,
-        message.data['title'],
-        message.data['body'],
+        received,
+        metadata.caller_name,
         NotificationDetails(
           android: androidDetails,
         ));
