@@ -1,5 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
@@ -22,14 +23,17 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Android Only - Push Notifications
-  await Firebase.initializeApp();
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: true,
-    badge: true,
-    sound: true,
-  );
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    // Android Only - Push Notifications
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  } else if (defaultTargetPlatform == TargetPlatform.iOS) {}
 
   runApp(const MyApp());
 }
@@ -46,13 +50,15 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
-    // Android Only - Push Notifications
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      NotificationService.showNotification(message);
-    });
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      NotificationService.showNotification(message);
-    });
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // Android Only - Push Notifications
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        NotificationService.showNotification(message);
+      });
+      FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+        NotificationService.showNotification(message);
+      });
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {}
   }
 
   // This widget is the root of your application.
