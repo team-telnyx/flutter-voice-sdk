@@ -1,10 +1,7 @@
-import 'dart:convert';
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
-import 'package:telnyx_flutter_webrtc/model/push_notification.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
@@ -19,7 +16,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('Handling a background message ${message.messageId}');
   print('Notification Message: ${message.data}');
-  AndroidNotificationService.showNotification(message);
+  NotificationService.showNotification(message);
 }
 
 Future<void> main() async {
@@ -50,12 +47,11 @@ class _MyAppState extends State<MyApp> {
     super.initState();
 
     // Android Only - Push Notifications
-    AndroidNotificationService.initialize();
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      AndroidNotificationService.showNotification(message);
+      NotificationService.showNotification(message);
     });
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      AndroidNotificationService.showNotification(message);
+      NotificationService.showNotification(message);
     });
   }
 

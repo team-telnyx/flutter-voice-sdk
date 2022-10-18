@@ -1,66 +1,57 @@
 import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:telnyx_flutter_webrtc/model/push_notification.dart';
+import 'package:uuid/uuid.dart';
 
-class AndroidNotificationService {
-  static final FlutterLocalNotificationsPlugin
-      _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-  static const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'high_importance_channel', // id
-    'High Importance Notifications', // title
-    importance: Importance.max,
-  );
-
-  static Future initialize() async {
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
-
-    AndroidInitializationSettings androidInitializationSettings =
-        const AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    InitializationSettings initializationSettings =
-        InitializationSettings(android: androidInitializationSettings);
-
-    await flutterLocalNotificationsPlugin.initialize(
-      initializationSettings,
-      // onSelectNotification: doSomething(),
-    );
-  }
-
+class NotificationService {
   static Future showNotification(RemoteMessage message) async {
-    AndroidNotificationDetails androidDetails =
-        const AndroidNotificationDetails(
-      "default_notification_channel_id",
-      "channel",
-      enableLights: true,
-      enableVibration: true,
-      priority: Priority.high,
-      importance: Importance.max,
-      largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
-      styleInformation: MediaStyleInformation(
-        htmlFormatContent: true,
-        htmlFormatTitle: true,
-      ),
-      playSound: true,
-    );
-
     var metadata = Metadata.fromJson(jsonDecode(message.data["metadata"]));
     var received = message.data["message"];
+    var currentUuid = const Uuid().v4();
 
-    await _flutterLocalNotificationsPlugin.show(
-        message.data.hashCode,
-        received,
-        metadata.caller_name,
-        NotificationDetails(
-          android: androidDetails,
-        ));
+    var params = <String, dynamic>{
+      'id': currentUuid,
+      'nameCaller': metadata.caller_name,
+      'appName': 'Telnyx Flutter Voice',
+      'avatar': 'https://i.pravatar.cc/100',
+      'handle': metadata.caller_number,
+      'type': 0,
+      'textAccept': 'Accept',
+      'textDecline': 'Decline',
+      'textMissedCall': 'Missed call',
+      'textCallback': 'Call back',
+      'duration': 30000,
+      'extra': <String, dynamic>{'userId': metadata.call_id},
+      'headers': <String, dynamic>{'platform': 'flutter'},
+      'android': <String, dynamic>{
+        'isCustomNotification': true,
+        'isShowLogo': false,
+        'isShowCallback': false,
+        'isShowMissedCallNotification': true,
+        'ringtonePath': 'system_ringtone_default',
+        'backgroundColor': '#0955fa',
+        'backgroundUrl': 'https://i.pravatar.cc/500',
+        'actionColor': '#4CAF50'
+      },
+      'ios': <String, dynamic>{
+        'iconName': 'CallKitLogo',
+        'handleType': 'generic',
+        'supportsVideo': true,
+        'maximumCallGroups': 2,
+        'maximumCallsPerCallGroup': 1,
+        'audioSessionMode': 'default',
+        'audioSessionActive': true,
+        'audioSessionPreferredSampleRate': 44100.0,
+        'audioSessionPreferredIOBufferDuration': 0.005,
+        'supportsDTMF': true,
+        'supportsHolding': true,
+        'supportsGrouping': false,
+        'supportsUngrouping': false,
+        'ringtonePath': 'system_ringtone_default'
+      }
+    };
+    await FlutterCallkitIncoming.showCallkitIncoming(params);
   }
 }
