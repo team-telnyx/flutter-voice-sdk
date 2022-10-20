@@ -33,7 +33,7 @@ Future<void> main() async {
       badge: true,
       sound: true,
     );
-  } else if (defaultTargetPlatform == TargetPlatform.iOS) {}
+  }
 
   runApp(const MyApp());
 }
@@ -58,7 +58,7 @@ class _MyAppState extends State<MyApp> {
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         NotificationService.showNotification(message);
       });
-    } else if (defaultTargetPlatform == TargetPlatform.iOS) {}
+    }
   }
 
   // This widget is the root of your application.
