@@ -40,3 +40,4 @@ lib/generated_plugin_registrant.dart
 .flutter-plugins-dependencies
 .flutter-plugins
 .idea/libraries/Flutter_Plugins.xml
+android/app/google-services.json

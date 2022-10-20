@@ -1,11 +1,13 @@
 // ignore: avoid_web_libraries_in_flutter
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key, required this.title}) : super(key: key);
@@ -40,14 +42,22 @@ class _LoginScreenState extends State<LoginScreen> {
     print(statuses[Permission.bluetooth]);
   }
 
-  void _attemptLogin() {
+  Future<void> _attemptLogin() async {
+    String? token;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      token = (await FirebaseMessaging.instance.getToken())!;
+      logger.i("Android notification token :: $token");
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+      logger.i("iOS notification token :: $token");
+    }
     setState(() {
       var credentialConfig = CredentialConfig(
           sipUserController.text,
           sipPasswordController.text,
           sipNameController.text,
           sipNumberController.text,
-          null,
+          token,
           true);
       Provider.of<MainViewModel>(context, listen: false)
           .login(credentialConfig);
