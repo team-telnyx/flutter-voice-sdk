@@ -3,6 +3,8 @@
 
 # Telnyx Flutter Voice SDK
 
+## :warning: The Telnyx Flutter SDK has been deprecated and is no longer supported. :warning:
+
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
 ## Features
