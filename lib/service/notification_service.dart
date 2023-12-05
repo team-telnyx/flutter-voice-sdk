@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:telnyx_flutter_webrtc/model/push_notification.dart';
 import 'package:uuid/uuid.dart';
@@ -52,6 +53,6 @@ class NotificationService {
         'ringtonePath': 'system_ringtone_default'
       }
     };
-    await FlutterCallkitIncoming.showCallkitIncoming(params);
+    await FlutterCallkitIncoming.showCallkitIncoming(params as CallKitParams);
   }
 }

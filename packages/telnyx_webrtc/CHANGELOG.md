@@ -1,3 +1,7 @@
+## 0.0.10
+
+- Fix gateway time out Issue
+
 ## 0.0.9
 
 - Fix disconnect functionality allowing subsequent logins
