@@ -51,6 +51,43 @@ class ReceivedMessage {
   }
 }
 
+class ReceivedResult {
+  String? jsonrpc;
+  String? id;
+  ResultParams? resultParams;
+  String? sessId;
+
+  ReceivedResult(
+      {this.jsonrpc,
+        this.id,
+        this.resultParams});
+
+  ReceivedResult.fromJson(Map<String, dynamic> json) {
+    jsonrpc = json['jsonrpc'];
+    id = json['id'];
+    resultParams =
+    json['result'] != null ? ResultParams.fromJson(json['result']) : null;
+    sessId = json['sessid'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['jsonrpc'] = jsonrpc;
+    data['id'] = id;
+
+    if (resultParams != null) {
+      data['params'] = resultParams!.toJson();
+    }
+    return data;
+  }
+
+  @override
+  String toString() {
+    return 'Received Message: {jsonrpc: $jsonrpc, id: $id, stateParams: ${resultParams?.toJson()}}';
+  }
+}
+
+
 class ReattachedParams {
   List<dynamic>? reattachedSessions;
 
@@ -79,6 +116,25 @@ class ReattachedParams {
   }
 }
 
+class ResultParams {
+  StateParams? stateParams;
+
+  ResultParams(
+      {this.stateParams});
+
+  ResultParams.fromJson(Map<String, dynamic> json) {
+    stateParams =
+    json['params'] != null ? StateParams.fromJson(json['params']) : null;
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    if (stateParams != null) {
+      data['params'] = stateParams!.toJson();
+    }
+    return data;
+  }
+}
 class StateParams {
   String? state;
 
