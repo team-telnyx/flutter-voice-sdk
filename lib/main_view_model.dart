@@ -125,7 +125,7 @@ class MainViewModel with ChangeNotifier {
   void call(String destination) {
     _telnyxClient
         .createCall()
-        .newInvite(_localName, _localNumber, destination, "Fake State");
+        .newInvite(_localName, _localNumber, destination, "Fake State",customHeaders: {"X-Header-1":"Value1","X-Header-2":"Value2"});
   }
 
   void toggleSpeakerPhone() {

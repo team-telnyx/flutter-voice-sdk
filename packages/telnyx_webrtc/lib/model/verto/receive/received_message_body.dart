@@ -1,3 +1,5 @@
+import '../send/invite_answer_message_body.dart';
+
 class ReceivedMessage {
   String? jsonrpc;
   int? id;
@@ -5,6 +7,7 @@ class ReceivedMessage {
   ReattachedParams? reattachedParams;
   StateParams? stateParams;
   IncomingInviteParams? inviteParams;
+  DialogParams? dialogParams;
 
   ReceivedMessage(
       {this.jsonrpc,
@@ -26,6 +29,9 @@ class ReceivedMessage {
     inviteParams = json['params'] != null
         ? IncomingInviteParams.fromJson(json['params'])
         : null;
+    if(json['dialogParams'] != null){
+      dialogParams = DialogParams.fromJson(json['dialogParams']);
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -41,6 +47,9 @@ class ReceivedMessage {
     }
     if (inviteParams != null) {
       data['params'] = inviteParams!.toJson();
+    }
+    if (dialogParams != null) {
+      data['dialogParams'] = dialogParams!.toJson();
     }
     return data;
   }
