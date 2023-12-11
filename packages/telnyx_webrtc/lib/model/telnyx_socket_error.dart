@@ -1,8 +1,13 @@
 class TelnyxSocketError {
-  int errorCode;
-  String errorMessage;
+  int errorCode = 0;
+  String errorMessage = '';
 
   TelnyxSocketError({required this.errorCode, required this.errorMessage});
+
+  TelnyxSocketError.fromJson(Map<String, dynamic> json) {
+    errorCode = json['code'] ?? 0;
+    errorMessage = json['message'] ?? '';
+  }
 }
 
 class TelnyxErrorConstants {
