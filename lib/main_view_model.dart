@@ -55,6 +55,7 @@ class MainViewModel with ChangeNotifier {
           {
             _ongoingInvitation = true;
             _incomingInvite = message.message.inviteParams;
+            logger.i("customheaders :: ${message.message.dialogParams?.customHeaders}");
             break;
           }
         case SocketMethod.ANSWER:

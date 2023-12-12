@@ -1,3 +1,5 @@
+import 'package:logger/logger.dart';
+
 import '../send/invite_answer_message_body.dart';
 
 class ReceivedMessage {
@@ -15,7 +17,9 @@ class ReceivedMessage {
       this.method,
       this.reattachedParams,
       this.stateParams,
-      this.inviteParams});
+      this.inviteParams,
+      this.dialogParams
+      });
 
   ReceivedMessage.fromJson(Map<String, dynamic> json) {
     jsonrpc = json['jsonrpc'];
@@ -29,8 +33,8 @@ class ReceivedMessage {
     inviteParams = json['params'] != null
         ? IncomingInviteParams.fromJson(json['params'])
         : null;
-    if(json['dialogParams'] != null){
-      dialogParams = DialogParams.fromJson(json['dialogParams']);
+    if(json['params']['dialogParams'] != null){
+      dialogParams = DialogParams.fromJson(json['params']['dialogParams']);
     }
   }
 

@@ -127,10 +127,11 @@ class DialogParams {
       data['userVariables'] = userVariables!.map((v) => v.toJson()).toList();
     }
     if (customHeaders != null) {
-      data['custom_headers'] =  <CustomHeader>[]; //customHeaders!.map((v) => v.toJson()).toList();
+      var headers =  <CustomHeader>[];
       customHeaders!.forEach((key, value) {
-        data['custom_headers'].add({'name': key, 'value': value});
+        headers.add(CustomHeader(name: key, value: value));
       });
+      data['custom_headers'] = headers.map((e) => e.toJson()).toList();
     }
     data['video'] = video;
     return data;
