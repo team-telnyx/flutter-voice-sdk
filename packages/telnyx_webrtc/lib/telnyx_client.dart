@@ -234,6 +234,19 @@ class TelnyxClient {
       if (data.toString().trim().isNotEmpty) {
         _logger.i('Received WebSocket message :: ${data.toString().trim()}');
 
+        if(data.toString().trim().contains("error")){
+          var errorJson = jsonEncode(data.toString());
+          _logger
+              .i('Received WebSocket message - Contains Error :: $errorJson');
+          try {
+            ReceivedResult errorResult =
+            ReceivedResult.fromJson(jsonDecode(data.toString()));
+            onSocketErrorReceived.call(errorResult.error!);
+          } on Exception catch (e) {
+            _logger.e('Error parsing JSON: $e');
+          }
+        }
+
         //Login success
         if (data.toString().trim().contains("result")) {
           var paramJson = jsonEncode(data.toString());
@@ -308,7 +321,8 @@ class TelnyxClient {
           } on Exception catch (e) {
             _logger.e('Error parsing JSON: $e');
           }
-        } else if (data.toString().trim().contains("method")) {
+        }
+        else if (data.toString().trim().contains("method")) {
           //Received Telnyx Method Message
           var messageJson = jsonDecode(data.toString());
           _logger.i(
@@ -426,7 +440,8 @@ class TelnyxClient {
                 break;
               }
           }
-        } else {
+        }
+        else {
           _logger.i('Received and ignored empty packet');
         }
       } else {
