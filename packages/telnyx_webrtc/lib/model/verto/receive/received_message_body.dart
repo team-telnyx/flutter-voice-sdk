@@ -1,6 +1,6 @@
 import 'package:logger/logger.dart';
-
 import '../send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 
 class ReceivedMessage {
   String? jsonrpc;
@@ -69,6 +69,7 @@ class ReceivedResult {
   String? id;
   ResultParams? resultParams;
   String? sessId;
+  TelnyxSocketError? error;
 
   ReceivedResult(
       {this.jsonrpc,
@@ -81,6 +82,9 @@ class ReceivedResult {
     resultParams =
     json['result'] != null ? ResultParams.fromJson(json['result']) : null;
     sessId = json['sessid'];
+    error = json['error'] != null
+        ? TelnyxSocketError.fromJson(json['error'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
