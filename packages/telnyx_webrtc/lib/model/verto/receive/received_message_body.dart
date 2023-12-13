@@ -1,3 +1,5 @@
+import 'package:logger/logger.dart';
+import '../send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 
 class ReceivedMessage {
@@ -7,6 +9,7 @@ class ReceivedMessage {
   ReattachedParams? reattachedParams;
   StateParams? stateParams;
   IncomingInviteParams? inviteParams;
+  DialogParams? dialogParams;
 
   ReceivedMessage(
       {this.jsonrpc,
@@ -14,7 +17,9 @@ class ReceivedMessage {
       this.method,
       this.reattachedParams,
       this.stateParams,
-      this.inviteParams});
+      this.inviteParams,
+      this.dialogParams
+      });
 
   ReceivedMessage.fromJson(Map<String, dynamic> json) {
     jsonrpc = json['jsonrpc'];
@@ -28,6 +33,9 @@ class ReceivedMessage {
     inviteParams = json['params'] != null
         ? IncomingInviteParams.fromJson(json['params'])
         : null;
+    if(json['params']['dialogParams'] != null){
+      dialogParams = DialogParams.fromJson(json['params']['dialogParams']);
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -43,6 +51,9 @@ class ReceivedMessage {
     }
     if (inviteParams != null) {
       data['params'] = inviteParams!.toJson();
+    }
+    if (dialogParams != null) {
+      data['dialogParams'] = dialogParams!.toJson();
     }
     return data;
   }

@@ -112,7 +112,7 @@ class Peer {
   }
 
   void invite(String callerName, String callerNumber, String destinationNumber,
-      String clientState, String callId, String telnyxSessionId) async {
+      String clientState, String callId, String telnyxSessionId,Map<String,String> customHeaders) async {
     var sessionId = _selfId;
 
     Session session = await _createSession(null,
@@ -121,7 +121,7 @@ class Peer {
     _sessions[sessionId] = session;
 
     _createOffer(session, "audio", callerName, callerNumber, destinationNumber,
-        clientState, callId, telnyxSessionId);
+        clientState, callId, telnyxSessionId,customHeaders);
     onCallStateChange?.call(session, CallState.CallStateInvite);
   }
 
@@ -133,7 +133,8 @@ class Peer {
       String destinationNumber,
       String clientState,
       String callId,
-      String sessionId) async {
+      String sessionId,
+      Map<String,String> customHeaders) async {
     try {
       RTCSessionDescription s =
           await session.peerConnection!.createOffer(_dcConstraints);
@@ -169,7 +170,8 @@ class Peer {
             screenShare: false,
             useStereo: false,
             userVariables: [],
-            video: false);
+            video: false,
+            customHeaders: customHeaders);
         var inviteParams = InviteParams(
             dialogParams: dialogParams,
             sdp: sdpUsed,
@@ -197,7 +199,7 @@ class Peer {
   }
 
   void accept(String callerName, String callerNumber, String destinationNumber,
-      String clientState, String callId, IncomingInviteParams invite) async {
+      String clientState, String callId, IncomingInviteParams invite,Map<String,String> customHeaders) async {
     var sessionId = _selfId;
     Session session = await _createSession(null,
         peerId: "0", sessionId: sessionId, media: "audio");
@@ -207,7 +209,7 @@ class Peer {
         ?.setRemoteDescription(RTCSessionDescription(invite.sdp, "offer"));
 
     _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
-        clientState, callId);
+        clientState, callId,customHeaders);
 
     onCallStateChange?.call(session, CallState.CallStateNew);
   }
@@ -219,7 +221,8 @@ class Peer {
       String callerNumber,
       String destinationNumber,
       String clientState,
-      String callId) async {
+      String callId,
+      Map<String,String> customHeaders) async {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
@@ -256,7 +259,9 @@ class Peer {
             screenShare: false,
             useStereo: false,
             userVariables: [],
-            video: false);
+            video: false,
+            customHeaders: customHeaders
+        );
         var inviteParams = InviteParams(
             dialogParams: dialogParams,
             sdp: sdpUsed,

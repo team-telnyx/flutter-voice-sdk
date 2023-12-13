@@ -28,22 +28,22 @@ class Call {
   String sessionCallerNumber = "";
   String sessionDestinationNumber = "";
   String sessionClientState = "";
-
+  Map<String,String> customHeaders = {};
   /// Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
   void newInvite(String callerName, String callerNumber,
-      String destinationNumber, String clientState) {
+      String destinationNumber, String clientState,{Map<String,String> customHeaders = const {}}) {
     sessionCallerName = callerName;
     sessionCallerNumber = callerNumber;
     sessionDestinationNumber = destinationNumber;
     sessionClientState = clientState;
-
+    customHeaders = customHeaders;
     callId = const Uuid().v4();
     var base64State = base64.encode(utf8.encode(clientState));
 
     peerConnection = Peer(_txSocket);
     peerConnection?.invite(callerName, callerNumber, destinationNumber,
-        base64State, callId!, _sessid);
+        base64State, callId!, _sessid,customHeaders);
   }
 
   void onRemoteSessionReceived(String? sdp) {
@@ -57,7 +57,7 @@ class Call {
   /// Accepts the incoming call specified via the [invite] parameter, sending
   /// your local specified [callerName], [callerNumber] and [clientState]
   void acceptCall(IncomingInviteParams invite, String callerName,
-      String callerNumber, String clientState) {
+      String callerNumber, String clientState,{Map<String,String> customHeaders = const {}}) {
     callId = invite.callID;
 
     sessionCallerName = callerName;
@@ -69,7 +69,7 @@ class Call {
 
     peerConnection = Peer(_txSocket);
     peerConnection?.accept(callerName, callerNumber, destinationNum!,
-        clientState, callId!, invite);
+        clientState, callId!, invite,customHeaders);
   }
 
   /// Attempts to end the call identified via the [callID]

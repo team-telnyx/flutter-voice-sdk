@@ -11,7 +11,7 @@ class InviteAnswerMessage {
     jsonrpc = json['jsonrpc'];
     method = json['method'];
     params =
-        json['params'] != null ? InviteParams.fromJson(json['params']) : null;
+    json['params'] != null ? InviteParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -68,20 +68,22 @@ class DialogParams {
   bool? useStereo;
   List<dynamic>? userVariables;
   bool? video;
+  Map<String, String>? customHeaders = {};
 
   DialogParams(
       {this.attach,
-      this.audio,
-      this.callID,
-      this.callerIdName,
-      this.callerIdNumber,
-      this.clientState,
-      this.destinationNumber,
-      this.remoteCallerIdName,
-      this.screenShare,
-      this.useStereo,
-      this.userVariables,
-      this.video});
+        this.audio,
+        this.callID,
+        this.callerIdName,
+        this.callerIdNumber,
+        this.clientState,
+        this.destinationNumber,
+        this.remoteCallerIdName,
+        this.screenShare,
+        this.useStereo,
+        this.userVariables,
+        this.video,
+        this.customHeaders});
 
   DialogParams.fromJson(Map<String, dynamic> json) {
     attach = json['attach'];
@@ -98,6 +100,12 @@ class DialogParams {
       userVariables = <Null>[];
       json['userVariables'].forEach((v) {
         userVariables!.add((v));
+      });
+    }
+    if (json['custom_headers'] != null) {
+      customHeaders = <String, String>{};
+      json['custom_headers'].forEach((v) {
+        customHeaders![v['name']] = v['value'];
       });
     }
     video = json['video'];
@@ -118,7 +126,33 @@ class DialogParams {
     if (userVariables != null) {
       data['userVariables'] = userVariables!.map((v) => v.toJson()).toList();
     }
+    if (customHeaders != null) {
+      var headers =  <CustomHeader>[];
+      customHeaders!.forEach((key, value) {
+        headers.add(CustomHeader(name: key, value: value));
+      });
+      data['custom_headers'] = headers.map((e) => e.toJson()).toList();
+    }
     data['video'] = video;
+    return data;
+  }
+}
+
+class CustomHeader {
+  String? name;
+  String? value;
+
+  CustomHeader({this.name, this.value});
+
+  CustomHeader.fromJson(Map<String, dynamic> json) {
+    name = json['name'];
+    value = json['value'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['name'] = name;
+    data['value'] = value;
     return data;
   }
 }
