@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
@@ -15,6 +17,7 @@ class MainViewModel with ChangeNotifier {
 
   bool _registered = false;
   bool _ongoingInvitation = false;
+  bool _ringingCall = false;
   bool _ongoingCall = false;
   bool _speakerPhone = true;
   IncomingInviteParams? _incomingInvite;
@@ -32,6 +35,11 @@ class MainViewModel with ChangeNotifier {
 
   bool get ongoingCall {
     return _ongoingCall;
+  }
+
+
+  bool get callRinging {
+    return _ringingCall;
   }
 
   Call get currentCall {
@@ -60,6 +68,7 @@ class MainViewModel with ChangeNotifier {
           }
         case SocketMethod.ANSWER:
           {
+            _ringingCall = false;
             _ongoingCall = true;
             break;
           }
@@ -67,6 +76,19 @@ class MainViewModel with ChangeNotifier {
           {
             _ongoingInvitation = false;
             _ongoingCall = false;
+            _ringingCall = false;
+            break;
+          }
+        case SocketMethod.RINGING:
+          {
+            logger.i("myRinging");
+            _ringingCall = true;
+            break;
+          }
+        case SocketMethod.MEDIA:
+          {
+            logger.i("myRinging");
+            _ringingCall = true;
             break;
           }
       }
@@ -149,13 +171,14 @@ class MainViewModel with ChangeNotifier {
   }
 
   void endCall() {
-    if (_ongoingCall) {
+    if (_ongoingCall || _ringingCall) {
       _telnyxClient.call.endCall(_telnyxClient.call.callId);
     } else {
       _telnyxClient.createCall().endCall(_incomingInvite?.callID);
     }
     _ongoingInvitation = false;
     _ongoingCall = false;
+    _ringingCall = false;
     notifyListeners();
   }
 

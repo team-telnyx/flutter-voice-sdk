@@ -213,6 +213,42 @@ To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
     _telnyxClient.call.onHoldUnholdPressed();
 ```
 
+## Custom Headers
+### Passing Custom Headers
+Custom headers can be passed to the SDK by passing a Map<String, String> to the `call.newInvite(..)` method. These headers will be passed to the SDK and will be used for all requests made by the SDK. 
+
+```dart
+    Map<String, String> customHeaders = {
+      "X-Custom-Header": "Custom Value",
+      "X-Another-Header": "Another Value"
+    };
+    _telnyxClient
+        .createCall().newInvite(_localName, _localNumber, destination, "Fake State",customHeaders: customHeaders);
+```
+### Accessing Custom Headers
+Custom headers can be accessed by listening to the `onSocketMessageReceived` callback. The `ReceivedMessage.DialogParams` object contains a `customHeaders` field which contains the headers sent by other clients. 
+
+```dart
+    _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
+      switch (message.socketMethod) {
+        
+        case SocketMethod.INVITE:
+          {
+            message.message.dialogParams.customHeaders;
+            break;
+          }
+        case SocketMethod.ANSWER:
+          {
+            message.message.dialogParams.customHeaders;
+            break;
+          }
+      }
+      ...
+      notifyListeners();
+    };
+```
+
+
 Questions? Comments? Building something rad? [Join our Slack channel](https://joinslack.telnyx.com/) and share.
 
 ## License

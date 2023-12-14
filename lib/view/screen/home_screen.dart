@@ -19,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool invitation = false;
   bool ongoingCall = false;
+  bool callRinging = false;
 
   @override
   void initState() {
@@ -30,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
     invitation =
         Provider.of<MainViewModel>(context, listen: true).ongoingInvitation;
     ongoingCall = Provider.of<MainViewModel>(context, listen: true).ongoingCall;
+    callRinging = Provider.of<MainViewModel>(context, listen: true).callRinging;
   }
 
   void _callDestination() {
@@ -58,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Home',
           invitation: Provider.of<MainViewModel>(context, listen: false)
               .incomingInvitation);
-    } else if (ongoingCall) {
+    } else if (ongoingCall || callRinging) {
       return CallScreen(
           title: "Ongoing Call",
           call: Provider.of<MainViewModel>(context, listen: false).currentCall);
