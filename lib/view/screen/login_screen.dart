@@ -30,6 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
       _checkPermissions();
     }
     super.initState();
+    sipUserController.text = "isaac47223";
+    sipPasswordController.text = "gvfTRAgD";
+
   }
 
   Future<void> _checkPermissions() async {

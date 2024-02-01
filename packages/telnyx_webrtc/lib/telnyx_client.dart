@@ -392,6 +392,11 @@ class TelnyxClient {
                 if (mediaReceived.inviteParams?.sdp != null) {
                   call.onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
                   earlySDP = true;
+                  ReceivedMessage ringing =
+                  ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                  var message = TelnyxMessage(
+                      socketMethod: SocketMethod.MEDIA, message: ringing);
+                  onSocketMessageReceived(message);
                 } else {
                   _logger.d('No SDP contained within Media Message');
                 }
