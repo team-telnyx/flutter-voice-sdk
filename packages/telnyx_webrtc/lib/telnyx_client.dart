@@ -186,7 +186,7 @@ class TelnyxClient {
     }
 
     var loginParams = LoginParams(
-        loginToken: token, loginParams: [], userVariables: notificationParams);
+        loginToken: token, loginParams: [], userVariables: notificationParams, sessionId: sessid);
     var loginMessage = LoginMessage(
         id: uuid,
         method: SocketMethod.LOGIN,
@@ -194,7 +194,7 @@ class TelnyxClient {
         jsonrpc: JsonRPCConstant.jsonrpc);
 
     String jsonLoginMessage = jsonEncode(loginMessage);
-
+    _logger.i('Token Login Message $jsonLoginMessage');
     txSocket.send(jsonLoginMessage);
   }
 
