@@ -55,7 +55,8 @@ class MainViewModel with ChangeNotifier {
           {
             _ongoingInvitation = true;
             _incomingInvite = message.message.inviteParams;
-            logger.i("customheaders :: ${message.message.dialogParams?.customHeaders}");
+            logger.i(
+                "customheaders :: ${message.message.dialogParams?.customHeaders}");
             break;
           }
         case SocketMethod.ANSWER:
@@ -123,10 +124,16 @@ class MainViewModel with ChangeNotifier {
     _telnyxClient.credentialLogin(credentialConfig);
   }
 
+  void loginWithToken(TokenConfig tokenConfig) {
+    _localName = tokenConfig.sipCallerIDName;
+    _localNumber = tokenConfig.sipCallerIDNumber;
+    _telnyxClient.tokenLogin(tokenConfig);
+  }
+
   void call(String destination) {
-    _telnyxClient
-        .createCall()
-        .newInvite(_localName, _localNumber, destination, "Fake State",customHeaders: {"X-Header-1":"Value1","X-Header-2":"Value2"});
+    _telnyxClient.createCall().newInvite(
+        _localName, _localNumber, destination, "Fake State",
+        customHeaders: {"X-Header-1": "Value1", "X-Header-2": "Value2"});
   }
 
   void toggleSpeakerPhone() {

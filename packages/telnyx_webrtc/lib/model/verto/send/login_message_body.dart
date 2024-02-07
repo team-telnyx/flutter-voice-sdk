@@ -32,17 +32,20 @@ class LoginParams {
   List<String>? loginParams;
   String? passwd;
   UserVariables? userVariables;
+  String? sessionId;
 
   LoginParams(
       {this.login,
       this.loginToken,
       this.loginParams,
       this.passwd,
-      this.userVariables});
+      this.userVariables,
+      this.sessionId
+      });
 
   LoginParams.fromJson(Map<String, dynamic> json) {
     login = json['login'];
-    login = json['loginToken'];
+    login = json['login_token'];
     if (json['loginParams'] != null) {
       loginParams = <String>[];
       json['loginParams'].forEach((v) {
@@ -50,6 +53,7 @@ class LoginParams {
       });
     }
     passwd = json['passwd'];
+    sessionId = json['sessid'];
     userVariables = json['userVariables'] != null
         ? UserVariables.fromJson(json['userVariables'])
         : null;
@@ -58,17 +62,21 @@ class LoginParams {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['login'] = login;
-    data['loginToken'] = loginToken;
+    data['login_token'] = loginToken;
     if (loginParams != null) {
       data['loginParams'] = loginParams!.map((v) => v).toList();
     }
     data['passwd'] = passwd;
+    data['sessid'] = sessionId;
     if (userVariables != null) {
       data['userVariables'] = userVariables!.toJson();
     }
     return data;
   }
 }
+
+
+
 
 class UserVariables {
   String? pushDeviceToken;
