@@ -7,7 +7,8 @@
 /// legitimate credentials
 class CredentialConfig {
   CredentialConfig(this.sipUser, this.sipPassword, this.sipCallerIDName,
-      this.sipCallerIDNumber, this.notificationToken, this.autoReconnect);
+      this.sipCallerIDNumber, this.notificationToken, this.autoReconnect,
+      [this.ringTonePath, this.ringbackPath]);
 
   final String sipUser;
   final String sipPassword;
@@ -15,6 +16,8 @@ class CredentialConfig {
   final String sipCallerIDNumber;
   final String? notificationToken;
   final bool? autoReconnect;
+  final String? ringTonePath;
+  final String? ringbackPath;
 }
 
 /// Creates an instance of TokenConfig which can be used to log in
@@ -26,11 +29,14 @@ class CredentialConfig {
 /// a legitimate token
 class TokenConfig {
   TokenConfig(this.sipToken, this.sipCallerIDName, this.sipCallerIDNumber,
-      this.notificationToken, this.autoReconnect);
+      this.notificationToken, this.autoReconnect,
+      [this.ringTonePath, this.ringbackPath]);
 
   final String sipToken;
   final String sipCallerIDName;
   final String sipCallerIDNumber;
   final String? notificationToken;
   final bool? autoReconnect;
+  final String? ringTonePath;
+  final String? ringbackPath;
 }

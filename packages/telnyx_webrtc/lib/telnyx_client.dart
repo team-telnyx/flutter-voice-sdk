@@ -28,6 +28,10 @@ typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
   late OnSocketErrorReceived onSocketErrorReceived;
+  String ringtonePath = "";
+  String ringBackpath = "";
+
+  TelnyxClient({this.ringtonePath = '', this.ringBackpath = ''});
 
   TxSocket txSocket = TxSocket("wss://rtc.telnyx.com:443");
   bool _closed = false;
@@ -124,7 +128,7 @@ class TelnyxClient {
   /// yourself on hold/mute.
   Call createCall() {
     // Set global call parameter
-    call = Call(txSocket, sessid);
+    call = Call(txSocket, sessid, ringtonePath, ringBackpath);
     return call;
   }
 
@@ -138,6 +142,8 @@ class TelnyxClient {
     var user = config.sipUser;
     var password = config.sipPassword;
     var fcmToken = config.notificationToken;
+    ringBackpath = config.ringbackPath ?? "";
+    ringtonePath = config.ringTonePath ?? "";
     UserVariables? notificationParams;
     _autoReconnectLogin = config.autoReconnect ?? true;
 
@@ -174,6 +180,8 @@ class TelnyxClient {
     var uuid = const Uuid().v4();
     var token = config.sipToken;
     var fcmToken = config.notificationToken;
+    ringBackpath = config.ringbackPath ?? "";
+    ringtonePath = config.ringTonePath ?? "";
     UserVariables? notificationParams;
     _autoReconnectLogin = config.autoReconnect ?? true;
 
@@ -186,7 +194,10 @@ class TelnyxClient {
     }
 
     var loginParams = LoginParams(
-        loginToken: token, loginParams: [], userVariables: notificationParams, sessionId: sessid);
+        loginToken: token,
+        loginParams: [],
+        userVariables: notificationParams,
+        sessionId: sessid);
     var loginMessage = LoginMessage(
         id: uuid,
         method: SocketMethod.LOGIN,
@@ -234,13 +245,13 @@ class TelnyxClient {
       if (data.toString().trim().isNotEmpty) {
         _logger.i('Received WebSocket message :: ${data.toString().trim()}');
 
-        if(data.toString().trim().contains("error")){
+        if (data.toString().trim().contains("error")) {
           var errorJson = jsonEncode(data.toString());
           _logger
               .i('Received WebSocket message - Contains Error :: $errorJson');
           try {
             ReceivedResult errorResult =
-            ReceivedResult.fromJson(jsonDecode(data.toString()));
+                ReceivedResult.fromJson(jsonDecode(data.toString()));
             onSocketErrorReceived.call(errorResult.error!);
           } on Exception catch (e) {
             _logger.e('Error parsing JSON: $e');
@@ -255,9 +266,12 @@ class TelnyxClient {
 
           try {
             ReceivedResult stateMessage =
-            ReceivedResult.fromJson(jsonDecode(data.toString()));
+                ReceivedResult.fromJson(jsonDecode(data.toString()));
 
-            var mainMessage =  ReceivedMessage(jsonrpc: stateMessage.jsonrpc, method: SocketMethod.GATEWAY_STATE, stateParams: stateMessage.resultParams?.stateParams);
+            var mainMessage = ReceivedMessage(
+                jsonrpc: stateMessage.jsonrpc,
+                method: SocketMethod.GATEWAY_STATE,
+                stateParams: stateMessage.resultParams?.stateParams);
 
             if (stateMessage.resultParams != null) {
               switch (stateMessage.resultParams?.stateParams?.state) {
@@ -314,15 +328,15 @@ class TelnyxClient {
                   {
                     _invalidateGatewayResponseTimer();
                     _resetGatewayCounters();
-                    _logger.i('GATEWAY REGISTRATION FAILED :: Unknown State');
+                    _logger.i(
+                        'GATEWAY REGISTRATION :: Unknown State ${stateMessage.toString()}');
                   }
               }
             }
           } on Exception catch (e) {
             _logger.e('Error parsing JSON: $e');
           }
-        }
-        else if (data.toString().trim().contains("method")) {
+        } else if (data.toString().trim().contains("method")) {
           //Received Telnyx Method Message
           var messageJson = jsonDecode(data.toString());
           _logger.i(
@@ -381,6 +395,10 @@ class TelnyxClient {
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.INVITE, message: invite);
+
+                //create Call instance
+                createCall();
+                call.playAudio(ringtonePath);
                 onSocketMessageReceived.call(message);
                 break;
               }
@@ -415,6 +433,7 @@ class TelnyxClient {
                   call.endCall(inviteAnswer.inviteParams?.callID);
                 }
                 earlySDP = false;
+                call.stopAudio();
                 break;
               }
             case SocketMethod.BYE:
@@ -425,6 +444,7 @@ class TelnyxClient {
                 var message =
                     TelnyxMessage(socketMethod: SocketMethod.BYE, message: bye);
                 onSocketMessageReceived(message);
+                call.stopAudio();
                 break;
               }
             case SocketMethod.RINGING:
@@ -440,8 +460,7 @@ class TelnyxClient {
                 break;
               }
           }
-        }
-        else {
+        } else {
           _logger.i('Received and ignored empty packet');
         }
       } else {

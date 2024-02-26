@@ -29,11 +29,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!kIsWeb) {
       _checkPermissions();
     }
+    sipUserController.text = "isaac29798";
+    sipPasswordController.text = "EAraBMKx";
     super.initState();
   }
 
   Future<void> _checkPermissions() async {
     Map<Permission, PermissionStatus> statuses = await [
+      Permission.audio,
       Permission.microphone,
       Permission.bluetooth,
       Permission.bluetoothConnect
@@ -58,7 +61,9 @@ class _LoginScreenState extends State<LoginScreen> {
           sipNameController.text,
           sipNumberController.text,
           token,
-          true);
+          true,
+          "",
+          "");
       Provider.of<MainViewModel>(context, listen: false)
           .login(credentialConfig);
     });
@@ -142,12 +147,13 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  void _showToast(BuildContext context,String text) {
+  void _showToast(BuildContext context, String text) {
     final scaffold = ScaffoldMessenger.of(context);
     scaffold.showSnackBar(
       SnackBar(
-        content:  Text('$text'),
-        action: SnackBarAction(label: 'OKAY', onPressed: scaffold.hideCurrentSnackBar),
+        content: Text('$text'),
+        action: SnackBarAction(
+            label: 'OKAY', onPressed: scaffold.hideCurrentSnackBar),
       ),
     );
   }

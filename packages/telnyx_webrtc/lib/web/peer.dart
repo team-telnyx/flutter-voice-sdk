@@ -47,10 +47,12 @@ class Peer {
   final String _selfId = randomNumeric(6);
 
   final TxSocket _socket;
-
   final Map<String, Session> _sessions = {};
   MediaStream? _localStream;
   final List<MediaStream> _remoteStreams = <MediaStream>[];
+
+  final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
+  final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
   Function(SignalingState state)? onSignalingStateChange;
   Function(Session session, CallState state)? onCallStateChange;
@@ -104,16 +106,29 @@ class Peer {
     }
   }
 
+
   void enableSpeakerPhone(bool enable) {
+    if (kIsWeb) {
+      _logger.d("Peer :: Speaker Enabled :: $enable");
+      _localStream!.getAudioTracks().first.enableSpeakerphone(enable);
+      return;
+    }
     if (_localStream != null) {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
+      _logger.d("Peer :: Speaker Enabled :: $enable");
     } else {
       _logger.d("Peer :: No local stream :: Unable to toggle speaker mode");
     }
   }
 
-  void invite(String callerName, String callerNumber, String destinationNumber,
-      String clientState, String callId, String telnyxSessionId,Map<String,String> customHeaders) async {
+  void invite(
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId,
+      String telnyxSessionId,
+      Map<String, String> customHeaders) async {
     var sessionId = _selfId;
 
     Session session = await _createSession(null,
@@ -122,7 +137,7 @@ class Peer {
     _sessions[sessionId] = session;
 
     _createOffer(session, "audio", callerName, callerNumber, destinationNumber,
-        clientState, callId, telnyxSessionId,customHeaders);
+        clientState, callId, telnyxSessionId, customHeaders);
     onCallStateChange?.call(session, CallState.CallStateInvite);
   }
 
@@ -135,7 +150,7 @@ class Peer {
       String clientState,
       String callId,
       String sessionId,
-      Map<String,String> customHeaders) async {
+      Map<String, String> customHeaders) async {
     try {
       RTCSessionDescription s =
           await session.peerConnection!.createOffer(_dcConstraints);
@@ -199,8 +214,14 @@ class Peer {
         ?.setRemoteDescription(RTCSessionDescription(sdp, "answer"));
   }
 
-  void accept(String callerName, String callerNumber, String destinationNumber,
-      String clientState, String callId, IncomingInviteParams invite,Map<String,String> customHeaders) async {
+  void accept(
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId,
+      IncomingInviteParams invite,
+      Map<String, String> customHeaders) async {
     var sessionId = _selfId;
     Session session = await _createSession(null,
         peerId: "0", sessionId: sessionId, media: "audio");
@@ -210,7 +231,7 @@ class Peer {
         ?.setRemoteDescription(RTCSessionDescription(invite.sdp, "offer"));
 
     _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
-        clientState, callId,customHeaders);
+        clientState, callId, customHeaders);
 
     onCallStateChange?.call(session, CallState.CallStateNew);
   }
@@ -223,7 +244,7 @@ class Peer {
       String destinationNumber,
       String clientState,
       String callId,
-      Map<String,String> customHeaders) async {
+      Map<String, String> customHeaders) async {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
@@ -261,8 +282,7 @@ class Peer {
             useStereo: false,
             userVariables: [],
             video: false,
-            customHeaders: customHeaders
-        );
+            customHeaders: customHeaders);
         var inviteParams = InviteParams(
             dialogParams: dialogParams,
             sdp: sdpUsed,
@@ -290,6 +310,7 @@ class Peer {
   }
 
   Future<MediaStream> createStream(String media) async {
+    _logger.i("Peer :: Creating stream");
     final Map<String, dynamic> mediaConstraints = {
       'audio': true,
       'video': false
@@ -301,41 +322,39 @@ class Peer {
     return stream;
   }
 
+  Future<void> initRenderers() async {
+    await _localRenderer.initialize();
+    await _remoteRenderer.initialize();
+  }
+
   Future<Session> _createSession(Session? session,
       {required String peerId,
       required String sessionId,
       required String media}) async {
+    _logger.i('Web is running');
+
     var newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') _localStream = await createStream(media);
-
+    _localRenderer.srcObject = _localStream;
+    initRenderers();
     RTCPeerConnection peerConnection = await createPeerConnection({
       ..._iceServers,
       ...{'sdpSemantics': sdpSemantics}
-    }, _dcConstraints);
-    if (media != 'data') {
-      switch (sdpSemantics) {
-        case 'plan-b':
-          peerConnection.onAddStream = (MediaStream stream) {
-            onAddRemoteStream?.call(newSession, stream);
-            _remoteStreams.add(stream);
-          };
-          await peerConnection.addStream(_localStream!);
-          break;
-        case 'unified-plan':
-          // Unified-Plan
-          peerConnection.onTrack = (event) {
-            if (event.track.kind == 'video') {
-              onAddRemoteStream?.call(newSession, event.streams[0]);
-            } else if (event.track.kind == 'audio') {
-              onAddRemoteStream?.call(newSession, event.streams[0]);
-            }
-          };
-          _localStream!.getTracks().forEach((track) {
-            peerConnection.addTrack(track, _localStream!);
-          });
-          break;
+    });
+    peerConnection.onTrack = (event) {
+      if (event.track.kind == 'video') {
+        _remoteRenderer.srcObject = event.streams[0];
+      } else if (event.track.kind == 'audio') {
+        _logger.i("Peer :: onTrack: audio");
+        _remoteRenderer.srcObject = event.streams[0];
       }
-    }
+    };
+
+    _localStream?.getTracks().forEach((track) async {
+      await peerConnection.addTrack(track, _localStream!);
+      _logger.i('track.settings ${track.getSettings()}');q
+    });
+
     peerConnection.onIceCandidate = (candidate) async {
       if (!candidate.candidate.toString().contains("127.0.0.1")) {
         _logger.i("Peer :: Adding ICE candidate :: ${candidate.toString()}");
@@ -365,6 +384,11 @@ class Peer {
       _remoteStreams.removeWhere((it) {
         return (it.id == stream.id);
       });
+    };
+
+    onAddRemoteStream = (newSession, stream) {
+      _remoteStreams.add(stream);
+      _logger.i("Peer  :: Remote stream added");
     };
 
     peerConnection.onDataChannel = (channel) {
