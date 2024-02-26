@@ -23,7 +23,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    destinationController.text = "isaac33882";
   }
 
   void _observeResponses() {

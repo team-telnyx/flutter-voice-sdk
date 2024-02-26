@@ -29,8 +29,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!kIsWeb) {
       _checkPermissions();
     }
-    sipUserController.text = "isaac29798";
-    sipPasswordController.text = "EAraBMKx";
     super.initState();
   }
 
