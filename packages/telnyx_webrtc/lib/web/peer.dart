@@ -352,7 +352,7 @@ class Peer {
 
     _localStream?.getTracks().forEach((track) async {
       await peerConnection.addTrack(track, _localStream!);
-      _logger.i('track.settings ${track.getSettings()}');q
+      _logger.i('track.settings ${track.getSettings()}');
     });
 
     peerConnection.onIceCandidate = (candidate) async {
