@@ -264,7 +264,8 @@ class _DialButtonState extends State<DialButton>
                     child: Center(
                         child: widget.icon == null
                             ? widget.subtitle != null
-                                ? Column(
+                                ? SingleChildScrollView(
+                                    child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: <Widget>[
                                       const SizedBox(
@@ -282,7 +283,7 @@ class _DialButtonState extends State<DialButton>
                                               color: widget.textColor ??
                                                   Colors.black))
                                     ],
-                                  )
+                                  ))
                                 : Padding(
                                     padding: EdgeInsets.only(
                                         top: widget.title == "*" ? 10 : 0),
