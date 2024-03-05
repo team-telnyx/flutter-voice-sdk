@@ -106,9 +106,43 @@ class TokenConfig {
  ```
  
  ####  Adding push notifications - Android platform
-The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application. 
-
+The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
+1. Add the `metadata` to CallKitParams `extra` field
+```dart
+
+    static Future showNotification(RemoteMessage message)  {
+      CallKitParams callKitParams = CallKitParams(
+        android:...,
+          ios:...,
+          extra: message.data,
+      )
+      await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
+    }
+
+```
+
+2. Listen for Call Events and invoke the `handlePushNotification` method
+```dart
+   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
+   switch (event!.event) {
+   case Event.actionCallIncoming:
+   // retrieve the push metadata from extras
+    PushMetaData? pushMetaData = PushMetaData.fromJson(
+    jsonDecode(event.body['extra']['metadata']));
+    _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+    break;
+   case Event.actionCallStart:
+    ....
+   break;
+   case Event.actionCallAccept:
+     ...
+   logger.i('Call Accepted Attach Call');
+   break;
+   });
+```
+
+
  
 ####  Adding push notifications - iOS platform
 The iOS Platform makes use of the Apple Push Notification Service (APNS) and Pushkit in order to deliver and receive push notifications

@@ -135,11 +135,10 @@ class _MyAppState extends State<MyApp> {
       logger.i("iOS notification token :: $token");
     }
     var credentialConfig = CredentialConfig("<username>", "<password>",
-        "Isaac", "1234567890", token, true, "", "");
+        "<Name>", "1234567890", token, true, "", "");
     mainViewModel.handlePushNotification(pushMetaData,credentialConfig, null);
     mainViewModel.observeResponses();
     logger.i('actionCallIncoming :: Received Incoming Call!');
-
   }
 
   // This widget is the root of your application.
