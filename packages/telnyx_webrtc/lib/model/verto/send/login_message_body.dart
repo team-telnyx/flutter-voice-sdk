@@ -33,19 +33,21 @@ class LoginParams {
   String? passwd;
   UserVariables? userVariables;
   String? sessionId;
-
+  String? attachCall = "true";
   LoginParams(
       {this.login,
       this.loginToken,
       this.loginParams,
       this.passwd,
       this.userVariables,
-      this.sessionId
+      this.sessionId,
+      this.attachCall
       });
 
   LoginParams.fromJson(Map<String, dynamic> json) {
     login = json['login'];
-    login = json['login_token'];
+    loginToken = json['login_token'];
+    attachCall = "true";
     if (json['loginParams'] != null) {
       loginParams = <String>[];
       json['loginParams'].forEach((v) {
@@ -62,12 +64,15 @@ class LoginParams {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['login'] = login;
-    data['login_token'] = loginToken;
+    if(loginToken != null){
+      data['login_token'] = loginToken;
+    }
     if (loginParams != null) {
       data['loginParams'] = loginParams!.map((v) => v).toList();
     }
     data['passwd'] = passwd;
     data['sessid'] = sessionId;
+    data['attachCall'] = attachCall;
     if (userVariables != null) {
       data['userVariables'] = userVariables!.toJson();
     }

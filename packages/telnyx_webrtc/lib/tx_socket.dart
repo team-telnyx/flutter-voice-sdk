@@ -8,7 +8,7 @@ typedef OnOpenCallback = void Function();
 class TxSocket {
   TxSocket(this.hostAddress);
 
-  final String hostAddress;
+  String hostAddress;
   final _logger = Logger();
 
   late WebSocket _socket;
@@ -19,6 +19,7 @@ class TxSocket {
   void connect() async {
     try {
       _socket = await WebSocket.connect(hostAddress);
+      _logger.i('Connecting to $hostAddress');
       _socket.pingInterval = const Duration(seconds: 10);
       _socket.timeout(const Duration(seconds: 30));
       onOpen.call();

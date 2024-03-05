@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:logger/logger.dart';
+import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import '/call.dart';
 import '/config/telnyx_config.dart';
 import '/model/gateway_state.dart';
@@ -18,6 +19,7 @@ import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 
 import 'model/jsonrpc.dart';
+import 'model/push_notification.dart';
 import 'model/verto/send/pong_message_body.dart';
 
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -53,6 +55,7 @@ class TelnyxClient {
   Timer? _gatewayResponseTimer;
   bool _autoReconnectLogin = true;
   bool _waitingForReg = true;
+  bool _pendingAnswerFromPush = true;
   bool _registered = false;
   int _registrationRetryCounter = 0;
   int _connectRetryCounter = 0;
@@ -75,8 +78,57 @@ class TelnyxClient {
     return _gatewayState;
   }
 
+  void handlePushNotification(PushMetaData pushMetaData,CredentialConfig? credentialConfig,TokenConfig? tokenConfig){
+    _pendingAnswerFromPush = true;
+    _connectWithCallBack(pushMetaData, (){
+      if (credentialConfig != null) {
+        credentialLogin(credentialConfig);
+      } else if (tokenConfig != null) {
+        tokenLogin(tokenConfig);
+      }
+    });
+  }
+
   /// Create a socket connection for
   /// communication with the Telnyx backend
+  void _connectWithCallBack(PushMetaData? pushMetaData,OnOpenCallback openCallback) {
+    _logger.i('connect()');
+    if (isConnected() && pushMetaData?.voice_sdk_id == null) {
+      _logger.i('WebSocket $_storedHostAddress is already connected');
+      return;
+    }
+    _logger.i('connecting to WebSocket $_storedHostAddress');
+    try {
+      txSocket.onOpen = () {
+        _closed = false;
+        _connected = true;
+        _logger.i('Web Socket is now connected');
+        _onOpen();
+        openCallback.call();
+      };
+
+      txSocket.onMessage = (dynamic data) {
+        _onMessage(data);
+      };
+
+      txSocket.onClose = (int closeCode, String closeReason) {
+        _logger.i('Closed [$closeCode, $closeReason]!');
+        _connected = false;
+        _onClose(true, closeCode, closeReason);
+      };
+
+      if(pushMetaData?.voice_sdk_id != null){
+        txSocket.hostAddress = "$_storedHostAddress?voice_sdk_id=${pushMetaData?.voice_sdk_id}";
+        _logger.i('Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voice_sdk_id}');
+      }
+      txSocket.connect();
+    } catch (e, s) {
+      _logger.e(e.toString(), null, s);
+      _connected = false;
+      _logger.e('WebSocket $_storedHostAddress error: $e');
+    }
+  }
+
   void connect() {
     _logger.i('connect()');
     if (isConnected()) {
@@ -159,7 +211,7 @@ class TelnyxClient {
         login: user,
         passwd: password,
         loginParams: [],
-        userVariables: notificationParams);
+        userVariables: notificationParams,attachCall: "true",);
     var loginMessage = LoginMessage(
         id: uuid,
         method: SocketMethod.LOGIN,
@@ -197,7 +249,7 @@ class TelnyxClient {
         loginToken: token,
         loginParams: [],
         userVariables: notificationParams,
-        sessionId: sessid);
+        sessionId: sessid,attachCall: "true");
     var loginMessage = LoginMessage(
         id: uuid,
         method: SocketMethod.LOGIN,
@@ -288,6 +340,18 @@ class TelnyxClient {
                           socketMethod: SocketMethod.CLIENT_READY,
                           message: mainMessage);
                       onSocketMessageReceived.call(message);
+                      if(_pendingAnswerFromPush){
+                        _pendingAnswerFromPush = false;
+                        //sending attach Call
+                        AttachCallMessage attachCallMessage = AttachCallMessage(
+                            method: SocketMethod.ATTACH_CALL,
+                            id: const Uuid().v4(),
+                            params: Params(
+                                pushNotificationProvider: "android",
+                                userVariables: <dynamic, dynamic>{"push_notification_environment":"debug"},
+                                loginParams: <dynamic, dynamic>{}),jsonrpc: "2.0");
+                        txSocket.send(jsonEncode(attachCallMessage));
+                      }
                       _registered = true;
                     }
                     break;
