@@ -10,4 +10,6 @@ class SocketMethod {
   static const GATEWAY_STATE = "telnyx_rtc.gatewayState";
   static const PING = "telnyx_rtc.ping";
   static const LOGIN = "login";
+  static const ATTACH_CALL = "telnyx_rtc.attachCalls";
+
 }

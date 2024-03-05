@@ -1,3 +1,11 @@
+## 0.0.12
+
+- Fix No Audi for Web
+
+## 0.0.11
+
+- Ringing State Fixed
+
 ## 0.0.10
 
 - Fix gateway time out Issue

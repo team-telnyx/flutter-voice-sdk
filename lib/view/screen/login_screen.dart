@@ -9,7 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends StatefulWidget  {
   const LoginScreen({Key? key, required this.title}) : super(key: key);
   final String title;
 
@@ -17,7 +17,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final logger = Logger();
   TextEditingController sipUserController = TextEditingController();
   TextEditingController sipPasswordController = TextEditingController();
@@ -62,17 +62,37 @@ class _LoginScreenState extends State<LoginScreen> {
           true,
           "",
           "");
+
+      var tokenConfig = TokenConfig(
+          "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZWxueXhfdGVsZXBob255IiwiZXhwIjoxNzA5NjM0Mzk4LCJpYXQiOjE3MDk1NDc5OTgsImlzcyI6InRlbG55eF90ZWxlcGhvbnkiLCJqdGkiOiIzOWY3ZDY2ZS0xY2JiLTQ2Y2QtOGM4ZS03NDJlOWZlYTUwNDAiLCJuYmYiOjE3MDk1NDc5OTcsInN1YiI6Ijg2YmEyZjA3LWU4NmEtNGU3NS05MTg2LTAwOTYxYWMzNDc0ZSIsInRlbF90b2tlbiI6Ik5iVldCTFFySDRoWk9TS2FGa0ZfMlctcndWcklJbExJcnltZkRFY0RETThydFk0ZUp6TkhmTVlaeWJyNVk2b0tTd2Exa0toZzZrREdDNHd4dUVSTDlodUdqOV9nRk5oVjZwVzRSWFB0dGFWMF9fNXhoVVRHb3F5czdmX0FsVUotZjZzNEktQXNMcm9vc3djNW13SEE3VmdHIiwidHlwIjoiYWNjZXNzIn0.8Y_MdGid2iZg0ERLJxQEbR2R5JRkg6kS_g0P4v5qFEvLWw4MIfEoUXMxyvSEvPd4t3ySS7xeB2_NFCB02kEDVg",
+          sipNameController.text,
+          sipNumberController.text,
+          token,
+          true,
+          "",
+          "");
       Provider.of<MainViewModel>(context, listen: false)
           .login(credentialConfig);
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     Provider.of<MainViewModel>(context, listen: true).observeResponses();
     Provider.of<MainViewModel>(context, listen: true).connect();
+
     bool registered =
-        Provider.of<MainViewModel>(context, listen: true).registered;
+        Provider
+            .of<MainViewModel>(context, listen: true)
+            .registered;
     if (registered) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');

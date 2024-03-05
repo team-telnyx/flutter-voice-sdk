@@ -8,6 +8,7 @@ import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/model/push_notification.dart';
 
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
@@ -45,7 +46,8 @@ class MainViewModel with ChangeNotifier {
   void observeResponses() {
     // Observe Socket Messages Received
     _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
-      switch (message.socketMethod) {
+      switch (message.socketMethod)
+      {
         case SocketMethod.CLIENT_READY:
           {
             _registered = true;
@@ -110,6 +112,10 @@ class MainViewModel with ChangeNotifier {
 
   void connect() {
     _telnyxClient.connect();
+  }
+
+  void handlePushNotification(PushMetaData pushMetaData,CredentialConfig? credentialConfig,TokenConfig? tokenConfig) {
+    _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
   }
 
   void disconnect() {
