@@ -44,8 +44,8 @@ void main() {
     telnyxClient.connect();
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
-      var call = telnyxClient.createCall();
-      expect((telnyxClient.createCall()), call);
+      var call = telnyxClient.call;
+      expect((telnyxClient.call), call);
     });
   });
 

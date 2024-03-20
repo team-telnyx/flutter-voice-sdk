@@ -3,6 +3,7 @@
 
 # Telnyx Flutter Voice SDK
 
+
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
 ## Features
@@ -103,24 +104,109 @@ class TokenConfig {
   final bool? autoReconnect;
 }
  ```
- 
-####  Adding push notifications - Android platform
-The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application. 
 
+####  Adding push notifications - Android platform
+The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
- 
+1. Add the `metadata` to CallKitParams `extra` field
+```dart
+
+    static Future showNotification(RemoteMessage message)  {
+      CallKitParams callKitParams = CallKitParams(
+        android:...,
+          ios:...,
+          extra: message.data,
+      )
+      await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
+    }
+```
+
+2. Listen for Call Events and invoke the `handlePushNotification` method
+```dart
+   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
+   switch (event!.event) {
+   case Event.actionCallIncoming:
+   // retrieve the push metadata from extras
+    PushMetaData? pushMetaData = PushMetaData.fromJson(
+    jsonDecode(event.body['extra']['metadata']));
+    _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+    break;
+   case Event.actionCallStart:
+    ....
+   break;
+   case Event.actionCallAccept:
+     ...
+   logger.i('Call Accepted Attach Call');
+   break;
+   });
+```
+
+
+
 ####  Adding push notifications - iOS platform
 The iOS Platform makes use of the Apple Push Notification Service (APNS) and Pushkit in order to deliver and receive push notifications
-  
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?lang=ios)
- 
+
+1. Listen for incoming calls in AppDelegate.swift class
+```swift 
+    func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
+            print("didReceiveIncomingPushWith")
+            guard type == .voIP else { return }
+            
+            if let metadata = payload.dictionaryPayload["metadata"] as? [String: Any] {
+                var callID = UUID.init().uuidString
+                if let newCallId = (metadata["call_id"] as? String),
+                   !newCallId.isEmpty {
+                    callID = newCallId
+                }
+                let callerName = (metadata["caller_name"] as? String) ?? ""
+                let callerNumber = (metadata["caller_number"] as? String) ?? ""
+                
+                let id = payload.dictionaryPayload["call_id"] as? String ??  UUID().uuidString
+                let isVideo = payload.dictionaryPayload["isVideo"] as? Bool ?? false
+                
+                let data = flutter_callkit_incoming.Data(id: id, nameCaller: callerName, handle: callerNumber, type: isVideo ? 1 : 0)
+                data.extra = payload.dictionaryPayload as NSDictionary
+                data.normalHandle = 1              
+                
+                let caller = callerName.isEmpty ? (callerNumber.isEmpty ? "Unknown" : callerNumber) : callerName
+                let uuid = UUID(uuidString: callID)
+                
+                //set more data
+                //data.iconName = ...
+                //data.....
+                SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
+            }
+        }
+```
+
+2. Listen for Call Events and invoke the `handlePushNotification` method
+```dart
+   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
+   switch (event!.event) {
+   case Event.actionCallIncoming:
+   // retrieve the push metadata from extras
+    PushMetaData? pushMetaData = PushMetaData.fromJson(event.body['extra']['metadata']);
+    _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+    break;
+   case Event.actionCallStart:
+    ....
+   break;
+   case Event.actionCallAccept:
+     ...
+   logger.i('Call Accepted Attach Call');
+   break;
+   });
+```
+
+
 ### Creating a call invitation
-In order to make a call invitation, we first create an instance of the Call class with the .createCall() method. This creates a Call class which can be used to interact with calls (invite, accept, decline, etc).
+In order to make a call invitation, we first create an instance of the Call class with the .call instance. This creates a Call class which can be used to interact with calls (invite, accept, decline, etc).
 To then send an invite, we can use the .newInvite() method which requires you to provide your callerName, callerNumber, the destinationNumber (or SIP credential), and your clientState (any String value).
 
 ```dart
     _telnyxClient
-        .createCall()
+        .call
         .newInvite("callerName", "000000000", destination, "State");
 ```
 
@@ -165,7 +251,7 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
 };
 ```
 
-We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations. 
+We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations.
 
 ### Decline / End Call
 
@@ -216,13 +302,3 @@ Questions? Comments? Building something rad? [Join our Slack channel](https://jo
 ## License
 
 [`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
-
-
-
-
-
-
-
-
-
-

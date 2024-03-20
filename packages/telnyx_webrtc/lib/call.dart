@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
+import 'package:telnyx_webrtc/telnyx_client.dart';
 
 import '/model/socket_method.dart';
 import '/model/verto/receive/received_message_body.dart';
@@ -18,9 +19,9 @@ import 'package:audioplayers/audioplayers.dart';
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
-  Call(this._txSocket, this._sessid, this.ringToneFile, this.ringBackFile);
+  Call(this._txSocket, this._sessid, this.ringToneFile, this.ringBackFile,this.callEnded);
   final audioService = AudioService();
-
+  final Function callEnded;
   final TxSocket _txSocket;
   final String _sessid;
   final String ringBackFile;
@@ -107,6 +108,7 @@ class Call {
       peerConnection?.closeSession(_sessid);
     }
     stopAudio();
+    callEnded();
   }
 
   /// Sends a DTMF message with the chosen [tone] to the call

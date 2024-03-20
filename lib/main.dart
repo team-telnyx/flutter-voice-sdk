@@ -56,7 +56,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
-
     if (defaultTargetPlatform == TargetPlatform.android) {
       // Android Only - Push Notifications
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
@@ -82,18 +81,19 @@ class _MyAppState extends State<MyApp> {
           // TODO: show screen calling in Flutter
           break;
         case Event.actionCallAccept:
-          // TODO: accepted an incoming call
-          // TODO: show screen calling in Flutter
-          logger.i('Call Accepted Attach Call');
+         mainViewModel.accept();
           break;
         case Event.actionCallDecline:
-          // TODO: declined an incoming call
+          mainViewModel.endCall();
+          print("Decline Call");
           break;
         case Event.actionCallEnded:
-          // TODO: ended an incoming/outgoing call
+          mainViewModel.endCall();
+          print("Decline Call");
           break;
         case Event.actionCallTimeout:
-          // TODO: missed an incoming call
+          mainViewModel.endCall();
+          print("Decline Call");
           break;
         case Event.actionCallCallback:
           // TODO: only Android - click action `Call back` from missed call notification
@@ -125,18 +125,24 @@ class _MyAppState extends State<MyApp> {
 
   Future<void> handlePush(CallEvent event) async {
     String? token;
-    PushMetaData? pushMetaData = PushMetaData.fromJson(
-        jsonDecode(event.body['extra']['metadata']));
+    logger.i("${event.body['extra']}");
+    logger.i("Encoded" + jsonEncode(event.body['extra']['metadata']));
+
+    PushMetaData? pushMetaData;
     if (defaultTargetPlatform == TargetPlatform.android) {
       token = (await FirebaseMessaging.instance.getToken())!;
+      pushMetaData =
+          PushMetaData.fromJson(jsonDecode(event.body['extra']['metadata']));
       logger.i("Android notification token :: $token");
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+      pushMetaData =
+          PushMetaData.fromJson(event.body['extra']['metadata']);
       logger.i("iOS notification token :: $token");
     }
-    var credentialConfig = CredentialConfig("<username>", "<password>",
-        "<Name>", "1234567890", token, true, "", "");
-    mainViewModel.handlePushNotification(pushMetaData,credentialConfig, null);
+    var credentialConfig = CredentialConfig("<UserName>", "<Passsword>",
+        "<caller_id>", "<caller_number>", token, true, "", "");
+    mainViewModel.handlePushNotification(pushMetaData!, credentialConfig, null);
     mainViewModel.observeResponses();
     logger.i('actionCallIncoming :: Received Incoming Call!');
   }

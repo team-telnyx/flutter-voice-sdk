@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import '/call.dart';
@@ -43,9 +44,6 @@ class TelnyxClient {
   /// The current session ID related to this client
   String sessid = const Uuid().v4();
 
-  /// The current instance of [Call] associated with this client. Can be used
-  /// to call call related functions such as hold/mute
-  late Call call;
 
   // Gateway registration variables
   static const int RETRY_REGISTER_TIME = 3;
@@ -55,7 +53,7 @@ class TelnyxClient {
   Timer? _gatewayResponseTimer;
   bool _autoReconnectLogin = true;
   bool _waitingForReg = true;
-  bool _pendingAnswerFromPush = true;
+  bool _pendingAnswerFromPush = false;
   bool _registered = false;
   int _registrationRetryCounter = 0;
   int _connectRetryCounter = 0;
@@ -175,13 +173,33 @@ class TelnyxClient {
     });
   }
 
+  /// The current instance of [Call] associated with this client. Can be used
+  /// to call call related functions such as hold/mute
+  Call? _call;
+
+  //if there's a bye we'll need to reinitialize call object
+  bool _pendingBye = false;
+  // Public getter to lazily initialize and return the value.
+  Call get call {
+    // If _call is null, initialize it with the default value.
+    if(_pendingBye){
+      _callEnded();
+    }
+    _call ??= _createCall();
+    return _call!;
+  }
+
+  void _callEnded() {
+    _call = null;
+  }
+
   /// Creates an instance of [Call] that can be used to create invitations or
   /// perform common call related functions such as ending the call or placing
   /// yourself on hold/mute.
-  Call createCall() {
+  Call _createCall() {
     // Set global call parameter
-    call = Call(txSocket, sessid, ringtonePath, ringBackpath);
-    return call;
+    _call = Call(txSocket, sessid, ringtonePath, ringBackpath,_callEnded);
+    return _call!;
   }
 
   /// Uses the provided [config] to send a credential login message to the Telnyx backend.
@@ -343,11 +361,13 @@ class TelnyxClient {
                       if(_pendingAnswerFromPush){
                         _pendingAnswerFromPush = false;
                         //sending attach Call
+                        String platform = defaultTargetPlatform == TargetPlatform.android ? "android" : "ios";
+
                         AttachCallMessage attachCallMessage = AttachCallMessage(
                             method: SocketMethod.ATTACH_CALL,
                             id: const Uuid().v4(),
                             params: Params(
-                                pushNotificationProvider: "android",
+                                pushNotificationProvider: platform,
                                 userVariables: <dynamic, dynamic>{"push_notification_environment":"debug"},
                                 loginParams: <dynamic, dynamic>{}),jsonrpc: "2.0");
                         txSocket.send(jsonEncode(attachCallMessage));
@@ -460,8 +480,6 @@ class TelnyxClient {
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.INVITE, message: invite);
 
-                //create Call instance
-                createCall();
                 call.playAudio(ringtonePath);
                 onSocketMessageReceived.call(message);
                 break;
@@ -472,7 +490,7 @@ class TelnyxClient {
                 ReceivedMessage mediaReceived =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 if (mediaReceived.inviteParams?.sdp != null) {
-                  call.onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
+                  call?.onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
                   earlySDP = true;
                 } else {
                   _logger.d('No SDP contained within Media Message');
@@ -487,7 +505,7 @@ class TelnyxClient {
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.ANSWER, message: inviteAnswer);
                 if (inviteAnswer.inviteParams?.sdp != null) {
-                  call.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
+                  call?.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
                   onSocketMessageReceived.call(message);
                 } else if (earlySDP) {
                   onSocketMessageReceived.call(message);
@@ -509,6 +527,7 @@ class TelnyxClient {
                     TelnyxMessage(socketMethod: SocketMethod.BYE, message: bye);
                 onSocketMessageReceived(message);
                 call.stopAudio();
+                _pendingBye = true;
                 break;
               }
             case SocketMethod.RINGING:
