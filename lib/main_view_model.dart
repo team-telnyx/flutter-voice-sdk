@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/call.dart';
@@ -35,7 +36,7 @@ class MainViewModel with ChangeNotifier {
     return _ongoingCall;
   }
 
-  Call get currentCall {
+  Call? get currentCall {
     return _telnyxClient.call;
   }
 
@@ -70,6 +71,7 @@ class MainViewModel with ChangeNotifier {
           {
             _ongoingInvitation = false;
             _ongoingCall = false;
+            FlutterCallkitIncoming.endCall(currentCall?.callId ?? "");
             break;
           }
       }
@@ -137,7 +139,7 @@ class MainViewModel with ChangeNotifier {
   }
 
   void call(String destination) {
-    _telnyxClient.createCall().newInvite(
+    _telnyxClient.call.newInvite(
         _localName, _localNumber, destination, "Fake State",
         customHeaders: {"X-Header-1": "Value1", "X-Header-2": "Value2"});
   }
@@ -151,7 +153,7 @@ class MainViewModel with ChangeNotifier {
   void accept() {
     if (_incomingInvite != null) {
       _telnyxClient
-          .createCall()
+          .call
           .acceptCall(_incomingInvite!, _localName, _localNumber, "Fake State");
       _ongoingInvitation = false;
       _ongoingCall = true;
@@ -162,10 +164,11 @@ class MainViewModel with ChangeNotifier {
   }
 
   void endCall() {
+    FlutterCallkitIncoming.endCall(currentCall?.callId ?? "");
     if (_ongoingCall) {
       _telnyxClient.call.endCall(_telnyxClient.call.callId);
     } else {
-      _telnyxClient.createCall().endCall(_incomingInvite?.callID);
+      _telnyxClient.call.endCall(_incomingInvite?.callID);
     }
     _ongoingInvitation = false;
     _ongoingCall = false;

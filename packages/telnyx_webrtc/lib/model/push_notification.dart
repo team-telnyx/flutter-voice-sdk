@@ -16,7 +16,7 @@ class PushMetaData {
   String? call_id;
   String? voice_sdk_id;
 
-  PushMetaData.fromJson(Map<String, dynamic> json) {
+  PushMetaData.fromJson(Map<dynamic, dynamic> json) {
     caller_name = json['caller_name'];
     caller_number = json['caller_number'];
     call_id = json['call_id'];

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class LoginMessage {
   String? id;
   String? jsonrpc;
@@ -98,6 +100,8 @@ class UserVariables {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['push_device_token'] = pushDeviceToken;
     data['push_notification_provider'] = pushNotificationProvider;
+    String pushEnvironment = kDebugMode  ? "debug" : "production";
+    data['push_notification_environment'] = pushEnvironment;
     return data;
   }
 }

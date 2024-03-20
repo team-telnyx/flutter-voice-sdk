@@ -29,6 +29,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     if (!kIsWeb) {
       _checkPermissions();
     }
+    sipUserController.text = "<username>";
+    sipPasswordController.text = "<password>";
     super.initState();
   }
 

@@ -59,19 +59,38 @@ import flutter_callkit_incoming
         // Handle incoming pushes
         func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
             print("didReceiveIncomingPushWith")
+            print("Payload \(payload.dictionaryPayload)")
             guard type == .voIP else { return }
             
-            let id = payload.dictionaryPayload["id"] as? String ?? ""
-            let nameCaller = payload.dictionaryPayload["nameCaller"] as? String ?? ""
-            let handle = payload.dictionaryPayload["handle"] as? String ?? ""
-            let isVideo = payload.dictionaryPayload["isVideo"] as? Bool ?? false
+            if let metadata = payload.dictionaryPayload["metadata"] as? [String: Any] {
+                var callID = UUID.init().uuidString
+                if let newCallId = (metadata["call_id"] as? String),
+                   !newCallId.isEmpty {
+                    callID = newCallId
+                }
+                let callerName = (metadata["caller_name"] as? String) ?? ""
+                let callerNumber = (metadata["caller_number"] as? String) ?? ""
+                
+                let id = payload.dictionaryPayload["call_id"] as? String ??  UUID().uuidString
+                let isVideo = payload.dictionaryPayload["isVideo"] as? Bool ?? false
+                
+                let data = flutter_callkit_incoming.Data(id: id, nameCaller: callerName, handle: callerNumber, type: isVideo ? 1 : 0)
+                data.extra = payload.dictionaryPayload as NSDictionary
+                data.normalHandle = 1
+                print("\(callerName)")
+              
+                
+                let caller = callerName.isEmpty ? (callerNumber.isEmpty ? "Unknown" : callerNumber) : callerName
+                let uuid = UUID(uuidString: callID)
+                
+                //set more data
+                //data.iconName = ...
+                //data.....
+                SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
+            }
             
-            let data = flutter_callkit_incoming.Data(id: id, nameCaller: nameCaller, handle: handle, type: isVideo ? 1 : 0)
-            //set more data
-            data.extra = ["user": "abc@123", "platform": "ios"]
-            //data.iconName = ...
-            //data.....
-            SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
+        
+            
         }
     
     

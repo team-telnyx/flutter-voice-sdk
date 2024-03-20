@@ -25,7 +25,7 @@ class _CallScreenState extends State<CallScreen> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Center(
+      body: SingleChildScrollView( child : Center(
           child: Column(
         children: [
           const SizedBox(height: 16),
@@ -69,7 +69,7 @@ class _CallScreenState extends State<CallScreen> {
                 icon: const Icon(Icons.pause))
           ])
         ],
-      )),
+      ))),
     );
   }
 }
