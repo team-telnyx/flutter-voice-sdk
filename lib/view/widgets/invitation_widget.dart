@@ -25,7 +25,7 @@ class InvitationWidget extends StatelessWidget {
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   TextButton(
                     style: TextButton.styleFrom(
-                      primary: Colors.green[500],
+                      foregroundColor: Colors.green[500],
                     ),
                     onPressed: () {
                       print("Accept Call");
@@ -36,7 +36,7 @@ class InvitationWidget extends StatelessWidget {
                   ),
                   TextButton(
                     style: TextButton.styleFrom(
-                      primary: Colors.red[400],
+                      foregroundColor: Colors.red[400],
                     ),
                     onPressed: () {
                       Provider.of<MainViewModel>(context, listen: false)

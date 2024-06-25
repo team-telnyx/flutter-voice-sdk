@@ -1,10 +1,35 @@
 import UIKit
+import AVFAudio
+import CallKit
 import PushKit
 import Flutter
 import flutter_callkit_incoming
 
 @UIApplicationMain
-@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate {
+@objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
+    func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
+        
+    }
+    
+    func onDecline(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
+        
+    }
+    
+    func onEnd(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
+        
+    }
+    
+    func onTimeOut(_ call: flutter_callkit_incoming.Call) {
+        
+    }
+    
+    func didActivateAudioSession(_ audioSession: AVAudioSession) {
+    }
+    
+    func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
+        
+    }
+    
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?

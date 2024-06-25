@@ -9,7 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 
-class LoginScreen extends StatefulWidget  {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key, required this.title}) : super(key: key);
   final String title;
 
@@ -81,9 +81,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {
-
-    }
+    if (state == AppLifecycleState.resumed) {}
   }
 
   @override
@@ -92,9 +90,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     Provider.of<MainViewModel>(context, listen: true).connect();
 
     bool registered =
-        Provider
-            .of<MainViewModel>(context, listen: true)
-            .registered;
+        Provider.of<MainViewModel>(context, listen: true).registered;
     if (registered) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');
@@ -153,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               padding: const EdgeInsets.all(8.0),
               child: TextButton(
                 style: TextButton.styleFrom(
-                  primary: Colors.blue,
+                  foregroundColor: Colors.blue,
                 ),
                 onPressed: () {
                   _attemptLogin();

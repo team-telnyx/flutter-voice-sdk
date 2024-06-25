@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 
@@ -19,7 +20,8 @@ import 'package:audioplayers/audioplayers.dart';
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
-  Call(this._txSocket, this._sessid, this.ringToneFile, this.ringBackFile,this.callEnded);
+  Call(this._txSocket, this._sessid, this.ringToneFile, this.ringBackFile,
+      this.callEnded);
   final audioService = AudioService();
   final Function callEnded;
   final TxSocket _txSocket;
@@ -35,6 +37,7 @@ class Call {
   String sessionDestinationNumber = "";
   String sessionClientState = "";
   Map<String, String> customHeaders = {};
+  final _logger = Logger();
 
   /// Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
@@ -105,7 +108,9 @@ class Call {
     String jsonByeMessage = jsonEncode(byeMessage);
     _txSocket.send(jsonByeMessage);
     if (peerConnection != null) {
-      peerConnection?.closeSession(_sessid);
+      peerConnection?.closeSession();
+    } else {
+      _logger.d("Session end peer connection null");
     }
     stopAudio();
     callEnded();
@@ -213,8 +218,6 @@ class AudioService {
     // Ensure the file path is correct and accessible from the web directory
     await _audioPlayer.play(DeviceFileSource(filePath));
   }
-
-
 
   Future<void> stopAudio() async {
     // Ensure the file path is correct and accessible from the web directory

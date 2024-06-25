@@ -47,8 +47,7 @@ class MainViewModel with ChangeNotifier {
   void observeResponses() {
     // Observe Socket Messages Received
     _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
-      switch (message.socketMethod)
-      {
+      switch (message.socketMethod) {
         case SocketMethod.CLIENT_READY:
           {
             _registered = true;
@@ -71,7 +70,7 @@ class MainViewModel with ChangeNotifier {
           {
             _ongoingInvitation = false;
             _ongoingCall = false;
-            FlutterCallkitIncoming.endCall(currentCall?.callId ?? "");
+            endCall();
             break;
           }
       }
@@ -116,8 +115,10 @@ class MainViewModel with ChangeNotifier {
     _telnyxClient.connect();
   }
 
-  void handlePushNotification(PushMetaData pushMetaData,CredentialConfig? credentialConfig,TokenConfig? tokenConfig) {
-    _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+  void handlePushNotification(PushMetaData pushMetaData,
+      CredentialConfig? credentialConfig, TokenConfig? tokenConfig) {
+    _telnyxClient.handlePushNotification(
+        pushMetaData, credentialConfig, tokenConfig);
   }
 
   void disconnect() {
@@ -152,8 +153,7 @@ class MainViewModel with ChangeNotifier {
 
   void accept() {
     if (_incomingInvite != null) {
-      _telnyxClient
-          .call
+      _telnyxClient.call
           .acceptCall(_incomingInvite!, _localName, _localNumber, "Fake State");
       _ongoingInvitation = false;
       _ongoingCall = true;
