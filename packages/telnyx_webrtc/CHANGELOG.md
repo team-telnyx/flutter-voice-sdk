@@ -1,3 +1,12 @@
+## 0.0.15
+- Fix dispose off audio tracks (release ios/android microphone)
+
+## 0.0.14
+- iOS Push Notification Fix and Handling
+
+## 0.0.13
+
+- Android Push Notification Fix
 ## 0.0.12
 
 - Fix No Audi for Web

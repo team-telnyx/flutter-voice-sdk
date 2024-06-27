@@ -98,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.all(8.0),
                 child: TextButton(
                   style: TextButton.styleFrom(
-                    primary: Colors.blue,
+                    foregroundColor: Colors.blue,
                   ),
                   onPressed: () {
                     _callDestination();
