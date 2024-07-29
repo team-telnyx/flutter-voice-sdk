@@ -4,5 +4,9 @@
 <dict>
 	<key>aps-environment</key>
 	<string>development</string>
+	<key>com.apple.developer.coretelephony.sim-inserted</key>
+	<true/>
+	<key>com.apple.developer.devicecheck.appattest-environment</key>
+	<string>development</string>
 </dict>
 </plist>
