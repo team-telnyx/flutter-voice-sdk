@@ -107,8 +107,33 @@ class TokenConfig {
  
  ####  Adding push notifications - Android platform
 The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
-For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android)
-1. Add the `metadata` to CallKitParams `extra` field
+For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android).
+The Demo app uses the [FlutterCallkitIncoming](https://pub.dev/packages/flutter_callkit_incoming] plugin) to show incoming calls. To show a notification when receiving a call, you can follow the steps below:
+1. Listen for Background Push Notifications, Implement the `FirebaseMessaging.onBackgroundMessage` method in your `main` method
+```dart
+
+
+@pragma('vm:entry-point')
+Future<void> main() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // Android Only - Push Notifications
+        await Firebase.initializeApp();
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      
+        await FirebaseMessaging.instance
+                .setForegroundNotificationPresentationOptions(
+         alert: true,
+         badge: true,
+         sound: true,
+      );
+    }
+      runApp(const MyApp());
+}
+```
+
+2. Add the `metadata` to CallKitParams `extra` field
 ```dart
 
     static Future showNotification(RemoteMessage message)  {
@@ -121,15 +146,56 @@ For a detailed tutorial, please visit our official [Push Notification Docs](http
     }
 ```
 
-2. Listen for Call Events and invoke the `handlePushNotification` method
+
+3. Handle the push notification in the `_firebaseMessagingBackgroundHandler` method
 ```dart
-   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+      //show notifcation
+      showNotification(message);
+      
+      //Listen to action from FlutterCallkitIncoming
+      FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+       switch (event!.event) {
+        case Event.actionCallAccept:
+         // Set the telnyx metadata for access when the app comes to foreground
+         TelnyxClient.setPushMetaData(
+                 message.data, isAnswer: true, isDecline: false);
+         break;
+        case Event.actionCallDecline:
+        /*
+        * When the user declines the call from the push notification, the app will no longer be visible, and we have to
+        * handle the endCall user here.
+        * Login to the TelnyxClient and end the call
+        * */
+          ...
+       }});
+}
+
+
+```
+
+4. Use the `TelnyxClient.getPushMetaData()` method to retrieve the metadata when the app comes to the foreground. This data is only available on 1st access and becomes `null` afterward.
+```dart
+    Future<void> _handlePushNotification() async {
+       final  data = await TelnyxClient.getPushMetaData();
+       PushMetaData? pushMetaData = PushMetaData.fromJson(data);
+      if (pushMetaData != null) {
+        _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+      }
+    }
+```
+
+5. To Handle push calls on foreground, Listen for Call Events and invoke the `handlePushNotification` method
+```dart
+FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
    switch (event!.event) {
    case Event.actionCallIncoming:
    // retrieve the push metadata from extras
-    PushMetaData? pushMetaData = PushMetaData.fromJson(
-    jsonDecode(event.body['extra']['metadata']));
-    _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+   final data = await TelnyxClient.getPushData();
+  handlePush(data);
+
+  _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
     break;
    case Event.actionCallStart:
     ....

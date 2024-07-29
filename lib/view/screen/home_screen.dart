@@ -23,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    destinationController.text = 'isaac74983';
   }
 
   void _observeResponses() {
@@ -32,9 +33,16 @@ class _HomeScreenState extends State<HomeScreen> {
     ongoingCall = Provider.of<MainViewModel>(context, listen: true).ongoingCall;
   }
 
+
   void _callDestination() {
     Provider.of<MainViewModel>(context, listen: false)
         .call(destinationController.text);
+    logger.i('Calling!');
+  }
+
+  void _endCall() {
+    Provider.of<MainViewModel>(context, listen: false)
+        .endCall();
     logger.i('Calling!');
   }
 
@@ -104,6 +112,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     _callDestination();
                   },
                   child: const Text('Call'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                  onPressed: () {
+                    _endCall();
+                  },
+                  child: const Text('End Call'),
                 ),
               )
             ],

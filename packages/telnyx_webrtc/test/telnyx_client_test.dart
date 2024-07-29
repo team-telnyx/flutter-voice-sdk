@@ -38,6 +38,7 @@ void main() {
     verify(telnyxClient.disconnect());
   });
 
+  // Todo remove Test -  is not need since telnyxClient.call is deprecated
   test('verify create call returns a Call without issue when sessionId is set',
       () {
     var telnyxClient = TelnyxClient();
