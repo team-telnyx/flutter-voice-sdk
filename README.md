@@ -105,13 +105,12 @@ class TokenConfig {
 }
  ```
  
- ####  Adding push notifications - Android platform
-The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. If you would like to receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
+###  Adding push notifications - Android platform
+The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. To receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android).
 The Demo app uses the [FlutterCallkitIncoming](https://pub.dev/packages/flutter_callkit_incoming] plugin) to show incoming calls. To show a notification when receiving a call, you can follow the steps below:
 1. Listen for Background Push Notifications, Implement the `FirebaseMessaging.onBackgroundMessage` method in your `main` method
 ```dart
-
 
 @pragma('vm:entry-point')
 Future<void> main() async {
@@ -133,7 +132,7 @@ Future<void> main() async {
 }
 ```
 
-2. Add the `metadata` to CallKitParams `extra` field
+2. Optionally Add the `metadata` to CallKitParams `extra` field
 ```dart
 
     static Future showNotification(RemoteMessage message)  {
@@ -193,6 +192,8 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
    case Event.actionCallIncoming:
    // retrieve the push metadata from extras
    final data = await TelnyxClient.getPushData();
+   
+   // This me
   handlePush(data);
 
   _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
@@ -207,13 +208,58 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
    });
 ```
 
+#### Best Practices for Push Notifications on Android 
+1. Request for Notification Permissions for android 13+ devices to show push notifications. More information can be found [here](https://developer.android.com/develop/ui/views/notifications/notification-permission)
+2. Push Notifications only work in foreground for apps thar are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode).
+3. On Foreground calls, you can use the `FirebaseMessaging.onMessage.listen` method to listen for incoming calls and show a notification.
+```dart
+ FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        TelnyxClient.setPushMetaData(message.data);
+        NotificationService.showNotification(message);
+        mainViewModel.callFromPush = true;
+      });
+```
+4. To handle push notifications on the background,  use the `FirebaseMessaging.onBackgroundMessage` method to listen for incoming calls and show a notification and make sure to set the ` TelnyxClient.setPushMetaData` when user answers the call.
+```dart 
+ TelnyxClient.setPushMetaData(
+                 message.data, isAnswer: true, isDecline: false);
+```
 
  
-####  Adding push notifications - iOS platform
+### Adding push notifications - iOS platform
 The iOS Platform makes use of the Apple Push Notification Service (APNS) and Pushkit in order to deliver and receive push notifications
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?lang=ios)
+1. Register/Invalidate the push device token for iOS
+```swift
+        func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
+            print(credentials.token)
+            let deviceToken = credentials.token.map { String(format: "%02x", $0) }.joined()
+            //Save deviceToken to your server
+            SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP(deviceToken)
+        }
+        
+        func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
+            SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP("")
+        }
+```
 
-1. Listen for incoming calls in AppDelegate.swift class
+2. For foreground calls to work, you need to register with callkit on the restorationHandler delegate function. You can also choose to register with callkit using iOS official documentation on
+   [CallKit](https://developer.apple.com/documentation/callkit/).
+```swift
+  override func application(_ application: UIApplication,
+                                  continue userActivity: NSUserActivity,
+                                  restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+                                  
+            let nameCaller = handleObj.getDecryptHandle()["nameCaller"] as? String ?? ""
+            let handle = handleObj.getDecryptHandle()["handle"] as? String ?? ""
+            let data = flutter_callkit_incoming.Data(id: UUID().uuidString, nameCaller: nameCaller, handle: handle, type: isVideo ? 1 : 0)
+            //set more data...
+            data.nameCaller = "dummy"
+            SwiftFlutterCallkitIncomingPlugin.sharedInstance?.startCall(data, fromPushKit: true)
+         
+         }                         
+```
+3. Listen for incoming calls in AppDelegate.swift class
 ```swift 
     func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
             print("didReceiveIncomingPushWith")
@@ -229,7 +275,6 @@ For a detailed tutorial, please visit our official [Push Notification Docs](http
                 let callerNumber = (metadata["caller_number"] as? String) ?? ""
                 
                 let id = payload.dictionaryPayload["call_id"] as? String ??  UUID().uuidString
-                let isVideo = payload.dictionaryPayload["isVideo"] as? Bool ?? false
                 
                 let data = flutter_callkit_incoming.Data(id: id, nameCaller: callerName, handle: callerNumber, type: isVideo ? 1 : 0)
                 data.extra = payload.dictionaryPayload as NSDictionary
@@ -238,15 +283,15 @@ For a detailed tutorial, please visit our official [Push Notification Docs](http
                 let caller = callerName.isEmpty ? (callerNumber.isEmpty ? "Unknown" : callerNumber) : callerName
                 let uuid = UUID(uuidString: callID)
                 
-                //set more data
-                //data.iconName = ...
-                //data.....
+                data.uuid = uuid!.uuidString
+                data.nameCaller = caller
+                
                 SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
             }
         }
 ```
 
-2. Listen for Call Events and invoke the `handlePushNotification` method
+4. Listen for Call Events and invoke the `handlePushNotification` method
 ```dart
    FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
    switch (event!.event) {
@@ -264,6 +309,12 @@ For a detailed tutorial, please visit our official [Push Notification Docs](http
    break;
    });
 ```
+
+
+
+#### Best Practices for Push Notifications on iOS
+1. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode). Make sure you are in `release` mode. Preferably test using Testfight or Appstore.
+To test if push notifications are working, disconnect the telnyx client (while app is in foreground) and make a call to the device. You should receive a push notification.
 
 
 ### Creating a call invitation

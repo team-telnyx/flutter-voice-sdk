@@ -34,8 +34,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
     logger.i("Version ${Platform.operatingSystemVersion}");
 
-    sipUserController.text = "<Usernmae>";
-    sipPasswordController.text = "<Password>";
+    sipUserController.text = MOCK_USER;
+    sipPasswordController.text = MOCK_PASSWORD;
 
     super.initState();
   }
@@ -93,6 +93,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     Provider.of<MainViewModel>(context, listen: true).observeResponses();
+
 
     bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;

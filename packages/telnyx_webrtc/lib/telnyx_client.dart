@@ -212,6 +212,7 @@ class TelnyxClient {
               "$_storedHostAddress?voice_sdk_id=${pushMetaData?.voice_sdk_id}";
           _logger.i(
               'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voice_sdk_id}');
+          print("Connecting to WebSocket :: ${txSocket.hostAddress}");
         } else {
           txSocket.hostAddress = _storedHostAddress;
           _logger.i('connecting to WebSocket $_storedHostAddress');
@@ -318,6 +319,7 @@ class TelnyxClient {
       /*
       * initialise this callback to handle call state changes on the client side
       * */
+          print("Call state not overridden :Call State Changed to $state");
       _logger.i('Call state not overridden :Call State Changed to $state');
     }), _callEnded);
     return _call!;
@@ -417,6 +419,7 @@ class TelnyxClient {
     customHeaders = customHeaders;
     inviteCall.callId = const Uuid().v4();
     var base64State = base64.encode(utf8.encode(clientState));
+    updateCall(inviteCall);
 
     inviteCall.peerConnection = Peer(txSocket);
     inviteCall.peerConnection?.invite(
@@ -471,6 +474,8 @@ class TelnyxClient {
 
   void updateCall(Call call) {
     if (calls.containsKey(call.callId)) {
+      calls[call.callId!] = call;
+    }else{
       calls[call.callId!] = call;
     }
   }
@@ -534,6 +539,7 @@ class TelnyxClient {
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
         _logger.i('Received WebSocket message :: ${data.toString().trim()}');
+        print('Received WebSocket message :: ${data.toString().trim()}');
 
         if (data.toString().trim().contains("error")) {
           var errorJson = jsonEncode(data.toString());
@@ -543,6 +549,8 @@ class TelnyxClient {
             ReceivedResult errorResult =
                 ReceivedResult.fromJson(jsonDecode(data.toString()));
             onSocketErrorReceived.call(errorResult.error!);
+            print("Error Received ${errorResult.error?.errorMessage}");
+            print("Error Received ${errorResult.toJson()}");
           } on Exception catch (e) {
             _logger.e('Error parsing JSON: $e');
           }
@@ -584,17 +592,18 @@ class TelnyxClient {
                             defaultTargetPlatform == TargetPlatform.android
                                 ? "android"
                                 : "ios";
-
+                        String pushEnvironment = kDebugMode ? "development" : "production";
                         AttachCallMessage attachCallMessage = AttachCallMessage(
                             method: SocketMethod.ATTACH_CALL,
                             id: const Uuid().v4(),
                             params: Params(
-                                pushNotificationProvider: platform,
                                 userVariables: <dynamic, dynamic>{
-                                  "push_notification_environment": "debug"
+                                  "push_notification_environment": pushEnvironment,
+                                  "push_notification_provider": platform,
                                 },
-                                loginParams: <dynamic, dynamic>{}),
+                               ),
                             jsonrpc: "2.0");
+                        print("attachCallMessage :: ${attachCallMessage.toJson()}");
                         txSocket.send(jsonEncode(attachCallMessage));
                         _isCallFromPush = false;
                       }
@@ -604,6 +613,7 @@ class TelnyxClient {
                   }
                 case GatewayState.FAILED:
                   {
+                    print("Failed Error");
                     _logger.i(
                         'GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}');
                     gatewayState = GatewayState.FAILED;
@@ -711,7 +721,9 @@ class TelnyxClient {
                 //play ringtone for web
                 Call offerCall = _createCall();
                 offerCall.callId = invite.inviteParams?.callID;
-                calls[offerCall.callId!] = offerCall;
+                updateCall(offerCall);
+                onSocketMessageReceived.call(message);
+
                 offerCall.callHandler
                     .changeState(CallState.connecting, offerCall);
                 if (!_pendingAnswerFromPush) {
@@ -728,7 +740,6 @@ class TelnyxClient {
                   offerCall.callHandler
                       .changeState(CallState.active, offerCall);
                 }
-                onSocketMessageReceived.call(message);
                 if (_pendingDeclineFromPush) {
                   offerCall.endCall(invite.inviteParams?.callID);
                   offerCall.callHandler.changeState(CallState.done, offerCall);

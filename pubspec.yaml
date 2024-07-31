@@ -39,13 +39,13 @@ dependencies:
   flutter_local_notifications: ^16.2.0
   flutter_callkit_incoming: ^2.0.4+1
   shared_preferences: ^2.2.3
+  permission_handler: ^11.3.1
 
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   provider: ^6.0.2
-  permission_handler: ^11.1.0
   flutter_masked_text2: ^0.9.1
   fluttertoast: ^8.0.9
   telnyx_webrtc:

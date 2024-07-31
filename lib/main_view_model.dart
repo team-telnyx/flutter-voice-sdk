@@ -74,7 +74,11 @@ class MainViewModel with ChangeNotifier {
           logger.i("current call is Active");
           _ongoingInvitation = false;
           _ongoingCall = true;
-          FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+          if (Platform.isIOS) {
+            // only for iOS
+            // end Call for Callkit on iOS
+            FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+          }
 
           break;
         case CallState.held:
@@ -102,14 +106,17 @@ class MainViewModel with ChangeNotifier {
           }
         case SocketMethod.INVITE:
           {
+
             observeCurrentCall();
+
+            _incomingInvite = message.message.inviteParams;
             if (!callFromPush) {
               // only set _ongoingInvitation if the call is not from push notification
               _ongoingInvitation = true;
+              showNotification(_incomingInvite!);
+            } else {
               callFromPush = false;
             }
-
-            _incomingInvite = message.message.inviteParams;
 
             logger.i(
                 "customheaders :: ${message.message.dialogParams?.customHeaders}");
@@ -130,8 +137,6 @@ class MainViewModel with ChangeNotifier {
               // end Call for Callkit on iOS
               FlutterCallkitIncoming.endCall(
                   currentCall?.callId ?? _incomingInvite!.callID!);
-            } else {
-              endCall();
             }
 
             break;
@@ -216,13 +221,39 @@ class MainViewModel with ChangeNotifier {
     notifyListeners();
   }
 
-  void accept() {
+  void accept({bool acceptFromNotification = false}) {
     if (_incomingInvite != null) {
       _currentCall = _telnyxClient.acceptCall(
           _incomingInvite!, _localName, _localNumber, "State");
 
-      // only for iOS
-      FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+      if (Platform.isIOS) {
+        // only for iOS
+        FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+      }
+
+      // Hide if not already hidden
+      if(Platform.isAndroid && !acceptFromNotification) {
+        CallKitParams callKitParams = CallKitParams(
+            id: _incomingInvite!.callID,
+            nameCaller: _incomingInvite!.callerIdName,
+            appName: 'Telnyx Flutter Voice',
+            avatar: 'https://i.pravatar.cc/100',
+            handle: _incomingInvite!.callerIdNumber,
+            type: 0,
+            textAccept: 'Accept',
+            textDecline: 'Decline',
+            missedCallNotification: const NotificationParams(
+              showNotification: false,
+              isShowCallback: false,
+              subtitle: 'Missed call',
+            ),
+            duration: 30000,
+            extra: {},
+            headers: <String, dynamic>{'platform': 'flutter'});
+
+        // Hide notfication when call is accepted
+        FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
+      }
 
       notifyListeners();
     } else {
@@ -241,10 +272,9 @@ class MainViewModel with ChangeNotifier {
         textAccept: 'Accept',
         textDecline: 'Decline',
         missedCallNotification: const NotificationParams(
-          showNotification: true,
-          isShowCallback: true,
+          showNotification: false,
+          isShowCallback: false,
           subtitle: 'Missed call',
-          callbackText: 'Call back',
         ),
         duration: 30000,
         extra: {},

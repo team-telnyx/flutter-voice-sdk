@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
@@ -22,6 +23,8 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 
 final logger = Logger();
 final mainViewModel = MainViewModel();
+const MOCK_USER = "<UserName>";
+const MOCK_PASSWORD = "<Password>";
 // Android Only - Push Notifications
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -83,7 +86,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
           logger.i("iOS notification token :: $token");
         }
-        var credentialConfig = CredentialConfig("<Username>", "<Password>",
+        var credentialConfig = CredentialConfig(MOCK_USER,MOCK_PASSWORD,
             "<caller_id>", "<caller_number>", token, true, "", "");
         telnyxClient.handlePushNotification(
             pushMetaData, credentialConfig, null);
@@ -131,6 +134,7 @@ Future<void> main() async {
     // Android Only - Push Notifications
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    askForNotificationPermission();
 
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
@@ -156,9 +160,6 @@ Future<void> main() async {
             logger.i('actionCallIncoming :: Push Data is null!');
             return;
           }
-
-          mainViewModel.callFromPush = true;
-
           logger.i(
               "received push Call for iOS ${event.body['extra']['metadata']}");
           handlePush(event.body['extra']['metadata'] as Map<dynamic, dynamic>);
@@ -216,6 +217,22 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+Future<void> askForNotificationPermission() async {
+
+  FlutterCallkitIncoming.requestNotificationPermission("notification");
+  var status = await Permission.notification.status;
+  if (status.isDenied) {
+    // We haven't asked for permission yet or the permission has been denied before, but not permanently
+    Permission.notification.request();
+  }
+
+// You can also directly ask permission about its status.
+  if (await Permission.location.isRestricted) {
+    // The OS restricts access, for example, because of parental controls.
+  }
+
+}
+
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
   logger.i("Handle Push Init");
   String? token;
@@ -230,8 +247,9 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
     pushMetaData = PushMetaData.fromJson(data);
     logger.i("iOS notification token :: $token");
   }
-  var credentialConfig = CredentialConfig("<Username>", "<PAssword>",
+  var credentialConfig = CredentialConfig(MOCK_USER, MOCK_PASSWORD,
       "<caller_id>", "<caller_number>", token, true, "", "");
+  mainViewModel.callFromPush = true;
   mainViewModel.handlePushNotification(pushMetaData!, credentialConfig, null);
   mainViewModel.observeResponses();
   logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
@@ -267,7 +285,6 @@ class _MyAppState extends State<MyApp> {
       // whenever you open the app from the terminate state by clicking on Notification message,
       if (data != null) {
         handlePush(data);
-        mainViewModel.observeResponses();
         print("getPushData : getInitialMessage :: Notification Message: $data");
       } else {
         mainViewModel.connect();

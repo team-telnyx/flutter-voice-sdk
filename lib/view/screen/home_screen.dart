@@ -23,7 +23,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    destinationController.text = 'isaac74983';
   }
 
   void _observeResponses() {
@@ -112,18 +111,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     _callDestination();
                   },
                   child: const Text('Call'),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.red,
-                  ),
-                  onPressed: () {
-                    _endCall();
-                  },
-                  child: const Text('End Call'),
                 ),
               )
             ],
