@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/entities/android_params.dart';
@@ -26,7 +27,7 @@ class MainViewModel with ChangeNotifier {
   bool _registered = false;
   bool _ongoingInvitation = false;
   bool _ongoingCall = false;
-  bool _isCallFromPush = false;
+  bool callFromPush = false;
   bool _speakerPhone = true;
   IncomingInviteParams? _incomingInvite;
 
@@ -45,8 +46,10 @@ class MainViewModel with ChangeNotifier {
     return _ongoingCall;
   }
 
+  Call? _currentCall;
+
   Call? get currentCall {
-    return  _telnyxClient.calls.values.firstOrNull;
+    return _telnyxClient.calls.values.firstOrNull;
   }
 
   IncomingInviteParams? get incomingInvitation {
@@ -57,7 +60,6 @@ class MainViewModel with ChangeNotifier {
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i("Call State :: $state");
       switch (state) {
-
         case CallState.newCall:
           // TODO: Handle this case.
           break;
@@ -69,14 +71,17 @@ class MainViewModel with ChangeNotifier {
           break;
         case CallState.active:
           print("current call is Active");
-          // TODO: Handle this case.
+          logger.i("current call is Active");
           _ongoingInvitation = false;
           _ongoingCall = true;
+          FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+
           break;
         case CallState.held:
           // TODO: Handle this case.
           break;
         case CallState.done:
+          FlutterCallkitIncoming.endCall(currentCall?.callId ?? "");
           // TODO: Handle this case.
           break;
         case CallState.error:
@@ -84,8 +89,6 @@ class MainViewModel with ChangeNotifier {
           break;
       }
     };
-
-
   }
 
   void observeResponses() {
@@ -100,11 +103,17 @@ class MainViewModel with ChangeNotifier {
         case SocketMethod.INVITE:
           {
             observeCurrentCall();
-            _ongoingInvitation = true;
+            if (!callFromPush) {
+              // only set _ongoingInvitation if the call is not from push notification
+              _ongoingInvitation = true;
+              callFromPush = false;
+            }
+
             _incomingInvite = message.message.inviteParams;
+
             logger.i(
                 "customheaders :: ${message.message.dialogParams?.customHeaders}");
-            print("invite received ::  SocketMethod.INVITE");
+            print("invite received ::  SocketMethod.INVITE $callFromPush");
 
             break;
           }
@@ -117,6 +126,14 @@ class MainViewModel with ChangeNotifier {
           {
             _ongoingInvitation = false;
             _ongoingCall = false;
+            if (Platform.isIOS) {
+              // end Call for Callkit on iOS
+              FlutterCallkitIncoming.endCall(
+                  currentCall?.callId ?? _incomingInvite!.callID!);
+            } else {
+              endCall();
+            }
+
             break;
           }
       }
@@ -162,42 +179,6 @@ class MainViewModel with ChangeNotifier {
     _telnyxClient.connect();
   }
 
-  void showNotification(IncomingInviteParams message) {
-
-    CallKitParams callKitParams = CallKitParams(
-      id: message.callID,
-      nameCaller: message.callerIdName,
-      appName: 'Telnyx Flutter Voice',
-      avatar: 'https://i.pravatar.cc/100',
-      handle: message.callerIdNumber,
-      type: 0,
-      textAccept: 'Accept',
-      textDecline: 'Decline',
-      missedCallNotification: const NotificationParams(
-        showNotification: true,
-        isShowCallback: true,
-        subtitle: 'Missed call',
-        callbackText: 'Call back',
-      ),
-      duration: 30000,
-      extra: {},
-      headers: <String, dynamic>{'platform': 'flutter'},
-      android: const AndroidParams(
-          isCustomNotification: true,
-          isShowLogo: false,
-          ringtonePath: 'system_ringtone_default',
-          backgroundColor: '#0955fa',
-          backgroundUrl: 'https://i.pravatar.cc/500',
-          actionColor: '#4CAF50',
-          textColor: '#ffffff',
-          incomingCallNotificationChannelName: "Incoming Call",
-          missedCallNotificationChannelName: "Missed Call"),
-    );
-
-
-    FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
-  }
-
   void handlePushNotification(PushMetaData pushMetaData,
       CredentialConfig? credentialConfig, TokenConfig? tokenConfig) {
     _telnyxClient.handlePushNotification(
@@ -223,10 +204,10 @@ class MainViewModel with ChangeNotifier {
   }
 
   void call(String destination) {
-    _telnyxClient.newInvite(
+    _currentCall = _telnyxClient.newInvite(
         _localName, _localNumber, destination, "Fake State",
         customHeaders: {"X-Header-1": "Value1", "X-Header-2": "Value2"});
-   observeCurrentCall();
+    observeCurrentCall();
   }
 
   void toggleSpeakerPhone() {
@@ -236,21 +217,65 @@ class MainViewModel with ChangeNotifier {
   }
 
   void accept() {
-
     if (_incomingInvite != null) {
-       _telnyxClient.acceptCall(_incomingInvite!, _localName, _localNumber, "State");
+      _currentCall = _telnyxClient.acceptCall(
+          _incomingInvite!, _localName, _localNumber, "State");
+
+      // only for iOS
+      FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+
       notifyListeners();
     } else {
       throw ArgumentError(_incomingInvite);
     }
   }
 
-  void endCall() {
-    if(!Platform.isAndroid){
-      FlutterCallkitIncoming.endCall(currentCall?.callId ?? "");
+  void showNotification(IncomingInviteParams message) {
+    CallKitParams callKitParams = CallKitParams(
+        id: message.callID,
+        nameCaller: message.callerIdName,
+        appName: 'Telnyx Flutter Voice',
+        avatar: 'https://i.pravatar.cc/100',
+        handle: message.callerIdNumber,
+        type: 0,
+        textAccept: 'Accept',
+        textDecline: 'Decline',
+        missedCallNotification: const NotificationParams(
+          showNotification: true,
+          isShowCallback: true,
+          subtitle: 'Missed call',
+          callbackText: 'Call back',
+        ),
+        duration: 30000,
+        extra: {},
+        headers: <String, dynamic>{'platform': 'flutter'});
+
+    FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
+  }
+
+  void endCall({bool endfromCallScreen = false}) {
+    logger.i(" Platform ::: endfromCallScreen :: $endfromCallScreen");
+    if (currentCall == null) {
+      logger.i("Current Call is null");
+    } else {
+      logger.i("Current Call is not null");
     }
 
-    currentCall?.endCall(_incomingInvite?.callID);
+    if (Platform.isIOS) {
+      /* when end call from CallScreen we need to tell Callkit to end the call as well
+       */
+      if (endfromCallScreen) {
+        // end Call for Callkit on iOS
+        FlutterCallkitIncoming.endCall(
+            currentCall?.callId ?? _incomingInvite!.callID!);
+        currentCall?.endCall(_incomingInvite?.callID);
+      } else {
+        // end Call normlly on iOS
+        currentCall?.endCall(_incomingInvite?.callID);
+      }
+    } else if (Platform.isAndroid || kIsWeb) {
+      currentCall?.endCall(_incomingInvite?.callID);
+    }
 
     _ongoingInvitation = false;
     _ongoingCall = false;

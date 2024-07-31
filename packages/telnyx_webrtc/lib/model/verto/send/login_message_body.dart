@@ -43,8 +43,7 @@ class LoginParams {
       this.passwd,
       this.userVariables,
       this.sessionId,
-      this.attachCall
-      });
+      this.attachCall});
 
   LoginParams.fromJson(Map<String, dynamic> json) {
     login = json['login'];
@@ -66,7 +65,7 @@ class LoginParams {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['login'] = login;
-    if(loginToken != null){
+    if (loginToken != null) {
       data['login_token'] = loginToken;
     }
     if (loginParams != null) {
@@ -81,9 +80,6 @@ class LoginParams {
     return data;
   }
 }
-
-
-
 
 class UserVariables {
   String? pushDeviceToken;
@@ -100,8 +96,9 @@ class UserVariables {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['push_device_token'] = pushDeviceToken;
     data['push_notification_provider'] = pushNotificationProvider;
-    String pushEnvironment = kDebugMode  ? "debug" : "production";
+    String pushEnvironment = kDebugMode ? "debug" : "production";
     data['push_notification_environment'] = pushEnvironment;
+    print("pushEnvironment: $pushEnvironment");
     return data;
   }
 }

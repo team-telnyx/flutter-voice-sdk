@@ -34,7 +34,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
     logger.i("Version ${Platform.operatingSystemVersion}");
 
-    sipUserController.text = "<Username>";
+    sipUserController.text = "<Usernmae>";
     sipPasswordController.text = "<Password>";
 
     super.initState();

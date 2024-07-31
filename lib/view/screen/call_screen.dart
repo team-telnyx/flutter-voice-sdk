@@ -25,8 +25,9 @@ class _CallScreenState extends State<CallScreen> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: SingleChildScrollView( child : Center(
-          child: Column(
+      body: SingleChildScrollView(
+          child: Center(
+              child: Column(
         children: [
           const SizedBox(height: 16),
           Text(widget.call?.sessionDestinationNumber ?? "Unknown Caller"),
@@ -36,7 +37,8 @@ class _CallScreenState extends State<CallScreen> {
             dialButtonColor: Colors.red,
             makeCall: (number) {
               //End call
-              Provider.of<MainViewModel>(context, listen: false).endCall();
+              Provider.of<MainViewModel>(context, listen: false)
+                  .endCall(endfromCallScreen: true);
             },
             keyPressed: (number) {
               callInputController.text =

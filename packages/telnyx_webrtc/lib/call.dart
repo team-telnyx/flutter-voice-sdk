@@ -22,8 +22,6 @@ import 'model/call_state.dart';
 import 'model/gateway_state.dart';
 import 'model/telnyx_message.dart';
 
-
-
 typedef CallStateCallback = void Function(CallState state);
 
 class CallHandler {
@@ -31,23 +29,24 @@ class CallHandler {
 
   CallHandler(this.onCallStateChanged);
 
-  void changeState(CallState state,Call call) {
+  void changeState(CallState state, Call call) {
     // You can add any additional logic here before invoking the callback
     call.callState = state;
     onCallStateChanged(state);
   }
 }
+
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
-  Call(this._txSocket,this._txClient, this.sessid, this.ringToneFile, this.ringBackFile,this.callHandler,
-      this.callEnded);
+  Call(this._txSocket, this._txClient, this.sessid, this.ringToneFile,
+      this.ringBackFile, this.callHandler, this.callEnded);
 
   late CallHandler callHandler;
   late CallState callState;
 
   final audioService = AudioService();
-  final mobileAudioPlayer =  AssetsAudioPlayer.newPlayer();
+  final mobileAudioPlayer = AssetsAudioPlayer.newPlayer();
   final Function callEnded;
   final TxSocket _txSocket;
   final TelnyxClient _txClient;
@@ -70,8 +69,9 @@ class Call {
   void newInvite(String callerName, String callerNumber,
       String destinationNumber, String clientState,
       {Map<String, String> customHeaders = const {}}) {
-     _txClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders: customHeaders);
-
+    _txClient.newInvite(
+        callerName, callerNumber, destinationNumber, clientState,
+        customHeaders: customHeaders);
   }
 
   void onRemoteSessionReceived(String? sdp) {
@@ -87,17 +87,16 @@ class Call {
   Call acceptCall(IncomingInviteParams invite, String callerName,
       String callerNumber, String clientState,
       {Map<String, String> customHeaders = const {}}) {
-      return _txClient.acceptCall(invite, callerName, callerNumber, clientState, customHeaders: customHeaders);
+    return _txClient.acceptCall(invite, callerName, callerNumber, clientState,
+        customHeaders: customHeaders);
   }
 
   /// Attempts to end the call identified via the [callID]
   void endCall(String? callID) {
-
-    if(callId == null){
+    if (callId == null) {
       _logger.d("Call ID is null");
       return;
     }
-
 
     var uuid = const Uuid().v4();
     var byeDialogParams = ByeDialogParams(callId: callID ?? callId);
@@ -116,7 +115,9 @@ class Call {
 
     String jsonByeMessage = jsonEncode(byeMessage);
 
-    if (_txClient.gatewayState != GatewayState.REGED){
+    if (_txClient.gatewayState != GatewayState.REGED) {
+      _logger
+          .d("Session end gateway not  registered ${_txClient.gatewayState}");
       return;
     } else {
       _logger.d("Session end peer connection null");
@@ -129,11 +130,12 @@ class Call {
       _logger.d("Session end peer connection null");
     }
     stopAudio();
-    callHandler.changeState(CallState.done,this);
+    callHandler.changeState(CallState.done, this);
     callEnded();
     _txClient.calls.remove(callId);
-    var message =
-    TelnyxMessage(socketMethod: SocketMethod.BYE, message: ReceivedMessage(method: "telnyx_rtc.bye"));
+    var message = TelnyxMessage(
+        socketMethod: SocketMethod.BYE,
+        message: ReceivedMessage(method: "telnyx_rtc.bye"));
     _txClient.onSocketMessageReceived.call(message);
   }
 
@@ -183,11 +185,11 @@ class Call {
     if (onHold) {
       _sendHoldModifier("unhold");
       onHold = false;
-      callHandler.changeState(CallState.active,this);
+      callHandler.changeState(CallState.active, this);
     } else {
       _sendHoldModifier("hold");
       onHold = true;
-      callHandler.changeState(CallState.held,this);
+      callHandler.changeState(CallState.held, this);
     }
   }
 

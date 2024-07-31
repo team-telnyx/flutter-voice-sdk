@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -31,15 +32,16 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
     switch (event!.event) {
       case Event.actionCallIncoming:
-        logger.i('actionCallIncoming :: Received Incoming Call! from background');
+        logger
+            .i('actionCallIncoming :: Received Incoming Call! from background');
         break;
       case Event.actionCallStart:
-      // TODO: Handle this case.
+        // TODO: Handle this case.
         break;
       case Event.actionCallAccept:
         print("Accepted Call from Push Notification");
-        TelnyxClient.setPushMetaData(
-            message.data, isAnswer: true, isDecline: false);
+        TelnyxClient.setPushMetaData(message.data,
+            isAnswer: true, isDecline: false);
         break;
       case Event.actionCallDecline:
         /*
@@ -54,7 +56,6 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
         telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
           switch (message.socketMethod) {
-
             case SocketMethod.BYE:
               {
                 //make sure to disconnect the telnyxclient on Bye for Decline
@@ -82,9 +83,10 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
           logger.i("iOS notification token :: $token");
         }
-        var credentialConfig = CredentialConfig("<UserName>", "<Password>",
+        var credentialConfig = CredentialConfig("<Username>", "<Password>",
             "<caller_id>", "<caller_number>", token, true, "", "");
-        telnyxClient.handlePushNotification(pushMetaData, credentialConfig, null);
+        telnyxClient.handlePushNotification(
+            pushMetaData, credentialConfig, null);
         break;
       case Event.actionDidUpdateDevicePushTokenVoip:
         // TODO: Handle this case.
@@ -116,8 +118,9 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       case Event.actionCallCustom:
         // TODO: Handle this case.
         break;
-    }});
-
+    }
+  });
+  mainViewModel.callFromPush = true;
 }
 
 @pragma('vm:entry-point')
@@ -136,7 +139,102 @@ Future<void> main() async {
       sound: true,
     );
   }
+
+  FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+    switch (event!.event) {
+      case Event.actionCallIncoming:
+        // retrieve the push metadata from extras
+        if (Platform.isAndroid) {
+          final data = await TelnyxClient.getPushData();
+          if (data != null) {
+            handlePush(data);
+          } else {
+            logger.i('actionCallIncoming :: Push Data is null!');
+          }
+        } else if (Platform.isIOS) {
+          if (event.body['extra']['metadata'] == null) {
+            logger.i('actionCallIncoming :: Push Data is null!');
+            return;
+          }
+
+          mainViewModel.callFromPush = true;
+
+          logger.i(
+              "received push Call for iOS ${event.body['extra']['metadata']}");
+          handlePush(event.body['extra']['metadata'] as Map<dynamic, dynamic>);
+        }
+
+        break;
+      case Event.actionCallStart:
+        // TODO: started an outgoing call
+        // TODO: show screen calling in Flutter
+        break;
+      case Event.actionCallAccept:
+        mainViewModel.accept();
+        print("Accepted Call");
+        break;
+      case Event.actionCallDecline:
+        logger.i("actionCallDecline :: call declined");
+        mainViewModel.endCall();
+        break;
+      case Event.actionCallEnded:
+        mainViewModel.endCall(endfromCallScreen: false);
+        print("EndCall Call");
+        logger.i("actionCallEnded :: call ended");
+        break;
+      case Event.actionCallTimeout:
+        mainViewModel.endCall();
+        print("Decline Call");
+        break;
+      case Event.actionCallCallback:
+        // TODO: only Android - click action `Call back` from missed call notification
+        break;
+      case Event.actionCallToggleHold:
+        // TODO: only iOS
+        break;
+      case Event.actionCallToggleMute:
+        // TODO: only iOS
+        break;
+      case Event.actionCallToggleDmtf:
+        // TODO: only iOS
+        break;
+      case Event.actionCallToggleGroup:
+        // TODO: only iOS
+        break;
+      case Event.actionCallToggleAudioSession:
+        // TODO: only iOS
+        break;
+      case Event.actionDidUpdateDevicePushTokenVoip:
+        // TODO: only iOS
+        break;
+      case Event.actionCallCustom:
+        // TODO: for custom action
+        break;
+    }
+  });
+
   runApp(const MyApp());
+}
+
+Future<void> handlePush(Map<dynamic, dynamic> data) async {
+  logger.i("Handle Push Init");
+  String? token;
+
+  PushMetaData? pushMetaData;
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    token = (await FirebaseMessaging.instance.getToken())!;
+    pushMetaData = PushMetaData.fromJson(data);
+    logger.i("Android notification token :: $token");
+  } else if (Platform.isIOS) {
+    token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+    pushMetaData = PushMetaData.fromJson(data);
+    logger.i("iOS notification token :: $token");
+  }
+  var credentialConfig = CredentialConfig("<Username>", "<PAssword>",
+      "<caller_id>", "<caller_number>", token, true, "", "");
+  mainViewModel.handlePushNotification(pushMetaData!, credentialConfig, null);
+  mainViewModel.observeResponses();
+  logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
 }
 
 class MyApp extends StatefulWidget {
@@ -148,7 +246,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   @override
-   void initState()  {
+  void initState() {
     super.initState();
 
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -157,111 +255,25 @@ class _MyAppState extends State<MyApp> {
         logger.i('OnMessage :: Notification Message: ${message.data}');
         TelnyxClient.setPushMetaData(message.data);
         NotificationService.showNotification(message);
+        mainViewModel.callFromPush = true;
       });
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         print('onMessageOpenedApp :: Notification Message: ${message.data}');
-
       });
     }
 
+    // Handle Push when app comes from background :: Only for Android
     TelnyxClient.getPushData().then((data) {
-
       // whenever you open the app from the terminate state by clicking on Notification message,
       if (data != null) {
         handlePush(data);
         mainViewModel.observeResponses();
         print("getPushData : getInitialMessage :: Notification Message: $data");
-      }else{
+      } else {
         mainViewModel.connect();
-        mainViewModel.observeResponses();
         print("getPushData : No data");
       }
-
     });
-
-
-
-
-    FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
-      switch (event!.event) {
-        case Event.actionCallIncoming:
-          // retrieve the push metadata from extras
-          final data = await TelnyxClient.getPushData();
-          if (data != null){
-            handlePush(data);
-          }else {
-            logger.i('actionCallIncoming :: Push Data is null!');
-          }
-          break;
-        case Event.actionCallStart:
-          // TODO: started an outgoing call
-          // TODO: show screen calling in Flutter
-          break;
-        case Event.actionCallAccept:
-         mainViewModel.accept();
-         print("Accepted Call");
-          break;
-        case Event.actionCallDecline:
-          mainViewModel.endCall();
-          logger.i("actionCallDecline :: call declined");
-          break;
-        case Event.actionCallEnded:
-          mainViewModel.endCall();
-          print("Decline Call");
-          break;
-        case Event.actionCallTimeout:
-          mainViewModel.endCall();
-          print("Decline Call");
-          break;
-        case Event.actionCallCallback:
-          // TODO: only Android - click action `Call back` from missed call notification
-          break;
-        case Event.actionCallToggleHold:
-          // TODO: only iOS
-          break;
-        case Event.actionCallToggleMute:
-          // TODO: only iOS
-          break;
-        case Event.actionCallToggleDmtf:
-          // TODO: only iOS
-          break;
-        case Event.actionCallToggleGroup:
-          // TODO: only iOS
-          break;
-        case Event.actionCallToggleAudioSession:
-          // TODO: only iOS
-          break;
-        case Event.actionDidUpdateDevicePushTokenVoip:
-          // TODO: only iOS
-          break;
-        case Event.actionCallCustom:
-          // TODO: for custom action
-          break;
-      }
-    });
-  }
-
-  Future<void> handlePush(Map<String,dynamic> data) async {
-    String? token;
-    print("Encoded" + jsonEncode(data));
-
-    PushMetaData? pushMetaData;
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      token = (await FirebaseMessaging.instance.getToken())!;
-      pushMetaData =
-          PushMetaData.fromJson(data);
-      logger.i("Android notification token :: $token");
-    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
-      pushMetaData =
-          PushMetaData.fromJson(data);
-      logger.i("iOS notification token :: $token");
-    }
-    var credentialConfig = CredentialConfig("<Username>", "<Password>",
-        "<caller_id>", "<caller_number>", token, true, "", "");
-    mainViewModel.handlePushNotification(pushMetaData!, credentialConfig, null);
-    mainViewModel.observeResponses();
-    logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
   }
 
   // This widget is the root of your application.

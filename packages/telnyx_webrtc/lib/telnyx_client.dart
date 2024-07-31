@@ -35,17 +35,15 @@ typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 class _PreferencesStorage {
   static const String _notification_key = 'com.telnyx.webrtc.notification';
 
-
-  static Future<Map<String,dynamic>?> getMetaData() async {
+  static Future<Map<String, dynamic>?> getMetaData() async {
     String metaData = await getString(_notification_key);
-    if(metaData.isEmpty){
+    if (metaData.isEmpty) {
       print("No Metadata found");
       return null;
     }
     saveMetadata("");
     return jsonDecode(metaData);
   }
-
 
   static void saveMetadata(String metaData) {
     Logger().i("Save meta data $metaData");
@@ -95,19 +93,22 @@ class TelnyxClient {
       switch (message.socketMethod) {
         case SocketMethod.INVITE:
           {
-            _logger.i('TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
+            _logger.i(
+                'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
             break;
           }
         case SocketMethod.BYE:
           {
-
-            _logger.i('TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
+            _logger.i(
+                'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
             break;
           }
         default:
-          _logger.i('TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
+          _logger.i(
+              'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
       }
-      _logger.i('TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
+      _logger.i(
+          'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
     };
   }
 
@@ -118,7 +119,6 @@ class TelnyxClient {
 
   /// The current session ID related to this client
   String sessid = const Uuid().v4();
-
 
   // Gateway registration variables
   static const int RETRY_REGISTER_TIME = 3;
@@ -135,12 +135,11 @@ class TelnyxClient {
   int _registrationRetryCounter = 0;
   int _connectRetryCounter = 0;
   String gatewayState = GatewayState.IDLE;
-  Map<String,Call> calls = {};
+  Map<String, Call> calls = {};
 
   Map<String, Call> activeCalls() {
-    return Map.fromEntries(
-        calls.entries.where((entry) => entry.value.callState == CallState.active)
-    );
+    return Map.fromEntries(calls.entries
+        .where((entry) => entry.value.callState == CallState.active));
   }
 
   // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
@@ -164,25 +163,23 @@ class TelnyxClient {
   /// and initiates the connection with the provided [pushMetaData]
   /// and [credentialConfig] or [tokenConfig]
   /// If the push notification is received while the client is not connected
-  void handlePushNotification(PushMetaData pushMetaData,CredentialConfig? credentialConfig,TokenConfig? tokenConfig){
-
+  void handlePushNotification(PushMetaData pushMetaData,
+      CredentialConfig? credentialConfig, TokenConfig? tokenConfig) {
     print(jsonEncode(pushMetaData));
     _isCallFromPush = true;
 
-    if(pushMetaData.isAnswer == true){
+    if (pushMetaData.isAnswer == true) {
       print("_pendingAnswerFromPush true");
       _pendingAnswerFromPush = true;
     } else {
       print("_pendingAnswerFromPush false");
     }
 
-    if(pushMetaData.isDecline == true){
+    if (pushMetaData.isDecline == true) {
       _pendingDeclineFromPush = true;
     }
 
-
-
-    _connectWithCallBack(pushMetaData, (){
+    _connectWithCallBack(pushMetaData, () {
       if (credentialConfig != null) {
         credentialLogin(credentialConfig);
       } else if (tokenConfig != null) {
@@ -191,59 +188,58 @@ class TelnyxClient {
     });
   }
 
-  static void setPushMetaData(Map<String,dynamic> pushMetaData,{bool isAnswer = false,bool isDecline = false}) {
-    Map<String,dynamic> metaData = jsonDecode(pushMetaData["metadata"]);
+  static void setPushMetaData(Map<String, dynamic> pushMetaData,
+      {bool isAnswer = false, bool isDecline = false}) {
+    Map<String, dynamic> metaData = jsonDecode(pushMetaData["metadata"]);
     metaData["isAnswer"] = isAnswer;
     metaData["isDecline"] = isDecline;
     _PreferencesStorage.saveMetadata(jsonEncode(metaData));
   }
 
-  static Future<Map<String,dynamic>?> getPushData() async {
+  static Future<Map<String, dynamic>?> getPushData() async {
     return await _PreferencesStorage.getMetaData();
   }
 
-
-
   /// Create a socket connection for
   /// communication with the Telnyx backend
-  void _connectWithCallBack(PushMetaData? pushMetaData,OnOpenCallback openCallback) {
+  void _connectWithCallBack(
+      PushMetaData? pushMetaData, OnOpenCallback openCallback) {
     _logger.i('connect() ${pushMetaData?.toJson()}');
-    if (isConnected() && pushMetaData?.voice_sdk_id != null) {
-      disconnect();
-    }
-    try {
-      if(pushMetaData?.voice_sdk_id != null){
-        txSocket.hostAddress = "$_storedHostAddress?voice_sdk_id=${pushMetaData?.voice_sdk_id}";
-        _logger.i('Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voice_sdk_id}');
-      } else {
-        txSocket.hostAddress = _storedHostAddress;
-        _logger.i('connecting to WebSocket $_storedHostAddress');
-      }
-      txSocket.connect();
+    if (pushMetaData?.voice_sdk_id != null) {
+      try {
+        if (pushMetaData?.voice_sdk_id != null) {
+          txSocket.hostAddress =
+              "$_storedHostAddress?voice_sdk_id=${pushMetaData?.voice_sdk_id}";
+          _logger.i(
+              'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voice_sdk_id}');
+        } else {
+          txSocket.hostAddress = _storedHostAddress;
+          _logger.i('connecting to WebSocket $_storedHostAddress');
+        }
+        txSocket.connect();
 
-      txSocket.onOpen = () {
-        _closed = false;
-        _connected = true;
-        _logger.i('Web Socket is now connected');
-        _onOpen();
-        openCallback.call();
-      };
+        txSocket.onOpen = () {
+          _closed = false;
+          _connected = true;
+          _logger.i('Web Socket is now connected');
+          _onOpen();
+          openCallback.call();
+        };
 
-      txSocket.onMessage = (dynamic data) {
-        _onMessage(data);
-      };
+        txSocket.onMessage = (dynamic data) {
+          _onMessage(data);
+        };
 
-      txSocket.onClose = (int closeCode, String closeReason) {
-        _logger.i('Closed [$closeCode, $closeReason]!');
+        txSocket.onClose = (int closeCode, String closeReason) {
+          _logger.i('Closed [$closeCode, $closeReason]!');
+          _connected = false;
+          _onClose(true, closeCode, closeReason);
+        };
+      } catch (e, s) {
+        _logger.e(e.toString(), null, s);
         _connected = false;
-        _onClose(true, closeCode, closeReason);
-      };
-
-
-    } catch (e, s) {
-      _logger.e(e.toString(), null, s);
-      _connected = false;
-      _logger.e('WebSocket $_storedHostAddress error: $e');
+        _logger.e('WebSocket $_storedHostAddress error: $e');
+      }
     }
   }
 
@@ -298,7 +294,8 @@ class TelnyxClient {
   Call? _call;
 
   // Public getter to lazily initialize and return the value.
-  @Deprecated("telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()")
+  @Deprecated(
+      "telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()")
   Call get call {
     // If _call is null, initialize it with the default value.
 
@@ -316,12 +313,13 @@ class TelnyxClient {
   /// yourself on hold/mute.
   Call _createCall() {
     // Set global call parameter
-    _call = Call(txSocket,this, sessid, ringtonePath, ringBackpath,CallHandler((state) {
+    _call = Call(txSocket, this, sessid, ringtonePath, ringBackpath,
+        CallHandler((state) {
       /*
       * initialise this callback to handle call state changes on the client side
       * */
       _logger.i('Call state not overridden :Call State Changed to $state');
-    }),_callEnded);
+    }), _callEnded);
     return _call!;
   }
 
@@ -349,10 +347,12 @@ class TelnyxClient {
     }
 
     var loginParams = LoginParams(
-        login: user,
-        passwd: password,
-        loginParams: [],
-        userVariables: notificationParams,attachCall: "true",);
+      login: user,
+      passwd: password,
+      loginParams: [],
+      userVariables: notificationParams,
+      attachCall: "true",
+    );
     var loginMessage = LoginMessage(
         id: uuid,
         method: SocketMethod.LOGIN,
@@ -390,7 +390,8 @@ class TelnyxClient {
         loginToken: token,
         loginParams: [],
         userVariables: notificationParams,
-        sessionId: sessid,attachCall: "true");
+        sessionId: sessid,
+        attachCall: "true");
     var loginMessage = LoginMessage(
         id: uuid,
         method: SocketMethod.LOGIN,
@@ -401,7 +402,6 @@ class TelnyxClient {
     _logger.i('Token Login Message $jsonLoginMessage');
     txSocket.send(jsonLoginMessage);
   }
-
 
   // Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
@@ -419,11 +419,17 @@ class TelnyxClient {
     var base64State = base64.encode(utf8.encode(clientState));
 
     inviteCall.peerConnection = Peer(txSocket);
-    inviteCall.peerConnection?.invite(callerName, callerNumber, destinationNumber,
-        base64State,  inviteCall.callId!, inviteCall.sessid, customHeaders);
+    inviteCall.peerConnection?.invite(
+        callerName,
+        callerNumber,
+        destinationNumber,
+        base64State,
+        inviteCall.callId!,
+        inviteCall.sessid,
+        customHeaders);
     //play ringback tone
     inviteCall.playAudio(ringBackpath);
-    inviteCall.callHandler.changeState(CallState.newCall,inviteCall);
+    inviteCall.callHandler.changeState(CallState.newCall, inviteCall);
     return inviteCall;
   }
 
@@ -432,21 +438,21 @@ class TelnyxClient {
   Call acceptCall(IncomingInviteParams invite, String callerName,
       String callerNumber, String clientState,
       {Map<String, String> customHeaders = const {}}) {
-
     Call answerCall = getCallOrNull(invite.callID!) ?? _createCall();
     answerCall.callId = invite.callID;
 
     answerCall.sessionCallerName = callerName;
     answerCall.sessionCallerNumber = callerNumber;
-    answerCall.sessionDestinationNumber = invite.callerIdName ?? "Unknown Caller";
-    answerCall. sessionClientState = clientState;
+    answerCall.sessionDestinationNumber =
+        invite.callerIdName ?? "Unknown Caller";
+    answerCall.sessionClientState = clientState;
 
     var destinationNum = invite.callerIdNumber;
 
     answerCall.peerConnection = Peer(txSocket);
     answerCall.peerConnection?.accept(callerName, callerNumber, destinationNum!,
-        clientState,  answerCall.callId!, invite, customHeaders);
-    answerCall.callHandler.changeState(CallState.active,answerCall);
+        clientState, answerCall.callId!, invite, customHeaders);
+    answerCall.callHandler.changeState(CallState.active, answerCall);
     answerCall.stopAudio();
     if (answerCall.callId != null) {
       updateCall(answerCall);
@@ -454,9 +460,8 @@ class TelnyxClient {
     return answerCall;
   }
 
-
-  Call? getCallOrNull(String callId){
-    if(calls.containsKey(callId)){
+  Call? getCallOrNull(String callId) {
+    if (calls.containsKey(callId)) {
       _logger.d("Invite Call found");
       return calls[callId];
     }
@@ -464,10 +469,34 @@ class TelnyxClient {
     return null;
   }
 
-  void updateCall(Call call){
-     if(calls.containsKey(call.callId)){
-       calls[call.callId!] = call;
-     }
+  void updateCall(Call call) {
+    if (calls.containsKey(call.callId)) {
+      calls[call.callId!] = call;
+    }
+  }
+
+  /// Closes the socket connection, effectively logging the user out.
+  void disconnectWithCallBck(OnCloseCallback? closeCallback) {
+    _invalidateGatewayResponseTimer();
+    _resetGatewayCounters();
+    _logger.i('disconnect()');
+    if (_closed) {
+      _logger.i('WebSocket is already closed');
+      closeCallback?.call(0, 'Client send disconnect');
+      return;
+    }
+    // Don't wait for the WebSocket 'close' event, do it now.
+    _closed = true;
+    _connected = false;
+    _registered = false;
+    try {
+      txSocket.close();
+      Future.delayed(const Duration(milliseconds: 100), () {
+        closeCallback?.call(0, 'Client send disconnect');
+      });
+    } catch (error) {
+      _logger.e('close() | error closing the WebSocket: $error');
+    }
   }
 
   /// Closes the socket connection, effectively logging the user out.
@@ -549,17 +578,23 @@ class TelnyxClient {
                           socketMethod: SocketMethod.CLIENT_READY,
                           message: mainMessage);
                       onSocketMessageReceived.call(message);
-                      if(_isCallFromPush){
+                      if (_isCallFromPush) {
                         //sending attach Call
-                        String platform = defaultTargetPlatform == TargetPlatform.android ? "android" : "ios";
+                        String platform =
+                            defaultTargetPlatform == TargetPlatform.android
+                                ? "android"
+                                : "ios";
 
                         AttachCallMessage attachCallMessage = AttachCallMessage(
                             method: SocketMethod.ATTACH_CALL,
                             id: const Uuid().v4(),
                             params: Params(
                                 pushNotificationProvider: platform,
-                                userVariables: <dynamic, dynamic>{"push_notification_environment":"debug"},
-                                loginParams: <dynamic, dynamic>{}),jsonrpc: "2.0");
+                                userVariables: <dynamic, dynamic>{
+                                  "push_notification_environment": "debug"
+                                },
+                                loginParams: <dynamic, dynamic>{}),
+                            jsonrpc: "2.0");
                         txSocket.send(jsonEncode(attachCallMessage));
                         _isCallFromPush = false;
                       }
@@ -599,10 +634,13 @@ class TelnyxClient {
                     gatewayState = GatewayState.UNREGISTER;
                     break;
                   }
+                case GatewayState.ATTACHED:
+                  {
+                    _logger.i('GATEWAY ATTACHED :: ${stateMessage.toString()}');
+                    break;
+                  }
                 default:
                   {
-                    _invalidateGatewayResponseTimer();
-                    _resetGatewayCounters();
                     _logger.i(
                         'GATEWAY REGISTRATION :: Unknown State ${stateMessage.toString()}');
                   }
@@ -674,19 +712,26 @@ class TelnyxClient {
                 Call offerCall = _createCall();
                 offerCall.callId = invite.inviteParams?.callID;
                 calls[offerCall.callId!] = offerCall;
-                offerCall.callHandler.changeState(CallState.connecting,offerCall);
-                if(!_pendingAnswerFromPush){
+                offerCall.callHandler
+                    .changeState(CallState.connecting, offerCall);
+                if (!_pendingAnswerFromPush) {
                   offerCall.playRingtone(ringtonePath);
-                  offerCall.callHandler.changeState(CallState.ringing,offerCall);
-                }else {
-                  offerCall.acceptCall(invite.inviteParams!, invite.inviteParams!.calleeIdName ?? "", invite.inviteParams!.callerIdNumber ?? "", "State");
+                  offerCall.callHandler
+                      .changeState(CallState.ringing, offerCall);
+                } else {
+                  offerCall.acceptCall(
+                      invite.inviteParams!,
+                      invite.inviteParams!.calleeIdName ?? "",
+                      invite.inviteParams!.callerIdNumber ?? "",
+                      "State");
                   _pendingAnswerFromPush = false;
-                  offerCall.callHandler.changeState(CallState.active,offerCall);
+                  offerCall.callHandler
+                      .changeState(CallState.active, offerCall);
                 }
                 onSocketMessageReceived.call(message);
-                if(_pendingDeclineFromPush){
+                if (_pendingDeclineFromPush) {
                   offerCall.endCall(invite.inviteParams?.callID);
-                  offerCall.callHandler.changeState(CallState.done,offerCall);
+                  offerCall.callHandler.changeState(CallState.done, offerCall);
                   _pendingDeclineFromPush = false;
                 }
                 break;
@@ -698,12 +743,13 @@ class TelnyxClient {
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 if (mediaReceived.inviteParams?.sdp != null) {
                   Call? mediaCall = calls[mediaReceived.inviteParams?.callID];
-                  if(mediaCall == null){
+                  if (mediaCall == null) {
                     _logger.d("Error : Call  is null from Media Message");
                     _sendNoCallError();
                     return;
                   }
-                  mediaCall?.onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
+                  mediaCall?.onRemoteSessionReceived(
+                      mediaReceived.inviteParams?.sdp);
                   earlySDP = true;
                 } else {
                   _logger.d('No SDP contained within Media Message');
@@ -716,7 +762,7 @@ class TelnyxClient {
                 ReceivedMessage inviteAnswer =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 Call? answerCall = calls[inviteAnswer.inviteParams?.callID];
-                if(answerCall == null){
+                if (answerCall == null) {
                   _logger.d("Error : Call  is null from Answer Message");
                   _sendNoCallError();
                   return;
@@ -724,7 +770,8 @@ class TelnyxClient {
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.ANSWER, message: inviteAnswer);
                 if (inviteAnswer.inviteParams?.sdp != null) {
-                  answerCall?.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
+                  answerCall
+                      ?.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
                   onSocketMessageReceived(message);
                 } else if (earlySDP) {
                   onSocketMessageReceived(message);
@@ -743,7 +790,7 @@ class TelnyxClient {
                 ReceivedMessage bye =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 Call? byeCall = calls[bye.inviteParams?.callID];
-                if(byeCall == null){
+                if (byeCall == null) {
                   _logger.d("Error : Call  is null from Bye Message");
                   _sendNoCallError();
                   return;
@@ -751,6 +798,8 @@ class TelnyxClient {
                 var message =
                     TelnyxMessage(socketMethod: SocketMethod.BYE, message: bye);
                 onSocketMessageReceived(message);
+                byeCall.stopAudio();
+                byeCall.peerConnection?.closeSession();
                 byeCall.stopAudio();
                 calls.remove(byeCall.callId);
                 break;
@@ -761,7 +810,7 @@ class TelnyxClient {
                 ReceivedMessage ringing =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 Call? ringingCall = calls[ringing.inviteParams?.callID];
-                if(ringingCall == null){
+                if (ringingCall == null) {
                   _logger.d("Error : Call  is null from Ringing Message");
                   _sendNoCallError();
                   return;
@@ -784,11 +833,9 @@ class TelnyxClient {
     }
   }
 
-  void _sendNoCallError(){
+  void _sendNoCallError() {
     var error = TelnyxSocketError(
-        errorCode:404,
-        errorMessage:
-        TelnyxErrorConstants.callNotFound);
+        errorCode: 404, errorMessage: TelnyxErrorConstants.callNotFound);
     onSocketErrorReceived(error);
   }
 
@@ -815,5 +862,7 @@ class TelnyxClient {
   void _resetGatewayCounters() {
     _registrationRetryCounter = 0;
     _connectRetryCounter = 0;
+    _waitingForReg = true;
+    gatewayState = GatewayState.IDLE;
   }
 }

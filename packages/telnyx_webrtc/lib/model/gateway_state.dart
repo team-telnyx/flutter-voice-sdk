@@ -6,6 +6,7 @@ class GatewayState {
   static const REGISTER = "REGISTER";
   static const REGED = "REGED";
   static const UNREGISTER = "UNREGISTER";
+  static const ATTACHED = "ATTACHED";
   static const FAILED = "FAILED";
   static const FAIL_WAIT = "FAIL_WAIT";
   static const EXPIRED = "EXPIRED";
