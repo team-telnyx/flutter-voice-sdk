@@ -24,7 +24,7 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 final logger = Logger();
 final mainViewModel = MainViewModel();
 const MOCK_USER = "<UserName>";
-const MOCK_PASSWORD = "<Password>";
+const MOCK_PASSWORD = "Password";
 // Android Only - Push Notifications
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -86,7 +86,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
           logger.i("iOS notification token :: $token");
         }
-        var credentialConfig = CredentialConfig(MOCK_USER,MOCK_PASSWORD,
+        var credentialConfig = CredentialConfig(MOCK_USER, MOCK_PASSWORD,
             "<caller_id>", "<caller_number>", token, true, "", "");
         telnyxClient.handlePushNotification(
             pushMetaData, credentialConfig, null);
@@ -218,7 +218,6 @@ Future<void> main() async {
 }
 
 Future<void> askForNotificationPermission() async {
-
   FlutterCallkitIncoming.requestNotificationPermission("notification");
   var status = await Permission.notification.status;
   if (status.isDenied) {
@@ -230,10 +229,11 @@ Future<void> askForNotificationPermission() async {
   if (await Permission.location.isRestricted) {
     // The OS restricts access, for example, because of parental controls.
   }
-
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
+  mainViewModel.callFromPush = true;
+
   logger.i("Handle Push Init");
   String? token;
 
@@ -249,7 +249,6 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
   }
   var credentialConfig = CredentialConfig(MOCK_USER, MOCK_PASSWORD,
       "<caller_id>", "<caller_number>", token, true, "", "");
-  mainViewModel.callFromPush = true;
   mainViewModel.handlePushNotification(pushMetaData!, credentialConfig, null);
   mainViewModel.observeResponses();
   logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
@@ -280,17 +279,23 @@ class _MyAppState extends State<MyApp> {
       });
     }
 
-    // Handle Push when app comes from background :: Only for Android
-    TelnyxClient.getPushData().then((data) {
-      // whenever you open the app from the terminate state by clicking on Notification message,
-      if (data != null) {
-        handlePush(data);
-        print("getPushData : getInitialMessage :: Notification Message: $data");
-      } else {
-        mainViewModel.connect();
-        print("getPushData : No data");
-      }
-    });
+    if (Platform.isAndroid) {
+      // Handle Push when app comes from background :: Only for Android
+      TelnyxClient.getPushData().then((data) {
+        // whenever you open the app from the terminate state by clicking on Notification message,
+        if (data != null) {
+          handlePush(data);
+          print(
+              "getPushData : getInitialMessage :: Notification Message: $data");
+        } else {
+          mainViewModel.connect();
+          print("getPushData : No data");
+        }
+      });
+    } else if (Platform.isIOS && !mainViewModel.callFromPush) {
+      logger.i("iOS :: connect");
+      mainViewModel.connect();
+    }
   }
 
   // This widget is the root of your application.

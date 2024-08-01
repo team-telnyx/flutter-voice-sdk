@@ -94,7 +94,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     Provider.of<MainViewModel>(context, listen: true).observeResponses();
 
-
     bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;
     if (registered) {

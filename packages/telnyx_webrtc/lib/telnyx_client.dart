@@ -86,6 +86,7 @@ class TelnyxClient {
   late OnSocketErrorReceived onSocketErrorReceived;
   String ringtonePath = "";
   String ringBackpath = "";
+  PushMetaData? _pushMetaData;
 
   TelnyxClient() {
     // Default implementation of onSocketMessageReceived
@@ -205,42 +206,40 @@ class TelnyxClient {
   void _connectWithCallBack(
       PushMetaData? pushMetaData, OnOpenCallback openCallback) {
     _logger.i('connect() ${pushMetaData?.toJson()}');
-    if (pushMetaData?.voice_sdk_id != null) {
-      try {
-        if (pushMetaData?.voice_sdk_id != null) {
-          txSocket.hostAddress =
-              "$_storedHostAddress?voice_sdk_id=${pushMetaData?.voice_sdk_id}";
-          _logger.i(
-              'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voice_sdk_id}');
-          print("Connecting to WebSocket :: ${txSocket.hostAddress}");
-        } else {
-          txSocket.hostAddress = _storedHostAddress;
-          _logger.i('connecting to WebSocket $_storedHostAddress');
-        }
-        txSocket.connect();
-
-        txSocket.onOpen = () {
-          _closed = false;
-          _connected = true;
-          _logger.i('Web Socket is now connected');
-          _onOpen();
-          openCallback.call();
-        };
-
-        txSocket.onMessage = (dynamic data) {
-          _onMessage(data);
-        };
-
-        txSocket.onClose = (int closeCode, String closeReason) {
-          _logger.i('Closed [$closeCode, $closeReason]!');
-          _connected = false;
-          _onClose(true, closeCode, closeReason);
-        };
-      } catch (e, s) {
-        _logger.e(e.toString(), null, s);
-        _connected = false;
-        _logger.e('WebSocket $_storedHostAddress error: $e');
+    try {
+      if (pushMetaData?.voice_sdk_id != null) {
+        txSocket.hostAddress =
+            "$_storedHostAddress?voice_sdk_id=${pushMetaData?.voice_sdk_id}";
+        _logger.i(
+            'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voice_sdk_id}');
+        print("Connecting to WebSocket :: ${txSocket.hostAddress}");
+      } else {
+        txSocket.hostAddress = _storedHostAddress;
+        _logger.i('connecting to WebSocket $_storedHostAddress');
       }
+      txSocket.connect();
+
+      txSocket.onOpen = () {
+        _closed = false;
+        _connected = true;
+        _logger.i('Web Socket is now connected');
+        _onOpen();
+        openCallback.call();
+      };
+
+      txSocket.onMessage = (dynamic data) {
+        _onMessage(data);
+      };
+
+      txSocket.onClose = (int closeCode, String closeReason) {
+        _logger.i('Closed [$closeCode, $closeReason]!');
+        _connected = false;
+        _onClose(true, closeCode, closeReason);
+      };
+    } catch (e, s) {
+      _logger.e(e.toString(), null, s);
+      _connected = false;
+      _logger.e('WebSocket $_storedHostAddress error: $e');
     }
   }
 
@@ -252,6 +251,16 @@ class TelnyxClient {
     }
     _logger.i('connecting to WebSocket $_storedHostAddress');
     try {
+      if (_pushMetaData != null) {
+        txSocket.hostAddress =
+            "$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}";
+        _logger.i(
+            'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}');
+        print("Connecting to WebSocket :: ${txSocket.hostAddress}");
+      } else {
+        txSocket.hostAddress = _storedHostAddress;
+        _logger.i('connecting to WebSocket $_storedHostAddress');
+      }
       txSocket.onOpen = () {
         _closed = false;
         _connected = true;
@@ -319,7 +328,7 @@ class TelnyxClient {
       /*
       * initialise this callback to handle call state changes on the client side
       * */
-          print("Call state not overridden :Call State Changed to $state");
+      print("Call state not overridden :Call State Changed to $state");
       _logger.i('Call state not overridden :Call State Changed to $state');
     }), _callEnded);
     return _call!;
@@ -362,8 +371,13 @@ class TelnyxClient {
         jsonrpc: JsonRPCConstant.jsonrpc);
 
     String jsonLoginMessage = jsonEncode(loginMessage);
-
-    txSocket.send(jsonLoginMessage);
+    if (isConnected()) {
+      txSocket.send(jsonLoginMessage);
+    } else {
+      _connectWithCallBack(null, () {
+        txSocket.send(jsonLoginMessage);
+      });
+    }
   }
 
   /// Uses the provided [config] to send a token login message to the Telnyx backend.
@@ -402,7 +416,13 @@ class TelnyxClient {
 
     String jsonLoginMessage = jsonEncode(loginMessage);
     _logger.i('Token Login Message $jsonLoginMessage');
-    txSocket.send(jsonLoginMessage);
+    if (isConnected()) {
+      txSocket.send(jsonLoginMessage);
+    } else {
+      _connectWithCallBack(null, () {
+        txSocket.send(jsonLoginMessage);
+      });
+    }
   }
 
   // Creates an invitation to send to a [destinationNumber] or SIP Destination
@@ -475,7 +495,7 @@ class TelnyxClient {
   void updateCall(Call call) {
     if (calls.containsKey(call.callId)) {
       calls[call.callId!] = call;
-    }else{
+    } else {
       calls[call.callId!] = call;
     }
   }
@@ -592,18 +612,21 @@ class TelnyxClient {
                             defaultTargetPlatform == TargetPlatform.android
                                 ? "android"
                                 : "ios";
-                        String pushEnvironment = kDebugMode ? "development" : "production";
+                        String pushEnvironment =
+                            kDebugMode ? "development" : "production";
                         AttachCallMessage attachCallMessage = AttachCallMessage(
                             method: SocketMethod.ATTACH_CALL,
                             id: const Uuid().v4(),
                             params: Params(
-                                userVariables: <dynamic, dynamic>{
-                                  "push_notification_environment": pushEnvironment,
-                                  "push_notification_provider": platform,
-                                },
-                               ),
+                              userVariables: <dynamic, dynamic>{
+                                "push_notification_environment":
+                                    pushEnvironment,
+                                "push_notification_provider": platform,
+                              },
+                            ),
                             jsonrpc: "2.0");
-                        print("attachCallMessage :: ${attachCallMessage.toJson()}");
+                        print(
+                            "attachCallMessage :: ${attachCallMessage.toJson()}");
                         txSocket.send(jsonEncode(attachCallMessage));
                         _isCallFromPush = false;
                       }
