@@ -192,10 +192,7 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
    case Event.actionCallIncoming:
    // retrieve the push metadata from extras
    final data = await TelnyxClient.getPushData();
-   
-   // This me
-  handlePush(data);
-
+   ...
   _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
     break;
    case Event.actionCallStart:
@@ -224,6 +221,8 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
  TelnyxClient.setPushMetaData(
                  message.data, isAnswer: true, isDecline: false);
 ```
+5. When you call the `telnyxClient.handlePushNotification` it connects to the `telnyxClient`, make sure not to call the `telnyxClient.connect()` method after this. e.g an Edge case might be if you call `telnyxClient.connect()` on Widget `init` method it
+   will always call the `connect` method
 
  
 ### Adding push notifications - iOS platform
