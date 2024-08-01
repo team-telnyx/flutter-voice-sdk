@@ -102,11 +102,11 @@ class MainViewModel with ChangeNotifier {
         case SocketMethod.CLIENT_READY:
           {
             _registered = true;
+            logger.i("Registered :: $_registered");
             break;
           }
         case SocketMethod.INVITE:
           {
-
             observeCurrentCall();
 
             _incomingInvite = message.message.inviteParams;
@@ -196,7 +196,7 @@ class MainViewModel with ChangeNotifier {
     notifyListeners();
   }
 
-  void login(CredentialConfig credentialConfig) {
+  void login(CredentialConfig credentialConfig) async {
     _localName = credentialConfig.sipCallerIDName;
     _localNumber = credentialConfig.sipCallerIDNumber;
     _telnyxClient.credentialLogin(credentialConfig);
@@ -232,7 +232,7 @@ class MainViewModel with ChangeNotifier {
       }
 
       // Hide if not already hidden
-      if(Platform.isAndroid && !acceptFromNotification) {
+      if (Platform.isAndroid && !acceptFromNotification) {
         CallKitParams callKitParams = CallKitParams(
             id: _incomingInvite!.callID,
             nameCaller: _incomingInvite!.callerIdName,
