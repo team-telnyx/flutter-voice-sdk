@@ -86,6 +86,7 @@ class TelnyxClient {
   late OnSocketErrorReceived onSocketErrorReceived;
   String ringtonePath = "";
   String ringBackpath = "";
+  PushMetaData? _pushMetaData;
 
   TelnyxClient() {
     // Default implementation of onSocketMessageReceived
@@ -210,6 +211,7 @@ class TelnyxClient {
         if (pushMetaData?.voice_sdk_id != null) {
           txSocket.hostAddress =
               "$_storedHostAddress?voice_sdk_id=${pushMetaData?.voice_sdk_id}";
+          _pushMetaData = pushMetaData;
           _logger.i(
               'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voice_sdk_id}');
           print("Connecting to WebSocket :: ${txSocket.hostAddress}");
@@ -252,6 +254,16 @@ class TelnyxClient {
     }
     _logger.i('connecting to WebSocket $_storedHostAddress');
     try {
+      if(_pushMetaData != null){
+        txSocket.hostAddress =
+            "$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}";
+        _logger.i(
+            'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}');
+        print("Connecting to WebSocket :: ${txSocket.hostAddress}");
+      } else {
+        txSocket.hostAddress = _storedHostAddress;
+        _logger.i('connecting to WebSocket $_storedHostAddress');
+      }
       txSocket.onOpen = () {
         _closed = false;
         _connected = true;
