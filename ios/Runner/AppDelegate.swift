@@ -8,6 +8,8 @@ import flutter_callkit_incoming
 @UIApplicationMain
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
+        print("onRunner ::  Accept")
+        action.fulfill()
         
     }
     
@@ -16,7 +18,7 @@ import flutter_callkit_incoming
     }
     
     func onEnd(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
-        
+        action.fulfill()
     }
     
     func onTimeOut(_ call: flutter_callkit_incoming.Call) {
@@ -24,10 +26,11 @@ import flutter_callkit_incoming
     }
     
     func didActivateAudioSession(_ audioSession: AVAudioSession) {
+        print("onRunner  :: Activate Audio Session")
     }
     
     func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
-        
+        print("onRunner  :: DeActivate Audio Session")
     }
     
   override func application(
@@ -64,6 +67,7 @@ import flutter_callkit_incoming
             data.nameCaller = "Johnny"
             SwiftFlutterCallkitIncomingPlugin.sharedInstance?.startCall(data, fromPushKit: true)
             
+        
             return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
         }
         
@@ -110,7 +114,8 @@ import flutter_callkit_incoming
                 
                 //set more data
                 //data.iconName = ...
-                //data.....
+                data.uuid = uuid!.uuidString
+                data.nameCaller = caller
                 SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
             }
             

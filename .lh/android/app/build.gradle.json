@@ -1,0 +1,18 @@
+{
+    "sourceFile": "android/app/build.gradle",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1722383693358,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1722383693358,
+            "name": "Commit-0",
+            "content": "def localProperties = new Properties()\ndef localPropertiesFile = rootProject.file('local.properties')\nif (localPropertiesFile.exists()) {\n    localPropertiesFile.withReader('UTF-8') { reader ->\n        localProperties.load(reader)\n    }\n}\n\ndef flutterRoot = localProperties.getProperty('flutter.sdk')\nif (flutterRoot == null) {\n    throw new GradleException(\"Flutter SDK not found. Define location with flutter.sdk in the local.properties file.\")\n}\n\ndef flutterVersionCode = localProperties.getProperty('flutter.versionCode')\nif (flutterVersionCode == null) {\n    flutterVersionCode = '1'\n}\n\ndef flutterVersionName = localProperties.getProperty('flutter.versionName')\nif (flutterVersionName == null) {\n    flutterVersionName = '1.0'\n}\n\napply plugin: 'com.android.application'\napply plugin: 'com.google.gms.google-services'\napply plugin: 'kotlin-android'\napply from: \"$flutterRoot/packages/flutter_tools/gradle/flutter.gradle\"\n\nandroid {\n    compileSdkVersion 34\n\n    compileOptions {\n        sourceCompatibility JavaVersion.VERSION_1_8\n        targetCompatibility JavaVersion.VERSION_1_8\n    }\n\n    kotlinOptions {\n        jvmTarget = '1.8'\n    }\n\n    sourceSets {\n        main.java.srcDirs += 'src/main/kotlin'\n    }\n    lint {\n        baseline = file(\"lint-baseline.xml\")\n    }\n\n    defaultConfig {\n        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).\n        applicationId \"com.telnyx.telnyx_flutter_webrtc\"\n        minSdkVersion 21\n        targetSdkVersion flutter.targetSdkVersion\n        versionCode flutterVersionCode.toInteger()\n        versionName flutterVersionName\n    }\n\n    buildTypes {\n        release {\n            // TODO: Add your own signing config for the release build.\n            // Signing with the debug keys for now, so `flutter run --release` works.\n            signingConfig signingConfigs.debug\n        }\n    }\n}\n\nflutter {\n    source '../..'\n}\n\ndependencies {\n    implementation \"org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version\"\n    implementation platform('com.google.firebase:firebase-bom:30.4.1')\n}\n"
+        }
+    ]
+}

@@ -32,9 +32,16 @@ class _HomeScreenState extends State<HomeScreen> {
     ongoingCall = Provider.of<MainViewModel>(context, listen: true).ongoingCall;
   }
 
+
   void _callDestination() {
     Provider.of<MainViewModel>(context, listen: false)
         .call(destinationController.text);
+    logger.i('Calling!');
+  }
+
+  void _endCall() {
+    Provider.of<MainViewModel>(context, listen: false)
+        .endCall();
     logger.i('Calling!');
   }
 

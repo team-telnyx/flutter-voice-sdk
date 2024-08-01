@@ -1,7 +1,10 @@
 // ignore: avoid_web_libraries_in_flutter
+import 'dart:io';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:telnyx_flutter_webrtc/main.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
@@ -29,8 +32,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     if (!kIsWeb) {
       _checkPermissions();
     }
-    sipUserController.text = "<username>";
-    sipPasswordController.text = "<password>";
+    logger.i("Version ${Platform.operatingSystemVersion}");
+
+    sipUserController.text = MOCK_USER;
+    sipPasswordController.text = MOCK_PASSWORD;
+
     super.initState();
   }
 
@@ -62,8 +68,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           sipNumberController.text,
           token,
           true,
-          "",
-          "");
+          "assets/audio/incoming_call.mp3",
+          "assets/audio/ringback_tone.mp3");
 
       var tokenConfig = TokenConfig(
           "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZWxueXhfdGVsZXBob255IiwiZXhwIjoxNzA5NjM0Mzk4LCJpYXQiOjE3MDk1NDc5OTgsImlzcyI6InRlbG55eF90ZWxlcGhvbnkiLCJqdGkiOiIzOWY3ZDY2ZS0xY2JiLTQ2Y2QtOGM4ZS03NDJlOWZlYTUwNDAiLCJuYmYiOjE3MDk1NDc5OTcsInN1YiI6Ijg2YmEyZjA3LWU4NmEtNGU3NS05MTg2LTAwOTYxYWMzNDc0ZSIsInRlbF90b2tlbiI6Ik5iVldCTFFySDRoWk9TS2FGa0ZfMlctcndWcklJbExJcnltZkRFY0RETThydFk0ZUp6TkhmTVlaeWJyNVk2b0tTd2Exa0toZzZrREdDNHd4dUVSTDlodUdqOV9nRk5oVjZwVzRSWFB0dGFWMF9fNXhoVVRHb3F5czdmX0FsVUotZjZzNEktQXNMcm9vc3djNW13SEE3VmdHIiwidHlwIjoiYWNjZXNzIn0.8Y_MdGid2iZg0ERLJxQEbR2R5JRkg6kS_g0P4v5qFEvLWw4MIfEoUXMxyvSEvPd4t3ySS7xeB2_NFCB02kEDVg",
@@ -87,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     Provider.of<MainViewModel>(context, listen: true).observeResponses();
-    Provider.of<MainViewModel>(context, listen: true).connect();
+
 
     bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:assets_audio_player/assets_audio_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
@@ -17,18 +18,42 @@ import 'package:telnyx_webrtc/tx_socket.dart'
 import 'package:uuid/uuid.dart';
 import 'package:audioplayers/audioplayers.dart';
 
+import 'model/call_state.dart';
+import 'model/gateway_state.dart';
+import 'model/telnyx_message.dart';
+
+typedef CallStateCallback = void Function(CallState state);
+
+class CallHandler {
+  late CallStateCallback onCallStateChanged;
+
+  CallHandler(this.onCallStateChanged);
+
+  void changeState(CallState state, Call call) {
+    // You can add any additional logic here before invoking the callback
+    call.callState = state;
+    onCallStateChanged(state);
+  }
+}
+
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
-  Call(this._txSocket, this._sessid, this.ringToneFile, this.ringBackFile,
-      this.callEnded);
+  Call(this._txSocket, this._txClient, this.sessid, this.ringToneFile,
+      this.ringBackFile, this.callHandler, this.callEnded);
+
+  late CallHandler callHandler;
+  late CallState callState;
+
   final audioService = AudioService();
+  final mobileAudioPlayer = AssetsAudioPlayer.newPlayer();
   final Function callEnded;
   final TxSocket _txSocket;
-  final String _sessid;
+  final TelnyxClient _txClient;
+  final String sessid;
   final String ringBackFile;
   final String ringToneFile;
-  late String? callId;
+  String? callId;
   Peer? peerConnection;
 
   bool onHold = false;
@@ -44,19 +69,9 @@ class Call {
   void newInvite(String callerName, String callerNumber,
       String destinationNumber, String clientState,
       {Map<String, String> customHeaders = const {}}) {
-    sessionCallerName = callerName;
-    sessionCallerNumber = callerNumber;
-    sessionDestinationNumber = destinationNumber;
-    sessionClientState = clientState;
-    customHeaders = customHeaders;
-    callId = const Uuid().v4();
-    var base64State = base64.encode(utf8.encode(clientState));
-
-    peerConnection = Peer(_txSocket);
-    peerConnection?.invite(callerName, callerNumber, destinationNumber,
-        base64State, callId!, _sessid, customHeaders);
-    //play ringback
-    playAudio(ringBackFile);
+    _txClient.newInvite(
+        callerName, callerNumber, destinationNumber, clientState,
+        customHeaders: customHeaders);
   }
 
   void onRemoteSessionReceived(String? sdp) {
@@ -69,35 +84,28 @@ class Call {
 
   /// Accepts the incoming call specified via the [invite] parameter, sending
   /// your local specified [callerName], [callerNumber] and [clientState]
-  void acceptCall(IncomingInviteParams invite, String callerName,
+  Call acceptCall(IncomingInviteParams invite, String callerName,
       String callerNumber, String clientState,
       {Map<String, String> customHeaders = const {}}) {
-    callId = invite.callID;
-
-    sessionCallerName = callerName;
-    sessionCallerNumber = callerNumber;
-    sessionDestinationNumber = invite.callerIdName ?? "Unknown Caller";
-    sessionClientState = clientState;
-
-    var destinationNum = invite.callerIdNumber;
-
-    peerConnection = Peer(_txSocket);
-    peerConnection?.accept(callerName, callerNumber, destinationNum!,
-        clientState, callId!, invite, customHeaders);
-
-    stopAudio();
+    return _txClient.acceptCall(invite, callerName, callerNumber, clientState,
+        customHeaders: customHeaders);
   }
 
   /// Attempts to end the call identified via the [callID]
   void endCall(String? callID) {
+    if (callId == null) {
+      _logger.d("Call ID is null");
+      return;
+    }
+
     var uuid = const Uuid().v4();
-    var byeDialogParams = ByeDialogParams(callId: callID);
+    var byeDialogParams = ByeDialogParams(callId: callID ?? callId);
 
     var byeParams = SendByeParams(
         cause: CauseCode.USER_BUSY.name,
         causeCode: CauseCode.USER_BUSY.index + 1,
         dialogParams: byeDialogParams,
-        sessid: _sessid);
+        sessid: sessid);
 
     var byeMessage = SendByeMessage(
         id: uuid,
@@ -106,6 +114,15 @@ class Call {
         params: byeParams);
 
     String jsonByeMessage = jsonEncode(byeMessage);
+
+    if (_txClient.gatewayState != GatewayState.REGED) {
+      _logger
+          .d("Session end gateway not  registered ${_txClient.gatewayState}");
+      return;
+    } else {
+      _logger.d("Session end peer connection null");
+    }
+
     _txSocket.send(jsonByeMessage);
     if (peerConnection != null) {
       peerConnection?.closeSession();
@@ -113,7 +130,13 @@ class Call {
       _logger.d("Session end peer connection null");
     }
     stopAudio();
+    callHandler.changeState(CallState.done, this);
     callEnded();
+    _txClient.calls.remove(callId);
+    var message = TelnyxMessage(
+        socketMethod: SocketMethod.BYE,
+        message: ReceivedMessage(method: "telnyx_rtc.bye"));
+    _txClient.onSocketMessageReceived.call(message);
   }
 
   /// Sends a DTMF message with the chosen [tone] to the call
@@ -135,7 +158,7 @@ class Call {
         video: false);
 
     var infoParams =
-        InfoParams(dialogParams: dialogParams, dtmf: tone, sessid: _sessid);
+        InfoParams(dialogParams: dialogParams, dtmf: tone, sessid: sessid);
 
     var dtmfMessageBody = DtmfInfoMessage(
         id: uuid,
@@ -162,9 +185,11 @@ class Call {
     if (onHold) {
       _sendHoldModifier("unhold");
       onHold = false;
+      callHandler.changeState(CallState.active, this);
     } else {
       _sendHoldModifier("hold");
       onHold = true;
+      callHandler.changeState(CallState.held, this);
     }
   }
 
@@ -185,7 +210,7 @@ class Call {
         video: false);
 
     var modifyParams = ModifyParams(
-        action: action, dialogParams: dialogParams, sessid: _sessid);
+        action: action, dialogParams: dialogParams, sessid: sessid);
 
     var modifyMessage = ModifyMessage(
         id: uuid.toString(),
@@ -201,13 +226,29 @@ class Call {
   void playAudio(String filePath) {
     if (kIsWeb && filePath.isNotEmpty) {
       audioService.playLocalFile(filePath);
+      return;
+    }
+    mobileAudioPlayer.open(
+      Audio(filePath),
+      autoStart: true,
+      showNotification: false,
+    );
+  }
+
+  // Play ringtone for only web, iOS and Android will use native audio player
+  void playRingtone(String filePath) {
+    if (kIsWeb && filePath.isNotEmpty) {
+      audioService.playLocalFile(filePath);
+      return;
     }
   }
 
   void stopAudio() {
     if (kIsWeb) {
       audioService.stopAudio();
+      return;
     }
+    mobileAudioPlayer.stop();
   }
 }
 

@@ -9,7 +9,7 @@
 - Android Push Notification Fix
 ## 0.0.12
 
-- Fix No Audi for Web
+- Fix No Audio for Web
 
 ## 0.0.11
 

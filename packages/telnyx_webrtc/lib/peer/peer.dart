@@ -13,6 +13,7 @@ import 'package:logger/logger.dart';
 
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
+import '../model/call_state.dart';
 import '../model/jsonrpc.dart';
 
 enum SignalingState {
@@ -21,13 +22,7 @@ enum SignalingState {
   ConnectionError,
 }
 
-enum CallState {
-  CallStateNew,
-  CallStateRinging,
-  CallStateInvite,
-  CallStateConnected,
-  CallStateBye,
-}
+
 
 class Session {
   Session({required this.sid, required this.pid});
@@ -129,7 +124,7 @@ class Peer {
 
     _createOffer(session, "audio", callerName, callerNumber, destinationNumber,
         clientState, callId, telnyxSessionId, customHeaders);
-    onCallStateChange?.call(session, CallState.CallStateInvite);
+    onCallStateChange?.call(session, CallState.newCall);
   }
 
   Future<void> _createOffer(
@@ -224,7 +219,7 @@ class Peer {
     _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
         clientState, callId, customHeaders);
 
-    onCallStateChange?.call(session, CallState.CallStateNew);
+    onCallStateChange?.call(session, CallState.active);
   }
 
   Future<void> _createAnswer(

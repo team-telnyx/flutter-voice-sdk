@@ -19,4 +19,6 @@ class TelnyxErrorConstants {
   static const gatewayTimeoutErrorCode = -32003;
   static const gatewayFailedError = "Gateway registration failed";
   static const gatewayFailedErrorCode = -32004;
+  static const callNotFound = "Call not found";
+
 }

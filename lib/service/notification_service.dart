@@ -15,10 +15,8 @@ class NotificationService {
 
   static Future showNotification(RemoteMessage message) async {
     var logger = Logger();
-    if (kDebugMode) {
-      print('Received Incoming NotificationService!');
-      logger.i('Received Incoming NotificationService!');
-    }
+    print('Received Incoming NotificationService!');
+    logger.i('Received Incoming NotificationService! from background');
     var metadata = PushMetaData.fromJson(jsonDecode(message.data["metadata"]));
     var received = message.data["message"];
     var currentUuid = const Uuid().v4();
