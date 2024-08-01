@@ -1,3 +1,8 @@
+## 0.0.16
+- Implement Push Notifications mechanism for background/foreground
+- Fix One Way Audio
+- Provide a way to handle call state
+
 ## 0.0.15
 - Fix dispose off audio tracks (release ios/android microphone)
 
