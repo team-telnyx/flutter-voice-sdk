@@ -108,7 +108,7 @@ class TokenConfig {
 ###  Adding push notifications - Android platform
 The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. To receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android).
-The Demo app uses the [FlutterCallkitIncoming](https://pub.dev/packages/flutter_callkit_incoming] plugin) to show incoming calls. To show a notification when receiving a call, you can follow the steps below:
+The Demo app uses the [FlutterCallkitIncoming](https://pub.dev/packages/flutter_callkit_incoming) plugin to show incoming calls. To show a notification when receiving a call, you can follow the steps below:
 1. Listen for Background Push Notifications, Implement the `FirebaseMessaging.onBackgroundMessage` method in your `main` method
 ```dart
 
@@ -207,7 +207,7 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
 
 #### Best Practices for Push Notifications on Android 
 1. Request for Notification Permissions for android 13+ devices to show push notifications. More information can be found [here](https://developer.android.com/develop/ui/views/notifications/notification-permission)
-2. Push Notifications only work in foreground for apps thar are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode).
+2. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode).
 3. On Foreground calls, you can use the `FirebaseMessaging.onMessage.listen` method to listen for incoming calls and show a notification.
 ```dart
  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
