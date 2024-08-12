@@ -199,16 +199,20 @@ class MainViewModel with ChangeNotifier {
   void login(CredentialConfig credentialConfig) async {
     _localName = credentialConfig.sipCallerIDName;
     _localNumber = credentialConfig.sipCallerIDNumber;
-    _telnyxClient.credentialLogin(credentialConfig);
+    _telnyxClient.connectWithCredential(credentialConfig);
   }
 
   void loginWithToken(TokenConfig tokenConfig) {
     _localName = tokenConfig.sipCallerIDName;
     _localNumber = tokenConfig.sipCallerIDNumber;
-    _telnyxClient.tokenLogin(tokenConfig);
+    _telnyxClient.connectWithToken(tokenConfig);
   }
 
   void call(String destination) {
+    _telnyxClient.txSocket.close();
+    if(!_telnyxClient.isConnected()){
+
+    }
     _currentCall = _telnyxClient.newInvite(
         _localName, _localNumber, destination, "Fake State",
         customHeaders: {"X-Header-1": "Value1", "X-Header-2": "Value2"});

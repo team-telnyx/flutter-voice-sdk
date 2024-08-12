@@ -164,6 +164,9 @@ class TelnyxClient {
   /// and initiates the connection with the provided [pushMetaData]
   /// and [credentialConfig] or [tokenConfig]
   /// If the push notification is received while the client is not connected
+  /// Note: Do not call the connect method after calling this method, it implicitly calls the
+  /// connect method with the provided [pushMetaData]
+  /// and [credentialConfig] or [tokenConfig]
   void handlePushNotification(PushMetaData pushMetaData,
       CredentialConfig? credentialConfig, TokenConfig? tokenConfig) {
     print(jsonEncode(pushMetaData));
@@ -243,6 +246,88 @@ class TelnyxClient {
     }
   }
 
+  void connectWithToken(TokenConfig tokenConfig) {
+    _logger.i('connect()');
+    _logger.i('connecting to WebSocket $_storedHostAddress');
+    try {
+      if (_pushMetaData != null) {
+        txSocket.hostAddress =
+        "$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}";
+        _logger.i(
+            'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}');
+        print("Connecting to WebSocket :: ${txSocket.hostAddress}");
+      } else {
+        txSocket.hostAddress = _storedHostAddress;
+        _logger.i('connecting to WebSocket $_storedHostAddress');
+      }
+      txSocket.onOpen = () {
+        _closed = false;
+        _connected = true;
+        _logger.i('Web Socket is now connected');
+        _onOpen();
+        tokenLogin(tokenConfig);
+      };
+
+      txSocket.onMessage = (dynamic data) {
+        _onMessage(data);
+      };
+
+      txSocket.onClose = (int closeCode, String closeReason) {
+        _logger.i('Closed [$closeCode, $closeReason]!');
+        _connected = false;
+        _onClose(true, closeCode, closeReason);
+      };
+
+      txSocket.connect();
+    } catch (e, s) {
+      _logger.e(e.toString(), null, s);
+      _connected = false;
+      _logger.e('WebSocket $_storedHostAddress error: $e');
+    }
+  }
+
+  void connectWithCredential(CredentialConfig credentialConfig) {
+    _logger.i('connect()');
+    _logger.i('connecting to WebSocket $_storedHostAddress');
+    try {
+      if (_pushMetaData != null) {
+        txSocket.hostAddress =
+        "$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}";
+        _logger.i(
+            'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}');
+        print("Connecting to WebSocket :: ${txSocket.hostAddress}");
+      } else {
+        txSocket.hostAddress = _storedHostAddress;
+        _logger.i('connecting to WebSocket $_storedHostAddress');
+      }
+      txSocket.onOpen = () {
+        _closed = false;
+        _connected = true;
+        _logger.i('Web Socket is now connected');
+        _onOpen();
+        credentialLogin(credentialConfig);
+      };
+
+      txSocket.onMessage = (dynamic data) {
+        _onMessage(data);
+      };
+
+      txSocket.onClose = (int closeCode, String closeReason) {
+        _logger.i('Closed [$closeCode, $closeReason]!');
+        _connected = false;
+        _onClose(true, closeCode, closeReason);
+      };
+
+      txSocket.connect();
+    } catch (e, s) {
+      _logger.e(e.toString(), null, s);
+      _connected = false;
+      _logger.e('WebSocket $_storedHostAddress error: $e');
+    }
+  }
+
+
+  @Deprecated("Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)")
   void connect() {
     _logger.i('connect()');
     if (isConnected()) {
@@ -338,6 +423,7 @@ class TelnyxClient {
   /// If successful, the gateway registration process will start.
   ///
   /// May return a [TelnyxSocketError] in the case of an authentication error
+  @Deprecated("Use connectWithCredential(..) instead")
   void credentialLogin(CredentialConfig config) {
     storedCredentialConfig = config;
     var uuid = const Uuid().v4();
@@ -384,6 +470,7 @@ class TelnyxClient {
   /// If successful, the gateway registration process will start.
   ///
   /// May return a [TelnyxSocketError] in the case of an authentication error
+  @Deprecated("Use connectWithToken(..) instead")
   void tokenLogin(TokenConfig config) {
     storedTokenConfig = config;
     var uuid = const Uuid().v4();
