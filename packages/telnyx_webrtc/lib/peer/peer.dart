@@ -87,7 +87,6 @@ class Peer {
 
   close() async {
     await _cleanSessions();
-    _socket.close();
   }
 
   void muteUnmuteMic() {

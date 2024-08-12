@@ -1,3 +1,6 @@
+## 0.0.17
+- Include login credentials for connect method
+
 ## 0.0.16
 - Implement Push Notifications mechanism for background/foreground
 - Fix One Way Audio
