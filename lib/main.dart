@@ -145,6 +145,7 @@ Future<void> main() async {
   }
 
   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+    logger.i('onEvent :: ${event?.event}');
     switch (event!.event) {
       case Event.actionCallIncoming:
         // retrieve the push metadata from extras
@@ -171,8 +172,8 @@ Future<void> main() async {
         // TODO: show screen calling in Flutter
         break;
       case Event.actionCallAccept:
-        mainViewModel.accept();
         print("Accepted Call");
+        mainViewModel.accept();
         break;
       case Event.actionCallDecline:
         logger.i("actionCallDecline :: call declined");

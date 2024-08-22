@@ -115,6 +115,11 @@ class MainViewModel with ChangeNotifier {
               _ongoingInvitation = true;
               showNotification(_incomingInvite!);
             } else {
+              // For early accept of call
+              if (waitingForInvite) {
+                accept();
+                waitingForInvite = false;
+              }
               callFromPush = false;
             }
 
@@ -180,10 +185,6 @@ class MainViewModel with ChangeNotifier {
     };
   }
 
-  void connect() {
-    _telnyxClient.connect();
-  }
-
   void handlePushNotification(PushMetaData pushMetaData,
       CredentialConfig? credentialConfig, TokenConfig? tokenConfig) {
     _telnyxClient.handlePushNotification(
@@ -210,9 +211,7 @@ class MainViewModel with ChangeNotifier {
 
   void call(String destination) {
     _telnyxClient.txSocket.close();
-    if(!_telnyxClient.isConnected()){
-
-    }
+    if (!_telnyxClient.isConnected()) {}
     _currentCall = _telnyxClient.newInvite(
         _localName, _localNumber, destination, "Fake State",
         customHeaders: {"X-Header-1": "Value1", "X-Header-2": "Value2"});
@@ -224,6 +223,8 @@ class MainViewModel with ChangeNotifier {
     currentCall?.enableSpeakerPhone(_speakerPhone);
     notifyListeners();
   }
+
+  bool waitingForInvite = false;
 
   void accept({bool acceptFromNotification = false}) {
     if (_incomingInvite != null) {
@@ -261,7 +262,7 @@ class MainViewModel with ChangeNotifier {
 
       notifyListeners();
     } else {
-      throw ArgumentError(_incomingInvite);
+      waitingForInvite = true;
     }
   }
 

@@ -224,6 +224,47 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
 5. When you call the `telnyxClient.handlePushNotification` it connects to the `telnyxClient`, make sure not to call the `telnyxClient.connect()` method after this. e.g an Edge case might be if you call `telnyxClient.connect()` on Widget `init` method it
    will always call the `connect` method
 
+
+6. Early Answer/Decline : Users may answer/decline the call too early before a socket connection is established. To handle this situation,
+assert if the `IncomingInviteParams` is not null and only accept/decline if this is availalble. 
+```dart
+bool waitingForInvite = false;
+
+void accept() {
+
+if (_incomingInvite != null) {
+  // accept the call if the incomingInvite arrives on time 
+      _currentCall = _telnyxClient.acceptCall(
+          _incomingInvite!, _localName, _localNumber, "State");
+    } else {
+      // set waitingForInvite to true if we have an early accept
+      waitingForInvite = true;
+    }
+}
+
+
+ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
+      switch (message.socketMethod) {
+        ...
+        case SocketMethod.INVITE:
+          {
+            if (callFromPush) {
+              // For early accept of call
+              if (waitingForInvite) {
+                //accept the call
+                accept();
+                waitingForInvite = false;
+              }
+              callFromPush = false;
+            }
+
+          }
+        ...
+      }
+ }
+```
+
+
  
 ### Adding push notifications - iOS platform
 The iOS Platform makes use of the Apple Push Notification Service (APNS) and Pushkit in order to deliver and receive push notifications
