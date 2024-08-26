@@ -210,8 +210,6 @@ class MainViewModel with ChangeNotifier {
   }
 
   void call(String destination) {
-    _telnyxClient.txSocket.close();
-    if (!_telnyxClient.isConnected()) {}
     _currentCall = _telnyxClient.newInvite(
         _localName, _localNumber, destination, "Fake State",
         customHeaders: {"X-Header-1": "Value1", "X-Header-2": "Value2"});

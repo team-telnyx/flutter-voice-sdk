@@ -252,7 +252,7 @@ class TelnyxClient {
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
-        "$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}";
+            "$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}";
         _logger.i(
             'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}');
         print("Connecting to WebSocket :: ${txSocket.hostAddress}");
@@ -288,11 +288,10 @@ class TelnyxClient {
 
   void connectWithCredential(CredentialConfig credentialConfig) {
     _logger.i('connect()');
-    _logger.i('connecting to WebSocket $_storedHostAddress');
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
-        "$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}";
+            "$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}";
         _logger.i(
             'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}');
         print("Connecting to WebSocket :: ${txSocket.hostAddress}");
@@ -326,8 +325,8 @@ class TelnyxClient {
     }
   }
 
-
-  @Deprecated("Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)")
+  @Deprecated(
+      "Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)")
   void connect() {
     _logger.i('connect()');
     if (isConnected()) {
@@ -528,7 +527,7 @@ class TelnyxClient {
     var base64State = base64.encode(utf8.encode(clientState));
     updateCall(inviteCall);
 
-    inviteCall.peerConnection = Peer(txSocket);
+    inviteCall.peerConnection = Peer(inviteCall.txSocket);
     inviteCall.peerConnection?.invite(
         callerName,
         callerNumber,

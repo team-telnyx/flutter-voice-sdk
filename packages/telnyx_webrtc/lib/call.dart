@@ -39,7 +39,7 @@ class CallHandler {
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
-  Call(this._txSocket, this._txClient, this.sessid, this.ringToneFile,
+  Call(this.txSocket, this._txClient, this.sessid, this.ringToneFile,
       this.ringBackFile, this.callHandler, this.callEnded);
 
   late CallHandler callHandler;
@@ -48,7 +48,7 @@ class Call {
   final audioService = AudioService();
   final mobileAudioPlayer = AssetsAudioPlayer.newPlayer();
   final Function callEnded;
-  final TxSocket _txSocket;
+  final TxSocket txSocket;
   final TelnyxClient _txClient;
   final String sessid;
   final String ringBackFile;
@@ -123,7 +123,7 @@ class Call {
       _logger.d("Session end peer connection null");
     }
 
-    _txSocket.send(jsonByeMessage);
+    txSocket.send(jsonByeMessage);
     if (peerConnection != null) {
       peerConnection?.closeSession();
     } else {
@@ -167,7 +167,7 @@ class Call {
         params: infoParams);
 
     String jsonDtmfMessage = jsonEncode(dtmfMessageBody);
-    _txSocket.send(jsonDtmfMessage);
+    txSocket.send(jsonDtmfMessage);
   }
 
   /// Either mutes or unmutes local audio based on the current mute state
@@ -219,7 +219,7 @@ class Call {
         jsonrpc: JsonRPCConstant.jsonrpc);
 
     String jsonModifyMessage = jsonEncode(modifyMessage);
-    _txSocket.send(jsonModifyMessage);
+    txSocket.send(jsonModifyMessage);
   }
 
   // Example file path for 'web/assets/audio/sound.wav'

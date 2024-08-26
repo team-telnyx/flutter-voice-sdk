@@ -43,3 +43,15 @@ lib/generated_plugin_registrant.dart
 android/app/google-services.json
 .idea/libraries/Dart_SDK.xml
 .idea/libraries/Flutter_Plugins.xml
+.idea/other.xml
+.idea/libraries/Flutter_Plugins.xml
+android/.idea/appInsightsSettings.xml
+android/.idea/compiler.xml
+android/.idea/deploymentTargetSelector.xml
+android/.idea/gradle.xml
+android/.idea/kotlinc.xml
+android/.idea/migrations.xml
+android/.idea/misc.xml
+android/.idea/other.xml
+android/.idea/vcs.xml
+android/app/lint-baseline.xml

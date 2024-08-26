@@ -19,8 +19,8 @@ class TxSocket {
   void connect() async {
     try {
       print("TxSocket :: connect : $hostAddress");
+
       _socket = await WebSocket.connect(hostAddress);
-      _logger.i('Connecting to $hostAddress');
       _socket.pingInterval = const Duration(seconds: 10);
       _socket.timeout(const Duration(seconds: 30));
       onOpen.call();
