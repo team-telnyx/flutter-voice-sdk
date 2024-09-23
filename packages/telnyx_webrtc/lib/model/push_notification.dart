@@ -9,7 +9,8 @@ class PushNotification {
 }
 
 class PushMetaData {
-  PushMetaData({this.caller_name, this.caller_number, this.call_id});
+  PushMetaData(
+      {this.caller_name, this.caller_number, this.call_id, this.voice_sdk_id});
 
   String? caller_name;
   String? caller_number;
@@ -17,7 +18,6 @@ class PushMetaData {
   String? voice_sdk_id;
   bool? isAnswer;
   bool? isDecline;
-
 
   PushMetaData.fromJson(Map<dynamic, dynamic> json) {
     caller_name = json['caller_name'];

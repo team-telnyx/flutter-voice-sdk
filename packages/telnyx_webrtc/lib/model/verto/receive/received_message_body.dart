@@ -10,6 +10,7 @@ class ReceivedMessage {
   StateParams? stateParams;
   IncomingInviteParams? inviteParams;
   DialogParams? dialogParams;
+  String? voiceSdkId;
 
   ReceivedMessage(
       {this.jsonrpc,
@@ -18,8 +19,8 @@ class ReceivedMessage {
       this.reattachedParams,
       this.stateParams,
       this.inviteParams,
-      this.dialogParams
-      });
+      this.dialogParams,
+      this.voiceSdkId});
 
   ReceivedMessage.fromJson(Map<String, dynamic> json) {
     jsonrpc = json['jsonrpc'];
@@ -33,8 +34,13 @@ class ReceivedMessage {
     inviteParams = json['params'] != null
         ? IncomingInviteParams.fromJson(json['params'])
         : null;
-    if(json['params']['dialogParams'] != null){
+    if (json['params']['dialogParams'] != null) {
       dialogParams = DialogParams.fromJson(json['params']['dialogParams']);
+    }
+
+    if (json['params']['voice_sdk_id'] != null) {
+      voiceSdkId = json['params']['voice_sdk_id'];
+      Logger().i('Voice SDK ID: $voiceSdkId');
     }
   }
 
@@ -71,16 +77,13 @@ class ReceivedResult {
   String? sessId;
   TelnyxSocketError? error;
 
-  ReceivedResult(
-      {this.jsonrpc,
-        this.id,
-        this.resultParams});
+  ReceivedResult({this.jsonrpc, this.id, this.resultParams});
 
   ReceivedResult.fromJson(Map<String, dynamic> json) {
     jsonrpc = json['jsonrpc'];
     id = json['id'];
     resultParams =
-    json['result'] != null ? ResultParams.fromJson(json['result']) : null;
+        json['result'] != null ? ResultParams.fromJson(json['result']) : null;
     sessId = json['sessid'];
     error = json['error'] != null
         ? TelnyxSocketError.fromJson(json['error'])
@@ -103,7 +106,6 @@ class ReceivedResult {
     return 'Received Message: {jsonrpc: $jsonrpc, id: $id, stateParams: ${resultParams?.toJson()}}';
   }
 }
-
 
 class ReattachedParams {
   List<dynamic>? reattachedSessions;
@@ -136,12 +138,11 @@ class ReattachedParams {
 class ResultParams {
   StateParams? stateParams;
 
-  ResultParams(
-      {this.stateParams});
+  ResultParams({this.stateParams});
 
   ResultParams.fromJson(Map<String, dynamic> json) {
     stateParams =
-    json['params'] != null ? StateParams.fromJson(json['params']) : null;
+        json['params'] != null ? StateParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -152,6 +153,7 @@ class ResultParams {
     return data;
   }
 }
+
 class StateParams {
   String? state;
 
