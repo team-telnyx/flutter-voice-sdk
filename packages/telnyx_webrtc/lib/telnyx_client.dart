@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ffi';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
@@ -24,7 +25,6 @@ import 'model/call_state.dart';
 import 'model/jsonrpc.dart';
 import 'model/push_notification.dart';
 import 'model/verto/send/pong_message_body.dart';
-import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
@@ -87,26 +87,6 @@ class TelnyxClient {
   String ringtonePath = "";
   String ringBackpath = "";
   PushMetaData? _pushMetaData;
-  StreamSubscription<InternetConnectionStatus>? _connectionCheckerSubscription;
-
-  final connectionChecker = InternetConnectionChecker();
-
-  void checkReconnection() {
-    final _connectionCheckerSubscription =
-        connectionChecker.onStatusChange.listen(
-      (InternetConnectionStatus status) {
-        if (status == InternetConnectionStatus.connected) {
-          if (activeCalls().isNotEmpty) {
-            _reconnectToSocket();
-          }
-        } else {
-          //
-        }
-      },
-    );
-
-    // Remember to cancel the subscription when it's no longer needed
-  }
 
   TelnyxClient() {
     // Default implementation of onSocketMessageReceived
@@ -229,7 +209,6 @@ class TelnyxClient {
   void _connectWithCallBack(
       PushMetaData? pushMetaData, OnOpenCallback openCallback) {
     _logger.i('connect() ${pushMetaData?.toJson()}');
-    _pushMetaData = pushMetaData;
     try {
       if (pushMetaData?.voice_sdk_id != null) {
         txSocket.hostAddress =
@@ -241,7 +220,6 @@ class TelnyxClient {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
       }
-
       txSocket.connect();
 
       txSocket.onOpen = () {
@@ -250,7 +228,6 @@ class TelnyxClient {
         _logger.i('Web Socket is now connected');
         _onOpen();
         openCallback.call();
-        _connectionCheckerSubscription?.cancel();
       };
 
       txSocket.onMessage = (dynamic data) {
@@ -602,7 +579,11 @@ class TelnyxClient {
   }
 
   void updateCall(Call call) {
-    calls[call.callId!] = call;
+    if (calls.containsKey(call.callId)) {
+      calls[call.callId!] = call;
+    } else {
+      calls[call.callId!] = call;
+    }
   }
 
   /// Closes the socket connection, effectively logging the user out.
@@ -630,8 +611,6 @@ class TelnyxClient {
   }
 
   /// Closes the socket connection, effectively logging the user out.
-  /// You must recconnect to the socket connection to continue using the SDK or may result in
-  /// Unhandled Exception: Bad state: StreamSink is closed
   void disconnect() {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
@@ -852,13 +831,6 @@ class TelnyxClient {
                 Call offerCall = _createCall();
                 offerCall.callId = invite.inviteParams?.callID;
                 updateCall(offerCall);
-
-                //set voice_sdk_id
-                _pushMetaData = PushMetaData(
-                    caller_number: null,
-                    caller_name: null,
-                    voice_sdk_id: message.message.voiceSdkId);
-
                 onSocketMessageReceived.call(message);
 
                 offerCall.callHandler
