@@ -284,20 +284,24 @@ class _MyAppState extends State<MyApp> {
       });
     }
 
-    if (Platform.isAndroid) {
-      // Handle Push when app comes from background :: Only for Android
-      TelnyxClient.getPushData().then((data) {
-        // whenever you open the app from the terminate state by clicking on Notification message,
-        if (data != null) {
-          handlePush(data);
-          print(
-              "getPushData : getInitialMessage :: Notification Message: $data");
-        } else {
-          print("getPushData : No data");
-        }
-      });
-    } else if (Platform.isIOS && !mainViewModel.callFromPush) {
-      logger.i("iOS :: connect");
+    try {
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        // Handle Push when app comes from background :: Only for Android
+        TelnyxClient.getPushData().then((data) {
+          // whenever you open the app from the terminate state by clicking on Notification message,
+          if (data != null) {
+            handlePush(data);
+            print(
+                "getPushData : getInitialMessage :: Notification Message: $data");
+          } else {
+            print("getPushData : No data");
+          }
+        });
+      } else if (Platform.isIOS && !mainViewModel.callFromPush) {
+        logger.i("iOS :: connect");
+      }
+    } catch (e) {
+      print("Error: $e");
     }
   }
 
