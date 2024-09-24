@@ -18,7 +18,6 @@ class PushMetaData {
   bool? isAnswer;
   bool? isDecline;
 
-
   PushMetaData.fromJson(Map<dynamic, dynamic> json) {
     caller_name = json['caller_name'];
     caller_number = json['caller_number'];

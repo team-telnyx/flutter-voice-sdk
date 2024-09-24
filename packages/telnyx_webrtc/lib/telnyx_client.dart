@@ -20,7 +20,6 @@ import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
-
 import 'model/call_state.dart';
 import 'model/jsonrpc.dart';
 import 'model/push_notification.dart';

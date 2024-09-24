@@ -10,9 +10,7 @@ import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
-
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
-
 import '../model/call_state.dart';
 import '../model/jsonrpc.dart';
 
@@ -21,8 +19,6 @@ enum SignalingState {
   ConnectionClosed,
   ConnectionError,
 }
-
-
 
 class Session {
   Session({required this.sid, required this.pid});
