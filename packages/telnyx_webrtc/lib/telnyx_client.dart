@@ -2,11 +2,10 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:ffi';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
-import 'package:telnyx_webrtc/peer/peer.dart';
+import '/peer/peer.dart' if (dart.library.html) '/web/peer.dart';
 import '/call.dart';
 import '/config/telnyx_config.dart';
 import '/model/gateway_state.dart';

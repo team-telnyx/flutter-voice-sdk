@@ -145,76 +145,79 @@ Future<void> main() async {
     );
   }
 
-  FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
-    logger.i('onEvent :: ${event?.event}');
-    switch (event!.event) {
-      case Event.actionCallIncoming:
-        // retrieve the push metadata from extras
-        if (Platform.isAndroid) {
-          final data = await TelnyxClient.getPushData();
-          if (data != null) {
-            handlePush(data);
-          } else {
-            logger.i('actionCallIncoming :: Push Data is null!');
+  if (!kIsWeb) {
+    FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+      logger.i('onEvent :: ${event?.event}');
+      switch (event!.event) {
+        case Event.actionCallIncoming:
+          // retrieve the push metadata from extras
+          if (Platform.isAndroid) {
+            final data = await TelnyxClient.getPushData();
+            if (data != null) {
+              handlePush(data);
+            } else {
+              logger.i('actionCallIncoming :: Push Data is null!');
+            }
+          } else if (Platform.isIOS) {
+            if (event.body['extra']['metadata'] == null) {
+              logger.i('actionCallIncoming :: Push Data is null!');
+              return;
+            }
+            logger.i(
+                "received push Call for iOS ${event.body['extra']['metadata']}");
+            handlePush(
+                event.body['extra']['metadata'] as Map<dynamic, dynamic>);
           }
-        } else if (Platform.isIOS) {
-          if (event.body['extra']['metadata'] == null) {
-            logger.i('actionCallIncoming :: Push Data is null!');
-            return;
-          }
-          logger.i(
-              "received push Call for iOS ${event.body['extra']['metadata']}");
-          handlePush(event.body['extra']['metadata'] as Map<dynamic, dynamic>);
-        }
 
-        break;
-      case Event.actionCallStart:
-        // TODO: started an outgoing call
-        // TODO: show screen calling in Flutter
-        break;
-      case Event.actionCallAccept:
-        print("Accepted Call");
-        mainViewModel.accept();
-        break;
-      case Event.actionCallDecline:
-        logger.i("actionCallDecline :: call declined");
-        mainViewModel.endCall();
-        break;
-      case Event.actionCallEnded:
-        mainViewModel.endCall(endfromCallScreen: false);
-        print("EndCall Call");
-        logger.i("actionCallEnded :: call ended");
-        break;
-      case Event.actionCallTimeout:
-        mainViewModel.endCall();
-        print("Decline Call");
-        break;
-      case Event.actionCallCallback:
-        // TODO: only Android - click action `Call back` from missed call notification
-        break;
-      case Event.actionCallToggleHold:
-        // TODO: only iOS
-        break;
-      case Event.actionCallToggleMute:
-        // TODO: only iOS
-        break;
-      case Event.actionCallToggleDmtf:
-        // TODO: only iOS
-        break;
-      case Event.actionCallToggleGroup:
-        // TODO: only iOS
-        break;
-      case Event.actionCallToggleAudioSession:
-        // TODO: only iOS
-        break;
-      case Event.actionDidUpdateDevicePushTokenVoip:
-        // TODO: only iOS
-        break;
-      case Event.actionCallCustom:
-        // TODO: for custom action
-        break;
-    }
-  });
+          break;
+        case Event.actionCallStart:
+          // TODO: started an outgoing call
+          // TODO: show screen calling in Flutter
+          break;
+        case Event.actionCallAccept:
+          print("Accepted Call");
+          mainViewModel.accept();
+          break;
+        case Event.actionCallDecline:
+          logger.i("actionCallDecline :: call declined");
+          mainViewModel.endCall();
+          break;
+        case Event.actionCallEnded:
+          mainViewModel.endCall(endfromCallScreen: false);
+          print("EndCall Call");
+          logger.i("actionCallEnded :: call ended");
+          break;
+        case Event.actionCallTimeout:
+          mainViewModel.endCall();
+          print("Decline Call");
+          break;
+        case Event.actionCallCallback:
+          // TODO: only Android - click action `Call back` from missed call notification
+          break;
+        case Event.actionCallToggleHold:
+          // TODO: only iOS
+          break;
+        case Event.actionCallToggleMute:
+          // TODO: only iOS
+          break;
+        case Event.actionCallToggleDmtf:
+          // TODO: only iOS
+          break;
+        case Event.actionCallToggleGroup:
+          // TODO: only iOS
+          break;
+        case Event.actionCallToggleAudioSession:
+          // TODO: only iOS
+          break;
+        case Event.actionDidUpdateDevicePushTokenVoip:
+          // TODO: only iOS
+          break;
+        case Event.actionCallCustom:
+          // TODO: for custom action
+          break;
+      }
+    });
+  }
 
   runApp(const MyApp());
 }
