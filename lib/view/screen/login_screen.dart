@@ -31,7 +31,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     if (!kIsWeb) {
       _checkPermissions();
     }
-    logger.i("Version ${Platform.operatingSystemVersion}");
 
     sipUserController.text = MOCK_USER;
     sipPasswordController.text = MOCK_PASSWORD;

@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/config.dart';
+import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
@@ -19,14 +20,6 @@ enum SignalingState {
   ConnectionOpen,
   ConnectionClosed,
   ConnectionError,
-}
-
-enum CallState {
-  CallStateNew,
-  CallStateRinging,
-  CallStateInvite,
-  CallStateConnected,
-  CallStateBye,
 }
 
 class Session {
@@ -106,7 +99,6 @@ class Peer {
     }
   }
 
-
   void enableSpeakerPhone(bool enable) {
     if (kIsWeb) {
       _logger.d("Peer :: Speaker Enabled :: $enable");
@@ -138,7 +130,7 @@ class Peer {
 
     _createOffer(session, "audio", callerName, callerNumber, destinationNumber,
         clientState, callId, telnyxSessionId, customHeaders);
-    onCallStateChange?.call(session, CallState.CallStateInvite);
+    onCallStateChange?.call(session, CallState.newCall);
   }
 
   Future<void> _createOffer(
@@ -233,7 +225,7 @@ class Peer {
     _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
         clientState, callId, customHeaders);
 
-    onCallStateChange?.call(session, CallState.CallStateNew);
+    onCallStateChange?.call(session, CallState.newCall);
   }
 
   Future<void> _createAnswer(
@@ -302,10 +294,13 @@ class Peer {
     }
   }
 
-  void closeSession(String sessionId) {
-    var sess = _sessions[sessionId];
+  void closeSession() {
+    var sess = _sessions[_selfId];
     if (sess != null) {
+      _logger.d("Session end success");
       _closeSession(sess);
+    } else {
+      _logger.d("Session end failed");
     }
   }
 
