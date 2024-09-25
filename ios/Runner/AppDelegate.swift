@@ -10,7 +10,6 @@ import flutter_callkit_incoming
     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
         print("onRunner ::  Accept")
         action.fulfill()
-        
     }
     
     func onDecline(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {

@@ -23,6 +23,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+
+    destinationController.text = "isaac81763";
   }
 
   void _observeResponses() {
@@ -32,7 +34,6 @@ class _HomeScreenState extends State<HomeScreen> {
     ongoingCall = Provider.of<MainViewModel>(context, listen: true).ongoingCall;
   }
 
-
   void _callDestination() {
     Provider.of<MainViewModel>(context, listen: false)
         .call(destinationController.text);
@@ -40,8 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _endCall() {
-    Provider.of<MainViewModel>(context, listen: false)
-        .endCall();
+    Provider.of<MainViewModel>(context, listen: false).endCall();
     logger.i('Calling!');
   }
 
