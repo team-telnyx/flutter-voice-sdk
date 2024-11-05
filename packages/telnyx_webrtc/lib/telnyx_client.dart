@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
@@ -85,6 +86,47 @@ class TelnyxClient {
   String ringtonePath = "";
   String ringBackpath = "";
   PushMetaData? _pushMetaData;
+  bool _isAttaching = false;
+
+  void checkReconnection() {
+    // Remember to cancel the subscription when it's no longer needed
+    StreamSubscription<List<ConnectivityResult>> subscription = Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> connectivityResult) {
+      if (connectivityResult.contains(ConnectivityResult.mobile)) {
+        _logger.i('Mobile network available.');
+        if (activeCalls().isNotEmpty && !_isAttaching) {
+          _reconnectToSocket();
+        } // Mobile network available.
+      } else if (connectivityResult.contains(ConnectivityResult.wifi)) {
+        _logger.i('Wi-fi is available.');
+        if (activeCalls().isNotEmpty && !_isAttaching) {
+          _reconnectToSocket();
+        }
+        // Wi-fi is available.
+        // Note for Android:
+        // When both mobile and Wi-Fi are turned on system will return Wi-Fi only as active network type
+      } else if (connectivityResult.contains(ConnectivityResult.ethernet)) {
+        _logger.i('Ethernet connection available.');
+        // Ethernet connection available.
+      } else if (connectivityResult.contains(ConnectivityResult.vpn)) {
+        // Vpn connection active.
+        // Note for iOS and macOS:
+        _logger.i('Vpn connection active.');
+      } else if (connectivityResult.contains(ConnectivityResult.bluetooth)) {
+        _logger.i('Bluetooth connection available.');
+        // Bluetooth connection available.
+      } else if (connectivityResult.contains(ConnectivityResult.other)) {
+        _logger.i(
+            'Connected to a network which is not in the above mentioned networks.');
+        // Connected to a network which is not in the above mentioned networks.
+      } else if (connectivityResult.contains(ConnectivityResult.none)) {
+        _logger.i('No available network types');
+        // No available network types
+      }
+      // Received changes in available connectivity types!
+    });
+  }
 
   TelnyxClient() {
     // Default implementation of onSocketMessageReceived
@@ -109,6 +151,8 @@ class TelnyxClient {
       _logger.i(
           'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message');
     };
+
+    checkReconnection();
   }
 
   TxSocket txSocket = TxSocket("wss://rtc.telnyx.com:443");
@@ -123,6 +167,7 @@ class TelnyxClient {
   static const int RETRY_REGISTER_TIME = 3;
   static const int RETRY_CONNECT_TIME = 3;
   static const int GATEWAY_RESPONSE_DELAY = 3000;
+  static const int RECONNECT_TIMER = 1000;
 
   Timer? _gatewayResponseTimer;
   bool _autoReconnectLogin = true;
@@ -207,6 +252,9 @@ class TelnyxClient {
   void _connectWithCallBack(
       PushMetaData? pushMetaData, OnOpenCallback openCallback) {
     _logger.i('connect() ${pushMetaData?.toJson()}');
+    if (pushMetaData != null) {
+      _pushMetaData = pushMetaData;
+    }
     try {
       if (pushMetaData?.voice_sdk_id != null) {
         txSocket.hostAddress =
@@ -369,8 +417,12 @@ class TelnyxClient {
   }
 
   void _reconnectToSocket() {
+    _isAttaching = true;
+    Timer(const Duration(milliseconds: GATEWAY_RESPONSE_DELAY), () {
+      _isAttaching = false;
+    });
+
     txSocket.close();
-    txSocket.connect();
     // Delay to allow connection
     Timer(const Duration(seconds: 1), () {
       if (storedCredentialConfig != null) {
@@ -444,6 +496,7 @@ class TelnyxClient {
       login: user,
       passwd: password,
       loginParams: [],
+      sessionId: sessid,
       userVariables: notificationParams,
       attachCall: "true",
     );
@@ -457,7 +510,7 @@ class TelnyxClient {
     if (isConnected()) {
       txSocket.send(jsonLoginMessage);
     } else {
-      _connectWithCallBack(null, () {
+      _connectWithCallBack(_pushMetaData, () {
         txSocket.send(jsonLoginMessage);
       });
     }
@@ -544,12 +597,13 @@ class TelnyxClient {
   /// your local specified [callerName], [callerNumber] and [clientState]
   Call acceptCall(IncomingInviteParams invite, String callerName,
       String callerNumber, String clientState,
-      {Map<String, String> customHeaders = const {}}) {
+      {bool isAttach = false, Map<String, String> customHeaders = const {}}) {
     Call answerCall = getCallOrNull(invite.callID!) ?? _createCall();
     answerCall.callId = invite.callID;
 
     answerCall.sessionCallerName = callerName;
     answerCall.sessionCallerNumber = callerNumber;
+    answerCall.callState = CallState.active;
     answerCall.sessionDestinationNumber =
         invite.callerIdName ?? "Unknown Caller";
     answerCall.sessionClientState = clientState;
@@ -558,7 +612,7 @@ class TelnyxClient {
 
     answerCall.peerConnection = Peer(txSocket);
     answerCall.peerConnection?.accept(callerName, callerNumber, destinationNum!,
-        clientState, answerCall.callId!, invite, customHeaders);
+        clientState, answerCall.callId!, invite, customHeaders, isAttach);
     answerCall.callHandler.changeState(CallState.active, answerCall);
     answerCall.stopAudio();
     if (answerCall.callId != null) {
@@ -769,6 +823,18 @@ class TelnyxClient {
         } else if (data.toString().trim().contains("method")) {
           //Received Telnyx Method Message
           var messageJson = jsonDecode(data.toString());
+
+          ReceivedMessage clientReadyMessage =
+              ReceivedMessage.fromJson(jsonDecode(data.toString()));
+          if (clientReadyMessage.voiceSdkId != null) {
+            _logger.i('VoiceSdkID :: ${clientReadyMessage.voiceSdkId}');
+            _pushMetaData = PushMetaData(
+                caller_number: null,
+                caller_name: null,
+                voice_sdk_id: clientReadyMessage.voiceSdkId);
+          } else {
+            _logger.e('VoiceSdkID not found');
+          }
           _logger.i(
               'Received WebSocket message - Contains Method :: $messageJson');
           switch (messageJson['method']) {
@@ -829,6 +895,7 @@ class TelnyxClient {
                 Call offerCall = _createCall();
                 offerCall.callId = invite.inviteParams?.callID;
                 updateCall(offerCall);
+
                 onSocketMessageReceived.call(message);
 
                 offerCall.callHandler
@@ -852,6 +919,32 @@ class TelnyxClient {
                   offerCall.callHandler.changeState(CallState.done, offerCall);
                   _pendingDeclineFromPush = false;
                 }
+                break;
+              }
+            case SocketMethod.ATTACH:
+              {
+                _logger.i('ATTACH RECEIVED :: $messageJson');
+                _logger.i('INCOMING INVITATION :: $messageJson');
+                ReceivedMessage invite =
+                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
+                var message = TelnyxMessage(
+                    socketMethod: SocketMethod.INVITE, message: invite);
+                //play ringtone for web
+                Call offerCall = _createCall();
+                offerCall.callId = invite.inviteParams?.callID;
+                updateCall(offerCall);
+
+                onSocketMessageReceived.call(message);
+
+                offerCall.acceptCall(
+                    invite.inviteParams!,
+                    invite.inviteParams!.calleeIdName ?? "",
+                    invite.inviteParams!.callerIdNumber ?? "",
+                    "State",
+                    isAttach: true);
+                _pendingAnswerFromPush = false;
+                // offerCall.callHandler.changeState(CallState.active, offerCall);
+
                 break;
               }
             case SocketMethod.MEDIA:

@@ -11,6 +11,8 @@ class ReceivedMessage {
   IncomingInviteParams? inviteParams;
   DialogParams? dialogParams;
 
+  String? voiceSdkId;
+
   ReceivedMessage(
       {this.jsonrpc,
       this.id,
@@ -18,7 +20,8 @@ class ReceivedMessage {
       this.reattachedParams,
       this.stateParams,
       this.inviteParams,
-      this.dialogParams});
+      this.dialogParams,
+      this.voiceSdkId});
 
   ReceivedMessage.fromJson(Map<String, dynamic> json) {
     jsonrpc = json['jsonrpc'];
@@ -34,6 +37,10 @@ class ReceivedMessage {
         : null;
     if (json['params']['dialogParams'] != null) {
       dialogParams = DialogParams.fromJson(json['params']['dialogParams']);
+    }
+    if (json['voice_sdk_id'] != null) {
+      voiceSdkId = json['voice_sdk_id'];
+      Logger().i('Voice SDK ID: $voiceSdkId');
     }
   }
 
@@ -107,7 +114,7 @@ class ReattachedParams {
 
   ReattachedParams.fromJson(Map<String, dynamic> json) {
     if (json['reattached_sessions'] != null) {
-      reattachedSessions = <Null>[];
+      reattachedSessions = <dynamic>[];
       json['reattached_sessions'].forEach((v) {
         reattachedSessions!.add(v);
       });

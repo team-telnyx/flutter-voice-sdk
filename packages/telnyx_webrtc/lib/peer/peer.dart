@@ -202,7 +202,8 @@ class Peer {
       String clientState,
       String callId,
       IncomingInviteParams invite,
-      Map<String, String> customHeaders) async {
+      Map<String, String> customHeaders,
+      bool isAttach) async {
     var sessionId = _selfId;
     Session session = await _createSession(null,
         peerId: "0", sessionId: sessionId, media: "audio");
@@ -212,7 +213,7 @@ class Peer {
         ?.setRemoteDescription(RTCSessionDescription(invite.sdp, "offer"));
 
     _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
-        clientState, callId, customHeaders);
+        clientState, callId, customHeaders, isAttach);
 
     onCallStateChange?.call(session, CallState.active);
   }
@@ -225,7 +226,8 @@ class Peer {
       String destinationNumber,
       String clientState,
       String callId,
-      Map<String, String> customHeaders) async {
+      Map<String, String> customHeaders,
+      bool isAttach) async {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
@@ -272,7 +274,7 @@ class Peer {
         var answerMessage = InviteAnswerMessage(
             id: const Uuid().v4(),
             jsonrpc: JsonRPCConstant.jsonrpc,
-            method: SocketMethod.ANSWER,
+            method: isAttach ? SocketMethod.ATTACH : SocketMethod.ANSWER,
             params: inviteParams);
 
         String jsonAnswerMessage = jsonEncode(answerMessage);

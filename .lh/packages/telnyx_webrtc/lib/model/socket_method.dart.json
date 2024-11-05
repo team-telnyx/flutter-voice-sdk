@@ -1,0 +1,18 @@
+{
+    "sourceFile": "packages/telnyx_webrtc/lib/model/socket_method.dart",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1730809640028,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1730809640028,
+            "name": "Commit-0",
+            "content": "class SocketMethod {\n  static const ANSWER = \"telnyx_rtc.answer\";\n  static const INVITE = \"telnyx_rtc.invite\";\n  static const BYE = \"telnyx_rtc.bye\";\n  static const MODIFY = \"telnyx_rtc.modify\";\n  static const MEDIA = \"telnyx_rtc.media\";\n  static const INFO = \"telnyx_rtc.info\";\n  static const RINGING = \"telnyx_rtc.ringing\";\n  static const CLIENT_READY = \"telnyx_rtc.clientReady\";\n  static const GATEWAY_STATE = \"telnyx_rtc.gatewayState\";\n  static const PING = \"telnyx_rtc.ping\";\n  static const LOGIN = \"login\";\n  static const ATTACH_CALL = \"telnyx_rtc.attachCalls\";\n  static const ATTACH = \"telnyx_rtc.attach\";\n}\n"
+        }
+    ]
+}

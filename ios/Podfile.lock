@@ -5,6 +5,9 @@ PODS:
     - Flutter
   - audioplayers_darwin (0.0.1):
     - Flutter
+  - connectivity_plus (0.0.1):
+    - Flutter
+    - FlutterMacOS
   - CryptoSwift (1.8.2)
   - Firebase/CoreOnly (10.29.0):
     - FirebaseCore (= 10.29.0)
@@ -41,8 +44,6 @@ PODS:
   - Flutter (1.0.0)
   - flutter_callkit_incoming (0.0.1):
     - CryptoSwift
-    - Flutter
-  - flutter_local_notifications (0.0.1):
     - Flutter
   - flutter_webrtc (0.11.3):
     - Flutter
@@ -100,11 +101,11 @@ DEPENDENCIES:
   - assets_audio_player (from `.symlinks/plugins/assets_audio_player/ios`)
   - assets_audio_player_web (from `.symlinks/plugins/assets_audio_player_web/ios`)
   - audioplayers_darwin (from `.symlinks/plugins/audioplayers_darwin/ios`)
+  - connectivity_plus (from `.symlinks/plugins/connectivity_plus/darwin`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
   - flutter_callkit_incoming (from `.symlinks/plugins/flutter_callkit_incoming/ios`)
-  - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - flutter_webrtc (from `.symlinks/plugins/flutter_webrtc/ios`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
@@ -133,6 +134,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/assets_audio_player_web/ios"
   audioplayers_darwin:
     :path: ".symlinks/plugins/audioplayers_darwin/ios"
+  connectivity_plus:
+    :path: ".symlinks/plugins/connectivity_plus/darwin"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
   firebase_messaging:
@@ -141,8 +144,6 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_callkit_incoming:
     :path: ".symlinks/plugins/flutter_callkit_incoming/ios"
-  flutter_local_notifications:
-    :path: ".symlinks/plugins/flutter_local_notifications/ios"
   flutter_webrtc:
     :path: ".symlinks/plugins/flutter_webrtc/ios"
   fluttertoast:
@@ -158,6 +159,7 @@ SPEC CHECKSUMS:
   assets_audio_player: edee322b9cb625571b830b35872ead1a295fd917
   assets_audio_player_web: 19826380c44375761aa0b9053665c1e3fbc3b86b
   audioplayers_darwin: 877d9a4d06331c5c374595e46e16453ac7eafa40
+  connectivity_plus: 4c41c08fc6d7c91f63bc7aec70ffe3730b04f563
   CryptoSwift: c63a805d8bb5e5538e88af4e44bb537776af11ea
   Firebase: cec914dab6fd7b1bd8ab56ea07ce4e03dd251c2d
   firebase_core: 57aeb91680e5d5e6df6b888064be7c785f146efb
@@ -168,7 +170,6 @@ SPEC CHECKSUMS:
   FirebaseMessaging: 7b5d8033e183ab59eb5b852a53201559e976d366
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_callkit_incoming: 417dd1b46541cdd5d855ad795ccbe97d1c18155e
-  flutter_local_notifications: 4cde75091f6327eb8517fa068a0a5950212d2086
   flutter_webrtc: 75b868e4f9e817c7a9a42ca4b6169063de4eec9f
   fluttertoast: e9a18c7be5413da53898f660530c56f35edfba9c
   GoogleDataTransport: 6c09b596d841063d76d4288cc2d2f42cc36e1e2a
