@@ -11,5 +11,5 @@ class SocketMethod {
   static const PING = "telnyx_rtc.ping";
   static const LOGIN = "login";
   static const ATTACH_CALL = "telnyx_rtc.attachCalls";
-
+  static const ATTACH = "telnyx_rtc.attach";
 }

@@ -86,9 +86,9 @@ class Call {
   /// your local specified [callerName], [callerNumber] and [clientState]
   Call acceptCall(IncomingInviteParams invite, String callerName,
       String callerNumber, String clientState,
-      {Map<String, String> customHeaders = const {}}) {
+      {bool isAttach = false, Map<String, String> customHeaders = const {}}) {
     return _txClient.acceptCall(invite, callerName, callerNumber, clientState,
-        customHeaders: customHeaders);
+        customHeaders: customHeaders, isAttach: isAttach);
   }
 
   /// Attempts to end the call identified via the [callID]
