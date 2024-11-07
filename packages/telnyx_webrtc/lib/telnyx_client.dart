@@ -924,11 +924,10 @@ class TelnyxClient {
             case SocketMethod.ATTACH:
               {
                 _logger.i('ATTACH RECEIVED :: $messageJson');
-                _logger.i('INCOMING INVITATION :: $messageJson');
                 ReceivedMessage invite =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 var message = TelnyxMessage(
-                    socketMethod: SocketMethod.INVITE, message: invite);
+                    socketMethod: SocketMethod.ATTACH, message: invite);
                 //play ringtone for web
                 Call offerCall = _createCall();
                 offerCall.callId = invite.inviteParams?.callID;
@@ -943,8 +942,6 @@ class TelnyxClient {
                     "State",
                     isAttach: true);
                 _pendingAnswerFromPush = false;
-                // offerCall.callHandler.changeState(CallState.active, offerCall);
-
                 break;
               }
             case SocketMethod.MEDIA:
@@ -980,6 +977,10 @@ class TelnyxClient {
                 }
                 var message = TelnyxMessage(
                     socketMethod: SocketMethod.ANSWER, message: inviteAnswer);
+                answerCall.callState = CallState.active;
+
+                updateCall(answerCall);
+
                 if (inviteAnswer.inviteParams?.sdp != null) {
                   answerCall
                       ?.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
