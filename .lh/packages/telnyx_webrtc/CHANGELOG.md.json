@@ -3,11 +3,15 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 1,
             "patches": [
                 {
                     "date": 1730980792103,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1730980941597,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,5 +1,5 @@\n-## 0.0.18\n+## 0.1.0\n - Implemented websocket and rtc peer reconnection logic in the event of a network disconnect or network switch.\n \n ## 0.0.17\n - Include login credentials for connect method\n"
                 }
             ],
             "date": 1730980792103,
