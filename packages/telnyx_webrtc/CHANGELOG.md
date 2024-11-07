@@ -1,3 +1,6 @@
+## 0.0.18
+- Implemented websocket and rtc peer reconnection logic in the event of a network disconnect or network switch.
+
 ## 0.0.17
 - Include login credentials for connect method
 
