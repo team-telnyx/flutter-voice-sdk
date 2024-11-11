@@ -275,6 +275,21 @@ class _MyAppState extends State<MyApp> {
       // Android Only - Push Notifications
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         logger.i('OnMessage :: Notification Message: ${message.data}');
+        DateTime nowTime = DateTime.now();
+        Duration? difference = nowTime?.difference(message.sentTime!);
+
+        if (difference != null) {
+          logger.i(
+              'OnMessage :: Notification difference: ${difference.inSeconds}');
+          if (difference.inSeconds > CALL_MISSED_TIMEOUT) {
+            logger.i('OnMessage :: Notification Message: Missed Call');
+            // You can simulate a missed call here
+            NotificationService.showMissedCallNotification(message);
+            return;
+          }
+        }
+
+        logger.i('OnMessage Time :: Notification Message: ${message.sentTime}');
         TelnyxClient.setPushMetaData(message.data);
         NotificationService.showNotification(message);
         mainViewModel.callFromPush = true;
