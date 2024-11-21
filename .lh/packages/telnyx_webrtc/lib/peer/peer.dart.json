@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 1,
+            "activePatchIndex": 4,
             "patches": [
                 {
                     "date": 1730809569544,
@@ -12,6 +12,18 @@
                 {
                     "date": 1730809600452,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -273,9 +273,9 @@\n             userAgent: \"Flutter-1.0\");\n         var answerMessage = InviteAnswerMessage(\n             id: const Uuid().v4(),\n             jsonrpc: JsonRPCConstant.jsonrpc,\n-            method: SocketMethod.ANSWER,\n+            method: isAttach ? SocketMethod.ATTACH : SocketMethod.ANSWER,\n             params: inviteParams);\n \n         String jsonAnswerMessage = jsonEncode(answerMessage);\n         _send(jsonAnswerMessage);\n"
+                },
+                {
+                    "date": 1732094808505,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -284,8 +284,20 @@\n       _logger.e(\"Peer :: $e\");\n     }\n   }\n \n+  Future<void> getStats(RTCPeerConnection peerConnection) async {\n+    peerConnection.getStats(null).then((value) {\n+      value.forEach((report) {\n+        _logger.i(\"Stats: {\");\n+        report.values.forEach((key, value) {\n+          _logger.i(\"$key: $value\");\n+        });\n+        _logger.i(\"}\");\n+      });\n+    });\n+  }\n+\n   void closeSession() {\n     var sess = _sessions[_selfId];\n     if (sess != null) {\n       _logger.d(\"Session end success\");\n"
+                },
+                {
+                    "date": 1732103558178,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -201,9 +201,10 @@\n       String destinationNumber,\n       String clientState,\n       String callId,\n       IncomingInviteParams invite,\n-      Map<String, String> customHeaders,bool isAttach) async {\n+      Map<String, String> customHeaders,\n+      bool isAttach) async {\n     var sessionId = _selfId;\n     Session session = await _createSession(null,\n         peerId: \"0\", sessionId: sessionId, media: \"audio\");\n     _sessions[sessionId] = session;\n@@ -211,9 +212,9 @@\n     await session.peerConnection\n         ?.setRemoteDescription(RTCSessionDescription(invite.sdp, \"offer\"));\n \n     _createAnswer(session, \"audio\", callerName, callerNumber, destinationNumber,\n-        clientState, callId, customHeaders,isAttach);\n+        clientState, callId, customHeaders, isAttach);\n \n     onCallStateChange?.call(session, CallState.active);\n   }\n \n@@ -224,9 +225,10 @@\n       String callerNumber,\n       String destinationNumber,\n       String clientState,\n       String callId,\n-      Map<String, String> customHeaders,bool isAttach) async {\n+      Map<String, String> customHeaders,\n+      bool isAttach) async {\n     try {\n       session.peerConnection?.onIceCandidate = (candidate) async {\n         if (session.peerConnection != null) {\n           _logger.i(\"Peer :: Add Ice Candidate!\");\n"
+                },
+                {
+                    "date": 1732103618535,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -372,8 +372,11 @@\n       switch (state) {\n         case RTCIceConnectionState.RTCIceConnectionStateFailed:\n           peerConnection.restartIce();\n           return;\n+        case RTCIceConnectionState.RTCIceConnectionStateConnected:\n+          getStats(peerConnection);\n+          return;\n         default:\n           return;\n       }\n     };\n"
                 }
             ],
             "date": 1730809569544,

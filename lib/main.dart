@@ -23,8 +23,9 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 
 final logger = Logger();
 final mainViewModel = MainViewModel();
-const MOCK_USER = "<MOCK_USER>";
-const MOCK_PASSWORD = "MOCK_PASSWORD";
+const MOCK_USER = "isaac96045";
+const MOCK_PASSWORD = "vRJ4bLV6";
+const CALL_MISSED_TIMEOUT = 30;
 // Android Only - Push Notifications
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {

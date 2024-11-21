@@ -285,6 +285,18 @@ class Peer {
     }
   }
 
+  Future<void> getStats(RTCPeerConnection peerConnection) async {
+    peerConnection.getStats(null).then((value) {
+      value.forEach((report) {
+        _logger.i("Stats: {");
+        report.values.forEach((key, value) {
+          _logger.i("$key: $value");
+        });
+        _logger.i("}");
+      });
+    });
+  }
+
   void closeSession() {
     var sess = _sessions[_selfId];
     if (sess != null) {
@@ -360,6 +372,9 @@ class Peer {
       switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
           peerConnection.restartIce();
+          return;
+        case RTCIceConnectionState.RTCIceConnectionStateConnected:
+          getStats(peerConnection);
           return;
         default:
           return;
