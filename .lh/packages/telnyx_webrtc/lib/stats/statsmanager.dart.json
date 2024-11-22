@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 4,
+            "activePatchIndex": 6,
             "patches": [
                 {
                     "date": 1732105758108,
@@ -24,6 +24,14 @@
                 {
                     "date": 1732116920203,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -54,22 +54,22 @@\n         \"connectionId\": callId,\n       };\n \n       peerConnection.getStats(null).then((stats) {\n-          stats.forEach((report) {\n+        stats.forEach((report) {\n \n           report.values.forEach((key, value) {\n         \n-          if (value['type'] == 'inbound-rtp') {\n-            inBoundStats.add(value);\n-          }\n-          if (value['type'] == 'outbound-rtp') {\n-            outBoundStats.add(value);\n-          }\n-          if (value['type'] == 'candidate-pair' &&\n-              candidatePairs.length < CANDIDATE_LIMIT) {\n-            candidatePairs.add(value);\n-          }\n+            if (value['type'] == 'inbound-rtp') {\n+              inBoundStats.add(value);\n+            }\n+            if (value['type'] == 'outbound-rtp') {\n+             outBoundStats.add(value);\n+            }\n+            if (value['type'] == 'candidate-pair' &&\n+               candidatePairs.length < CANDIDATE_LIMIT) {\n+               candidatePairs.add(value);\n+            }\n           });\n         });\n \n         audio = {\n"
+                },
+                {
+                    "date": 1732190410632,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -22,29 +22,29 @@\n   List<dynamic> inBoundStats = [];\n   List<dynamic> outBoundStats = [];\n   List<dynamic> candidatePairs = [];\n \n-  String? debugStatsId;\n+  String debugStatsId = const Uuid().v4();\n   bool isDebugStats = false;\n \n   // Placeholder for `client` and `peerConnection`, replace with actual implementation.\n   final TxSocket socket;\n   final RTCPeerConnection peerConnection;\n   final String callId = 'sampleCallId'; // Replace with actual callId.\n \n   void stopTimer() {\n-    socket?.stopStats(debugStatsId);\n+    stopStats(debugStatsId);\n     debugStatsId = null;\n     mainObject = {};\n     _timer?.cancel();\n   }\n \n   void startTimer() {\n     isDebugStats = true;\n \n-    if (socket != null && !(socket.debugReportStarted ?? false)) {\n-      debugStatsId = uuid.v4();\n-       startStats(debugStatsId!);\n+    if (!debugReportStarted) {\n+        debugStatsId = uuid.v4();\n+       startStats(debugStatsId);\n     }\n \n     Timer.periodic(Duration(milliseconds: STATS_INTERVAL), (timer) {\n       mainObject = {\n@@ -82,8 +82,9 @@\n           \"audio\": audio,\n         };\n \n         mainObject[\"data\"] = statsData;\n+                mainObject[\"data\"] = statsData;\n         mainObject[\"timestamp\"] = DateTime.now().millisecondsSinceEpoch;\n \n         if (inBoundStats.isNotEmpty &&\n             outBoundStats.isNotEmpty &&\n@@ -97,9 +98,9 @@\n \n           print(\"Stats Inbound: ${jsonEncode(mainObject)}\");\n \n           if (debugStatsId != null) {\n-            socket?.sendStats(mainObject, debugStatsId);\n+            sendStats(mainObject, debugStatsId);\n           }\n         }\n       });\n    \n"
+                },
+                {
+                    "date": 1732190422706,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -82,9 +82,9 @@\n           \"audio\": audio,\n         };\n \n         mainObject[\"data\"] = statsData;\n-                mainObject[\"data\"] = statsData;\n+                mainObject[\"connectionId\"] = callId;\n         mainObject[\"timestamp\"] = DateTime.now().millisecondsSinceEpoch;\n \n         if (inBoundStats.isNotEmpty &&\n             outBoundStats.isNotEmpty &&\n"
                 }
             ],
             "date": 1732105758108,

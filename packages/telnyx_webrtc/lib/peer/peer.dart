@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/stats/statsmanager.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
@@ -31,6 +32,10 @@ class Session {
 }
 
 class Peer {
+  RTCPeerConnection? peerConnection;
+
+  final debugStatsDelay = const Duration(milliseconds: 20000);
+
   Peer(this._socket);
 
   final _logger = Logger();
@@ -38,6 +43,7 @@ class Peer {
   final String _selfId = randomNumeric(6);
 
   final TxSocket _socket;
+  StatsManager? _statsManager;
 
   final Map<String, Session> _sessions = {};
   MediaStream? _localStream;
@@ -113,7 +119,7 @@ class Peer {
     var sessionId = _selfId;
 
     Session session = await _createSession(null,
-        peerId: "0", sessionId: sessionId, media: "audio");
+        peerId: "0", sessionId: sessionId, callId: callId, media: "audio");
 
     _sessions[sessionId] = session;
 
@@ -206,7 +212,7 @@ class Peer {
       bool isAttach) async {
     var sessionId = _selfId;
     Session session = await _createSession(null,
-        peerId: "0", sessionId: sessionId, media: "audio");
+        peerId: "0", sessionId: sessionId, callId: callId, media: "audio");
     _sessions[sessionId] = session;
 
     await session.peerConnection
@@ -285,18 +291,6 @@ class Peer {
     }
   }
 
-  Future<void> getStats(RTCPeerConnection peerConnection) async {
-    peerConnection.getStats(null).then((value) {
-      value.forEach((report) {
-        _logger.i("Stats: {");
-        report.values.forEach((key, value) {
-          _logger.i("$key: $value");
-        });
-        _logger.i("}");
-      });
-    });
-  }
-
   void closeSession() {
     var sess = _sessions[_selfId];
     if (sess != null) {
@@ -322,26 +316,28 @@ class Peer {
   Future<Session> _createSession(Session? session,
       {required String peerId,
       required String sessionId,
+      required String callId,
       required String media}) async {
     var newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') _localStream = await createStream(media);
 
-    RTCPeerConnection peerConnection = await createPeerConnection({
+    peerConnection = await createPeerConnection({
       ..._iceServers,
       ...{'sdpSemantics': sdpSemantics}
     }, _dcConstraints);
+
     if (media != 'data') {
       switch (sdpSemantics) {
         case 'plan-b':
-          peerConnection.onAddStream = (MediaStream stream) {
+          peerConnection?.onAddStream = (MediaStream stream) {
             onAddRemoteStream?.call(newSession, stream);
             _remoteStreams.add(stream);
           };
-          await peerConnection.addStream(_localStream!);
+          await peerConnection?.addStream(_localStream!);
           break;
         case 'unified-plan':
           // Unified-Plan
-          peerConnection.onTrack = (event) {
+          peerConnection?.onTrack = (event) {
             if (event.track.kind == 'video') {
               onAddRemoteStream?.call(newSession, event.streams[0]);
             } else if (event.track.kind == 'audio') {
@@ -349,15 +345,16 @@ class Peer {
             }
           };
           _localStream!.getTracks().forEach((track) {
-            peerConnection.addTrack(track, _localStream!);
+            peerConnection?.addTrack(track, _localStream!);
           });
           break;
       }
     }
-    peerConnection.onIceCandidate = (candidate) async {
+
+    peerConnection?.onIceCandidate = (candidate) async {
       if (!candidate.candidate.toString().contains("127.0.0.1")) {
         _logger.i("Peer :: Adding ICE candidate :: ${candidate.toString()}");
-        peerConnection.addCandidate(candidate);
+        peerConnection?.addCandidate(candidate);
       } else {
         _logger.i("Peer :: Local candidate skipped!");
       }
@@ -367,28 +364,28 @@ class Peer {
       }
     };
 
-    peerConnection.onIceConnectionState = (state) {
+    peerConnection?.onIceConnectionState = (state) {
       _logger.i("Peer :: ICE Connection State change :: $state");
       switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
-          peerConnection.restartIce();
+          peerConnection?.restartIce();
           return;
-        case RTCIceConnectionState.RTCIceConnectionStateConnected:
-          getStats(peerConnection);
+        case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
+          _statsManager?.stopTimer();
           return;
         default:
           return;
       }
     };
 
-    peerConnection.onRemoveStream = (stream) {
+    peerConnection?.onRemoveStream = (stream) {
       onRemoveRemoteStream?.call(newSession, stream);
       _remoteStreams.removeWhere((it) {
         return (it.id == stream.id);
       });
     };
 
-    peerConnection.onDataChannel = (channel) {
+    peerConnection?.onDataChannel = (channel) {
       _addDataChannel(newSession, channel);
     };
 
@@ -405,14 +402,21 @@ class Peer {
     onDataChannel?.call(session, channel);
   }
 
-  /*Future<void> _createDataChannel(Session session,
-      {label = 'fileTransfer'}) async {
-    RTCDataChannelInit dataChannelDict = RTCDataChannelInit()
-      ..maxRetransmits = 30;
-    RTCDataChannel channel =
-        await session.peerConnection!.createDataChannel(label, dataChannelDict);
-    _addDataChannel(session, channel);
-  }*/
+  Future<bool> startStats(String callId) async {
+    // Delay to allow call to be established
+    await Future.delayed(debugStatsDelay);
+
+    if (peerConnection == null) {
+      _logger.d("Peer connection null");
+      return false;
+    }
+
+    _statsManager = StatsManager(_socket, peerConnection!, callId);
+    _statsManager?.startTimer();
+    _logger.d("Peer :: Stats Manager started for $callId");
+
+    return true;
+  }
 
   _send(event) {
     _socket.send(event);
@@ -452,9 +456,10 @@ class Peer {
     });
     await _localStream?.dispose();
     _localStream = null;
-
     await session.peerConnection?.close();
+    await session.peerConnection?.dispose();
     await session.dc?.close();
+    _statsManager?.stopTimer();
   }
 }
 

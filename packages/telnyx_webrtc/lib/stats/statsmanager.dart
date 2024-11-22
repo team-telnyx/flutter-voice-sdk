@@ -1,16 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/stats/stats_params.dart';
 import 'package:telnyx_webrtc/tx_socket.dart';
 import 'package:uuid/uuid.dart';
 
 class StatsManager {
-  StatsManager(this.socket,this.peerConnection,this.callId) 
+  StatsManager(this.socket, this.peerConnection, this.callId);
+  final _logger = Logger();
 
-  final Timer? _timer = null;
+  Timer? _timer;
   bool debugReportStarted = false;
-  final String callId;
   final Uuid uuid = Uuid();
   final int STATS_INITIAL = 1000; // Replace with appropriate initial delay
   final int STATS_INTERVAL = 1000; // Replace with appropriate interval
@@ -23,30 +24,28 @@ class StatsManager {
   List<dynamic> outBoundStats = [];
   List<dynamic> candidatePairs = [];
 
-  String? debugStatsId;
-  bool isDebugStats = false;
+  String debugStatsId = const Uuid().v4();
 
   // Placeholder for `client` and `peerConnection`, replace with actual implementation.
   final TxSocket socket;
-  final RTCPeerConnection peerConnection;
-  final String callId = 'sampleCallId'; // Replace with actual callId.
+  final RTCPeerConnection? peerConnection;
+  final String callId;
 
   void stopTimer() {
-    socket?.stopStats(debugStatsId);
-    debugStatsId = null;
+    stopStats(debugStatsId);
     mainObject = {};
+    peerConnection?.close();
+    peerConnection?.dispose();
     _timer?.cancel();
   }
 
   void startTimer() {
-    isDebugStats = true;
-
-    if (socket != null && !(socket.debugReportStarted ?? false)) {
+    if (!debugReportStarted) {
       debugStatsId = uuid.v4();
-       startStats(debugStatsId!);
+      _startStats(debugStatsId);
     }
 
-    Timer.periodic(Duration(milliseconds: STATS_INTERVAL), (timer) {
+    _timer = Timer.periodic(Duration(milliseconds: STATS_INTERVAL), (_) {
       mainObject = {
         "event": "stats",
         "tag": "stats",
@@ -54,23 +53,20 @@ class StatsManager {
         "connectionId": callId,
       };
 
-      peerConnection.getStats(null).then((stats) {
-        stats.forEach((report) {
-
-          report.values.forEach((key, value) {
-        
-            if (value['type'] == 'inbound-rtp') {
-              inBoundStats.add(value);
-            }
-            if (value['type'] == 'outbound-rtp') {
-             outBoundStats.add(value);
-            }
-            if (value['type'] == 'candidate-pair' &&
-               candidatePairs.length < CANDIDATE_LIMIT) {
-               candidatePairs.add(value);
-            }
-          });
-        });
+      peerConnection?.getStats(null).then((stats) {
+        for (int i = 0; i < stats.length; i++) {
+          final report = stats[i];
+          if (report.type == "inbound-rtp") {
+            _logger.d("Stats: ${report.type} => ${report.values}");
+            inBoundStats.add(report.values);
+          } else if (report.type == "outbound-rtp") {
+            _logger.d("Stats: ${report.type} => ${report.values}");
+            outBoundStats.add(report.values);
+          } else if (report.type == "candidate-pair") {
+            _logger.d("Stats: ${report.type} => ${report.values}");
+            candidatePairs.add(report.values);
+          }
+        }
 
         audio = {
           "inbound": inBoundStats,
@@ -83,6 +79,7 @@ class StatsManager {
         };
 
         mainObject["data"] = statsData;
+        mainObject["connectionId"] = callId;
         mainObject["timestamp"] = DateTime.now().millisecondsSinceEpoch;
 
         if (inBoundStats.isNotEmpty &&
@@ -97,18 +94,13 @@ class StatsManager {
 
           print("Stats Inbound: ${jsonEncode(mainObject)}");
 
-          if (debugStatsId != null) {
-            socket?.sendStats(mainObject, debugStatsId);
-          }
+          sendStats(mainObject, debugStatsId);
         }
       });
-   
-   
     });
   }
 
-
-   void startStats(String sessionId) {
+  void _startStats(String sessionId) {
     debugReportStarted = true;
     var loginMessage = InitiateOrStopStatParams(
       type: "debug_report_start",
@@ -133,5 +125,4 @@ class StatsManager {
     );
     socket.send(jsonEncode(loginMessage.toJson()));
   }
-
 }
