@@ -213,6 +213,7 @@ class MainViewModel with ChangeNotifier {
         _localName, _localNumber, destination, "Fake State",
         customHeaders: {"X-Header-1": "Value1", "X-Header-2": "Value2"});
     observeCurrentCall();
+    _currentCall?.startDebugStats();
   }
 
   void toggleSpeakerPhone() {
@@ -227,6 +228,8 @@ class MainViewModel with ChangeNotifier {
     if (_incomingInvite != null) {
       _currentCall = _telnyxClient.acceptCall(
           _incomingInvite!, _localName, _localNumber, "State");
+
+      _currentCall?.startDebugStats();
 
       if (Platform.isIOS) {
         // only for iOS
@@ -256,7 +259,6 @@ class MainViewModel with ChangeNotifier {
         // Hide notfication when call is accepted
         FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
-
       notifyListeners();
     } else {
       waitingForInvite = true;

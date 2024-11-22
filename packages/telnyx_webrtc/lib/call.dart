@@ -179,6 +179,16 @@ class Call {
     peerConnection?.enableSpeakerPhone(enable);
   }
 
+  Future<bool> startDebugStats() async {
+    if (peerConnection != null) {
+      _logger.d("Peer connection debug started for $callId");
+      return await peerConnection?.startStats(callId ?? "") ?? false;
+    } else {
+      _logger.d("Peer connection null");
+      return false;
+    }
+  }
+
   /// Either places the call on hold, or unholds the call based on the current
   /// hold state.
   void onHoldUnholdPressed() {
