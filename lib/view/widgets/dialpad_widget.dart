@@ -183,8 +183,6 @@ class _DialPadState extends State<DialPad> {
 }
 
 class DialButton extends StatefulWidget {
-  @override
-  final Key? key;
   final String? title;
   final String? subtitle;
   final Color? color;
@@ -196,7 +194,6 @@ class DialButton extends StatefulWidget {
 
   const DialButton(
       {super.key,
-      this.key,
       this.title,
       this.subtitle,
       this.color,
