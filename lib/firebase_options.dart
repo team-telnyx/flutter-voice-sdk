@@ -73,8 +73,8 @@ class DefaultFirebaseOptions {
     projectId: 'traceit-ae280',
     databaseURL: 'https://traceit-ae280.firebaseio.com',
     storageBucket: 'traceit-ae280.appspot.com',
-    androidClientId: '1041583037627-lchsc88avscqtq2if6lih4cihc7krle2.apps.googleusercontent.com',
+    androidClientId:
+        '1041583037627-lchsc88avscqtq2if6lih4cihc7krle2.apps.googleusercontent.com',
     iosBundleId: 'com.telnyx.flutterWebrtc',
   );
-
 }
