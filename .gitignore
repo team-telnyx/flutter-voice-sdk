@@ -55,3 +55,5 @@ android/.idea/misc.xml
 android/.idea/other.xml
 android/.idea/vcs.xml
 android/app/lint-baseline.xml
+.DS_Store
+/.idea
