@@ -12,7 +12,7 @@ class StatsManager {
 
   Timer? _timer;
   bool debugReportStarted = false;
-  final Uuid uuid = Uuid();
+  final Uuid uuid = const Uuid();
   final int STATS_INITIAL = 1000; // Replace with appropriate initial delay
   final int STATS_INTERVAL = 1000; // Replace with appropriate interval
   final int CANDIDATE_LIMIT = 10; // Adjust as needed

@@ -19,8 +19,9 @@ class DialPad extends StatefulWidget {
   // outputMask is the mask applied to the output text. Defaults to (000) 000-0000
   final String? outputMask;
 
-  DialPad(
-      {this.makeCall,
+  const DialPad(
+      {super.key,
+      this.makeCall,
       this.keyPressed,
       this.hideDialButton,
       this.outputMask,
@@ -182,6 +183,7 @@ class _DialPadState extends State<DialPad> {
 }
 
 class DialButton extends StatefulWidget {
+  @override
   final Key? key;
   final String? title;
   final String? subtitle;
@@ -192,8 +194,9 @@ class DialButton extends StatefulWidget {
   final ValueSetter<String?>? onTap;
   final bool? shouldAnimate;
 
-  DialButton(
-      {this.key,
+  const DialButton(
+      {super.key,
+      this.key,
       this.title,
       this.subtitle,
       this.color,

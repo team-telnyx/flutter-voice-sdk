@@ -1,5 +1,4 @@
 // ignore: avoid_web_libraries_in_flutter
-import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
@@ -170,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final scaffold = ScaffoldMessenger.of(context);
     scaffold.showSnackBar(
       SnackBar(
-        content: Text('$text'),
+        content: Text(text),
         action: SnackBarAction(
             label: 'OKAY', onPressed: scaffold.hideCurrentSnackBar),
       ),

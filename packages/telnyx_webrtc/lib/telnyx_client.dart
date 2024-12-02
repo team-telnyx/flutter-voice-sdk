@@ -956,8 +956,8 @@ class TelnyxClient {
                     _sendNoCallError();
                     return;
                   }
-                  mediaCall?.onRemoteSessionReceived(
-                      mediaReceived.inviteParams?.sdp);
+                  mediaCall
+                      .onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
                   earlySDP = true;
                 } else {
                   _logger.d('No SDP contained within Media Message');
@@ -983,7 +983,7 @@ class TelnyxClient {
 
                 if (inviteAnswer.inviteParams?.sdp != null) {
                   answerCall
-                      ?.onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
+                      .onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
                   onSocketMessageReceived(message);
                 } else if (earlySDP) {
                   onSocketMessageReceived(message);

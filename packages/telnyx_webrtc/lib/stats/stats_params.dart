@@ -42,7 +42,7 @@ class InitiateOrStopStatParams {
     this.debugReportVersion = 1,
     String? id,
     this.jsonrpc = "2.0",
-  }) : id = id ?? Uuid().v4();
+  }) : id = id ?? const Uuid().v4();
 
   Map<String, dynamic> toJson() {
     return {
