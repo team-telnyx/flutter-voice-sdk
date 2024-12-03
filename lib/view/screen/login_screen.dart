@@ -38,11 +38,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _checkPermissions() async {
-    Map<Permission, PermissionStatus> statuses = await [
+    final Map<Permission, PermissionStatus> statuses = await [
       Permission.audio,
       Permission.microphone,
       Permission.bluetooth,
-      Permission.bluetoothConnect
+      Permission.bluetoothConnect,
     ].request();
     print(statuses[Permission.microphone]);
     print(statuses[Permission.bluetooth]);
@@ -52,30 +52,32 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     String? token;
     if (defaultTargetPlatform == TargetPlatform.android) {
       token = (await FirebaseMessaging.instance.getToken())!;
-      logger.i("Android notification token :: $token");
+      logger.i('Android notification token :: $token');
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
-      logger.i("iOS notification token :: $token");
+      logger.i('iOS notification token :: $token');
     }
     setState(() {
-      var credentialConfig = CredentialConfig(
-          sipUserController.text,
-          sipPasswordController.text,
-          sipNameController.text,
-          sipNumberController.text,
-          token,
-          true,
-          "assets/audio/incoming_call.mp3",
-          "assets/audio/ringback_tone.mp3");
+      final credentialConfig = CredentialConfig(
+        sipUserController.text,
+        sipPasswordController.text,
+        sipNameController.text,
+        sipNumberController.text,
+        token,
+        true,
+        'assets/audio/incoming_call.mp3',
+        'assets/audio/ringback_tone.mp3',
+      );
 
-      var tokenConfig = TokenConfig(
-          "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZWxueXhfdGVsZXBob255IiwiZXhwIjoxNzA5NjM0Mzk4LCJpYXQiOjE3MDk1NDc5OTgsImlzcyI6InRlbG55eF90ZWxlcGhvbnkiLCJqdGkiOiIzOWY3ZDY2ZS0xY2JiLTQ2Y2QtOGM4ZS03NDJlOWZlYTUwNDAiLCJuYmYiOjE3MDk1NDc5OTcsInN1YiI6Ijg2YmEyZjA3LWU4NmEtNGU3NS05MTg2LTAwOTYxYWMzNDc0ZSIsInRlbF90b2tlbiI6Ik5iVldCTFFySDRoWk9TS2FGa0ZfMlctcndWcklJbExJcnltZkRFY0RETThydFk0ZUp6TkhmTVlaeWJyNVk2b0tTd2Exa0toZzZrREdDNHd4dUVSTDlodUdqOV9nRk5oVjZwVzRSWFB0dGFWMF9fNXhoVVRHb3F5czdmX0FsVUotZjZzNEktQXNMcm9vc3djNW13SEE3VmdHIiwidHlwIjoiYWNjZXNzIn0.8Y_MdGid2iZg0ERLJxQEbR2R5JRkg6kS_g0P4v5qFEvLWw4MIfEoUXMxyvSEvPd4t3ySS7xeB2_NFCB02kEDVg",
-          sipNameController.text,
-          sipNumberController.text,
-          token,
-          true,
-          "",
-          "");
+      final tokenConfig = TokenConfig(
+        'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZWxueXhfdGVsZXBob255IiwiZXhwIjoxNzA5NjM0Mzk4LCJpYXQiOjE3MDk1NDc5OTgsImlzcyI6InRlbG55eF90ZWxlcGhvbnkiLCJqdGkiOiIzOWY3ZDY2ZS0xY2JiLTQ2Y2QtOGM4ZS03NDJlOWZlYTUwNDAiLCJuYmYiOjE3MDk1NDc5OTcsInN1YiI6Ijg2YmEyZjA3LWU4NmEtNGU3NS05MTg2LTAwOTYxYWMzNDc0ZSIsInRlbF90b2tlbiI6Ik5iVldCTFFySDRoWk9TS2FGa0ZfMlctcndWcklJbExJcnltZkRFY0RETThydFk0ZUp6TkhmTVlaeWJyNVk2b0tTd2Exa0toZzZrREdDNHd4dUVSTDlodUdqOV9nRk5oVjZwVzRSWFB0dGFWMF9fNXhoVVRHb3F5czdmX0FsVUotZjZzNEktQXNMcm9vc3djNW13SEE3VmdHIiwidHlwIjoiYWNjZXNzIn0.8Y_MdGid2iZg0ERLJxQEbR2R5JRkg6kS_g0P4v5qFEvLWw4MIfEoUXMxyvSEvPd4t3ySS7xeB2_NFCB02kEDVg',
+        sipNameController.text,
+        sipNumberController.text,
+        token,
+        true,
+        '',
+        '',
+      );
       Provider.of<MainViewModel>(context, listen: false)
           .login(credentialConfig);
     });
@@ -91,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     Provider.of<MainViewModel>(context, listen: true).observeResponses();
 
-    bool registered =
+    final bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;
     if (registered) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -158,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                 },
                 child: const Text('Login'),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -171,7 +173,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       SnackBar(
         content: Text(text),
         action: SnackBarAction(
-            label: 'OKAY', onPressed: scaffold.hideCurrentSnackBar),
+          label: 'OKAY',
+          onPressed: scaffold.hideCurrentSnackBar,
+        ),
       ),
     );
   }

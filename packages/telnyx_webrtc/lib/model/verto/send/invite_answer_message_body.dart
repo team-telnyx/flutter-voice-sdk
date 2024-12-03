@@ -70,20 +70,21 @@ class DialogParams {
   bool? video;
   Map<String, String>? customHeaders = {};
 
-  DialogParams(
-      {this.attach,
-      this.audio,
-      this.callID,
-      this.callerIdName,
-      this.callerIdNumber,
-      this.clientState,
-      this.destinationNumber,
-      this.remoteCallerIdName,
-      this.screenShare,
-      this.useStereo,
-      this.userVariables,
-      this.video,
-      this.customHeaders});
+  DialogParams({
+    this.attach,
+    this.audio,
+    this.callID,
+    this.callerIdName,
+    this.callerIdNumber,
+    this.clientState,
+    this.destinationNumber,
+    this.remoteCallerIdName,
+    this.screenShare,
+    this.useStereo,
+    this.userVariables,
+    this.video,
+    this.customHeaders,
+  });
 
   DialogParams.fromJson(Map<String, dynamic> json) {
     attach = json['attach'];
@@ -127,7 +128,7 @@ class DialogParams {
       data['userVariables'] = userVariables!.map((v) => v.toJson()).toList();
     }
     if (customHeaders != null) {
-      var headers = <CustomHeader>[];
+      final headers = <CustomHeader>[];
       customHeaders!.forEach((key, value) {
         headers.add(CustomHeader(name: key, value: value));
       });

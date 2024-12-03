@@ -6,9 +6,16 @@
 /// The [autoReconnect] flag decided whether or not to attempt a reconnect (3 attempts) in the case of a login failure with
 /// legitimate credentials
 class CredentialConfig {
-  CredentialConfig(this.sipUser, this.sipPassword, this.sipCallerIDName,
-      this.sipCallerIDNumber, this.notificationToken, this.autoReconnect,
-      [this.ringTonePath, this.ringbackPath]);
+  CredentialConfig(
+    this.sipUser,
+    this.sipPassword,
+    this.sipCallerIDName,
+    this.sipCallerIDNumber,
+    this.notificationToken,
+    this.autoReconnect, [
+    this.ringTonePath,
+    this.ringbackPath,
+  ]);
 
   final String sipUser;
   final String sipPassword;
@@ -28,9 +35,15 @@ class CredentialConfig {
 /// The [autoReconnect] flag decided whether or not to attempt a reconnect (3 attempts) in the case of a login failure with
 /// a legitimate token
 class TokenConfig {
-  TokenConfig(this.sipToken, this.sipCallerIDName, this.sipCallerIDNumber,
-      this.notificationToken, this.autoReconnect,
-      [this.ringTonePath, this.ringbackPath]);
+  TokenConfig(
+    this.sipToken,
+    this.sipCallerIDName,
+    this.sipCallerIDNumber,
+    this.notificationToken,
+    this.autoReconnect, [
+    this.ringTonePath,
+    this.ringbackPath,
+  ]);
 
   final String sipToken;
   final String sipCallerIDName;

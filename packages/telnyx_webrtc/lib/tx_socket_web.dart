@@ -31,7 +31,7 @@ class TxSocket {
       });
 
       _socket.onClose.listen((e) {
-        onClose.call(e.code ?? 0, e.reason ?? "Closed for unknown reason");
+        onClose.call(e.code ?? 0, e.reason ?? 'Closed for unknown reason');
       });
     } catch (e) {
       onClose.call(500, e.toString());

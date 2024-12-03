@@ -1,3 +1,3 @@
 class JsonRPCConstant {
-  static const jsonrpc = "2.0";
+  static const jsonrpc = '2.0';
 }

@@ -26,52 +26,61 @@ class _CallScreenState extends State<CallScreen> {
         title: Text(widget.title),
       ),
       body: SingleChildScrollView(
-          child: Center(
-              child: Column(
-        children: [
-          const SizedBox(height: 16),
-          Text(widget.call?.sessionDestinationNumber ?? "Unknown Caller"),
-          const SizedBox(height: 8),
-          DialPad(
-            backspaceButtonIconColor: Colors.red,
-            dialButtonColor: Colors.red,
-            makeCall: (number) {
-              //End call
-              Provider.of<MainViewModel>(context, listen: false)
-                  .endCall(endfromCallScreen: true);
-            },
-            keyPressed: (number) {
-              callInputController.text =
-                  callInputController.value.text + number;
-              Provider.of<MainViewModel>(context, listen: false).dtmf(number);
-            },
+        child: Center(
+          child: Column(
+            children: [
+              const SizedBox(height: 16),
+              Text(widget.call?.sessionDestinationNumber ?? 'Unknown Caller'),
+              const SizedBox(height: 8),
+              DialPad(
+                backspaceButtonIconColor: Colors.red,
+                dialButtonColor: Colors.red,
+                makeCall: (number) {
+                  //End call
+                  Provider.of<MainViewModel>(context, listen: false)
+                      .endCall(endfromCallScreen: true);
+                },
+                keyPressed: (number) {
+                  callInputController.text =
+                      callInputController.value.text + number;
+                  Provider.of<MainViewModel>(context, listen: false)
+                      .dtmf(number);
+                },
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      print('mic');
+                      Provider.of<MainViewModel>(context, listen: false)
+                          .muteUnmute();
+                    },
+                    icon: const Icon(Icons.mic),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      print('speakerphone');
+                      Provider.of<MainViewModel>(context, listen: false)
+                          .toggleSpeakerPhone();
+                    },
+                    icon: const Icon(Icons.volume_up),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      print('pause');
+                      Provider.of<MainViewModel>(context, listen: false)
+                          .holdUnhold();
+                    },
+                    icon: const Icon(Icons.pause),
+                  ),
+                ],
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-            IconButton(
-                onPressed: () {
-                  print("mic");
-                  Provider.of<MainViewModel>(context, listen: false)
-                      .muteUnmute();
-                },
-                icon: const Icon(Icons.mic)),
-            IconButton(
-                onPressed: () {
-                  print("speakerphone");
-                  Provider.of<MainViewModel>(context, listen: false)
-                      .toggleSpeakerPhone();
-                },
-                icon: const Icon(Icons.volume_up)),
-            IconButton(
-                onPressed: () {
-                  print("pause");
-                  Provider.of<MainViewModel>(context, listen: false)
-                      .holdUnhold();
-                },
-                icon: const Icon(Icons.pause))
-          ])
-        ],
-      ))),
+        ),
+      ),
     );
   }
 }

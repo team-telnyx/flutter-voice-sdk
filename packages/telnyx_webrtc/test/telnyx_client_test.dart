@@ -12,7 +12,7 @@ import 'telnyx_client_test.mocks.dart';
 @GenerateMocks([TelnyxClient])
 void main() {
   test('verify that connect updates boolean properly', () {
-    var telnyxClient = TelnyxClient();
+    final telnyxClient = TelnyxClient();
     telnyxClient.connect();
     telnyxClient.isConnected();
     // Give time to connect, verify isConnected() adjusts
@@ -22,7 +22,7 @@ void main() {
   });
 
   test('verify that disconnect updates boolean properly', () {
-    var telnyxClient = TelnyxClient();
+    final telnyxClient = TelnyxClient();
     telnyxClient.connect();
     telnyxClient.isConnected();
     // Give time to connect, verify isConnected() adjusts
@@ -33,7 +33,7 @@ void main() {
   });
 
   test('verify disconnect is called', () {
-    var telnyxClient = MockTelnyxClient();
+    final telnyxClient = MockTelnyxClient();
     telnyxClient.disconnect();
     verify(telnyxClient.disconnect());
   });
@@ -41,26 +41,26 @@ void main() {
   // Todo remove Test -  is not need since telnyxClient.call is deprecated
   test('verify create call returns a Call without issue when sessionId is set',
       () {
-    var telnyxClient = TelnyxClient();
+    final telnyxClient = TelnyxClient();
     telnyxClient.connect();
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
-      var call = telnyxClient.call;
+      final call = telnyxClient.call;
       expect((telnyxClient.call), call);
     });
   });
 
   test('verify create call returns ArgumentError when no sessionId is set', () {
-    var telnyxClient = MockTelnyxClient();
+    final telnyxClient = MockTelnyxClient();
     when(telnyxClient.createCall()).thenThrow(ArgumentError());
     expect(() => telnyxClient.createCall(), throwsArgumentError);
   });
 
   test('verify credential login calls socket send method without error', () {
-    var telnyxClient = TelnyxClient();
+    final telnyxClient = TelnyxClient();
     telnyxClient.connect();
-    var credLogin =
-        CredentialConfig("test", "test", "test", "test", "test", false);
+    final credLogin =
+        CredentialConfig('test', 'test', 'test', 'test', 'test', false);
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
       telnyxClient.credentialLogin(credLogin);
@@ -70,9 +70,9 @@ void main() {
   });
 
   test('verify token login calls socket send method without error', () {
-    var telnyxClient = TelnyxClient();
+    final telnyxClient = TelnyxClient();
     telnyxClient.connect();
-    var tokenLogin = TokenConfig("test", "test", "test", "test", false);
+    final tokenLogin = TokenConfig('test', 'test', 'test', 'test', false);
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
       telnyxClient.tokenLogin(tokenLogin);
@@ -83,7 +83,7 @@ void main() {
 
   test('verify getGatewayStatus returns IDLE at start of instance creation',
       () {
-    var telnyxClient = TelnyxClient();
+    final telnyxClient = TelnyxClient();
     telnyxClient.connect();
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {

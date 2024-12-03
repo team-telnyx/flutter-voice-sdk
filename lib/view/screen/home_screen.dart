@@ -61,13 +61,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _observeResponses();
     if (invitation) {
       return InvitationWidget(
-          title: 'Home',
-          invitation: Provider.of<MainViewModel>(context, listen: false)
-              .incomingInvitation);
+        title: 'Home',
+        invitation: Provider.of<MainViewModel>(context, listen: false)
+            .incomingInvitation,
+      );
     } else if (ongoingCall) {
       return CallScreen(
-          title: "Ongoing Call",
-          call: Provider.of<MainViewModel>(context, listen: false).currentCall);
+        title: 'Ongoing Call',
+        call: Provider.of<MainViewModel>(context, listen: false).currentCall,
+      );
     } else {
       return Scaffold(
         appBar: AppBar(
@@ -111,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   child: const Text('Call'),
                 ),
-              )
+              ),
             ],
           ),
         ),

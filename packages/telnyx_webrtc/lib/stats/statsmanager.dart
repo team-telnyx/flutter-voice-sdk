@@ -47,40 +47,40 @@ class StatsManager {
 
     _timer = Timer.periodic(Duration(milliseconds: STATS_INTERVAL), (_) {
       mainObject = {
-        "event": "stats",
-        "tag": "stats",
-        "peerId": "stats",
-        "connectionId": callId,
+        'event': 'stats',
+        'tag': 'stats',
+        'peerId': 'stats',
+        'connectionId': callId,
       };
 
       peerConnection?.getStats(null).then((stats) {
         for (int i = 0; i < stats.length; i++) {
           final report = stats[i];
-          if (report.type == "inbound-rtp") {
-            _logger.d("Stats: ${report.type} => ${report.values}");
+          if (report.type == 'inbound-rtp') {
+            _logger.d('Stats: ${report.type} => ${report.values}');
             inBoundStats.add(report.values);
-          } else if (report.type == "outbound-rtp") {
-            _logger.d("Stats: ${report.type} => ${report.values}");
+          } else if (report.type == 'outbound-rtp') {
+            _logger.d('Stats: ${report.type} => ${report.values}');
             outBoundStats.add(report.values);
-          } else if (report.type == "candidate-pair") {
-            _logger.d("Stats: ${report.type} => ${report.values}");
+          } else if (report.type == 'candidate-pair') {
+            _logger.d('Stats: ${report.type} => ${report.values}');
             candidatePairs.add(report.values);
           }
         }
 
         audio = {
-          "inbound": inBoundStats,
-          "outbound": outBoundStats,
-          "candidatePair": candidatePairs,
+          'inbound': inBoundStats,
+          'outbound': outBoundStats,
+          'candidatePair': candidatePairs,
         };
 
         statsData = {
-          "audio": audio,
+          'audio': audio,
         };
 
-        mainObject["data"] = statsData;
-        mainObject["connectionId"] = callId;
-        mainObject["timestamp"] = DateTime.now().millisecondsSinceEpoch;
+        mainObject['data'] = statsData;
+        mainObject['connectionId'] = callId;
+        mainObject['timestamp'] = DateTime.now().millisecondsSinceEpoch;
 
         if (inBoundStats.isNotEmpty &&
             outBoundStats.isNotEmpty &&
@@ -92,7 +92,7 @@ class StatsManager {
           statsData = {};
           audio = {};
 
-          print("Stats Inbound: ${jsonEncode(mainObject)}");
+          print('Stats Inbound: ${jsonEncode(mainObject)}');
 
           sendStats(mainObject, debugStatsId);
         }
@@ -102,15 +102,15 @@ class StatsManager {
 
   void _startStats(String sessionId) {
     debugReportStarted = true;
-    var loginMessage = InitiateOrStopStatParams(
-      type: "debug_report_start",
+    final loginMessage = InitiateOrStopStatParams(
+      type: 'debug_report_start',
       debugReportId: sessionId,
     );
     socket.send(jsonEncode(loginMessage.toJson()));
   }
 
   void sendStats(Map<String, dynamic> data, String sessionId) {
-    var statParams = StatParams(
+    final statParams = StatParams(
       debugReportId: sessionId,
       reportData: data,
     );
@@ -119,8 +119,8 @@ class StatsManager {
 
   void stopStats(String sessionId) {
     debugReportStarted = false;
-    var loginMessage = InitiateOrStopStatParams(
-      type: "debug_report_stop",
+    final loginMessage = InitiateOrStopStatParams(
+      type: 'debug_report_stop',
       debugReportId: sessionId,
     );
     socket.send(jsonEncode(loginMessage.toJson()));

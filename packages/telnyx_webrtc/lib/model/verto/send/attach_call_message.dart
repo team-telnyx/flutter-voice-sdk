@@ -21,17 +21,17 @@ class AttachCallMessage {
 
   factory AttachCallMessage.fromJson(Map<dynamic, dynamic> json) =>
       AttachCallMessage(
-        method: json["method"],
-        id: json["id"],
-        params: Params.fromJson(json["params"]),
-        jsonrpc: json["jsonrpc"],
+        method: json['method'],
+        id: json['id'],
+        params: Params.fromJson(json['params']),
+        jsonrpc: json['jsonrpc'],
       );
 
   Map<dynamic, dynamic> toJson() => {
-        "method": method,
-        "id": id,
-        "params": params?.toJson(),
-        "jsonrpc": jsonrpc,
+        'method': method,
+        'id': id,
+        'params': params?.toJson(),
+        'jsonrpc': jsonrpc,
       };
 }
 
@@ -43,11 +43,11 @@ class Params {
   Map<dynamic, dynamic> userVariables;
 
   factory Params.fromJson(Map<dynamic, dynamic> json) => Params(
-        userVariables: Map<dynamic, dynamic>.from(json["userVariables"]),
+        userVariables: Map<dynamic, dynamic>.from(json['userVariables']),
       );
 
   Map<dynamic, dynamic> toJson() => {
-        "userVariables": userVariables,
+        'userVariables': userVariables,
       };
 }
 

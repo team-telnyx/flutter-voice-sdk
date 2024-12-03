@@ -19,19 +19,20 @@ class DialPad extends StatefulWidget {
   // outputMask is the mask applied to the output text. Defaults to (000) 000-0000
   final String? outputMask;
 
-  const DialPad(
-      {super.key,
-      this.makeCall,
-      this.keyPressed,
-      this.hideDialButton,
-      this.outputMask,
-      this.buttonColor,
-      this.buttonTextColor,
-      this.dialButtonColor,
-      this.dialButtonIconColor,
-      this.dialButtonIcon,
-      this.dialOutputTextColor,
-      this.backspaceButtonIconColor});
+  const DialPad({
+    super.key,
+    this.makeCall,
+    this.keyPressed,
+    this.hideDialButton,
+    this.outputMask,
+    this.buttonColor,
+    this.buttonTextColor,
+    this.dialButtonColor,
+    this.dialButtonIconColor,
+    this.dialButtonIcon,
+    this.dialOutputTextColor,
+    this.backspaceButtonIconColor,
+  });
 
   @override
   _DialPadState createState() => _DialPadState();
@@ -39,21 +40,21 @@ class DialPad extends StatefulWidget {
 
 class _DialPadState extends State<DialPad> {
   MaskedTextController? textEditingController;
-  var _value = "";
-  var mainTitle = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "＃"];
+  var _value = '';
+  var mainTitle = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '＃'];
   var subTitle = [
-    "",
-    "ABC",
-    "DEF",
-    "GHI",
-    "JKL",
-    "MNO",
-    "PQRS",
-    "TUV",
-    "WXYZ",
+    '',
+    'ABC',
+    'DEF',
+    'GHI',
+    'JKL',
+    'MNO',
+    'PQRS',
+    'TUV',
+    'WXYZ',
     null,
-    "+",
-    null
+    '+',
+    null,
   ];
 
   @override
@@ -73,41 +74,52 @@ class _DialPadState extends State<DialPad> {
   }
 
   List<Widget> _getDialerButtons() {
-    var rows = <Widget>[];
+    final rows = <Widget>[];
     var items = <Widget>[];
 
     for (var i = 0; i < mainTitle.length; i++) {
       if (i % 3 == 0 && i > 0) {
-        rows.add(Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: items));
-        rows.add(const SizedBox(
-          height: 12,
-        ));
+        rows.add(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: items,
+          ),
+        );
+        rows.add(
+          const SizedBox(
+            height: 12,
+          ),
+        );
         items = <Widget>[];
       }
 
-      items.add(DialButton(
-        title: mainTitle[i],
-        subtitle: subTitle[i],
-        color: widget.buttonColor,
-        textColor: widget.buttonTextColor,
-        onTap: _setText,
-      ));
+      items.add(
+        DialButton(
+          title: mainTitle[i],
+          subtitle: subTitle[i],
+          color: widget.buttonColor,
+          textColor: widget.buttonTextColor,
+          onTap: _setText,
+        ),
+      );
     }
     //To Do: Fix this workaround for last row
     rows.add(
-        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: items));
-    rows.add(const SizedBox(
-      height: 12,
-    ));
+      Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: items),
+    );
+    rows.add(
+      const SizedBox(
+        height: 12,
+      ),
+    );
 
     return rows;
   }
 
   @override
   Widget build(BuildContext context) {
-    var screenSize = MediaQuery.of(context).size;
-    var sizeFactor = screenSize.height * 0.09852217;
+    final screenSize = MediaQuery.of(context).size;
+    final sizeFactor = screenSize.height * 0.09852217;
 
     return Center(
       child: Column(
@@ -117,8 +129,9 @@ class _DialPadState extends State<DialPad> {
             child: TextFormField(
               readOnly: true,
               style: TextStyle(
-                  color: widget.dialOutputTextColor ?? Colors.black,
-                  fontSize: sizeFactor / 2),
+                color: widget.dialOutputTextColor ?? Colors.black,
+                fontSize: sizeFactor / 2,
+              ),
               textAlign: TextAlign.center,
               decoration: const InputDecoration(border: InputBorder.none),
               controller: textEditingController,
@@ -173,9 +186,9 @@ class _DialPadState extends State<DialPad> {
                           },
                   ),
                 ),
-              )
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -192,16 +205,17 @@ class DialButton extends StatefulWidget {
   final ValueSetter<String?>? onTap;
   final bool? shouldAnimate;
 
-  const DialButton(
-      {super.key,
-      this.title,
-      this.subtitle,
-      this.color,
-      this.textColor,
-      this.icon,
-      this.iconColor,
-      this.shouldAnimate,
-      this.onTap});
+  const DialButton({
+    super.key,
+    this.title,
+    this.subtitle,
+    this.color,
+    this.textColor,
+    this.icon,
+    this.iconColor,
+    this.shouldAnimate,
+    this.onTap,
+  });
 
   @override
   _DialButtonState createState() => _DialButtonState();
@@ -216,7 +230,9 @@ class _DialButtonState extends State<DialButton>
   @override
   void initState() {
     _animationController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 300));
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     _colorTween =
         ColorTween(begin: widget.color ?? Colors.white24, end: Colors.white)
             .animate(_animationController);
@@ -234,8 +250,8 @@ class _DialButtonState extends State<DialButton>
 
   @override
   Widget build(BuildContext context) {
-    var screenSize = MediaQuery.of(context).size;
-    var sizeFactor = screenSize.height * 0.09852217;
+    final screenSize = MediaQuery.of(context).size;
+    final sizeFactor = screenSize.height * 0.09852217;
 
     return GestureDetector(
       onTap: () {
@@ -255,52 +271,62 @@ class _DialButtonState extends State<DialButton>
         }
       },
       child: ClipOval(
-          child: AnimatedBuilder(
-              animation: _colorTween,
-              builder: (context, child) => Container(
-                    color: _colorTween.value,
-                    height: sizeFactor,
-                    width: sizeFactor,
-                    child: Center(
-                        child: widget.icon == null
-                            ? widget.subtitle != null
-                                ? SingleChildScrollView(
-                                    child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: <Widget>[
-                                      const SizedBox(
-                                        height: 8,
-                                      ),
-                                      Text(
-                                        widget.title!,
-                                        style: TextStyle(
-                                            fontSize: sizeFactor / 2,
-                                            color: widget.textColor ??
-                                                Colors.black),
-                                      ),
-                                      Text(widget.subtitle!,
-                                          style: TextStyle(
-                                              color: widget.textColor ??
-                                                  Colors.black))
-                                    ],
-                                  ))
-                                : Padding(
-                                    padding: EdgeInsets.only(
-                                        top: widget.title == "*" ? 10 : 0),
-                                    child: Text(
-                                      widget.title!,
-                                      style: TextStyle(
-                                          fontSize: widget.title == "*" &&
-                                                  widget.subtitle == null
-                                              ? screenSize.height * 0.0862069
-                                              : sizeFactor / 2,
-                                          color:
-                                              widget.textColor ?? Colors.black),
-                                    ))
-                            : Icon(widget.icon,
-                                size: sizeFactor / 2,
-                                color: widget.iconColor ?? Colors.white)),
-                  ))),
+        child: AnimatedBuilder(
+          animation: _colorTween,
+          builder: (context, child) => Container(
+            color: _colorTween.value,
+            height: sizeFactor,
+            width: sizeFactor,
+            child: Center(
+              child: widget.icon == null
+                  ? widget.subtitle != null
+                      ? SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              const SizedBox(
+                                height: 8,
+                              ),
+                              Text(
+                                widget.title!,
+                                style: TextStyle(
+                                  fontSize: sizeFactor / 2,
+                                  color: widget.textColor ?? Colors.black,
+                                ),
+                              ),
+                              Text(
+                                widget.subtitle!,
+                                style: TextStyle(
+                                  color: widget.textColor ?? Colors.black,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Padding(
+                          padding: EdgeInsets.only(
+                            top: widget.title == '*' ? 10 : 0,
+                          ),
+                          child: Text(
+                            widget.title!,
+                            style: TextStyle(
+                              fontSize:
+                                  widget.title == '*' && widget.subtitle == null
+                                      ? screenSize.height * 0.0862069
+                                      : sizeFactor / 2,
+                              color: widget.textColor ?? Colors.black,
+                            ),
+                          ),
+                        )
+                  : Icon(
+                      widget.icon,
+                      size: sizeFactor / 2,
+                      color: widget.iconColor ?? Colors.white,
+                    ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

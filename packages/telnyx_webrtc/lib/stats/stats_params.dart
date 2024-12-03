@@ -9,22 +9,22 @@ class StatParams {
   final String jsonrpc;
 
   StatParams({
-    this.type = "debug_report_data",
+    this.type = 'debug_report_data',
     required this.debugReportId,
     required this.reportData,
     this.debugReportVersion = 1,
     String? id,
-    this.jsonrpc = "2.0",
+    this.jsonrpc = '2.0',
   }) : id = id ?? const Uuid().v4();
 
   Map<String, dynamic> toJson() {
     return {
-      "type": type,
-      "debug_report_id": debugReportId,
-      "debug_report_data": reportData,
-      "debug_report_version": debugReportVersion,
-      "id": id,
-      "jsonrpc": jsonrpc,
+      'type': type,
+      'debug_report_id': debugReportId,
+      'debug_report_data': reportData,
+      'debug_report_version': debugReportVersion,
+      'id': id,
+      'jsonrpc': jsonrpc,
     };
   }
 }
@@ -41,16 +41,16 @@ class InitiateOrStopStatParams {
     required this.debugReportId,
     this.debugReportVersion = 1,
     String? id,
-    this.jsonrpc = "2.0",
+    this.jsonrpc = '2.0',
   }) : id = id ?? const Uuid().v4();
 
   Map<String, dynamic> toJson() {
     return {
-      "type": type,
-      "debug_report_id": debugReportId,
-      "debug_report_version": debugReportVersion,
-      "id": id,
-      "jsonrpc": jsonrpc,
+      'type': type,
+      'debug_report_id': debugReportId,
+      'debug_report_version': debugReportVersion,
+      'id': id,
+      'jsonrpc': jsonrpc,
     };
   }
 }

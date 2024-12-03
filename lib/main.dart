@@ -23,15 +23,15 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 
 final logger = Logger();
 final mainViewModel = MainViewModel();
-const MOCK_USER = "<MOCK_USER>";
-const MOCK_PASSWORD = "<MOCK_PASSWORD>";
+const MOCK_USER = '<MOCK_USER>';
+const MOCK_PASSWORD = '<MOCK_PASSWORD>';
 const CALL_MISSED_TIMEOUT = 30;
 // Android Only - Push Notifications
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('Handling a background message ${message.toMap().toString()}');
-  print("priority ${message.data.toString()}");
+  print('priority ${message.data.toString()}');
   NotificationService.showNotification(message);
   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
     switch (event!.event) {
@@ -43,9 +43,12 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         // TODO: Handle this case.
         break;
       case Event.actionCallAccept:
-        print("Accepted Call from Push Notification");
-        TelnyxClient.setPushMetaData(message.data,
-            isAnswer: true, isDecline: false);
+        print('Accepted Call from Push Notification');
+        TelnyxClient.setPushMetaData(
+          message.data,
+          isAnswer: true,
+          isDecline: false,
+        );
         break;
       case Event.actionCallDecline:
         /*
@@ -53,7 +56,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         * handle the endCall user here.
         *
         * */
-        print("Decline Call from Push Notification");
+        print('Decline Call from Push Notification');
         String? token;
         PushMetaData? pushMetaData;
         final telnyxClient = TelnyxClient();
@@ -64,7 +67,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
               {
                 //make sure to disconnect the telnyxclient on Bye for Decline
                 // Only disconnect the socket when the call was ended from push notifications
-                print("telnyxClient disconnected");
+                print('telnyxClient disconnected');
                 telnyxClient.disconnect();
                 break;
               }
@@ -75,23 +78,34 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         };
 
         pushMetaData =
-            PushMetaData.fromJson(jsonDecode(message.data["metadata"]!));
+            PushMetaData.fromJson(jsonDecode(message.data['metadata']!));
         //set the pushMetaData to decline
         pushMetaData.isDecline = true;
 
         if (defaultTargetPlatform == TargetPlatform.android) {
           token = (await FirebaseMessaging.instance.getToken())!;
 
-          logger.i("Android notification token :: $token");
+          logger.i('Android notification token :: $token');
         } else if (defaultTargetPlatform == TargetPlatform.iOS) {
           token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
 
-          logger.i("iOS notification token :: $token");
+          logger.i('iOS notification token :: $token');
         }
-        var credentialConfig = CredentialConfig(MOCK_USER, MOCK_PASSWORD,
-            "<caller_id>", "<caller_number>", token, true, "", "");
+        final credentialConfig = CredentialConfig(
+          MOCK_USER,
+          MOCK_PASSWORD,
+          '<caller_id>',
+          '<caller_number>',
+          token,
+          true,
+          '',
+          '',
+        );
         telnyxClient.handlePushNotification(
-            pushMetaData, credentialConfig, null);
+          pushMetaData,
+          credentialConfig,
+          null,
+        );
         break;
       case Event.actionDidUpdateDevicePushTokenVoip:
         // TODO: Handle this case.
@@ -165,9 +179,11 @@ Future<void> main() async {
               return;
             }
             logger.i(
-                "received push Call for iOS ${event.body['extra']['metadata']}");
+              "received push Call for iOS ${event.body['extra']['metadata']}",
+            );
             handlePush(
-                event.body['extra']['metadata'] as Map<dynamic, dynamic>);
+              event.body['extra']['metadata'] as Map<dynamic, dynamic>,
+            );
           }
 
           break;
@@ -176,21 +192,21 @@ Future<void> main() async {
           // TODO: show screen calling in Flutter
           break;
         case Event.actionCallAccept:
-          print("Accepted Call");
+          print('Accepted Call');
           mainViewModel.accept();
           break;
         case Event.actionCallDecline:
-          logger.i("actionCallDecline :: call declined");
+          logger.i('actionCallDecline :: call declined');
           mainViewModel.endCall();
           break;
         case Event.actionCallEnded:
           mainViewModel.endCall(endfromCallScreen: false);
-          print("EndCall Call");
-          logger.i("actionCallEnded :: call ended");
+          print('EndCall Call');
+          logger.i('actionCallEnded :: call ended');
           break;
         case Event.actionCallTimeout:
           mainViewModel.endCall();
-          print("Decline Call");
+          print('Decline Call');
           break;
         case Event.actionCallCallback:
           // TODO: only Android - click action `Call back` from missed call notification
@@ -224,8 +240,8 @@ Future<void> main() async {
 }
 
 Future<void> askForNotificationPermission() async {
-  FlutterCallkitIncoming.requestNotificationPermission("notification");
-  var status = await Permission.notification.status;
+  FlutterCallkitIncoming.requestNotificationPermission('notification');
+  final status = await Permission.notification.status;
   if (status.isDenied) {
     // We haven't asked for permission yet or the permission has been denied before, but not permanently
     Permission.notification.request();
@@ -240,21 +256,29 @@ Future<void> askForNotificationPermission() async {
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
   mainViewModel.callFromPush = true;
 
-  logger.i("Handle Push Init");
+  logger.i('Handle Push Init');
   String? token;
 
   PushMetaData? pushMetaData;
   if (defaultTargetPlatform == TargetPlatform.android) {
     token = (await FirebaseMessaging.instance.getToken())!;
     pushMetaData = PushMetaData.fromJson(data);
-    logger.i("Android notification token :: $token");
+    logger.i('Android notification token :: $token');
   } else if (Platform.isIOS) {
     token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
     pushMetaData = PushMetaData.fromJson(data);
-    logger.i("iOS notification token :: $token");
+    logger.i('iOS notification token :: $token');
   }
-  var credentialConfig = CredentialConfig(MOCK_USER, MOCK_PASSWORD,
-      "<caller_id>", "<caller_number>", token, true, "", "");
+  final credentialConfig = CredentialConfig(
+    MOCK_USER,
+    MOCK_PASSWORD,
+    '<caller_id>',
+    '<caller_number>',
+    token,
+    true,
+    '',
+    '',
+  );
   mainViewModel.handlePushNotification(pushMetaData!, credentialConfig, null);
   mainViewModel.observeResponses();
   logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
@@ -276,8 +300,8 @@ class _MyAppState extends State<MyApp> {
       // Android Only - Push Notifications
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         logger.i('OnMessage :: Notification Message: ${message.data}');
-        DateTime nowTime = DateTime.now();
-        Duration? difference = nowTime.difference(message.sentTime!);
+        final DateTime nowTime = DateTime.now();
+        final Duration difference = nowTime.difference(message.sentTime!);
 
         logger
             .i('OnMessage :: Notification difference: ${difference.inSeconds}');
@@ -306,16 +330,17 @@ class _MyAppState extends State<MyApp> {
           if (data != null) {
             handlePush(data);
             print(
-                "getPushData : getInitialMessage :: Notification Message: $data");
+              'getPushData : getInitialMessage :: Notification Message: $data',
+            );
           } else {
-            print("getPushData : No data");
+            print('getPushData : No data');
           }
         });
       } else if (Platform.isIOS && !mainViewModel.callFromPush) {
-        logger.i("iOS :: connect");
+        logger.i('iOS :: connect');
       }
     } catch (e) {
-      print("Error: $e");
+      print('Error: $e');
     }
   }
 

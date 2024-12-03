@@ -18,18 +18,23 @@ class TxSocket {
 
   void connect() async {
     try {
-      print("TxSocket :: connect : $hostAddress");
+      print('TxSocket :: connect : $hostAddress');
 
       _socket = await WebSocket.connect(hostAddress);
       _socket.pingInterval = const Duration(seconds: 10);
       _socket.timeout(const Duration(seconds: 30));
       onOpen.call();
-      _socket.listen((dynamic data) {
-        onMessage.call(data);
-      }, onDone: () {
-        onClose.call(_socket.closeCode ?? 0,
-            _socket.closeReason ?? "Closed for unknown reason");
-      });
+      _socket.listen(
+        (dynamic data) {
+          onMessage.call(data);
+        },
+        onDone: () {
+          onClose.call(
+            _socket.closeCode ?? 0,
+            _socket.closeReason ?? 'Closed for unknown reason',
+          );
+        },
+      );
     } catch (e) {
       onClose.call(500, e.toString());
     }
