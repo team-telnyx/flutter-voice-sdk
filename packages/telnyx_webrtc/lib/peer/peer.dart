@@ -242,7 +242,7 @@ class Peer {
     await session.peerConnection
         ?.setRemoteDescription(RTCSessionDescription(invite.sdp, 'offer'));
 
-    _createAnswer(
+    await _createAnswer(
       session,
       'audio',
       callerName,
@@ -287,7 +287,7 @@ class Peer {
       await Future.delayed(const Duration(milliseconds: 500));
 
       String? sdpUsed = '';
-      session.peerConnection
+      await session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
 
@@ -436,8 +436,8 @@ class Peer {
   }
 
   void _addDataChannel(Session session, RTCDataChannel channel) {
-    channel.onDataChannelState = (e) {};
-    channel.onMessage = (RTCDataChannelMessage data) {
+    channel..onDataChannelState = (e) {}
+    ..onMessage = (RTCDataChannelMessage data) {
       onDataChannelMessage?.call(session, channel, data);
     };
     session.dc = channel;

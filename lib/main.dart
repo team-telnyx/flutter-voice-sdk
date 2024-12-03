@@ -26,13 +26,13 @@ final mainViewModel = MainViewModel();
 const MOCK_USER = '<MOCK_USER>';
 const MOCK_PASSWORD = '<MOCK_PASSWORD>';
 const CALL_MISSED_TIMEOUT = 30;
+
 // Android Only - Push Notifications
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  print('Handling a background message ${message.toMap().toString()}');
-  print('priority ${message.data.toString()}');
-  NotificationService.showNotification(message);
+  logger.i('Handling a background message ${message.toMap().toString()}');
+  await NotificationService.showNotification(message);
   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
     switch (event!.event) {
       case Event.actionCallIncoming:
@@ -43,7 +43,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         // TODO: Handle this case.
         break;
       case Event.actionCallAccept:
-        print('Accepted Call from Push Notification');
+        logger.i('actionCallAccept :: call accepted');
         TelnyxClient.setPushMetaData(
           message.data,
           isAnswer: true,
@@ -56,7 +56,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         * handle the endCall user here.
         *
         * */
-        print('Decline Call from Push Notification');
+        logger.i('actionCallDecline :: call declined');
         String? token;
         PushMetaData? pushMetaData;
         final telnyxClient = TelnyxClient();
@@ -65,9 +65,9 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           switch (message.socketMethod) {
             case SocketMethod.BYE:
               {
-                //make sure to disconnect the telnyxclient on Bye for Decline
+                // make sure to disconnect the telnyxclient on Bye for Decline
                 // Only disconnect the socket when the call was ended from push notifications
-                print('telnyxClient disconnected');
+                logger.i('TelnyxClient :: onSocketMessageReceived :: BYE');
                 telnyxClient.disconnect();
                 break;
               }
@@ -150,7 +150,7 @@ Future<void> main() async {
     // Android Only - Push Notifications
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    askForNotificationPermission();
+    //await askForNotificationPermission();
 
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
@@ -169,7 +169,7 @@ Future<void> main() async {
           if (Platform.isAndroid) {
             final data = await TelnyxClient.getPushData();
             if (data != null) {
-              handlePush(data);
+              await handlePush(data);
             } else {
               logger.i('actionCallIncoming :: Push Data is null!');
             }
@@ -181,7 +181,7 @@ Future<void> main() async {
             logger.i(
               "received push Call for iOS ${event.body['extra']['metadata']}",
             );
-            handlePush(
+            await handlePush(
               event.body['extra']['metadata'] as Map<dynamic, dynamic>,
             );
           }
@@ -192,7 +192,7 @@ Future<void> main() async {
           // TODO: show screen calling in Flutter
           break;
         case Event.actionCallAccept:
-          print('Accepted Call');
+          logger.i('actionCallAccept :: call accepted');
           mainViewModel.accept();
           break;
         case Event.actionCallDecline:
@@ -200,13 +200,12 @@ Future<void> main() async {
           mainViewModel.endCall();
           break;
         case Event.actionCallEnded:
-          mainViewModel.endCall(endfromCallScreen: false);
-          print('EndCall Call');
           logger.i('actionCallEnded :: call ended');
+          mainViewModel.endCall(endfromCallScreen: false);
           break;
         case Event.actionCallTimeout:
+          logger.i('actionCallTimeout :: call timeout');
           mainViewModel.endCall();
-          print('Decline Call');
           break;
         case Event.actionCallCallback:
           // TODO: only Android - click action `Call back` from missed call notification
@@ -240,14 +239,14 @@ Future<void> main() async {
 }
 
 Future<void> askForNotificationPermission() async {
-  FlutterCallkitIncoming.requestNotificationPermission('notification');
+  await FlutterCallkitIncoming.requestNotificationPermission('notification');
   final status = await Permission.notification.status;
   if (status.isDenied) {
     // We haven't asked for permission yet or the permission has been denied before, but not permanently
-    Permission.notification.request();
+    await Permission.notification.request();
   }
 
-// You can also directly ask permission about its status.
+  // You can also directly ask permission about its status.
   if (await Permission.location.isRestricted) {
     // The OS restricts access, for example, because of parental controls.
   }
@@ -279,13 +278,14 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
     '',
     '',
   );
-  mainViewModel.handlePushNotification(pushMetaData!, credentialConfig, null);
-  mainViewModel.observeResponses();
+  mainViewModel
+    ..handlePushNotification(pushMetaData!, credentialConfig, null)
+    ..observeResponses();
   logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -318,7 +318,7 @@ class _MyAppState extends State<MyApp> {
         mainViewModel.callFromPush = true;
       });
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        print('onMessageOpenedApp :: Notification Message: ${message.data}');
+        logger.i('onMessageOpenedApp :: Notification Message: ${message.data}');
       });
     }
 
@@ -329,18 +329,18 @@ class _MyAppState extends State<MyApp> {
           // whenever you open the app from the terminate state by clicking on Notification message,
           if (data != null) {
             handlePush(data);
-            print(
+            logger.i(
               'getPushData : getInitialMessage :: Notification Message: $data',
             );
           } else {
-            print('getPushData : No data');
+            logger.e('getPushData : No data');
           }
         });
       } else if (Platform.isIOS && !mainViewModel.callFromPush) {
         logger.i('iOS :: connect');
       }
     } catch (e) {
-      print('Error: $e');
+      logger.e('Error: $e');
     }
   }
 

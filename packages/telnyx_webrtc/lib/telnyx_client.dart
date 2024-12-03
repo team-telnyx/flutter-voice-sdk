@@ -26,12 +26,6 @@ import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
 
-typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
-typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
-
-/// The TelnyxClient class that can be used to control the SDK. Such as connect,
-/// disconnect, check gateway status or create instance of [Call]
-///
 class _PreferencesStorage {
   static const String _notification_key = 'com.telnyx.webrtc.notification';
 
@@ -81,6 +75,11 @@ class _PreferencesStorage {
   }
 }
 
+typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
+typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
+
+/// The TelnyxClient class that can be used to control the SDK. Such as connect,
+/// disconnect, check gateway status or create instance of [Call] to make calls.
 class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
   late OnSocketErrorReceived onSocketErrorReceived;
@@ -283,35 +282,34 @@ class TelnyxClient {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
       }
-      txSocket.connect();
-
-      txSocket.onOpen = () {
-        _closed = false;
-        _connected = true;
-        _logger.i('Web Socket is now connected');
-        _onOpen();
-        openCallback.call();
-      };
-
-      txSocket.onMessage = (dynamic data) {
-        _onMessage(data);
-      };
-
-      txSocket.onClose = (int closeCode, String closeReason) {
-        _logger.i('Closed [$closeCode, $closeReason]!');
-        _connected = false;
-        _onClose(true, closeCode, closeReason);
-      };
-    } catch (e, s) {
-      _logger.e(e.toString(), null, s);
+      txSocket
+        ..connect()
+        ..onOpen = () {
+          _closed = false;
+          _connected = true;
+          _logger.i('Web Socket is now connected');
+          _onOpen();
+          openCallback.call();
+        }
+        ..onMessage = (dynamic data) {
+          _onMessage(data);
+        }
+        ..onClose = (int closeCode, String closeReason) {
+          _logger.i('Closed [$closeCode, $closeReason]!');
+          _connected = false;
+          _onClose(true, closeCode, closeReason);
+        };
+    } catch (e, string) {
+      _logger.e('${e.toString()} :: $string');
       _connected = false;
       _logger.e('WebSocket $_storedHostAddress error: $e');
     }
   }
 
   void connectWithToken(TokenConfig tokenConfig) {
-    _logger.i('connect()');
-    _logger.i('connecting to WebSocket $_storedHostAddress');
+    _logger
+      ..i('connect()')
+      ..i('connecting to WebSocket $_storedHostAddress');
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
@@ -324,27 +322,25 @@ class TelnyxClient {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
       }
-      txSocket.onOpen = () {
-        _closed = false;
-        _connected = true;
-        _logger.i('Web Socket is now connected');
-        _onOpen();
-        tokenLogin(tokenConfig);
-      };
-
-      txSocket.onMessage = (dynamic data) {
-        _onMessage(data);
-      };
-
-      txSocket.onClose = (int closeCode, String closeReason) {
-        _logger.i('Closed [$closeCode, $closeReason]!');
-        _connected = false;
-        _onClose(true, closeCode, closeReason);
-      };
-
-      txSocket.connect();
-    } catch (e, s) {
-      _logger.e(e.toString(), null, s);
+      txSocket
+        ..onOpen = () {
+          _closed = false;
+          _connected = true;
+          _logger.i('Web Socket is now connected');
+          _onOpen();
+          tokenLogin(tokenConfig);
+        }
+        ..onMessage = (dynamic data) {
+          _onMessage(data);
+        }
+        ..onClose = (int closeCode, String closeReason) {
+          _logger.i('Closed [$closeCode, $closeReason]!');
+          _connected = false;
+          _onClose(true, closeCode, closeReason);
+        }
+        ..connect();
+    } catch (e) {
+      _logger.e(e.toString());
       _connected = false;
       _logger.e('WebSocket $_storedHostAddress error: $e');
     }
@@ -364,27 +360,25 @@ class TelnyxClient {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
       }
-      txSocket.onOpen = () {
-        _closed = false;
-        _connected = true;
-        _logger.i('Web Socket is now connected');
-        _onOpen();
-        credentialLogin(credentialConfig);
-      };
-
-      txSocket.onMessage = (dynamic data) {
-        _onMessage(data);
-      };
-
-      txSocket.onClose = (int closeCode, String closeReason) {
-        _logger.i('Closed [$closeCode, $closeReason]!');
-        _connected = false;
-        _onClose(true, closeCode, closeReason);
-      };
-
-      txSocket.connect();
-    } catch (e, s) {
-      _logger.e(e.toString(), null, s);
+      txSocket
+        ..onOpen = () {
+          _closed = false;
+          _connected = true;
+          _logger.i('Web Socket is now connected');
+          _onOpen();
+          credentialLogin(credentialConfig);
+        }
+        ..onMessage = (dynamic data) {
+          _onMessage(data);
+        }
+        ..onClose = (int closeCode, String closeReason) {
+          _logger.i('Closed [$closeCode, $closeReason]!');
+          _connected = false;
+          _onClose(true, closeCode, closeReason);
+        }
+        ..connect();
+    } catch (e) {
+      _logger.e(e.toString());
       _connected = false;
       _logger.e('WebSocket $_storedHostAddress error: $e');
     }
@@ -412,26 +406,24 @@ class TelnyxClient {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
       }
-      txSocket.onOpen = () {
-        _closed = false;
-        _connected = true;
-        _logger.i('Web Socket is now connected');
-        _onOpen();
-      };
-
-      txSocket.onMessage = (dynamic data) {
-        _onMessage(data);
-      };
-
-      txSocket.onClose = (int closeCode, String closeReason) {
-        _logger.i('Closed [$closeCode, $closeReason]!');
-        _connected = false;
-        _onClose(true, closeCode, closeReason);
-      };
-
-      txSocket.connect();
-    } catch (e, s) {
-      _logger.e(e.toString(), null, s);
+      txSocket
+        ..onOpen = () {
+          _closed = false;
+          _connected = true;
+          _logger.i('Web Socket is now connected');
+          _onOpen();
+        }
+        ..onMessage = (dynamic data) {
+          _onMessage(data);
+        }
+        ..onClose = (int closeCode, String closeReason) {
+          _logger.i('Closed [$closeCode, $closeReason]!');
+          _connected = false;
+          _onClose(true, closeCode, closeReason);
+        }
+        ..connect();
+    } catch (e) {
+      _logger.e(e.toString());
       _connected = false;
       _logger.e('WebSocket $_storedHostAddress error: $e');
     }
@@ -447,9 +439,9 @@ class TelnyxClient {
     // Delay to allow connection
     Timer(const Duration(seconds: 1), () {
       if (storedCredentialConfig != null) {
-        credentialLogin(storedCredentialConfig!);
+        connectWithCredential(storedCredentialConfig!);
       } else if (storedTokenConfig != null) {
-        tokenLogin(storedTokenConfig!);
+        connectWithToken(storedTokenConfig!);
       }
     });
   }

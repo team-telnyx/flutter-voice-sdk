@@ -12,14 +12,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_lints: ^2.0.1
+  flutter_lints: ^5.0.0
   flutter_webrtc: ^0.12.3
-  logger: ^1.1.0
+  logger: ^2.5.0
   uuid: ^3.0.6
   mockito: ^5.2.0
   build_runner: ^2.2.0
-  audioplayers: ^5.2.1
-  assets_audio_player: ^3.1.1
+  just_audio: ^0.9.42
   shared_preferences: ^2.2.3
   connectivity_plus: ^6.1.0
 

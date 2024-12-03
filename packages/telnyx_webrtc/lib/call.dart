@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:assets_audio_player/assets_audio_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
@@ -17,7 +16,7 @@ import 'package:telnyx_webrtc/peer/peer.dart'
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:uuid/uuid.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/gateway_state.dart';
@@ -54,7 +53,7 @@ class Call {
   late CallState callState;
 
   final audioService = AudioService();
-  final mobileAudioPlayer = AssetsAudioPlayer.newPlayer();
+
   final Function callEnded;
   final TxSocket txSocket;
   final TelnyxClient _txClient;
@@ -271,15 +270,9 @@ class Call {
 
   // Example file path for 'web/assets/audio/sound.wav'
   void playAudio(String filePath) {
-    if (kIsWeb && filePath.isNotEmpty) {
+    if (filePath.isNotEmpty) {
       audioService.playLocalFile(filePath);
-      return;
     }
-    mobileAudioPlayer.open(
-      Audio(filePath),
-      autoStart: true,
-      showNotification: false,
-    );
   }
 
   // Play ringtone for only web, iOS and Android will use native audio player
@@ -291,11 +284,7 @@ class Call {
   }
 
   void stopAudio() {
-    if (kIsWeb) {
-      audioService.stopAudio();
-      return;
-    }
-    mobileAudioPlayer.stop();
+    audioService.stopAudio();
   }
 }
 
@@ -304,12 +293,13 @@ class AudioService {
 
   Future<void> playLocalFile(String filePath) async {
     // Ensure the file path is correct and accessible from the web directory
-    await _audioPlayer.play(DeviceFileSource(filePath));
+    await _audioPlayer.setAsset(filePath);
+    await _audioPlayer.play();
   }
 
   Future<void> stopAudio() async {
     // Ensure the file path is correct and accessible from the web directory
-    _audioPlayer.stop();
-    await _audioPlayer.release();
+    await _audioPlayer.stop();
+    await _audioPlayer.dispose();
   }
 }

@@ -11,7 +11,7 @@ import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key, required this.title}) : super(key: key);
+  const LoginScreen({super.key, required this.title});
   final String title;
 
   @override

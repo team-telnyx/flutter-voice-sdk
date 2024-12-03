@@ -60,7 +60,7 @@ void main() {
     final telnyxClient = TelnyxClient();
     telnyxClient.connect();
     final credLogin =
-        CredentialConfig('test', 'test', 'test', 'test', 'test', false);
+        CredentialConfig('test', 'test', 'test', 'test', 'test', false, false);
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
       telnyxClient.credentialLogin(credLogin);
@@ -72,7 +72,8 @@ void main() {
   test('verify token login calls socket send method without error', () {
     final telnyxClient = TelnyxClient();
     telnyxClient.connect();
-    final tokenLogin = TokenConfig('test', 'test', 'test', 'test', false);
+    final tokenLogin =
+        TokenConfig('test', 'test', 'test', 'test', false, false);
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
       telnyxClient.tokenLogin(tokenLogin);

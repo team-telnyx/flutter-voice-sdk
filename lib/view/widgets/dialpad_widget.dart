@@ -35,10 +35,10 @@ class DialPad extends StatefulWidget {
   });
 
   @override
-  _DialPadState createState() => _DialPadState();
+  DialPadState createState() => DialPadState();
 }
 
-class _DialPadState extends State<DialPad> {
+class DialPadState extends State<DialPad> {
   MaskedTextController? textEditingController;
   var _value = '';
   var mainTitle = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '＃'];
@@ -79,13 +79,13 @@ class _DialPadState extends State<DialPad> {
 
     for (var i = 0; i < mainTitle.length; i++) {
       if (i % 3 == 0 && i > 0) {
-        rows.add(
+        rows..add(
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: items,
           ),
-        );
-        rows.add(
+        )
+        ..add(
           const SizedBox(
             height: 12,
           ),
@@ -103,11 +103,10 @@ class _DialPadState extends State<DialPad> {
         ),
       );
     }
-    //To Do: Fix this workaround for last row
-    rows.add(
+    rows..add(
       Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: items),
-    );
-    rows.add(
+    )
+    ..add(
       const SizedBox(
         height: 12,
       ),
@@ -218,10 +217,10 @@ class DialButton extends StatefulWidget {
   });
 
   @override
-  _DialButtonState createState() => _DialButtonState();
+  DialButtonState createState() => DialButtonState();
 }
 
-class _DialButtonState extends State<DialButton>
+class DialButtonState extends State<DialButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation _colorTween;

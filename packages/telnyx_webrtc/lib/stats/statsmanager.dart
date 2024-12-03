@@ -13,9 +13,9 @@ class StatsManager {
   Timer? _timer;
   bool debugReportStarted = false;
   final Uuid uuid = const Uuid();
-  final int STATS_INITIAL = 1000; // Replace with appropriate initial delay
-  final int STATS_INTERVAL = 1000; // Replace with appropriate interval
-  final int CANDIDATE_LIMIT = 10; // Adjust as needed
+  final int STATS_INITIAL = 1000;
+  final int STATS_INTERVAL = 1000;
+  final int CANDIDATE_LIMIT = 10;
 
   Map<String, dynamic> mainObject = {};
   Map<String, dynamic> audio = {};
@@ -26,7 +26,6 @@ class StatsManager {
 
   String debugStatsId = const Uuid().v4();
 
-  // Placeholder for `client` and `peerConnection`, replace with actual implementation.
   final TxSocket socket;
   final RTCPeerConnection? peerConnection;
   final String callId;
