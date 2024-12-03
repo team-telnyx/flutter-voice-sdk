@@ -20,17 +20,13 @@ dependencies:
   connectivity_plus: ^6.1.0
 
 
-  fluttertoast: any
-  logger: any
-  telnyx_webrtc: any
-  provider: any
-  flutter_masked_text2: any
-  uuid: any
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   provider: ^6.0.2
-  flutter_masked_text2: ^0.9.1fluttertoast: ^8.0.9
+  flutter_masked_text2: ^0.9.1
+  fluttertoast: ^8.0.9
   telnyx_webrtc:
     path: ./packages/telnyx_webrtc
 
