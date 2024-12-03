@@ -98,6 +98,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           '<caller_number>',
           token,
           true,
+          true,
           '',
           '',
         );
@@ -274,6 +275,7 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
     '<caller_id>',
     '<caller_number>',
     token,
+    true,
     true,
     '',
     '',

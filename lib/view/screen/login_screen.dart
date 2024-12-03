@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key, required this.title});
+
   final String title;
 
   @override
@@ -65,6 +66,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         sipNumberController.text,
         token,
         true,
+        true,
         'assets/audio/incoming_call.mp3',
         'assets/audio/ringback_tone.mp3',
       );
@@ -74,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         sipNameController.text,
         sipNumberController.text,
         token,
+        true,
         true,
         '',
         '',
