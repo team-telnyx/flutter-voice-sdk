@@ -2,20 +2,21 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:logger/logger.dart';
-import 'package:telnyx_webrtc/stats/stats_params.dart';
+import 'package:telnyx_webrtc/utils/stats/stats_params.dart';
 import 'package:telnyx_webrtc/tx_socket.dart';
 import 'package:uuid/uuid.dart';
 
 class StatsManager {
   StatsManager(this.socket, this.peerConnection, this.callId);
-  final _logger = Logger();
 
+  static const int STATS_INITIAL = 1000;
+  static const int STATS_INTERVAL = 1000;
+  static const int CANDIDATE_LIMIT = 10;
+
+  final _logger = Logger();
   Timer? _timer;
   bool debugReportStarted = false;
   final Uuid uuid = const Uuid();
-  final int STATS_INITIAL = 1000;
-  final int STATS_INTERVAL = 1000;
-  final int CANDIDATE_LIMIT = 10;
 
   Map<String, dynamic> mainObject = {};
   Map<String, dynamic> audio = {};
@@ -23,7 +24,6 @@ class StatsManager {
   List<dynamic> inBoundStats = [];
   List<dynamic> outBoundStats = [];
   List<dynamic> candidatePairs = [];
-
   String debugStatsId = const Uuid().v4();
 
   final TxSocket socket;
@@ -32,9 +32,7 @@ class StatsManager {
 
   void stopTimer() {
     stopStats(debugStatsId);
-    mainObject = {};
-    peerConnection?.close();
-    peerConnection?.dispose();
+    _resetStats();
     _timer?.cancel();
   }
 
@@ -44,7 +42,7 @@ class StatsManager {
       _startStats(debugStatsId);
     }
 
-    _timer = Timer.periodic(Duration(milliseconds: STATS_INTERVAL), (_) {
+    _timer = Timer.periodic(Duration(milliseconds: STATS_INTERVAL), (_) async {
       mainObject = {
         'event': 'stats',
         'tag': 'stats',
@@ -52,20 +50,21 @@ class StatsManager {
         'connectionId': callId,
       };
 
-      peerConnection?.getStats(null).then((stats) {
-        for (int i = 0; i < stats.length; i++) {
-          final report = stats[i];
-          if (report.type == 'inbound-rtp') {
-            _logger.d('Stats: ${report.type} => ${report.values}');
-            inBoundStats.add(report.values);
-          } else if (report.type == 'outbound-rtp') {
-            _logger.d('Stats: ${report.type} => ${report.values}');
-            outBoundStats.add(report.values);
-          } else if (report.type == 'candidate-pair') {
-            _logger.d('Stats: ${report.type} => ${report.values}');
-            candidatePairs.add(report.values);
+      try {
+        final stats = await peerConnection?.getStats(null);
+        stats?.forEach((report) {
+          switch (report.type) {
+            case 'inbound-rtp':
+              inBoundStats.add(report.values);
+              break;
+            case 'outbound-rtp':
+              outBoundStats.add(report.values);
+              break;
+            case 'candidate-pair':
+              candidatePairs.add(report.values);
+              break;
           }
-        }
+        });
 
         audio = {
           'inbound': inBoundStats,
@@ -73,55 +72,50 @@ class StatsManager {
           'candidatePair': candidatePairs,
         };
 
-        statsData = {
-          'audio': audio,
-        };
-
+        statsData = {'audio': audio};
         mainObject['data'] = statsData;
-        mainObject['connectionId'] = callId;
         mainObject['timestamp'] = DateTime.now().millisecondsSinceEpoch;
 
         if (inBoundStats.isNotEmpty &&
             outBoundStats.isNotEmpty &&
             candidatePairs.isNotEmpty) {
-          // Reset for next interval
-          inBoundStats = [];
-          outBoundStats = [];
-          candidatePairs = [];
-          statsData = {};
-          audio = {};
-
-          print('Stats Inbound: ${jsonEncode(mainObject)}');
-
+          _resetStats();
           sendStats(mainObject, debugStatsId);
         }
-      });
+      } catch (e, stackTrace) {
+        _logger.e('Error collecting stats', e, stackTrace);
+      }
     });
   }
 
   void _startStats(String sessionId) {
     debugReportStarted = true;
-    final loginMessage = InitiateOrStopStatParams(
+    socket.send(jsonEncode(InitiateOrStopStatParams(
       type: 'debug_report_start',
       debugReportId: sessionId,
-    );
-    socket.send(jsonEncode(loginMessage.toJson()));
+    ).toJson()));
   }
 
   void sendStats(Map<String, dynamic> data, String sessionId) {
-    final statParams = StatParams(
+    socket.send(jsonEncode(StatParams(
       debugReportId: sessionId,
       reportData: data,
-    );
-    socket.send(jsonEncode(statParams.toJson()));
+    ).toJson()));
   }
 
   void stopStats(String sessionId) {
     debugReportStarted = false;
-    final loginMessage = InitiateOrStopStatParams(
+    socket.send(jsonEncode(InitiateOrStopStatParams(
       type: 'debug_report_stop',
       debugReportId: sessionId,
-    );
-    socket.send(jsonEncode(loginMessage.toJson()));
+    ).toJson()));
+  }
+
+  void _resetStats() {
+    inBoundStats = [];
+    outBoundStats = [];
+    candidatePairs = [];
+    statsData = {};
+    audio = {};
   }
 }

@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
-import 'package:telnyx_webrtc/stats/statsmanager.dart';
+import 'package:telnyx_webrtc/utils/stats/statsmanager.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
@@ -35,13 +35,14 @@ class Peer {
 
   final debugStatsDelay = const Duration(milliseconds: 20000);
 
-  Peer(this._socket);
+  Peer(this._socket, this._debug);
 
   final _logger = Logger();
 
   final String _selfId = randomNumeric(6);
 
   final TxSocket _socket;
+  final bool _debug;
   StatsManager? _statsManager;
 
   final Map<String, Session> _sessions = {};
@@ -436,15 +437,21 @@ class Peer {
   }
 
   void _addDataChannel(Session session, RTCDataChannel channel) {
-    channel..onDataChannelState = (e) {}
-    ..onMessage = (RTCDataChannelMessage data) {
-      onDataChannelMessage?.call(session, channel, data);
-    };
+    channel
+      ..onDataChannelState = (e) {}
+      ..onMessage = (RTCDataChannelMessage data) {
+        onDataChannelMessage?.call(session, channel, data);
+      };
     session.dc = channel;
     onDataChannel?.call(session, channel);
   }
 
   Future<bool> startStats(String callId) async {
+    if (_debug == false) {
+      _logger.d(
+          'Peer :: Stats manager will not start. Debug mode not enabled on config');
+      return false;
+    }
     // Delay to allow call to be established
     await Future.delayed(debugStatsDelay);
 
@@ -460,7 +467,15 @@ class Peer {
     return true;
   }
 
-  _send(event) {
+  void stopStats(String callId) {
+    if (_debug == false) {
+      return;
+    }
+    _statsManager?.stopTimer();
+    _logger.d('Peer :: Stats Manager stopped for $callId');
+  }
+
+  void _send(event) {
     _socket.send(event);
   }
 
@@ -501,20 +516,6 @@ class Peer {
     await session.peerConnection?.close();
     await session.peerConnection?.dispose();
     await session.dc?.close();
-    _statsManager?.stopTimer();
+    stopStats(session.sid);
   }
 }
-
-int randomBetween(int from, int to) {
-  if (from > to) throw Exception('$from cannot be > $to');
-  final rand = Random();
-  return ((to - from) * rand.nextDouble()).toInt() + from;
-}
-
-String randomString(int length, {int from = 33, int to = 126}) {
-  return String.fromCharCodes(
-    List.generate(length, (index) => randomBetween(from, to)),
-  );
-}
-
-String randomNumeric(int length) => randomString(length, from: 48, to: 57);

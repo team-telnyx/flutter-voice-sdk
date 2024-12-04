@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/config.dart';
@@ -9,6 +8,7 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
 
@@ -85,7 +85,7 @@ class Peer {
     ],
   };
 
-  close() async {
+  void close() async {
     await _cleanSessions();
     _socket.close();
   }
@@ -133,7 +133,7 @@ class Peer {
 
     _sessions[sessionId] = session;
 
-    _createOffer(
+    await _createOffer(
       session,
       'audio',
       callerName,
@@ -176,7 +176,7 @@ class Peer {
       await Future.delayed(const Duration(milliseconds: 500));
 
       String? sdpUsed = '';
-      session.peerConnection
+      await session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
 
@@ -245,7 +245,7 @@ class Peer {
     await session.peerConnection
         ?.setRemoteDescription(RTCSessionDescription(invite.sdp, 'offer'));
 
-    _createAnswer(
+    await _createAnswer(
       session,
       'audio',
       callerName,
@@ -288,7 +288,7 @@ class Peer {
       await Future.delayed(const Duration(milliseconds: 500));
 
       String? sdpUsed = '';
-      session.peerConnection
+      await session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
 
@@ -368,7 +368,7 @@ class Peer {
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') _localStream = await createStream(media);
     _localRenderer.srcObject = _localStream;
-    initRenderers();
+    await initRenderers();
     final RTCPeerConnection peerConnection = await createPeerConnection({
       ..._iceServers,
       ...{'sdpSemantics': sdpSemantics},
@@ -387,10 +387,10 @@ class Peer {
       _logger.i('track.settings ${track.getSettings()}');
     });
 
-    peerConnection.onIceCandidate = (candidate) async {
+    peerConnection..onIceCandidate = (candidate) async {
       if (!candidate.candidate.toString().contains('127.0.0.1')) {
         _logger.i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
-        peerConnection.addCandidate(candidate);
+        await peerConnection.addCandidate(candidate);
       } else {
         _logger.i('Peer :: Local candidate skipped!');
       }
@@ -398,9 +398,9 @@ class Peer {
         _logger.i('Peer :: onIceCandidate: complete!');
         return;
       }
-    };
+    }
 
-    peerConnection.onIceConnectionState = (state) {
+    ..onIceConnectionState = (state) {
       _logger.i('Peer :: ICE Connection State change :: $state');
       switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
@@ -409,9 +409,9 @@ class Peer {
         default:
           return;
       }
-    };
+    }
 
-    peerConnection.onRemoveStream = (stream) {
+    ..onRemoveStream = (stream) {
       onRemoveRemoteStream?.call(newSession, stream);
       _remoteStreams.removeWhere((it) {
         return (it.id == stream.id);
@@ -432,8 +432,8 @@ class Peer {
   }
 
   void _addDataChannel(Session session, RTCDataChannel channel) {
-    channel.onDataChannelState = (e) {};
-    channel.onMessage = (RTCDataChannelMessage data) {
+    channel..onDataChannelState = (e) {}
+    ..onMessage = (RTCDataChannelMessage data) {
       onDataChannelMessage?.call(session, channel, data);
     };
     session.dc = channel;
@@ -449,7 +449,7 @@ class Peer {
     _addDataChannel(session, channel);
   }*/
 
-  _send(event) {
+  void _send(event) {
     _socket.send(event);
   }
 
@@ -461,11 +461,11 @@ class Peer {
       await _localStream!.dispose();
       _localStream = null;
     }
-    _sessions.forEach((key, sess) async {
+    _sessions..forEach((key, sess) async {
       await sess.peerConnection?.close();
       await sess.dc?.close();
-    });
-    _sessions.clear();
+    })
+    ..clear();
   }
 
   /*void _closeSessionByPeerId(String peerId) {
@@ -492,17 +492,3 @@ class Peer {
     await session.dc?.close();
   }
 }
-
-int randomBetween(int from, int to) {
-  if (from > to) throw Exception('$from cannot be > $to');
-  final rand = Random();
-  return ((to - from) * rand.nextDouble()).toInt() + from;
-}
-
-String randomString(int length, {int from = 33, int to = 126}) {
-  return String.fromCharCodes(
-    List.generate(length, (index) => randomBetween(from, to)),
-  );
-}
-
-String randomNumeric(int length) => randomString(length, from: 48, to: 57);

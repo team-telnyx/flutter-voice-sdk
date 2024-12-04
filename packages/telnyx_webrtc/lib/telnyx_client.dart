@@ -87,6 +87,7 @@ class TelnyxClient {
   String ringBackpath = '';
   PushMetaData? _pushMetaData;
   bool _isAttaching = false;
+  bool _debug = false;
 
   void checkReconnection() {
     // Remember to cancel the subscription when it's no longer needed
@@ -471,21 +472,14 @@ class TelnyxClient {
   /// yourself on hold/mute.
   Call _createCall() {
     // Set global call parameter
-    _call = Call(
-      txSocket,
-      this,
-      sessid,
-      ringtonePath,
-      ringBackpath,
-      CallHandler((state) {
-        /*
+    _call = Call(txSocket, this, sessid, ringtonePath, ringBackpath,
+        CallHandler((state) {
+      /*
       * initialise this callback to handle call state changes on the client side
       * */
-        print('Call state not overridden :Call State Changed to $state');
-        _logger.i('Call state not overridden :Call State Changed to $state');
-      }),
-      _callEnded,
-    );
+      print('Call state not overridden :Call State Changed to $state');
+      _logger.i('Call state not overridden :Call State Changed to $state');
+    }), _callEnded, _debug);
     return _call!;
   }
 
@@ -502,6 +496,7 @@ class TelnyxClient {
     final fcmToken = config.notificationToken;
     ringBackpath = config.ringbackPath ?? '';
     ringtonePath = config.ringTonePath ?? '';
+    _debug = config.debug;
     UserVariables? notificationParams;
     _autoReconnectLogin = config.autoReconnect ?? true;
 
@@ -554,6 +549,7 @@ class TelnyxClient {
     final fcmToken = config.notificationToken;
     ringBackpath = config.ringbackPath ?? '';
     ringtonePath = config.ringTonePath ?? '';
+    _debug = config.debug;
     UserVariables? notificationParams;
     _autoReconnectLogin = config.autoReconnect ?? true;
 
@@ -605,16 +601,17 @@ class TelnyxClient {
   }) {
     final Call inviteCall = _createCall();
 
-    inviteCall.sessionCallerName = callerName;
-    inviteCall.sessionCallerNumber = callerNumber;
-    inviteCall.sessionDestinationNumber = destinationNumber;
-    inviteCall.sessionClientState = clientState;
+    inviteCall
+      ..sessionCallerName = callerName
+      ..sessionCallerNumber = callerNumber
+      ..sessionDestinationNumber = destinationNumber
+      ..sessionClientState = clientState;
     customHeaders = customHeaders;
     inviteCall.callId = const Uuid().v4();
     final base64State = base64.encode(utf8.encode(clientState));
     updateCall(inviteCall);
 
-    inviteCall.peerConnection = Peer(inviteCall.txSocket);
+    inviteCall.peerConnection = Peer(inviteCall.txSocket, _debug);
     inviteCall.peerConnection?.invite(
       callerName,
       callerNumber,
@@ -624,6 +621,7 @@ class TelnyxClient {
       inviteCall.sessid,
       customHeaders,
     );
+
     //play ringback tone
     inviteCall.playAudio(ringBackpath);
     inviteCall.callHandler.changeState(CallState.newCall, inviteCall);
@@ -641,18 +639,17 @@ class TelnyxClient {
     Map<String, String> customHeaders = const {},
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall();
-    answerCall.callId = invite.callID;
-
-    answerCall.sessionCallerName = callerName;
-    answerCall.sessionCallerNumber = callerNumber;
-    answerCall.callState = CallState.active;
-    answerCall.sessionDestinationNumber =
-        invite.callerIdName ?? 'Unknown Caller';
-    answerCall.sessionClientState = clientState;
+    answerCall
+      ..callId = invite.callID
+      ..sessionCallerName = callerName
+      ..sessionCallerNumber = callerNumber
+      ..callState = CallState.active
+      ..sessionDestinationNumber = invite.callerIdName ?? 'Unknown Caller'
+      ..sessionClientState = clientState;
 
     final destinationNum = invite.callerIdNumber;
 
-    answerCall.peerConnection = Peer(txSocket);
+    answerCall.peerConnection = Peer(txSocket, _debug);
     answerCall.peerConnection?.accept(
       callerName,
       callerNumber,

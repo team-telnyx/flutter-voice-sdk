@@ -39,21 +39,15 @@ class CallHandler {
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
-  Call(
-    this.txSocket,
-    this._txClient,
-    this.sessid,
-    this.ringToneFile,
-    this.ringBackFile,
-    this.callHandler,
-    this.callEnded,
-  );
+  Call(this.txSocket, this._txClient, this.sessid, this.ringToneFile,
+      this.ringBackFile, this.callHandler, this.callEnded, this.debug);
 
   late CallHandler callHandler;
   late CallState callState;
 
   final audioService = AudioService();
 
+  final bool debug;
   final Function callEnded;
   final TxSocket txSocket;
   final TelnyxClient _txClient;
