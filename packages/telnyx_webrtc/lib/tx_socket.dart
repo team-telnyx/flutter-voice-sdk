@@ -18,7 +18,7 @@ class TxSocket {
 
   void connect() async {
     try {
-      print('TxSocket :: connect : $hostAddress');
+      _logger.i('TxSocket :: connect : $hostAddress');
 
       _socket = await WebSocket.connect(hostAddress);
       _socket

@@ -95,13 +95,13 @@ class MainViewModel with ChangeNotifier {
     // Observe Socket Messages Received
     _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
       switch (message.socketMethod) {
-        case SocketMethod.CLIENT_READY:
+        case SocketMethod.clientReady:
           {
             _registered = true;
             logger.i('Registered :: $_registered');
             break;
           }
-        case SocketMethod.INVITE:
+        case SocketMethod.invite:
           {
             observeCurrentCall();
 
@@ -126,12 +126,12 @@ class MainViewModel with ChangeNotifier {
 
             break;
           }
-        case SocketMethod.ANSWER:
+        case SocketMethod.answer:
           {
             _ongoingCall = true;
             break;
           }
-        case SocketMethod.BYE:
+        case SocketMethod.bye:
           {
             _ongoingInvitation = false;
             _ongoingCall = false;

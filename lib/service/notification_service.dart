@@ -21,10 +21,10 @@ class NotificationService {
 
     final CallKitParams callKitParams = CallKitParams(
       id: currentUuid,
-      nameCaller: metadata.caller_name,
+      nameCaller: metadata.callerName,
       appName: 'Telnyx Flutter Voice',
       avatar: 'https://i.pravatar.cc/100',
-      handle: metadata.caller_number,
+      handle: metadata.callerNumber,
       type: 0,
       textAccept: 'Accept',
       textDecline: 'Decline',
@@ -80,10 +80,10 @@ class NotificationService {
 
     final CallKitParams callKitParams = CallKitParams(
       id: currentUuid,
-      nameCaller: metadata.caller_name,
+      nameCaller: metadata.callerName,
       appName: 'Telnyx Flutter Voice',
       avatar: 'https://i.pravatar.cc/100',
-      handle: metadata.caller_number,
+      handle: metadata.callerNumber,
       type: 0,
       textAccept: 'Accept',
       textDecline: 'Decline',

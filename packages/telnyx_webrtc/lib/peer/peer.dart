@@ -4,6 +4,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/peer/session.dart';
+import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/utils/stats/statsmanager.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
@@ -13,22 +15,6 @@ import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
-
-enum SignalingState {
-  ConnectionOpen,
-  ConnectionClosed,
-  ConnectionError,
-}
-
-class Session {
-  Session({required this.sid, required this.pid});
-
-  String pid;
-  String sid;
-  RTCPeerConnection? peerConnection;
-  RTCDataChannel? dc;
-  List<RTCIceCandidate> remoteCandidates = [];
-}
 
 class Peer {
   RTCPeerConnection? peerConnection;
@@ -87,7 +73,7 @@ class Peer {
     ],
   };
 
-  close() async {
+  void close() async {
     await _cleanSessions();
   }
 
@@ -129,7 +115,7 @@ class Peer {
 
     _sessions[sessionId] = session;
 
-    _createOffer(
+    await _createOffer(
       session,
       'audio',
       callerName,
@@ -172,7 +158,7 @@ class Peer {
       await Future.delayed(const Duration(milliseconds: 500));
 
       String? sdpUsed = '';
-      session.peerConnection
+      await session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
 
@@ -201,7 +187,7 @@ class Peer {
         final inviteMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
           jsonrpc: JsonRPCConstant.jsonrpc,
-          method: SocketMethod.INVITE,
+          method: SocketMethod.invite,
           params: inviteParams,
         );
 
@@ -317,7 +303,7 @@ class Peer {
         final answerMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
           jsonrpc: JsonRPCConstant.jsonrpc,
-          method: isAttach ? SocketMethod.ATTACH : SocketMethod.ANSWER,
+          method: isAttach ? SocketMethod.attach : SocketMethod.answer,
           params: inviteParams,
         );
 
@@ -397,7 +383,7 @@ class Peer {
     peerConnection?.onIceCandidate = (candidate) async {
       if (!candidate.candidate.toString().contains('127.0.0.1')) {
         _logger.i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
-        peerConnection?.addCandidate(candidate);
+        await peerConnection?.addCandidate(candidate);
       } else {
         _logger.i('Peer :: Local candidate skipped!');
       }
@@ -454,6 +440,7 @@ class Peer {
       return false;
     }
     // Delay to allow call to be established
+    //ToDo(Oli) - Remove this delay, let's relat on a connection state change instead
     await Future.delayed(debugStatsDelay);
 
     if (peerConnection == null) {
@@ -488,11 +475,12 @@ class Peer {
       await _localStream!.dispose();
       _localStream = null;
     }
-    _sessions.forEach((key, sess) async {
-      await sess.peerConnection?.close();
-      await sess.dc?.close();
-    });
-    _sessions.clear();
+    _sessions
+      ..forEach((key, sess) async {
+        await sess.peerConnection?.close();
+        await sess.dc?.close();
+      })
+      ..clear();
   }
 
   /*void _closeSessionByPeerId(String peerId) {

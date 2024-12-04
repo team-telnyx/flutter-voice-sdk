@@ -1,10 +1,8 @@
-// ignore_for_file: constant_identifier_names
-
 import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:logger/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
     if (dart.library.html) '/web/peer.dart';
@@ -19,61 +17,14 @@ import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/constants.dart';
+import 'package:telnyx_webrtc/utils/preference_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
-
-class _PreferencesStorage {
-  static const String _notification_key = 'com.telnyx.webrtc.notification';
-
-  static Future<Map<String, dynamic>?> getMetaData() async {
-    final String metaData = await getString(_notification_key);
-    if (metaData.isEmpty) {
-      print('No Metadata found');
-      return null;
-    }
-    saveMetadata('');
-    return jsonDecode(metaData);
-  }
-
-  static void saveMetadata(String metaData) {
-    Logger().i('Save meta data $metaData');
-    saveString(_notification_key, metaData);
-  }
-
-  static Future<void> saveString(String key, String data) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(key, data);
-  }
-
-  static Future<String> getString(String key) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? preferences = prefs.getString(key);
-    if (preferences != null) {
-      return preferences;
-    } else {
-      return '';
-    }
-  }
-
-  static Future<void> saveBool(bool data, String key) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, data);
-  }
-
-  static Future<bool> getBool(String key) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final bool? value = prefs.getBool(key);
-    if (value != null) {
-      return value;
-    } else {
-      return false;
-    }
-  }
-}
 
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
@@ -91,10 +42,9 @@ class TelnyxClient {
 
   void checkReconnection() {
     // Remember to cancel the subscription when it's no longer needed
-    final StreamSubscription<List<ConnectivityResult>> subscription =
-        Connectivity()
-            .onConnectivityChanged
-            .listen((List<ConnectivityResult> connectivityResult) {
+    Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> connectivityResult) {
       if (connectivityResult.contains(ConnectivityResult.mobile)) {
         _logger.i('Mobile network available.');
         if (activeCalls().isNotEmpty && !_isAttaching) {
@@ -127,7 +77,6 @@ class TelnyxClient {
         _logger.i('No available network types');
         // No available network types
       }
-      // Received changes in available connectivity types!
     });
   }
 
@@ -135,14 +84,14 @@ class TelnyxClient {
     // Default implementation of onSocketMessageReceived
     onSocketMessageReceived = (TelnyxMessage message) {
       switch (message.socketMethod) {
-        case SocketMethod.INVITE:
+        case SocketMethod.invite:
           {
             _logger.i(
               'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
             );
             break;
           }
-        case SocketMethod.BYE:
+        case SocketMethod.bye:
           {
             _logger.i(
               'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
@@ -162,19 +111,14 @@ class TelnyxClient {
     checkReconnection();
   }
 
-  TxSocket txSocket = TxSocket('wss://rtc.telnyx.com:443');
+  TxSocket txSocket = TxSocket(
+      'wss://${DefaultConfig.telnyxProdHostAddress}:${DefaultConfig.telnyxPort}');
   bool _closed = false;
   bool _connected = false;
   final _logger = Logger();
 
   /// The current session ID related to this client
   String sessid = const Uuid().v4();
-
-  // Gateway registration variables
-  static const int RETRY_REGISTER_TIME = 3;
-  static const int RETRY_CONNECT_TIME = 3;
-  static const int GATEWAY_RESPONSE_DELAY = 3000;
-  static const int RECONNECT_TIMER = 1000;
 
   Timer? _gatewayResponseTimer;
   bool _autoReconnectLogin = true;
@@ -185,7 +129,7 @@ class TelnyxClient {
   bool _registered = false;
   int _registrationRetryCounter = 0;
   int _connectRetryCounter = 0;
-  String gatewayState = GatewayState.IDLE;
+  String gatewayState = GatewayState.idle;
   Map<String, Call> calls = {};
 
   Map<String, Call> activeCalls() {
@@ -254,11 +198,11 @@ class TelnyxClient {
     final Map<String, dynamic> metaData = jsonDecode(pushMetaData['metadata']);
     metaData['isAnswer'] = isAnswer;
     metaData['isDecline'] = isDecline;
-    _PreferencesStorage.saveMetadata(jsonEncode(metaData));
+    PreferencesStorage.saveMetadata(jsonEncode(metaData));
   }
 
   static Future<Map<String, dynamic>?> getPushData() async {
-    return await _PreferencesStorage.getMetaData();
+    return await PreferencesStorage.getMetaData();
   }
 
   /// Create a socket connection for
@@ -272,13 +216,12 @@ class TelnyxClient {
       _pushMetaData = pushMetaData;
     }
     try {
-      if (pushMetaData?.voice_sdk_id != null) {
+      if (pushMetaData?.voiceSdkId != null) {
         txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${pushMetaData?.voice_sdk_id}';
+            '$_storedHostAddress?voice_sdk_id=${pushMetaData?.voiceSdkId}';
         _logger.i(
-          'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voice_sdk_id}',
+          'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voiceSdkId}',
         );
-        print('Connecting to WebSocket :: ${txSocket.hostAddress}');
       } else {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
@@ -314,9 +257,9 @@ class TelnyxClient {
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}';
+            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
         _logger.i(
-          'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}',
+          'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
         print('Connecting to WebSocket :: ${txSocket.hostAddress}');
       } else {
@@ -352,9 +295,9 @@ class TelnyxClient {
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}';
+            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
         _logger.i(
-          'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}',
+          'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
         print('Connecting to WebSocket :: ${txSocket.hostAddress}');
       } else {
@@ -398,9 +341,9 @@ class TelnyxClient {
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voice_sdk_id}';
+            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
         _logger.i(
-          'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voice_sdk_id}',
+          'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
         print('Connecting to WebSocket :: ${txSocket.hostAddress}');
       } else {
@@ -432,7 +375,7 @@ class TelnyxClient {
 
   void _reconnectToSocket() {
     _isAttaching = true;
-    Timer(const Duration(milliseconds: GATEWAY_RESPONSE_DELAY), () {
+    Timer(Duration(milliseconds: Constants.gatewayResponseDelay), () {
       _isAttaching = false;
     });
 
@@ -530,7 +473,7 @@ class TelnyxClient {
     );
     final loginMessage = LoginMessage(
       id: uuid,
-      method: SocketMethod.LOGIN,
+      method: SocketMethod.login,
       params: loginParams,
       jsonrpc: JsonRPCConstant.jsonrpc,
     );
@@ -582,7 +525,7 @@ class TelnyxClient {
     );
     final loginMessage = LoginMessage(
       id: uuid,
-      method: SocketMethod.LOGIN,
+      method: SocketMethod.login,
       params: loginParams,
       jsonrpc: JsonRPCConstant.jsonrpc,
     );
@@ -607,9 +550,7 @@ class TelnyxClient {
     String clientState, {
     Map<String, String> customHeaders = const {},
   }) {
-    final Call inviteCall = _createCall();
-
-    inviteCall
+    final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
       ..sessionCallerNumber = callerNumber
       ..sessionDestinationNumber = destinationNumber
@@ -646,8 +587,7 @@ class TelnyxClient {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
   }) {
-    final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall();
-    answerCall
+    final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
       ..sessionCallerName = callerName
       ..sessionCallerNumber = callerNumber
@@ -781,13 +721,13 @@ class TelnyxClient {
 
             final mainMessage = ReceivedMessage(
               jsonrpc: stateMessage.jsonrpc,
-              method: SocketMethod.GATEWAY_STATE,
+              method: SocketMethod.gatewayState,
               stateParams: stateMessage.resultParams?.stateParams,
             );
 
             if (stateMessage.resultParams != null) {
               switch (stateMessage.resultParams?.stateParams?.state) {
-                case GatewayState.REGED:
+                case GatewayState.reged:
                   {
                     if (!_registered) {
                       _logger.i(
@@ -795,10 +735,10 @@ class TelnyxClient {
                       );
                       _invalidateGatewayResponseTimer();
                       _resetGatewayCounters();
-                      gatewayState = GatewayState.REGED;
+                      gatewayState = GatewayState.reged;
                       _waitingForReg = false;
                       final message = TelnyxMessage(
-                        socketMethod: SocketMethod.CLIENT_READY,
+                        socketMethod: SocketMethod.clientReady,
                         message: mainMessage,
                       );
                       onSocketMessageReceived.call(message);
@@ -812,7 +752,7 @@ class TelnyxClient {
                             kDebugMode ? 'development' : 'production';
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
-                          method: SocketMethod.ATTACH_CALL,
+                          method: SocketMethod.attachCall,
                           id: const Uuid().v4(),
                           params: Params(
                             userVariables: <dynamic, dynamic>{
@@ -832,13 +772,13 @@ class TelnyxClient {
                     }
                     break;
                   }
-                case GatewayState.FAILED:
+                case GatewayState.failed:
                   {
                     print('Failed Error');
                     _logger.i(
                       'GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}',
                     );
-                    gatewayState = GatewayState.FAILED;
+                    gatewayState = GatewayState.failed;
                     _invalidateGatewayResponseTimer();
                     final error = TelnyxSocketError(
                       errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
@@ -847,28 +787,28 @@ class TelnyxClient {
                     onSocketErrorReceived(error);
                     break;
                   }
-                case GatewayState.UNREGED:
+                case GatewayState.unreged:
                   {
                     _logger.i('GATEWAY UNREGED :: ${stateMessage.toString()}');
-                    gatewayState = GatewayState.UNREGED;
+                    gatewayState = GatewayState.unreged;
                     break;
                   }
-                case GatewayState.REGISTER:
+                case GatewayState.register:
                   {
                     _logger
                         .i('GATEWAY REGISTERING :: ${stateMessage.toString()}');
-                    gatewayState = GatewayState.REGISTER;
+                    gatewayState = GatewayState.register;
                     break;
                   }
-                case GatewayState.UNREGISTER:
+                case GatewayState.unregister:
                   {
                     _logger.i(
                       'GATEWAY UNREGISTERED :: ${stateMessage.toString()}',
                     );
-                    gatewayState = GatewayState.UNREGISTER;
+                    gatewayState = GatewayState.unregister;
                     break;
                   }
-                case GatewayState.ATTACHED:
+                case GatewayState.attached:
                   {
                     _logger.i('GATEWAY ATTACHED :: ${stateMessage.toString()}');
                     break;
@@ -893,9 +833,9 @@ class TelnyxClient {
           if (clientReadyMessage.voiceSdkId != null) {
             _logger.i('VoiceSdkID :: ${clientReadyMessage.voiceSdkId}');
             _pushMetaData = PushMetaData(
-              caller_number: null,
-              caller_name: null,
-              voice_sdk_id: clientReadyMessage.voiceSdkId,
+              callerNumber: null,
+              callerName: null,
+              voiceSdkId: clientReadyMessage.voiceSdkId,
             );
           } else {
             _logger.e('VoiceSdkID not found');
@@ -904,7 +844,7 @@ class TelnyxClient {
             'Received WebSocket message - Contains Method :: $messageJson',
           );
           switch (messageJson['method']) {
-            case SocketMethod.PING:
+            case SocketMethod.ping:
               {
                 final result = Result(message: 'PONG', sessid: sessid);
                 final pongMessage = PongMessage(
@@ -916,16 +856,18 @@ class TelnyxClient {
                 txSocket.send(jsonPongMessage);
                 break;
               }
-            case SocketMethod.CLIENT_READY:
+            case SocketMethod.clientReady:
               {
-                if (gatewayState != GatewayState.REGED) {
+                if (gatewayState != GatewayState.reged) {
                   _logger.i('Retrieving Gateway state...');
                   if (_waitingForReg) {
                     _requestGatewayStatus();
                     _gatewayResponseTimer = Timer(
-                        const Duration(milliseconds: GATEWAY_RESPONSE_DELAY),
-                        () {
-                      if (_registrationRetryCounter < RETRY_REGISTER_TIME) {
+                        Duration(
+                          milliseconds: Constants.gatewayResponseDelay,
+                        ), () {
+                      if (_registrationRetryCounter <
+                          Constants.retryRegisterTime) {
                         if (_waitingForReg) {
                           _onMessage(data);
                         }
@@ -946,25 +888,25 @@ class TelnyxClient {
                   final ReceivedMessage clientReadyMessage =
                       ReceivedMessage.fromJson(jsonDecode(data.toString()));
                   final message = TelnyxMessage(
-                    socketMethod: SocketMethod.CLIENT_READY,
+                    socketMethod: SocketMethod.clientReady,
                     message: clientReadyMessage,
                   );
                   onSocketMessageReceived.call(message);
                 }
                 break;
               }
-            case SocketMethod.INVITE:
+            case SocketMethod.invite:
               {
                 _logger.i('INCOMING INVITATION :: $messageJson');
                 final ReceivedMessage invite =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 final message = TelnyxMessage(
-                  socketMethod: SocketMethod.INVITE,
+                  socketMethod: SocketMethod.invite,
                   message: invite,
                 );
-                //play ringtone for web
-                final Call offerCall = _createCall();
-                offerCall.callId = invite.inviteParams?.callID;
+
+                final Call offerCall = _createCall()
+                  ..callId = invite.inviteParams?.callID;
                 updateCall(offerCall);
 
                 onSocketMessageReceived.call(message);
@@ -993,18 +935,18 @@ class TelnyxClient {
                 }
                 break;
               }
-            case SocketMethod.ATTACH:
+            case SocketMethod.attach:
               {
                 _logger.i('ATTACH RECEIVED :: $messageJson');
                 final ReceivedMessage invite =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 final message = TelnyxMessage(
-                  socketMethod: SocketMethod.ATTACH,
+                  socketMethod: SocketMethod.attach,
                   message: invite,
                 );
                 //play ringtone for web
-                final Call offerCall = _createCall();
-                offerCall.callId = invite.inviteParams?.callID;
+                final Call offerCall = _createCall()
+                  ..callId = invite.inviteParams?.callID;
                 updateCall(offerCall);
 
                 onSocketMessageReceived.call(message);
@@ -1019,7 +961,7 @@ class TelnyxClient {
                 _pendingAnswerFromPush = false;
                 break;
               }
-            case SocketMethod.MEDIA:
+            case SocketMethod.media:
               {
                 _logger.i('MEDIA RECEIVED :: $messageJson');
                 final ReceivedMessage mediaReceived =
@@ -1040,7 +982,7 @@ class TelnyxClient {
                 }
                 break;
               }
-            case SocketMethod.ANSWER:
+            case SocketMethod.answer:
               {
                 _logger.i('INVITATION ANSWERED :: $messageJson');
                 final ReceivedMessage inviteAnswer =
@@ -1053,7 +995,7 @@ class TelnyxClient {
                   return;
                 }
                 final message = TelnyxMessage(
-                  socketMethod: SocketMethod.ANSWER,
+                  socketMethod: SocketMethod.answer,
                   message: inviteAnswer,
                 );
                 answerCall.callState = CallState.active;
@@ -1076,7 +1018,7 @@ class TelnyxClient {
                 answerCall.stopAudio();
                 break;
               }
-            case SocketMethod.BYE:
+            case SocketMethod.bye:
               {
                 _logger.i('BYE RECEIVED :: $messageJson');
                 final ReceivedMessage bye =
@@ -1088,7 +1030,7 @@ class TelnyxClient {
                   return;
                 }
                 final message =
-                    TelnyxMessage(socketMethod: SocketMethod.BYE, message: bye);
+                    TelnyxMessage(socketMethod: SocketMethod.bye, message: bye);
                 onSocketMessageReceived(message);
                 byeCall.stopAudio();
                 byeCall.peerConnection?.closeSession();
@@ -1096,7 +1038,7 @@ class TelnyxClient {
                 calls.remove(byeCall.callId);
                 break;
               }
-            case SocketMethod.RINGING:
+            case SocketMethod.ringing:
               {
                 _logger.i('RINGING RECEIVED :: $messageJson');
                 final ReceivedMessage ringing =
@@ -1112,7 +1054,7 @@ class TelnyxClient {
                   'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}',
                 );
                 final message = TelnyxMessage(
-                  socketMethod: SocketMethod.RINGING,
+                  socketMethod: SocketMethod.ringing,
                   message: ringing,
                 );
                 onSocketMessageReceived(message);
@@ -1142,7 +1084,7 @@ class TelnyxClient {
       final gatewayRequestParams = GatewayRequestStateParams();
       final gatewayRequestMessage = GatewayRequestMessage(
         id: uuid.toString(),
-        method: SocketMethod.GATEWAY_STATE,
+        method: SocketMethod.gatewayState,
         params: gatewayRequestParams,
         jsonrpc: JsonRPCConstant.jsonrpc,
       );
@@ -1162,6 +1104,6 @@ class TelnyxClient {
     _registrationRetryCounter = 0;
     _connectRetryCounter = 0;
     _waitingForReg = true;
-    gatewayState = GatewayState.IDLE;
+    gatewayState = GatewayState.idle;
   }
 }

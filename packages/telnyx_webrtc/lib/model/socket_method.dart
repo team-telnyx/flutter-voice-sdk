@@ -1,15 +1,15 @@
 class SocketMethod {
-  static const ANSWER = 'telnyx_rtc.answer';
-  static const INVITE = 'telnyx_rtc.invite';
-  static const BYE = 'telnyx_rtc.bye';
-  static const MODIFY = 'telnyx_rtc.modify';
-  static const MEDIA = 'telnyx_rtc.media';
-  static const INFO = 'telnyx_rtc.info';
-  static const RINGING = 'telnyx_rtc.ringing';
-  static const CLIENT_READY = 'telnyx_rtc.clientReady';
-  static const GATEWAY_STATE = 'telnyx_rtc.gatewayState';
-  static const PING = 'telnyx_rtc.ping';
-  static const LOGIN = 'login';
-  static const ATTACH_CALL = 'telnyx_rtc.attachCalls';
-  static const ATTACH = 'telnyx_rtc.attach';
+  static const answer = 'telnyx_rtc.answer';
+  static const invite = 'telnyx_rtc.invite';
+  static const bye = 'telnyx_rtc.bye';
+  static const modify = 'telnyx_rtc.modify';
+  static const media = 'telnyx_rtc.media';
+  static const info = 'telnyx_rtc.info';
+  static const ringing = 'telnyx_rtc.ringing';
+  static const clientReady = 'telnyx_rtc.clientReady';
+  static const gatewayState = 'telnyx_rtc.gatewayState';
+  static const ping = 'telnyx_rtc.ping';
+  static const login = 'login';
+  static const attachCall = 'telnyx_rtc.attachCalls';
+  static const attach = 'telnyx_rtc.attach';
 }

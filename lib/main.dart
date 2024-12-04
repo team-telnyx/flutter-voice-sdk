@@ -63,7 +63,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
         telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
           switch (message.socketMethod) {
-            case SocketMethod.BYE:
+            case SocketMethod.bye:
               {
                 // make sure to disconnect the telnyxclient on Bye for Decline
                 // Only disconnect the socket when the call was ended from push notifications

@@ -6,6 +6,8 @@ import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/peer/session.dart';
+import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
@@ -15,22 +17,6 @@ import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
-
-enum SignalingState {
-  ConnectionOpen,
-  ConnectionClosed,
-  ConnectionError,
-}
-
-class Session {
-  Session({required this.sid, required this.pid});
-
-  String pid;
-  String sid;
-  RTCPeerConnection? peerConnection;
-  RTCDataChannel? dc;
-  List<RTCIceCandidate> remoteCandidates = [];
-}
 
 class Peer {
   Peer(this._socket);
@@ -205,7 +191,7 @@ class Peer {
         final inviteMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
           jsonrpc: JsonRPCConstant.jsonrpc,
-          method: SocketMethod.INVITE,
+          method: SocketMethod.invite,
           params: inviteParams,
         );
 
@@ -317,7 +303,7 @@ class Peer {
         final answerMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
           jsonrpc: JsonRPCConstant.jsonrpc,
-          method: SocketMethod.ANSWER,
+          method: SocketMethod.answer,
           params: inviteParams,
         );
 

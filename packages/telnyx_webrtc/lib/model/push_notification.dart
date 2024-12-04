@@ -10,34 +10,34 @@ class PushNotification {
 
 class PushMetaData {
   PushMetaData({
-    this.caller_name,
-    this.caller_number,
-    this.call_id,
-    this.voice_sdk_id,
+    this.callerName,
+    this.callerNumber,
+    this.callId,
+    this.voiceSdkId,
   });
 
-  String? caller_name;
-  String? caller_number;
-  String? call_id;
-  String? voice_sdk_id;
+  String? callerName;
+  String? callerNumber;
+  String? callId;
+  String? voiceSdkId;
   bool? isAnswer;
   bool? isDecline;
 
   PushMetaData.fromJson(Map<dynamic, dynamic> json) {
-    caller_name = json['caller_name'];
-    caller_number = json['caller_number'];
-    call_id = json['call_id'];
-    voice_sdk_id = json['voice_sdk_id'];
+    callerName = json['caller_name'];
+    callerNumber = json['caller_number'];
+    callId = json['call_id'];
+    voiceSdkId = json['voice_sdk_id'];
     isAnswer = json['isAnswer'];
     isDecline = json['isDecline'];
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
-    data['caller_name'] = caller_name;
-    data['caller_number'] = caller_number;
-    data['call_id'] = call_id;
-    data['voice_sdk_id'] = voice_sdk_id;
+    data['caller_name'] = callerName;
+    data['caller_number'] = callerNumber;
+    data['call_id'] = callId;
+    data['voice_sdk_id'] = voiceSdkId;
     data['isAnswer'] = isAnswer;
     data['isDecline'] = isDecline;
     return data;

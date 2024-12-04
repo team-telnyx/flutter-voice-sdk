@@ -139,13 +139,13 @@ class Call {
     final byeMessage = SendByeMessage(
       id: uuid,
       jsonrpc: JsonRPCConstant.jsonrpc,
-      method: SocketMethod.BYE,
+      method: SocketMethod.bye,
       params: byeParams,
     );
 
     final String jsonByeMessage = jsonEncode(byeMessage);
 
-    if (_txClient.gatewayState != GatewayState.REGED) {
+    if (_txClient.gatewayState != GatewayState.reged) {
       _logger
           .d('Session end gateway not  registered ${_txClient.gatewayState}');
       return;
@@ -164,7 +164,7 @@ class Call {
     callEnded();
     _txClient.calls.remove(callId);
     final message = TelnyxMessage(
-      socketMethod: SocketMethod.BYE,
+      socketMethod: SocketMethod.bye,
       message: ReceivedMessage(method: 'telnyx_rtc.bye'),
     );
     _txClient.onSocketMessageReceived.call(message);
@@ -195,7 +195,7 @@ class Call {
     final dtmfMessageBody = DtmfInfoMessage(
       id: uuid,
       jsonrpc: JsonRPCConstant.jsonrpc,
-      method: SocketMethod.INFO,
+      method: SocketMethod.info,
       params: infoParams,
     );
 
@@ -261,7 +261,7 @@ class Call {
 
     final modifyMessage = ModifyMessage(
       id: uuid.toString(),
-      method: SocketMethod.MODIFY,
+      method: SocketMethod.modify,
       params: modifyParams,
       jsonrpc: JsonRPCConstant.jsonrpc,
     );

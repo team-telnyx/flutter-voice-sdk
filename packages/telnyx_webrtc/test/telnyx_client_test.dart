@@ -89,7 +89,7 @@ void main() {
     // Give time to connect, verify isConnected() adjusts
     Timer(const Duration(seconds: 2), () {
       // called twice, once for connect, and again for login
-      verify(telnyxClient.getGatewayStatus()).called(GatewayState.IDLE);
+      verify(telnyxClient.getGatewayStatus()).called(GatewayState.idle);
     });
   });
 }
