@@ -112,7 +112,8 @@ class TelnyxClient {
   }
 
   TxSocket txSocket = TxSocket(
-      'wss://${DefaultConfig.telnyxProdHostAddress}:${DefaultConfig.telnyxPort}');
+    'wss://${DefaultConfig.telnyxProdHostAddress}:${DefaultConfig.telnyxPort}',
+  );
   bool _closed = false;
   bool _connected = false;
   final _logger = Logger();
