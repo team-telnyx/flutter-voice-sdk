@@ -300,7 +300,6 @@ class TelnyxClient {
         _logger.i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
-        print('Connecting to WebSocket :: ${txSocket.hostAddress}');
       } else {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
@@ -693,8 +692,6 @@ class TelnyxClient {
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
         _logger.i('Received WebSocket message :: ${data.toString().trim()}');
-        print('Received WebSocket message :: ${data.toString().trim()}');
-
         if (data.toString().trim().contains('error')) {
           final errorJson = jsonEncode(data.toString());
           _logger
@@ -703,8 +700,6 @@ class TelnyxClient {
             final ReceivedResult errorResult =
                 ReceivedResult.fromJson(jsonDecode(data.toString()));
             onSocketErrorReceived.call(errorResult.error!);
-            print('Error Received ${errorResult.error?.errorMessage}');
-            print('Error Received ${errorResult.toJson()}');
           } on Exception catch (e) {
             _logger.e('Error parsing JSON: $e');
           }
@@ -775,7 +770,6 @@ class TelnyxClient {
                   }
                 case GatewayState.failed:
                   {
-                    print('Failed Error');
                     _logger.i(
                       'GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}',
                     );

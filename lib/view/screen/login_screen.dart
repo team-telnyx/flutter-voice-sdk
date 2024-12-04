@@ -60,26 +60,27 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
     setState(() {
       final credentialConfig = CredentialConfig(
-        sipUserController.text,
-        sipPasswordController.text,
-        sipNameController.text,
-        sipNumberController.text,
-        token,
-        true,
-        true,
-        'assets/audio/incoming_call.mp3',
-        'assets/audio/ringback_tone.mp3',
+        sipUser: sipUserController.text,
+        sipPassword: sipPasswordController.text,
+        sipCallerIDName: sipNameController.text,
+        sipCallerIDNumber: sipNumberController.text,
+        notificationToken: token,
+        autoReconnect: true,
+        debug: false,
+        ringTonePath: 'assets/audio/incoming_call.mp3',
+        ringbackPath: 'assets/audio/ringback_tone.mp3',
       );
 
       final tokenConfig = TokenConfig(
-        'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZWxueXhfdGVsZXBob255IiwiZXhwIjoxNzA5NjM0Mzk4LCJpYXQiOjE3MDk1NDc5OTgsImlzcyI6InRlbG55eF90ZWxlcGhvbnkiLCJqdGkiOiIzOWY3ZDY2ZS0xY2JiLTQ2Y2QtOGM4ZS03NDJlOWZlYTUwNDAiLCJuYmYiOjE3MDk1NDc5OTcsInN1YiI6Ijg2YmEyZjA3LWU4NmEtNGU3NS05MTg2LTAwOTYxYWMzNDc0ZSIsInRlbF90b2tlbiI6Ik5iVldCTFFySDRoWk9TS2FGa0ZfMlctcndWcklJbExJcnltZkRFY0RETThydFk0ZUp6TkhmTVlaeWJyNVk2b0tTd2Exa0toZzZrREdDNHd4dUVSTDlodUdqOV9nRk5oVjZwVzRSWFB0dGFWMF9fNXhoVVRHb3F5czdmX0FsVUotZjZzNEktQXNMcm9vc3djNW13SEE3VmdHIiwidHlwIjoiYWNjZXNzIn0.8Y_MdGid2iZg0ERLJxQEbR2R5JRkg6kS_g0P4v5qFEvLWw4MIfEoUXMxyvSEvPd4t3ySS7xeB2_NFCB02kEDVg',
-        sipNameController.text,
-        sipNumberController.text,
-        token,
-        true,
-        true,
-        '',
-        '',
+        sipToken:
+            'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZWxueXhfdGVsZXBob255IiwiZXhwIjoxNzA5NjM0Mzk4LCJpYXQiOjE3MDk1NDc5OTgsImlzcyI6InRlbG55eF90ZWxlcGhvbnkiLCJqdGkiOiIzOWY3ZDY2ZS0xY2JiLTQ2Y2QtOGM4ZS03NDJlOWZlYTUwNDAiLCJuYmYiOjE3MDk1NDc5OTcsInN1YiI6Ijg2YmEyZjA3LWU4NmEtNGU3NS05MTg2LTAwOTYxYWMzNDc0ZSIsInRlbF90b2tlbiI6Ik5iVldCTFFySDRoWk9TS2FGa0ZfMlctcndWcklJbExJcnltZkRFY0RETThydFk0ZUp6TkhmTVlaeWJyNVk2b0tTd2Exa0toZzZrREdDNHd4dUVSTDlodUdqOV9nRk5oVjZwVzRSWFB0dGFWMF9fNXhoVVRHb3F5czdmX0FsVUotZjZzNEktQXNMcm9vc3djNW13SEE3VmdHIiwidHlwIjoiYWNjZXNzIn0.8Y_MdGid2iZg0ERLJxQEbR2R5JRkg6kS_g0P4v5qFEvLWw4MIfEoUXMxyvSEvPd4t3ySS7xeB2_NFCB02kEDVg',
+        sipCallerIDName: sipNameController.text,
+        sipCallerIDNumber: sipNumberController.text,
+        notificationToken: token,
+        autoReconnect: true,
+        debug: true,
+        ringTonePath: 'assets/audio/incoming_call.mp3',
+        ringbackPath: 'assets/audio/ringback_tone.mp3',
       );
       Provider.of<MainViewModel>(context, listen: false)
           .login(credentialConfig);
@@ -165,19 +166,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showToast(BuildContext context, String text) {
-    final scaffold = ScaffoldMessenger.of(context);
-    scaffold.showSnackBar(
-      SnackBar(
-        content: Text(text),
-        action: SnackBarAction(
-          label: 'OKAY',
-          onPressed: scaffold.hideCurrentSnackBar,
         ),
       ),
     );

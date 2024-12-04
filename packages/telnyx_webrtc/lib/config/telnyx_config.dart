@@ -1,14 +1,14 @@
 /// Base configuration class for common parameters
 class Config {
-  Config(
-    this.sipCallerIDName,
-    this.sipCallerIDNumber,
+  Config({
+    required this.sipCallerIDName,
+    required this.sipCallerIDNumber,
     this.notificationToken,
     this.autoReconnect,
-    this.debug, [
+    required this.debug,
     this.ringTonePath,
     this.ringbackPath,
-  ]);
+  });
 
   final String sipCallerIDName;
   final String sipCallerIDNumber;
@@ -27,25 +27,17 @@ class Config {
 /// The [autoReconnect] flag decided whether or not to attempt a reconnect (3 attempts) in the case of a login failure with
 /// legitimate credentials
 class CredentialConfig extends Config {
-  CredentialConfig(
-    this.sipUser,
-    this.sipPassword,
-    String sipCallerIDName,
-    String sipCallerIDNumber,
-    String? notificationToken,
-    bool? autoReconnect,
-    bool debug, [
-    String? ringTonePath,
-    String? ringbackPath,
-  ]) : super(
-          sipCallerIDName,
-          sipCallerIDNumber,
-          notificationToken,
-          autoReconnect,
-          debug,
-          ringTonePath,
-          ringbackPath,
-        );
+  CredentialConfig({
+    required this.sipUser,
+    required this.sipPassword,
+    required super.sipCallerIDName,
+    required super.sipCallerIDNumber,
+    super.notificationToken,
+    super.autoReconnect,
+    required super.debug,
+    super.ringTonePath,
+    super.ringbackPath,
+  });
 
   final String sipUser;
   final String sipPassword;
@@ -59,24 +51,16 @@ class CredentialConfig extends Config {
 /// The [autoReconnect] flag decided whether or not to attempt a reconnect (3 attempts) in the case of a login failure with
 /// a legitimate token
 class TokenConfig extends Config {
-  TokenConfig(
-    this.sipToken,
-    String sipCallerIDName,
-    String sipCallerIDNumber,
-    String? notificationToken,
-    bool? autoReconnect,
-    bool debug, [
-    String? ringTonePath,
-    String? ringbackPath,
-  ]) : super(
-          sipCallerIDName,
-          sipCallerIDNumber,
-          notificationToken,
-          autoReconnect,
-          debug,
-          ringTonePath,
-          ringbackPath,
-        );
+  TokenConfig({
+    required this.sipToken,
+    required super.sipCallerIDName,
+    required super.sipCallerIDNumber,
+    super.notificationToken,
+    super.autoReconnect,
+    required super.debug,
+    super.ringTonePath,
+    super.ringbackPath,
+  });
 
   final String sipToken;
 }
