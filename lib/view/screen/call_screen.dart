@@ -6,8 +6,7 @@ import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 import 'package:telnyx_webrtc/call.dart';
 
 class CallScreen extends StatefulWidget {
-  const CallScreen({Key? key, required this.title, this.call})
-      : super(key: key);
+  const CallScreen({super.key, required this.title, this.call});
   final String title;
   final Call? call;
 

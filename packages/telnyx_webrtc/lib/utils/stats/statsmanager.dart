@@ -27,7 +27,7 @@ class StatsManager {
   String debugStatsId = const Uuid().v4();
 
   final TxSocket socket;
-  final RTCPeerConnection? peerConnection;
+  final RTCPeerConnection peerConnection;
   final String callId;
 
   void stopTimer() {
@@ -51,8 +51,8 @@ class StatsManager {
       };
 
       try {
-        final stats = await peerConnection?.getStats(null);
-        stats?.forEach((report) {
+        final stats = await peerConnection.getStats(null);
+        for (var report in stats) {
           switch (report.type) {
             case 'inbound-rtp':
               inBoundStats.add(report.values);
@@ -64,7 +64,7 @@ class StatsManager {
               candidatePairs.add(report.values);
               break;
           }
-        });
+        }
 
         audio = {
           'inbound': inBoundStats,
@@ -82,33 +82,45 @@ class StatsManager {
           _resetStats();
           sendStats(mainObject, debugStatsId);
         }
-      } catch (e, stackTrace) {
-        _logger.e('Error collecting stats', e, stackTrace);
+      } catch (e) {
+        _logger.e('Error collecting stats: $e');
       }
     });
   }
 
   void _startStats(String sessionId) {
     debugReportStarted = true;
-    socket.send(jsonEncode(InitiateOrStopStatParams(
-      type: 'debug_report_start',
-      debugReportId: sessionId,
-    ).toJson()));
+    socket.send(
+      jsonEncode(
+        InitiateOrStopStatParams(
+          type: 'debug_report_start',
+          debugReportId: sessionId,
+        ).toJson(),
+      ),
+    );
   }
 
   void sendStats(Map<String, dynamic> data, String sessionId) {
-    socket.send(jsonEncode(StatParams(
-      debugReportId: sessionId,
-      reportData: data,
-    ).toJson()));
+    socket.send(
+      jsonEncode(
+        StatParams(
+          debugReportId: sessionId,
+          reportData: data,
+        ).toJson(),
+      ),
+    );
   }
 
   void stopStats(String sessionId) {
     debugReportStarted = false;
-    socket.send(jsonEncode(InitiateOrStopStatParams(
-      type: 'debug_report_stop',
-      debugReportId: sessionId,
-    ).toJson()));
+    socket.send(
+      jsonEncode(
+        InitiateOrStopStatParams(
+          type: 'debug_report_stop',
+          debugReportId: sessionId,
+        ).toJson(),
+      ),
+    );
   }
 
   void _resetStats() {

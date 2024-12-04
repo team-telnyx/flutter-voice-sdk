@@ -449,7 +449,8 @@ class Peer {
   Future<bool> startStats(String callId) async {
     if (_debug == false) {
       _logger.d(
-          'Peer :: Stats manager will not start. Debug mode not enabled on config');
+        'Peer :: Stats manager will not start. Debug mode not enabled on config',
+      );
       return false;
     }
     // Delay to allow call to be established

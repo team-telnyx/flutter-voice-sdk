@@ -472,14 +472,22 @@ class TelnyxClient {
   /// yourself on hold/mute.
   Call _createCall() {
     // Set global call parameter
-    _call = Call(txSocket, this, sessid, ringtonePath, ringBackpath,
-        CallHandler((state) {
-      /*
+    _call = Call(
+      txSocket,
+      this,
+      sessid,
+      ringtonePath,
+      ringBackpath,
+      CallHandler((state) {
+        /*
       * initialise this callback to handle call state changes on the client side
       * */
-      print('Call state not overridden :Call State Changed to $state');
-      _logger.i('Call state not overridden :Call State Changed to $state');
-    }), _callEnded, _debug);
+        print('Call state not overridden :Call State Changed to $state');
+        _logger.i('Call state not overridden :Call State Changed to $state');
+      }),
+      _callEnded,
+      _debug,
+    );
     return _call!;
   }
 

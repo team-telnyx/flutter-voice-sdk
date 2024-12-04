@@ -72,5 +72,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'fir-notification-test-1f87a.firebasestorage.app',
     iosBundleId: 'com.telnyx.flutterWebrtc',
   );
-
 }

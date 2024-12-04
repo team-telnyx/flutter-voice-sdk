@@ -4,8 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
 class InvitationWidget extends StatelessWidget {
-  const InvitationWidget({Key? key, required this.title, this.invitation})
-      : super(key: key);
+  const InvitationWidget({super.key, required this.title, this.invitation});
   final String title;
   final IncomingInviteParams? invitation;
 

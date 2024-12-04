@@ -387,36 +387,35 @@ class Peer {
       _logger.i('track.settings ${track.getSettings()}');
     });
 
-    peerConnection..onIceCandidate = (candidate) async {
-      if (!candidate.candidate.toString().contains('127.0.0.1')) {
-        _logger.i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
-        await peerConnection.addCandidate(candidate);
-      } else {
-        _logger.i('Peer :: Local candidate skipped!');
-      }
-      if (candidate.candidate == null) {
-        _logger.i('Peer :: onIceCandidate: complete!');
-        return;
-      }
-    }
-
-    ..onIceConnectionState = (state) {
-      _logger.i('Peer :: ICE Connection State change :: $state');
-      switch (state) {
-        case RTCIceConnectionState.RTCIceConnectionStateFailed:
-          peerConnection.restartIce();
+    peerConnection
+      ..onIceCandidate = (candidate) async {
+        if (!candidate.candidate.toString().contains('127.0.0.1')) {
+          _logger.i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
+          await peerConnection.addCandidate(candidate);
+        } else {
+          _logger.i('Peer :: Local candidate skipped!');
+        }
+        if (candidate.candidate == null) {
+          _logger.i('Peer :: onIceCandidate: complete!');
           return;
-        default:
-          return;
+        }
       }
-    }
-
-    ..onRemoveStream = (stream) {
-      onRemoveRemoteStream?.call(newSession, stream);
-      _remoteStreams.removeWhere((it) {
-        return (it.id == stream.id);
-      });
-    };
+      ..onIceConnectionState = (state) {
+        _logger.i('Peer :: ICE Connection State change :: $state');
+        switch (state) {
+          case RTCIceConnectionState.RTCIceConnectionStateFailed:
+            peerConnection.restartIce();
+            return;
+          default:
+            return;
+        }
+      }
+      ..onRemoveStream = (stream) {
+        onRemoveRemoteStream?.call(newSession, stream);
+        _remoteStreams.removeWhere((it) {
+          return (it.id == stream.id);
+        });
+      };
 
     onAddRemoteStream = (newSession, stream) {
       _remoteStreams.add(stream);
@@ -432,10 +431,11 @@ class Peer {
   }
 
   void _addDataChannel(Session session, RTCDataChannel channel) {
-    channel..onDataChannelState = (e) {}
-    ..onMessage = (RTCDataChannelMessage data) {
-      onDataChannelMessage?.call(session, channel, data);
-    };
+    channel
+      ..onDataChannelState = (e) {}
+      ..onMessage = (RTCDataChannelMessage data) {
+        onDataChannelMessage?.call(session, channel, data);
+      };
     session.dc = channel;
     onDataChannel?.call(session, channel);
   }
@@ -461,11 +461,12 @@ class Peer {
       await _localStream!.dispose();
       _localStream = null;
     }
-    _sessions..forEach((key, sess) async {
-      await sess.peerConnection?.close();
-      await sess.dc?.close();
-    })
-    ..clear();
+    _sessions
+      ..forEach((key, sess) async {
+        await sess.peerConnection?.close();
+        await sess.dc?.close();
+      })
+      ..clear();
   }
 
   /*void _closeSessionByPeerId(String peerId) {

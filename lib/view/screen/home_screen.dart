@@ -6,7 +6,7 @@ import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/invitation_widget.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key, required this.title}) : super(key: key);
+  const HomeScreen({super.key, required this.title});
   final String title;
 
   @override

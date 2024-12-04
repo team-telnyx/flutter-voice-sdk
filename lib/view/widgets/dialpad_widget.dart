@@ -79,17 +79,18 @@ class DialPadState extends State<DialPad> {
 
     for (var i = 0; i < mainTitle.length; i++) {
       if (i % 3 == 0 && i > 0) {
-        rows..add(
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: items,
-          ),
-        )
-        ..add(
-          const SizedBox(
-            height: 12,
-          ),
-        );
+        rows
+          ..add(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: items,
+            ),
+          )
+          ..add(
+            const SizedBox(
+              height: 12,
+            ),
+          );
         items = <Widget>[];
       }
 
@@ -103,14 +104,15 @@ class DialPadState extends State<DialPad> {
         ),
       );
     }
-    rows..add(
-      Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: items),
-    )
-    ..add(
-      const SizedBox(
-        height: 12,
-      ),
-    );
+    rows
+      ..add(
+        Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: items),
+      )
+      ..add(
+        const SizedBox(
+          height: 12,
+        ),
+      );
 
     return rows;
   }
