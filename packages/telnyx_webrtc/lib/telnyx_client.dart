@@ -112,7 +112,7 @@ class TelnyxClient {
   }
 
   TxSocket txSocket = TxSocket(
-    'wss://${DefaultConfig.telnyxProdHostAddress}:${DefaultConfig.telnyxPort}',
+    DefaultConfig.socketHostAddress,
   );
   bool _closed = false;
   bool _connected = false;
@@ -142,7 +142,7 @@ class TelnyxClient {
   // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
   bool earlySDP = false;
 
-  final String _storedHostAddress = 'wss://rtc.telnyx.com:443';
+  final String _storedHostAddress = DefaultConfig.socketHostAddress;
   CredentialConfig? storedCredentialConfig;
   TokenConfig? storedTokenConfig;
 
