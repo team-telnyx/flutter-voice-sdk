@@ -8,7 +8,7 @@ import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/peer/session.dart';
 import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
-import 'package:telnyx_webrtc/utils/stats/stats_manager.dart';
+import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
@@ -32,7 +32,7 @@ class Peer {
   final TxSocket _socket;
   final TelnyxClient _txClient;
   final bool _debug;
-  StatsManager? _statsManager;
+  WebRTCStatsReporter? _statsManager;
 
   final Map<String, Session> _sessions = {};
   MediaStream? _localStream;
@@ -406,7 +406,7 @@ class Peer {
           peerConnection?.restartIce();
           return;
         case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
-          _statsManager?.stopTimer();
+          _statsManager?.stopStatsReporting();
           return;
         default:
           return;
@@ -446,7 +446,7 @@ class Peer {
       return false;
     }
     // Delay to allow call to be established
-    //ToDo(Oli) - Remove this delay, let's relat on a connection state change instead
+    //ToDo(Oli) - Remove this delay, let's rely on a connection state change instead
     await Future.delayed(debugStatsDelay);
 
     if (peerConnection == null) {
@@ -454,8 +454,8 @@ class Peer {
       return false;
     }
 
-    _statsManager = StatsManager(_socket, peerConnection!, callId);
-    _statsManager?.startTimer();
+    _statsManager = WebRTCStatsReporter(_socket, peerConnection!, callId);
+    await _statsManager?.startStatsReporting();
     _logger.d('Peer :: Stats Manager started for $callId');
 
     return true;
@@ -465,7 +465,7 @@ class Peer {
     if (_debug == false) {
       return;
     }
-    _statsManager?.stopTimer();
+    _statsManager?.stopStatsReporting();
     _logger.d('Peer :: Stats Manager stopped for $callId');
   }
 
