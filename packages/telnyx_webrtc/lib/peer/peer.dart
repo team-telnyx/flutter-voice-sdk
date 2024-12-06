@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/peer/session.dart';
 import 'package:telnyx_webrtc/peer/signaling_state.dart';
+import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_manager.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
@@ -21,13 +23,14 @@ class Peer {
 
   final debugStatsDelay = const Duration(milliseconds: 20000);
 
-  Peer(this._socket, this._debug);
+  Peer(this._socket, this._debug, this._txClient);
 
   final _logger = Logger();
 
   final String _selfId = randomNumeric(6);
 
   final TxSocket _socket;
+  final TelnyxClient _txClient;
   final bool _debug;
   StatsManager? _statsManager;
 
@@ -381,7 +384,10 @@ class Peer {
     }
 
     peerConnection?.onIceCandidate = (candidate) async {
-      if (!candidate.candidate.toString().contains('127.0.0.1')) {
+      final Call? currentCall = _txClient.calls[callId];
+
+      if (!candidate.candidate.toString().contains('127.0.0.1') ||
+          currentCall?.callState != CallState.active) {
         _logger.i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
         await peerConnection?.addCandidate(candidate);
       } else {

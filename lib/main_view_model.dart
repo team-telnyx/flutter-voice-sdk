@@ -91,6 +91,13 @@ class MainViewModel with ChangeNotifier {
     };
   }
 
+  void resetCallInfo() {
+    _incomingInvite = null;
+    _ongoingInvitation = false;
+    _ongoingCall = false;
+    logger.i('Mainviewmodel :: Reset Call Info');
+  }
+
   void observeResponses() {
     // Observe Socket Messages Received
     _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
@@ -98,13 +105,13 @@ class MainViewModel with ChangeNotifier {
         case SocketMethod.clientReady:
           {
             _registered = true;
-            logger.i('Registered :: $_registered');
+            logger.i(
+                'Mainviewmodel :: observeResponses : Registered :: $_registered');
             break;
           }
         case SocketMethod.invite:
           {
             observeCurrentCall();
-
             _incomingInvite = message.message.inviteParams;
             if (!callFromPush) {
               // only set _ongoingInvitation if the call is not from push notification
@@ -133,15 +140,13 @@ class MainViewModel with ChangeNotifier {
           }
         case SocketMethod.bye:
           {
-            _ongoingInvitation = false;
-            _ongoingCall = false;
             if (Platform.isIOS) {
               // end Call for Callkit on iOS
               FlutterCallkitIncoming.endCall(
                 currentCall?.callId ?? _incomingInvite!.callID!,
               );
             }
-
+            resetCallInfo();
             break;
           }
       }
@@ -222,7 +227,7 @@ class MainViewModel with ChangeNotifier {
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
     observeCurrentCall();
-    _currentCall?.startDebugStats();
+    //_currentCall?.startDebugStats();
   }
 
   void toggleSpeakerPhone() {
@@ -242,7 +247,7 @@ class MainViewModel with ChangeNotifier {
         'State',
       );
 
-      _currentCall?.startDebugStats();
+      //_currentCall?.startDebugStats();
 
       if (Platform.isIOS) {
         // only for iOS

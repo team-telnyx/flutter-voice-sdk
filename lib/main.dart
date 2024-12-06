@@ -43,7 +43,8 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         // TODO: Handle this case.
         break;
       case Event.actionCallAccept:
-        logger.i('actionCallAccept :: call accepted');
+        logger.i(
+            'actionCallAccept :: _firebaseMessagingBackgroundHandler call accepted');
         TelnyxClient.setPushMetaData(
           message.data,
           isAnswer: true,
@@ -297,6 +298,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+
+    //PreferencesStorage.saveString(LOGGER_KEY, '');
 
     if (defaultTargetPlatform == TargetPlatform.android) {
       // Android Only - Push Notifications
