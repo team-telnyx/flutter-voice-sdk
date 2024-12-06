@@ -17,6 +17,7 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
+
   //"assets/audios/ringback.mp3"
   final TelnyxClient _telnyxClient = TelnyxClient();
 
@@ -100,92 +101,89 @@ class MainViewModel with ChangeNotifier {
 
   void observeResponses() {
     // Observe Socket Messages Received
-    _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
-      switch (message.socketMethod) {
-        case SocketMethod.clientReady:
-          {
-            _registered = true;
-            logger.i(
-                'Mainviewmodel :: observeResponses : Registered :: $_registered');
-            break;
-          }
-        case SocketMethod.invite:
-          {
-            observeCurrentCall();
-            _incomingInvite = message.message.inviteParams;
-            if (!callFromPush) {
-              // only set _ongoingInvitation if the call is not from push notification
-              _ongoingInvitation = true;
-              showNotification(_incomingInvite!);
-            } else {
-              // For early accept of call
-              if (waitingForInvite) {
-                accept();
-                waitingForInvite = false;
+    _telnyxClient
+      ..onSocketMessageReceived = (TelnyxMessage message) {
+        switch (message.socketMethod) {
+          case SocketMethod.clientReady:
+            {
+              _registered = true;
+              logger.i(
+                  'Mainviewmodel :: observeResponses : Registered :: $_registered');
+              break;
+            }
+          case SocketMethod.invite:
+            {
+              observeCurrentCall();
+              _incomingInvite = message.message.inviteParams;
+              if (!callFromPush) {
+                // only set _ongoingInvitation if the call is not from push notification
+                _ongoingInvitation = true;
+                showNotification(_incomingInvite!);
+              } else {
+                // For early accept of call
+                if (waitingForInvite) {
+                  accept();
+                  waitingForInvite = false;
+                }
+                callFromPush = false;
               }
-              callFromPush = false;
-            }
 
-            logger.i(
-              'customheaders :: ${message.message.dialogParams?.customHeaders}',
-            );
-            print('invite received ::  SocketMethod.INVITE $callFromPush');
-
-            break;
-          }
-        case SocketMethod.answer:
-          {
-            _ongoingCall = true;
-            break;
-          }
-        case SocketMethod.bye:
-          {
-            if (Platform.isIOS) {
-              // end Call for Callkit on iOS
-              FlutterCallkitIncoming.endCall(
-                currentCall?.callId ?? _incomingInvite!.callID!,
+              logger.i(
+                'customheaders :: ${message.message.dialogParams?.customHeaders}',
               );
-            }
-            resetCallInfo();
-            break;
-          }
-      }
-      notifyListeners();
-    };
+              print('invite received ::  SocketMethod.INVITE $callFromPush');
 
-    // Observe Socket Error Messages
-    _telnyxClient.onSocketErrorReceived = (TelnyxSocketError error) {
-      print('Error Received :: ${error.errorCode} : ${error.errorMessage}');
-      Fluttertoast.showToast(
-        msg: '${error.errorCode} : ${error.errorMessage}',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        timeInSecForIosWeb: 1,
-      );
-      switch (error.errorCode) {
-        case -32000:
-          {
-            //Todo handle token error
-            break;
-          }
-        case -32001:
-          {
-            //Todo handle credential error
-            break;
-          }
-        case -32003:
-          {
-            //Todo handle gateway timeout error
-            break;
-          }
-        case -32004:
-          {
-            //ToDo hande gateway failure error
-            break;
-          }
+              break;
+            }
+          case SocketMethod.answer:
+            {
+              _ongoingCall = true;
+              break;
+            }
+          case SocketMethod.bye:
+            {
+              if (Platform.isIOS && callFromPush) {
+                _endCallFromPush();
+              }
+              break;
+            }
+        }
+        notifyListeners();
       }
-      notifyListeners();
-    };
+
+      // Observe Socket Error Messages
+      ..onSocketErrorReceived = (TelnyxSocketError error) {
+        print('Error Received :: ${error.errorCode} : ${error.errorMessage}');
+        Fluttertoast.showToast(
+          msg: '${error.errorCode} : ${error.errorMessage}',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+        );
+        switch (error.errorCode) {
+          case -32000:
+            {
+              //Todo handle token error
+              break;
+            }
+          case -32001:
+            {
+              //Todo handle credential error
+              break;
+            }
+          case -32003:
+            {
+              //Todo handle gateway timeout error
+              break;
+            }
+          case -32004:
+            {
+              //ToDo hande gateway failure error
+              break;
+            }
+        }
+        notifyListeners();
+      };
   }
 
   void handlePushNotification(
@@ -198,6 +196,21 @@ class MainViewModel with ChangeNotifier {
       credentialConfig,
       tokenConfig,
     );
+  }
+
+  void _endCallFromPush() {
+    if (Platform.isIOS) {
+      // end Call for Callkit on iOS
+      FlutterCallkitIncoming.endCall(
+        currentCall?.callId ?? _incomingInvite!.callID!,
+      );
+      // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
+      _telnyxClient.calls.values.firstOrNull?.endCall(
+        _incomingInvite?.callID,
+      );
+      _telnyxClient.disconnect();
+    }
+    resetCallInfo();
   }
 
   void disconnect() {
@@ -318,12 +331,9 @@ class MainViewModel with ChangeNotifier {
     if (Platform.isIOS) {
       /* when end call from CallScreen we need to tell Callkit to end the call as well
        */
-      if (endfromCallScreen) {
+      if (endfromCallScreen && callFromPush) {
         // end Call for Callkit on iOS
-        FlutterCallkitIncoming.endCall(
-          currentCall?.callId ?? _incomingInvite!.callID!,
-        );
-        currentCall?.endCall(_incomingInvite?.callID);
+        _endCallFromPush();
       } else {
         // end Call normlly on iOS
         currentCall?.endCall(_incomingInvite?.callID);
