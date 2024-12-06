@@ -2,20 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>ANDROID_CLIENT_ID</key>
-	<string>1041583037627-lchsc88avscqtq2if6lih4cihc7krle2.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
-	<string>AIzaSyDiCBmySlRCsQrNRT3HXpvgEyuYcefJd3k</string>
+	<string>AIzaSyCYsBxsH_Lqkyd7vmELq6JJXuw1M78oE6g</string>
 	<key>GCM_SENDER_ID</key>
-	<string>1041583037627</string>
+	<string>884003177217</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
 	<string>com.telnyx.flutterWebrtc</string>
 	<key>PROJECT_ID</key>
-	<string>traceit-ae280</string>
+	<string>fir-notification-test-1f87a</string>
 	<key>STORAGE_BUCKET</key>
-	<string>traceit-ae280.appspot.com</string>
+	<string>fir-notification-test-1f87a.firebasestorage.app</string>
 	<key>IS_ADS_ENABLED</key>
 	<false></false>
 	<key>IS_ANALYTICS_ENABLED</key>
@@ -27,8 +25,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1041583037627:ios:7d2f12363ba2e56ae19d9e</string>
-	<key>DATABASE_URL</key>
-	<string>https://traceit-ae280.firebaseio.com</string>
+	<string>1:884003177217:ios:d8ea4aa95607364d3b5100</string>
 </dict>
 </plist>

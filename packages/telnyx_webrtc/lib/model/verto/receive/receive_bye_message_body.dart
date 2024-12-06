@@ -34,8 +34,13 @@ class ReceiveByeParams {
   int? causeCode;
   String? cause;
 
-  ReceiveByeParams(
-      {this.callID, this.sipCallId, this.sipCode, this.causeCode, this.cause});
+  ReceiveByeParams({
+    this.callID,
+    this.sipCallId,
+    this.sipCode,
+    this.causeCode,
+    this.cause,
+  });
 
   ReceiveByeParams.fromJson(Map<String, dynamic> json) {
     callID = json['callID'];
