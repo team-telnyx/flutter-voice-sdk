@@ -810,8 +810,9 @@ class TelnyxClient {
                   }
                 default:
                   {
+                    //ToDo(Oli): messaging has changed, we need to look at this again so that we don't get a bunch of default cases for some messages
                     _logger.i(
-                      'GATEWAY REGISTRATION :: Unknown State ${stateMessage.toString()}',
+                      '$stateMessage',
                     );
                   }
               }
