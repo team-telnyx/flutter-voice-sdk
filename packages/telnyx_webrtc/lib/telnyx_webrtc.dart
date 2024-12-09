@@ -1,4 +1,4 @@
-library telnyx_webrtc;
+library;
 
 export './config/telnyx_config.dart';
 

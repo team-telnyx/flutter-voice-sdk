@@ -5,7 +5,6 @@
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:telnyx_webrtc/call.dart' as _i3;
 import 'package:telnyx_webrtc/config/telnyx_config.dart' as _i7;
-import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart' as _i5;
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart' as _i6;
 import 'package:telnyx_webrtc/telnyx_client.dart' as _i4;

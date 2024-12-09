@@ -1,4 +1,4 @@
-import 'invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 
 class ModifyMessage {
   String? id;

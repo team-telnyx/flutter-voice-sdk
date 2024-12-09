@@ -1,5 +1,5 @@
 import 'package:logger/logger.dart';
-import '../send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 
 class ReceivedMessage {
@@ -13,15 +13,16 @@ class ReceivedMessage {
 
   String? voiceSdkId;
 
-  ReceivedMessage(
-      {this.jsonrpc,
-      this.id,
-      this.method,
-      this.reattachedParams,
-      this.stateParams,
-      this.inviteParams,
-      this.dialogParams,
-      this.voiceSdkId});
+  ReceivedMessage({
+    this.jsonrpc,
+    this.id,
+    this.method,
+    this.reattachedParams,
+    this.stateParams,
+    this.inviteParams,
+    this.dialogParams,
+    this.voiceSdkId,
+  });
 
   ReceivedMessage.fromJson(Map<String, dynamic> json) {
     jsonrpc = json['jsonrpc'];
@@ -187,17 +188,18 @@ class IncomingInviteParams {
   String? telnyxLegId;
   String? displayDirection;
 
-  IncomingInviteParams(
-      {this.callID,
-      this.variables,
-      this.sdp,
-      this.callerIdName,
-      this.callerIdNumber,
-      this.calleeIdName,
-      this.calleeIdNumber,
-      this.telnyxSessionId,
-      this.telnyxLegId,
-      this.displayDirection});
+  IncomingInviteParams({
+    this.callID,
+    this.variables,
+    this.sdp,
+    this.callerIdName,
+    this.callerIdNumber,
+    this.calleeIdName,
+    this.calleeIdNumber,
+    this.telnyxSessionId,
+    this.telnyxLegId,
+    this.displayDirection,
+  });
 
   IncomingInviteParams.fromJson(Map<String, dynamic> json) {
     callID = json['callID'];
@@ -247,20 +249,21 @@ class Variables {
   String? eventCallingLineNumber;
   String? eventSequence;
 
-  Variables(
-      {this.eventName,
-      this.coreUUID,
-      this.freeSWITCHHostname,
-      this.freeSWITCHSwitchname,
-      this.freeSWITCHIPv4,
-      this.freeSWITCHIPv6,
-      this.eventDateLocal,
-      this.eventDateGMT,
-      this.eventDateTimestamp,
-      this.eventCallingFile,
-      this.eventCallingFunction,
-      this.eventCallingLineNumber,
-      this.eventSequence});
+  Variables({
+    this.eventName,
+    this.coreUUID,
+    this.freeSWITCHHostname,
+    this.freeSWITCHSwitchname,
+    this.freeSWITCHIPv4,
+    this.freeSWITCHIPv6,
+    this.eventDateLocal,
+    this.eventDateGMT,
+    this.eventDateTimestamp,
+    this.eventCallingFile,
+    this.eventCallingFunction,
+    this.eventCallingLineNumber,
+    this.eventSequence,
+  });
 
   Variables.fromJson(Map<String, dynamic> json) {
     eventName = json['Event-Name'];
