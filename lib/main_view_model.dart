@@ -93,7 +93,7 @@ class MainViewModel with ChangeNotifier {
 
   void observeResponses() {
     // Observe Socket Messages Received
-    _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
+    _telnyxClient..onSocketMessageReceived = (TelnyxMessage message) {
       switch (message.socketMethod) {
         case SocketMethod.clientReady:
           {
@@ -146,10 +146,10 @@ class MainViewModel with ChangeNotifier {
           }
       }
       notifyListeners();
-    };
+    }
 
     // Observe Socket Error Messages
-    _telnyxClient.onSocketErrorReceived = (TelnyxSocketError error) {
+    ..onSocketErrorReceived = (TelnyxSocketError error) {
       print('Error Received :: ${error.errorCode} : ${error.errorMessage}');
       Fluttertoast.showToast(
         msg: '${error.errorCode} : ${error.errorMessage}',

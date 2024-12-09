@@ -80,26 +80,27 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
         }
         case SocketMethod.LOGIN:
         {
-            // Handle a successful login (via Token or Credentials) - Update UI or Navigate to new screen, etc. 
+            // Handle a successful login - Update UI or Navigate to new screen, etc. 
             break;
         }
         case SocketMethod.INVITE:
         {
             // Handle an invitation Update UI or Navigate to new screen, etc. 
             // Then, through an answer button of some kind we can accept the call with:
+            // This will return an instance of the Call class which can be used to interact with the call or monitor it's state.
             _incomingInvite = message.message.inviteParams;
-            _telnyxClient.createCall().acceptCall(
+            _call = _telnyxClient.acceptCall(
                 _incomingInvite, "callerName", "000000000", "State");
             break;
         }
         case SocketMethod.ANSWER:
         {
-           // Handle a received call answer (ie. Someone has accepted your invite)- Update UI or Navigate to new screen, etc.
+           // Handle a received call answer - Update UI or Navigate to new screen, etc.
           break;
         }
         case SocketMethod.BYE:
         {
-           // Handle a call rejection or ending (ie. You or someone else has ended the call) - Update UI or Navigate to new screen, etc.
+           // Handle a call rejection or ending - Update UI or Navigate to new screen, etc.
            break;
       }
     }

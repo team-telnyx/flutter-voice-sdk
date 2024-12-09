@@ -146,8 +146,9 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
         {
             // Handle an invitation Update UI or Navigate to new screen, etc. 
             // Then, through an answer button of some kind we can accept the call with:
+            // This will return an instance of the Call class which can be used to interact with the call or monitor it's state.
             _incomingInvite = message.message.inviteParams;
-            _telnyxClient.createCall().acceptCall(
+            _call = _telnyxClient.acceptCall(
                 _incomingInvite, "callerName", "000000000", "State");
             break;
         }
@@ -162,7 +163,6 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
            break;
       }
     }
-    notifyListeners();
 };
 ```
 
