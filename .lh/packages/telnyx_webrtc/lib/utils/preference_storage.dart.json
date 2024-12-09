@@ -1,0 +1,26 @@
+{
+    "sourceFile": "packages/telnyx_webrtc/lib/utils/preference_storage.dart",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 2,
+            "patches": [
+                {
+                    "date": 1733440396040,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1733440983348,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -31,10 +31,11 @@\n \n   static Future<void> log(String data) async {\n     final SharedPreferences prefs = await SharedPreferences.getInstance();\n     final String? logdata = prefs.getString(LOGGER_KEY);\n+    final timeStamp = DateTime.now().toIso8601String();\n     if (logdata != null) {\n-      data = logdata + '\\n' + data;\n+      data = timeStamp + '  ' +  logdata + '\\n' + data;\n     }\n     await prefs.setString(LOGGER_KEY, data);\n   }\n \n"
+                },
+                {
+                    "date": 1733441928706,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -32,11 +32,10 @@\n   static Future<void> log(String data) async {\n     final SharedPreferences prefs = await SharedPreferences.getInstance();\n     final String? logdata = prefs.getString(LOGGER_KEY);\n     final timeStamp = DateTime.now().toIso8601String();\n-    if (logdata != null) {\n-      data = timeStamp + '  ' + logdata + '\\n' + data;\n-    }\n+          data = timeStamp + '  ' + logdata + '\\n' + data;\n+\n     await prefs.setString(LOGGER_KEY, data);\n   }\n \n   static Future<String> getString(String key) async {\n"
+                }
+            ],
+            "date": 1733440396040,
+            "name": "Commit-0",
+            "content": "import 'dart:convert';\n\nimport 'package:logger/logger.dart';\nimport 'package:shared_preferences/shared_preferences.dart';\nimport 'package:telnyx_webrtc/telnyx_client.dart';\n\nimport 'package:telnyx_webrtc/utils/constants.dart';\n\nclass PreferencesStorage {\n  static final String notificationKey = Constants.notificationKey;\n\n  static Future<Map<String, dynamic>?> getMetaData() async {\n    final String metaData = await getString(notificationKey);\n    if (metaData.isEmpty) {\n      print('No Metadata found');\n      return null;\n    }\n    saveMetadata('');\n    return jsonDecode(metaData);\n  }\n\n  static void saveMetadata(String metaData) {\n    Logger().i('Save meta data $metaData');\n    saveString(notificationKey, metaData);\n  }\n\n  static Future<void> saveString(String key, String data) async {\n    final SharedPreferences prefs = await SharedPreferences.getInstance();\n    await prefs.setString(key, data);\n  }\n\n    static Future<void> log( String data) async {\n    final SharedPreferences prefs = await SharedPreferences.getInstance();\n    final String? logdata = prefs.getString(LOGGER_KEY);\n    if (logdata != null) {\n      data = logdata + '\\n' + data;\n    }\n    await prefs.setString(LOGGER_KEY, data);\n  }\n\n  static Future<String> getString(String key) async {\n    final SharedPreferences prefs = await SharedPreferences.getInstance();\n    final String? preferences = prefs.getString(key);\n    if (preferences != null) {\n      return preferences;\n    } else {\n      return '';\n    }\n  }\n\n  static Future<void> saveBool(bool data, String key) async {\n    final SharedPreferences prefs = await SharedPreferences.getInstance();\n    await prefs.setBool(key, data);\n  }\n\n  static Future<bool> getBool(String key) async {\n    final SharedPreferences prefs = await SharedPreferences.getInstance();\n    final bool? value = prefs.getBool(key);\n    if (value != null) {\n      return value;\n    } else {\n      return false;\n    }\n  }\n}\n"
+        }
+    ]
+}

@@ -560,7 +560,7 @@ class TelnyxClient {
     final base64State = base64.encode(utf8.encode(clientState));
     updateCall(inviteCall);
 
-    inviteCall.peerConnection = Peer(inviteCall.txSocket, _debug);
+    inviteCall.peerConnection = Peer(inviteCall.txSocket, _debug, this);
     inviteCall.peerConnection?.invite(
       callerName,
       callerNumber,
@@ -597,7 +597,7 @@ class TelnyxClient {
 
     final destinationNum = invite.callerIdNumber;
 
-    answerCall.peerConnection = Peer(txSocket, _debug);
+    answerCall.peerConnection = Peer(txSocket, _debug, this);
     answerCall.peerConnection?.accept(
       callerName,
       callerNumber,

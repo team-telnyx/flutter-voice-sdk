@@ -5,7 +5,7 @@ import PushKit
 import Flutter
 import flutter_callkit_incoming
 
-@UIApplicationMain
+@main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
         print("onRunner ::  Accept")
@@ -118,9 +118,6 @@ import flutter_callkit_incoming
                 data.nameCaller = caller
                 SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
             }
-            
-        
-            
         }
     
     
