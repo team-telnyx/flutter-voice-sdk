@@ -125,7 +125,6 @@ class MainViewModel with ChangeNotifier {
                   accept();
                   waitingForInvite = false;
                 }
-                callFromPush = false;
               }
 
               logger.i(
@@ -334,7 +333,9 @@ class MainViewModel with ChangeNotifier {
       if (endfromCallScreen && callFromPush) {
         // end Call for Callkit on iOS
         _endCallFromPush();
+        logger.i('end Call: CallfromPush $callFromPush');
       } else {
+        logger.i('end Call: CallfromCallScreen $callFromPush');
         // end Call normlly on iOS
         currentCall?.endCall(_incomingInvite?.callID);
       }

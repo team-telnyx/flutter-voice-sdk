@@ -299,8 +299,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
-    //PreferencesStorage.saveString(LOGGER_KEY, '');
-
     if (defaultTargetPlatform == TargetPlatform.android) {
       // Android Only - Push Notifications
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
