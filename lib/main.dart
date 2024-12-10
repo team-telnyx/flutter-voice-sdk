@@ -195,7 +195,7 @@ Future<void> main() async {
           break;
         case Event.actionCallAccept:
           logger.i('actionCallAccept :: call accepted');
-          mainViewModel.accept();
+          await mainViewModel.accept();
           break;
         case Event.actionCallDecline:
           logger.i('actionCallDecline :: call declined');

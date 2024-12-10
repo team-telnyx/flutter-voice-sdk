@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
@@ -96,6 +97,7 @@ class MainViewModel with ChangeNotifier {
     _incomingInvite = null;
     _ongoingInvitation = false;
     _ongoingCall = false;
+    callFromPush = false;
     logger.i('Mainviewmodel :: Reset Call Info');
   }
 
@@ -103,6 +105,7 @@ class MainViewModel with ChangeNotifier {
     // Observe Socket Messages Received
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) {
+        logger.i('Mainviewmodel :: observeResponses :: Socket :: $message');
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
@@ -141,8 +144,15 @@ class MainViewModel with ChangeNotifier {
             }
           case SocketMethod.bye:
             {
-              if (Platform.isIOS && callFromPush) {
-                _endCallFromPush();
+              if (Platform.isIOS) {
+                if (callFromPush) {
+                  _endCallFromPush(true);
+                } else {
+                  FlutterCallkitIncoming.endCall(
+                    currentCall?.callId ?? _incomingInvite!.callID!,
+                  );
+                  resetCallInfo();
+                }
               }
               break;
             }
@@ -197,17 +207,22 @@ class MainViewModel with ChangeNotifier {
     );
   }
 
-  void _endCallFromPush() {
+  void _endCallFromPush(bool fromBye) {
     if (Platform.isIOS) {
       // end Call for Callkit on iOS
       FlutterCallkitIncoming.endCall(
         currentCall?.callId ?? _incomingInvite!.callID!,
       );
+      if (!fromBye) {
+        _telnyxClient.calls.values.firstOrNull?.endCall(
+          _incomingInvite?.callID,
+        );
+      }
       // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
-      _telnyxClient.calls.values.firstOrNull?.endCall(
-        _incomingInvite?.callID,
-      );
-      _telnyxClient.disconnect();
+      if (WidgetsBinding.instance?.lifecycleState !=
+          AppLifecycleState.resumed) {
+        _telnyxClient.disconnect();
+      }
     }
     resetCallInfo();
   }
@@ -250,7 +265,7 @@ class MainViewModel with ChangeNotifier {
 
   bool waitingForInvite = false;
 
-  void accept({bool acceptFromNotification = false}) {
+  Future<void> accept({bool acceptFromNotification = false}) async {
     if (_incomingInvite != null) {
       _currentCall = _telnyxClient.acceptCall(
         _incomingInvite!,
@@ -263,7 +278,7 @@ class MainViewModel with ChangeNotifier {
 
       if (Platform.isIOS) {
         // only for iOS
-        FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+        await FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
       }
 
       // Hide if not already hidden
@@ -288,7 +303,7 @@ class MainViewModel with ChangeNotifier {
         );
 
         // Hide notfication when call is accepted
-        FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
+        await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
       notifyListeners();
     } else {
@@ -332,7 +347,7 @@ class MainViewModel with ChangeNotifier {
        */
       if (endfromCallScreen && callFromPush) {
         // end Call for Callkit on iOS
-        _endCallFromPush();
+        _endCallFromPush(false);
         logger.i('end Call: CallfromPush $callFromPush');
       } else {
         logger.i('end Call: CallfromCallScreen $callFromPush');
