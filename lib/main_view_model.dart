@@ -5,6 +5,7 @@ import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
@@ -17,14 +18,15 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
-  //"assets/audios/ringback.mp3"
   final TelnyxClient _telnyxClient = TelnyxClient();
 
   bool _registered = false;
+  bool _loggingIn = false;
   bool _ongoingInvitation = false;
   bool _ongoingCall = false;
   bool callFromPush = false;
   bool _speakerPhone = true;
+  CredentialConfig? _credentialConfig;
   IncomingInviteParams? _incomingInvite;
 
   String _localName = '';
@@ -32,6 +34,10 @@ class MainViewModel with ChangeNotifier {
 
   bool get registered {
     return _registered;
+  }
+
+  bool get loggingIn {
+    return _loggingIn;
   }
 
   bool get ongoingInvitation {
@@ -91,96 +97,125 @@ class MainViewModel with ChangeNotifier {
     };
   }
 
+  Future<void> _saveCredentialsForAutoLogin(
+    CredentialConfig credentialConfig,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sipUser', credentialConfig.sipUser);
+    await prefs.setString('sipPassword', credentialConfig.sipPassword);
+    await prefs.setString('sipName', credentialConfig.sipCallerIDName);
+    await prefs.setString('sipNumber', credentialConfig.sipCallerIDNumber);
+    if (credentialConfig.notificationToken != null) {
+      await prefs.setString(
+        'notificationToken',
+        credentialConfig.notificationToken!,
+      );
+    }
+  }
+
+  Future<void> _clearCredentialsForAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('sipUser');
+    await prefs.remove('sipPassword');
+    await prefs.remove('sipName');
+    await prefs.remove('sipNumber');
+    await prefs.remove('notificationToken');
+  }
+
   void observeResponses() {
     // Observe Socket Messages Received
-    _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
-      switch (message.socketMethod) {
-        case SocketMethod.clientReady:
-          {
-            _registered = true;
-            logger.i('Registered :: $_registered');
-            break;
-          }
-        case SocketMethod.invite:
-          {
-            observeCurrentCall();
-
-            _incomingInvite = message.message.inviteParams;
-            if (!callFromPush) {
-              // only set _ongoingInvitation if the call is not from push notification
-              _ongoingInvitation = true;
-              showNotification(_incomingInvite!);
-            } else {
-              // For early accept of call
-              if (waitingForInvite) {
-                accept();
-                waitingForInvite = false;
+    _telnyxClient
+      ..onSocketMessageReceived = (TelnyxMessage message) async {
+        switch (message.socketMethod) {
+          case SocketMethod.clientReady:
+            {
+              if (_credentialConfig != null) {
+                await _saveCredentialsForAutoLogin(_credentialConfig!);
               }
-              callFromPush = false;
+              _registered = true;
+              logger.i('Registered :: $_registered');
+              break;
             }
+          case SocketMethod.invite:
+            {
+              observeCurrentCall();
 
-            logger.i(
-              'customheaders :: ${message.message.dialogParams?.customHeaders}',
-            );
-            print('invite received ::  SocketMethod.INVITE $callFromPush');
+              _incomingInvite = message.message.inviteParams;
+              if (!callFromPush) {
+                // only set _ongoingInvitation if the call is not from push notification
+                _ongoingInvitation = true;
+                showNotification(_incomingInvite!);
+              } else {
+                // For early accept of call
+                if (waitingForInvite) {
+                  accept();
+                  waitingForInvite = false;
+                }
+                callFromPush = false;
+              }
 
-            break;
-          }
-        case SocketMethod.answer:
-          {
-            _ongoingCall = true;
-            break;
-          }
-        case SocketMethod.bye:
-          {
-            _ongoingInvitation = false;
-            _ongoingCall = false;
-            if (Platform.isIOS) {
-              // end Call for Callkit on iOS
-              FlutterCallkitIncoming.endCall(
-                currentCall?.callId ?? _incomingInvite!.callID!,
+              logger.i(
+                'customheaders :: ${message.message.dialogParams?.customHeaders}',
               );
+              print('invite received ::  SocketMethod.INVITE $callFromPush');
+
+              break;
             }
+          case SocketMethod.answer:
+            {
+              _ongoingCall = true;
+              break;
+            }
+          case SocketMethod.bye:
+            {
+              _ongoingInvitation = false;
+              _ongoingCall = false;
+              if (Platform.isIOS) {
+                // end Call for Callkit on iOS
+                await FlutterCallkitIncoming.endCall(
+                  currentCall?.callId ?? _incomingInvite!.callID!,
+                );
+              }
 
-            break;
-          }
+              break;
+            }
+        }
+        notifyListeners();
       }
-      notifyListeners();
-    };
 
-    // Observe Socket Error Messages
-    _telnyxClient.onSocketErrorReceived = (TelnyxSocketError error) {
-      print('Error Received :: ${error.errorCode} : ${error.errorMessage}');
-      Fluttertoast.showToast(
-        msg: '${error.errorCode} : ${error.errorMessage}',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        timeInSecForIosWeb: 1,
-      );
-      switch (error.errorCode) {
-        case -32000:
-          {
-            //Todo handle token error
-            break;
-          }
-        case -32001:
-          {
-            //Todo handle credential error
-            break;
-          }
-        case -32003:
-          {
-            //Todo handle gateway timeout error
-            break;
-          }
-        case -32004:
-          {
-            //ToDo hande gateway failure error
-            break;
-          }
-      }
-      notifyListeners();
-    };
+      // Observe Socket Error Messages
+      ..onSocketErrorReceived = (TelnyxSocketError error) {
+        Fluttertoast.showToast(
+          msg: '${error.errorCode} : ${error.errorMessage}',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+        );
+        switch (error.errorCode) {
+          case -32000:
+            {
+              //Todo handle token error
+              break;
+            }
+          case -32001:
+            {
+              _loggingIn = false;
+              _clearCredentialsForAutoLogin();
+              break;
+            }
+          case -32003:
+            {
+              //Todo handle gateway timeout error
+              break;
+            }
+          case -32004:
+            {
+              //ToDo hande gateway failure error
+              break;
+            }
+        }
+        notifyListeners();
+      };
   }
 
   void handlePushNotification(
@@ -197,13 +232,19 @@ class MainViewModel with ChangeNotifier {
 
   void disconnect() {
     _telnyxClient.disconnect();
+    _clearCredentialsForAutoLogin();
+    _loggingIn = false;
     _registered = false;
     notifyListeners();
   }
 
   void login(CredentialConfig credentialConfig) async {
+    _loggingIn = true;
+    notifyListeners();
+
     _localName = credentialConfig.sipCallerIDName;
     _localNumber = credentialConfig.sipCallerIDNumber;
+    _credentialConfig = credentialConfig;
     _telnyxClient.connectWithCredential(credentialConfig);
   }
 

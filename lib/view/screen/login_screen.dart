@@ -19,7 +19,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final logger = Logger();
-  bool _loggingIn = false;
   TextEditingController sipUserController = TextEditingController();
   TextEditingController sipPasswordController = TextEditingController();
   TextEditingController sipNameController = TextEditingController();
@@ -74,7 +73,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     );
     await _saveCredentialsForAutoLogin(credentialConfig);
     setState(() {
-      _loggingIn = true;
       Provider.of<MainViewModel>(context, listen: false)
           .login(credentialConfig);
     });
@@ -127,6 +125,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
     final bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;
+    final bool isLoggingIn =
+        Provider.of<MainViewModel>(context, listen: true).loggingIn;
     if (registered) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');
@@ -137,7 +137,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       appBar: AppBar(
         title: Text('Telnyx Login'),
       ),
-      body: _loggingIn
+      body: isLoggingIn
           ? Center(
               child: CircularProgressIndicator(),
             )
