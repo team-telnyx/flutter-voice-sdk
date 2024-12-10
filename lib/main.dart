@@ -360,9 +360,9 @@ class _MyAppState extends State<MyApp> {
         ),
         initialRoute: '/',
         routes: {
-          '/': (context) => const LoginScreen(title: 'Telnyx Login'),
-          '/home': (context) => const HomeScreen(title: 'Home'),
-          '/call': (context) => const CallScreen(title: 'Ongoing Call'),
+          '/': (context) => const LoginScreen(),
+          '/home': (context) => const HomeScreen(),
+          '/call': (context) => const CallScreen(),
         },
       ),
     );
