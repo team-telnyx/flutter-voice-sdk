@@ -42,7 +42,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     });
   }
 
-
   void _checkPermissions() async {
     await [
       Permission.audio,
