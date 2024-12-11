@@ -254,7 +254,7 @@ class MainViewModel with ChangeNotifier {
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
     observeCurrentCall();
-    //_currentCall?.startDebugStats();
+    _currentCall?.startDebugStats();
   }
 
   void toggleSpeakerPhone() {
@@ -274,7 +274,7 @@ class MainViewModel with ChangeNotifier {
         'State',
       );
 
-      //_currentCall?.startDebugStats();
+      _currentCall?.startDebugStats();
 
       if (Platform.isIOS) {
         // only for iOS
