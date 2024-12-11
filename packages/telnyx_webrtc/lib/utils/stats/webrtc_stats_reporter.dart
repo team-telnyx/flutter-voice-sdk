@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:telnyx_webrtc/utils/constants.dart';
+import 'package:telnyx_webrtc/utils/stats/stats_parsing_helpers.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_event.dart';
@@ -27,9 +28,6 @@ class WebRTCStatsReporter {
   final TxSocket socket;
   final RTCPeerConnection peerConnection;
   final String callId;
-
-  RTCSessionDescription? localSdp;
-  RTCSessionDescription? remoteSdp;
 
   Future<void> _initializeLogFile() async {
     try {
@@ -56,7 +54,7 @@ class WebRTCStatsReporter {
 
       // Append the message to the log file.
       try {
-        _logFile?.writeAsStringSync('$message\n\n', mode: FileMode.append);
+        _logFile?.writeAsStringSync('$message\n\n,', mode: FileMode.append);
       } catch (e) {
         _logger.e('Error writing message to log file: $e');
       }
@@ -67,8 +65,6 @@ class WebRTCStatsReporter {
 
   Future<void> startStatsReporting() async {
     await _initializeLogFile();
-    localSdp = await peerConnection.getLocalDescription();
-    remoteSdp = await peerConnection.getRemoteDescription();
 
     if (!debugReportStarted) {
       debugStatsId = uuid.v4();
@@ -122,7 +118,8 @@ class WebRTCStatsReporter {
           'candidate': candidate.candidate,
           'sdpMLineIndex': candidate.sdpMLineIndex,
           'sdpMid': candidate.sdpMid,
-          'usernameFragment': parseUsernameFragment(candidate),
+          'usernameFragment':
+              StatParsingHelpers().parseUsernameFragment(candidate),
         };
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceCandidate,
@@ -131,11 +128,22 @@ class WebRTCStatsReporter {
         );
       }
       ..onSignalingState = (RTCSignalingState signalingState) async {
+        final localSdp = await peerConnection.getLocalDescription();
+        final remoteSdp = await peerConnection.getRemoteDescription();
+
         final description = {
-          'signalingState': signalingState.toString(),
-          'localDescription': localSdp?.sdp,
-          'remoteDescription': remoteSdp?.sdp,
+          'signalingState':
+              StatParsingHelpers().parseSignalingStateChange(signalingState),
+          'remoteDescription': {
+            'type': remoteSdp?.type,
+            'sdp': remoteSdp?.sdp,
+          },
+          'localDescription': {
+            'type': localSdp?.type,
+            'sdp': localSdp?.sdp,
+          },
         };
+
         _sendDebugReportData(
           event: WebRTCStatsEvent.onSignalingStateChange,
           tag: WebRTCStatsTag.connection,
@@ -146,14 +154,20 @@ class WebRTCStatsReporter {
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceConnectionStateChange,
           tag: WebRTCStatsTag.connection,
-          data: {'iceConnectionState': iceConnectionState.toString()},
+          data: {
+            'iceConnectionState': StatParsingHelpers()
+                .parseIceConnectionStateChange(iceConnectionState),
+          },
         );
       }
       ..onIceGatheringState = (RTCIceGatheringState iceGatheringState) {
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceGatheringStateChange,
           tag: WebRTCStatsTag.connection,
-          data: {'iceGatheringState': iceGatheringState.toString()},
+          data: {
+            'iceGatheringState': StatParsingHelpers()
+                .parseIceGatheringStateChange(iceGatheringState),
+          },
         );
       };
   }
@@ -177,7 +191,8 @@ class WebRTCStatsReporter {
             break;
           case 'candidate-pair':
             connectionStats.add(
-              _parseCandidatePair(report.values.cast<String, dynamic>()),
+              StatParsingHelpers()
+                  .parseCandidatePair(report.values.cast<String, dynamic>()),
             );
             break;
           default:
@@ -211,22 +226,24 @@ class WebRTCStatsReporter {
   }
 
   void _sendAddConnectionMessage() {
-    final data = {
-      'event': WebRTCStatsEvent.addConnection.value,
-      'tag': WebRTCStatsTag.peer.value,
-      'connectionId': callId,
-      'peerId': callId,
-      'data': {
-        'peerConfiguration': _getPeerConfiguration(),
-        'options': {'peerId': callId},
+    final message = DebugReportDataMessage(
+      reportId: debugStatsId,
+      reportData: {
+        'event': WebRTCStatsEvent.addConnection.value,
+        'tag': WebRTCStatsTag.peer.value,
+        'peerId': callId,
+        'connectionId': callId,
+        'data': {
+          'peerConfiguration': StatParsingHelpers().getPeerConfiguration(
+            peerConnection.getConfiguration,
+          ),
+          'options': {'peerId': callId, 'pc': {}},
+        },
+        'timestamp': DateTime.now().toUtc().toIso8601String(),
       },
-    };
-
-    _sendDebugReportData(
-      event: WebRTCStatsEvent.addConnection,
-      tag: WebRTCStatsTag.peer,
-      data: data,
     );
+
+    _enqueueMessage(jsonEncode(message.toJson()));
   }
 
   void _sendStartDebugReport(String sessionId) {
@@ -243,63 +260,30 @@ class WebRTCStatsReporter {
   void _sendDebugReportData({
     required WebRTCStatsEvent event,
     required WebRTCStatsTag tag,
-    required Map<String, dynamic> data,
+    required dynamic data,
   }) {
+    final reportData = {
+      'event': event.value,
+      'tag': tag.value,
+      'peerId': callId,
+      'connectionId': callId,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+      'data': _normalizeData(data),
+    };
+
     final message = DebugReportDataMessage(
       reportId: debugStatsId,
-      reportData: {
-        'event': event.value,
-        'tag': tag.value,
-        'peerId': callId,
-        'connectionId': callId,
-        'timestamp': DateTime.now().toUtc().toIso8601String(),
-        'data': data,
-      },
+      reportData: reportData,
     );
 
     _enqueueMessage(jsonEncode(message.toJson()));
   }
 
-  Map<String, dynamic> _parseCandidatePair(Map<String, dynamic> candidate) {
-    return {
-      'id': candidate['id'],
-      'state': candidate['state'],
-      'bytesSent': candidate['bytesSent'],
-      'bytesReceived': candidate['bytesReceived'],
-      'currentRoundTripTime': candidate['currentRoundTripTime'],
-      'priority': candidate['priority'],
-      'nominated': candidate['nominated'],
-    };
-  }
-
-  String? parseUsernameFragment(RTCIceCandidate candidate) {
-    if (candidate.candidate == null || candidate.candidate!.isEmpty) {
-      return null;
+  dynamic _normalizeData(dynamic data) {
+    // Check if the `data` is a single key-value pair, return the value directly.
+    if (data is Map<String, dynamic> && data.length == 1) {
+      return data.values.first;
     }
-    final regex = RegExp(r'ufrag\s+(\w+)');
-    final match = regex.firstMatch(candidate.candidate!);
-    return match?.group(1);
-  }
-
-  Map<String, dynamic> _getPeerConfiguration() {
-    final configuration = peerConnection.getConfiguration;
-    final iceServers =
-        (configuration['iceServers'] as List<dynamic>?)?.map((iceServer) {
-      return {
-        'urls':
-            iceServer['url'] is String ? [iceServer['url']] : iceServer['url'],
-        'username': iceServer['username'] ?? '',
-        'credential': iceServer['credential'] ?? '',
-      };
-    }).toList();
-
-    return {
-      'bundlePolicy': 'max-compat',
-      'encodedInsertableStreams': false,
-      'iceCandidatePoolSize': 0,
-      'iceServers': iceServers ?? [],
-      'iceTransportPolicy': 'all',
-      'rtcpMuxPolicy': 'require',
-    };
+    return data;
   }
 }

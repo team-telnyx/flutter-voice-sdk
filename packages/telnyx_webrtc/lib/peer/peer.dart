@@ -438,6 +438,26 @@ class Peer {
     onDataChannel?.call(session, channel);
   }
 
+  //ToDo: Remove this?
+  /*Future<bool> configureStatsReporter(String callId) async {
+    if (_debug == false) {
+      _logger.d(
+        'Peer :: Stats manager will not start. Debug mode not enabled on config',
+      );
+      return false;
+    }
+
+    if (peerConnection == null) {
+      _logger.d('Peer connection null');
+      return false;
+    }
+
+    _statsManager = WebRTCStatsReporter(_socket, peerConnection!, callId);
+    _logger.d('Peer :: Stats Manager started for $callId');
+
+    return true;
+  } */
+
   Future<bool> startStats(String callId) async {
     if (_debug == false) {
       _logger.d(
@@ -453,7 +473,6 @@ class Peer {
 
     _statsManager = WebRTCStatsReporter(_socket, peerConnection!, callId);
     await _statsManager?.startStatsReporting();
-    _logger.d('Peer :: Stats Manager started for $callId');
 
     return true;
   }
