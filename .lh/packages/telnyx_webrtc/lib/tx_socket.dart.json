@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 1,
+            "activePatchIndex": 4,
             "patches": [
                 {
                     "date": 1722541750187,
@@ -12,6 +12,18 @@
                 {
                     "date": 1722542818509,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -15,9 +15,9 @@\n   late OnOpenCallback onOpen;\n   late OnMessageCallback onMessage;\n   late OnCloseCallback onClose;\n \n-  Future<void> connect() async {\n+  void connect() async {\n     try {\n       print(\"TxSocket :: connect : $hostAddress\");\n       _socket = await WebSocket.connect(hostAddress);\n       _logger.i('Connecting to $hostAddress');\n"
+                },
+                {
+                    "date": 1733440608818,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -41,10 +41,15 @@\n     }\n   }\n \n   void send(dynamic data) {\n-    _socket.add(data);\n+    try {\n+          _socket.add(data);\n     _logger.i('TxSocket :: send : \\n\\n$data');\n+    } catch (e) {\n+      _logger.e('TxSocket :: send : \\n\\n$data');\n+    }\n+\n   }\n \n   void close() {\n     _socket.close();\n"
+                },
+                {
+                    "date": 1733440865107,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,6 +1,7 @@\n import 'dart:io';\n import 'package:logger/logger.dart';\n+import 'package:telnyx_webrtc/utils/preference_storage.dart';\n \n typedef OnMessageCallback = void Function(dynamic msg);\n typedef OnCloseCallback = void Function(int code, String reason);\n typedef OnOpenCallback = void Function();\n@@ -44,10 +45,12 @@\n   void send(dynamic data) {\n     try {\n       _socket.add(data);\n       _logger.i('TxSocket :: send : \\n\\n$data');\n+            PreferencesStorage.log('TxSocket ::Sent  : \\n\\n$data');\n     } catch (e) {\n       _logger.e('TxSocket :: send : \\n\\n$data');\n+      PreferencesStorage.log('TxSocket ::Error send : \\n\\n$data');\n     }\n   }\n \n   void close() {\n"
+                },
+                {
+                    "date": 1733446000048,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -45,12 +45,12 @@\n   void send(dynamic data) {\n     try {\n       _socket.add(data);\n       _logger.i('TxSocket :: send : \\n\\n$data');\n-      PreferencesStorage.log('TxSocket ::Sent  : \\n\\n$data');\n+      PreferencesStorage.log('TxSocket ::Sent  :$data');\n     } catch (e) {\n       _logger.e('TxSocket :: send : \\n\\n$data');\n-      PreferencesStorage.log('TxSocket ::Error send : \\n\\n$data');\n+      PreferencesStorage.log('TxSocket ::Error  : \\n\\n$data');\n     }\n   }\n \n   void close() {\n"
                 }
             ],
             "date": 1722541750187,

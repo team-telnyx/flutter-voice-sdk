@@ -27,11 +27,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   TextEditingController sipNumberController = TextEditingController();
 
   @override
-  initState() {
+  void initState() {
     if (!kIsWeb) {
       _checkPermissions();
     }
-
     sipUserController.text = MOCK_USER;
     sipPasswordController.text = MOCK_PASSWORD;
 

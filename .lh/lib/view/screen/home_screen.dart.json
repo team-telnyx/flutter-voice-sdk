@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 2,
+            "activePatchIndex": 4,
             "patches": [
                 {
                     "date": 1730906592729,
@@ -16,6 +16,14 @@
                 {
                     "date": 1731267138541,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -22,9 +22,9 @@\n \n   @override\n   void initState() {\n     super.initState();\n-    destinationController.text = 'isaac33882destination_number_here';\n+    destinationController.text = 'isaac33882';\n   }\n \n   void _observeResponses() {\n     Provider.of<MainViewModel>(context, listen: true).observeResponses();\n"
+                },
+                {
+                    "date": 1733441200622,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -55,8 +55,33 @@\n         break;\n     }\n   }\n \n+  void _showScrollableModalBottomSheet(BuildContext context) {\n+    showModalBottomSheet(\n+      context: context,\n+      isScrollControlled: true,  // Allow custom height\n+      builder: (BuildContext context) {\n+        return SingleChildScrollView(  // Makes the content scrollable\n+          child: Container(\n+            padding: EdgeInsets.all(16),\n+            child: Column(\n+              children: List.generate(30, (index) {\n+                return ListTile(\n+                  leading: Icon(Icons.access_alarm),\n+                  title: Text('Item $index'),\n+                  onTap: () {\n+                    print('Tapped on Item $index');\n+                  },\n+                );\n+              }),\n+            ),\n+          ),\n+        );\n+      },\n+    );\n+  }\n+\n   @override\n   Widget build(BuildContext context) {\n     _observeResponses();\n     if (invitation) {\n@@ -108,9 +133,10 @@\n                   style: TextButton.styleFrom(\n                     foregroundColor: Colors.blue,\n                   ),\n                   onPressed: () {\n-                    _callDestination();\n+                    //_callDestination();\n+                    _showScrollableModalBottomSheet(context);\n                   },\n                   child: const Text('Call'),\n                 ),\n               ),\n"
+                },
+                {
+                    "date": 1733441351322,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -3,8 +3,9 @@\n import 'package:provider/provider.dart';\n import 'package:logger/logger.dart';\n import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';\n import 'package:telnyx_flutter_webrtc/view/widgets/invitation_widget.dart';\n+import 'package:telnyx_webrtc/utils/preference_storage.dart';\n \n class HomeScreen extends StatefulWidget {\n   const HomeScreen({super.key, required this.title});\n   final String title;\n@@ -65,17 +66,14 @@\n           // Makes the content scrollable\n           child: Container(\n             padding: EdgeInsets.all(16),\n             child: Column(\n-              children: List.generate(30, (index) {\n-                return ListTile(\n-                  leading: Icon(Icons.access_alarm),\n-                  title: Text('Item $index'),\n-                  onTap: () {\n-                    print('Tapped on Item $index');\n-                  },\n-                );\n-              }),\n+              children: [\n+                Padding(\n+                  padding: const EdgeInsets.all(8.0),\n+                  child: Text('${PreferencesStorage.getString('logger_key')}'),\n+                ),\n+              ],\n             ),\n           ),\n         );\n       },\n"
                 }
             ],
             "date": 1730906592729,

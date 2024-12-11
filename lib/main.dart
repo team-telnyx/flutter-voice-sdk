@@ -43,7 +43,8 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         // TODO: Handle this case.
         break;
       case Event.actionCallAccept:
-        logger.i('actionCallAccept :: call accepted');
+        logger.i(
+            'actionCallAccept :: _firebaseMessagingBackgroundHandler call accepted');
         TelnyxClient.setPushMetaData(
           message.data,
           isAnswer: true,
@@ -194,7 +195,7 @@ Future<void> main() async {
           break;
         case Event.actionCallAccept:
           logger.i('actionCallAccept :: call accepted');
-          mainViewModel.accept();
+          await mainViewModel.accept();
           break;
         case Event.actionCallDecline:
           logger.i('actionCallDecline :: call declined');

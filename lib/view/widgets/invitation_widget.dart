@@ -26,16 +26,6 @@ class InvitationWidget extends StatelessWidget {
               children: [
                 TextButton(
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.green[500],
-                  ),
-                  onPressed: () {
-                    print('Accept Call');
-                    Provider.of<MainViewModel>(context, listen: false).accept();
-                  },
-                  child: const Text('Accept'),
-                ),
-                TextButton(
-                  style: TextButton.styleFrom(
                     foregroundColor: Colors.red[400],
                   ),
                   onPressed: () {
