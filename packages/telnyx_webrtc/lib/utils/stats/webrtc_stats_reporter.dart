@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:logger/logger.dart';
@@ -12,11 +13,12 @@ import 'package:uuid/uuid.dart';
 class WebRTCStatsReporter {
   WebRTCStatsReporter(this.socket, this.peerConnection, this.callId);
 
-  final _logger = Logger();
+  final Logger _logger = Logger();
+  final Queue<String> _messageQueue = Queue<String>();
+
   Timer? _timer;
   bool debugReportStarted = false;
   final Uuid uuid = const Uuid();
-
   String debugStatsId = const Uuid().v4();
 
   final TxSocket socket;
@@ -26,7 +28,19 @@ class WebRTCStatsReporter {
   RTCSessionDescription? localSdp;
   RTCSessionDescription? remoteSdp;
 
-  // Start stats reporting
+  void _enqueueMessage(String message) {
+    _messageQueue.add(message);
+    _processMessageQueue();
+  }
+
+  void _processMessageQueue() async {
+    while (_messageQueue.isNotEmpty) {
+      final message = _messageQueue.removeFirst();
+      socket.send(message);
+      await Future.delayed(Duration(milliseconds: 50));
+    }
+  }
+
   Future<void> startStatsReporting() async {
     localSdp = await peerConnection.getLocalDescription();
     remoteSdp = await peerConnection.getRemoteDescription();
@@ -36,17 +50,15 @@ class WebRTCStatsReporter {
       _sendStartDebugReport(debugStatsId);
     }
 
-    // Set up peer event handlers
+    _sendAddConnectionMessage();
     _setupPeerEventHandlers();
 
-    // Schedule periodic stats collection
     _timer = Timer.periodic(Duration(milliseconds: Constants.statsInterval),
         (_) async {
       await _collectAndSendStats();
     });
   }
 
-  // Stop stats reporting
   void stopStatsReporting() {
     if (debugReportStarted) {
       debugReportStarted = false;
@@ -55,14 +67,37 @@ class WebRTCStatsReporter {
     _timer?.cancel();
   }
 
-  // Event Handlers for Peer Events
   void _setupPeerEventHandlers() {
     peerConnection
+      ..onAddStream = (MediaStream stream) {
+        final streamData = {
+          'streamId': stream.id,
+          'audioTracks': stream.getAudioTracks().map((track) {
+            return {'trackId': track.id, 'kind': track.kind};
+          }).toList(),
+          'videoTracks': stream.getVideoTracks().map((track) {
+            return {'trackId': track.id, 'kind': track.kind};
+          }).toList(),
+        };
+        _sendDebugReportData(
+          event: WebRTCStatsEvent.onTrack,
+          tag: WebRTCStatsTag.track,
+          data: streamData,
+        );
+      }
+      ..onRenegotiationNeeded = () {
+        _sendDebugReportData(
+          event: WebRTCStatsEvent.onNegotiationNeeded,
+          tag: WebRTCStatsTag.connection,
+          data: {},
+        );
+      }
       ..onIceCandidate = (RTCIceCandidate candidate) {
         final candidateData = {
           'candidate': candidate.candidate,
           'sdpMLineIndex': candidate.sdpMLineIndex,
           'sdpMid': candidate.sdpMid,
+          'usernameFragment': parseUsernameFragment(candidate),
         };
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceCandidate,
@@ -98,36 +133,25 @@ class WebRTCStatsReporter {
       };
   }
 
-  // Periodic Stats Collection
   Future<void> _collectAndSendStats() async {
     try {
       final stats = await peerConnection.getStats(null);
 
       final audioInboundStats = [];
       final audioOutboundStats = [];
-      final videoInboundStats = [];
-      final videoOutboundStats = [];
-      final candidatePairs = [];
+      final connectionStats = [];
       final statsObject = {};
 
       for (var report in stats) {
         switch (report.type) {
           case 'inbound-rtp':
-            if (report.values['kind'] == 'audio') {
-              audioInboundStats.add(report.values);
-            } else if (report.values['kind'] == 'video') {
-              videoInboundStats.add(report.values);
-            }
+            audioInboundStats.add(report.values);
             break;
           case 'outbound-rtp':
-            if (report.values['kind'] == 'audio') {
-              audioOutboundStats.add(report.values);
-            } else if (report.values['kind'] == 'video') {
-              videoOutboundStats.add(report.values);
-            }
+            audioOutboundStats.add(report.values);
             break;
           case 'candidate-pair':
-            candidatePairs.add(
+            connectionStats.add(
               _parseCandidatePair(report.values.cast<String, dynamic>()),
             );
             break;
@@ -141,19 +165,14 @@ class WebRTCStatsReporter {
         'tag': WebRTCStatsTag.stats.value,
         'peerId': callId,
         'connectionId': callId,
-        'timestamp': DateTime.now().toUtc().toIso8601String(),
         'data': {
           'audio': {
             'inbound': audioInboundStats,
             'outbound': audioOutboundStats,
           },
-          'video': {
-            'inbound': videoInboundStats,
-            'outbound': videoOutboundStats,
-          },
-          'connection': {'candidatePair': candidatePairs},
+          'connection': connectionStats,
+          'statsObject': statsObject,
         },
-        'statsObject': statsObject,
       };
 
       _sendDebugReportData(
@@ -166,16 +185,34 @@ class WebRTCStatsReporter {
     }
   }
 
-  // Helper Methods for Debug Report
+  void _sendAddConnectionMessage() {
+    final data = {
+      'event': WebRTCStatsEvent.addConnection.value,
+      'tag': WebRTCStatsTag.peer.value,
+      'connectionId': callId,
+      'peerId': callId,
+      'data': {
+        'peerConfiguration': _getPeerConfiguration(),
+        'options': {'peerId': callId},
+      },
+    };
+
+    _sendDebugReportData(
+      event: WebRTCStatsEvent.addConnection,
+      tag: WebRTCStatsTag.peer,
+      data: data,
+    );
+  }
+
   void _sendStartDebugReport(String sessionId) {
     final message = DebugReportStartMessage(reportId: sessionId);
     debugReportStarted = true;
-    socket.send(jsonEncode(message.toJson()));
+    _enqueueMessage(jsonEncode(message.toJson()));
   }
 
   void _sendStopDebugReport(String sessionId) {
     final message = DebugReportStopMessage(reportId: sessionId);
-    socket.send(jsonEncode(message.toJson()));
+    _enqueueMessage(jsonEncode(message.toJson()));
   }
 
   void _sendDebugReportData({
@@ -195,10 +232,9 @@ class WebRTCStatsReporter {
       },
     );
 
-    socket.send(jsonEncode(message.toJson()));
+    _enqueueMessage(jsonEncode(message.toJson()));
   }
 
-  // Helper method for candidate pair parsing
   Map<String, dynamic> _parseCandidatePair(Map<String, dynamic> candidate) {
     return {
       'id': candidate['id'],
@@ -208,6 +244,37 @@ class WebRTCStatsReporter {
       'currentRoundTripTime': candidate['currentRoundTripTime'],
       'priority': candidate['priority'],
       'nominated': candidate['nominated'],
+    };
+  }
+
+  String? parseUsernameFragment(RTCIceCandidate candidate) {
+    if (candidate.candidate == null || candidate.candidate!.isEmpty) {
+      return null;
+    }
+    final regex = RegExp(r'ufrag\s+(\w+)');
+    final match = regex.firstMatch(candidate.candidate!);
+    return match?.group(1);
+  }
+
+  Map<String, dynamic> _getPeerConfiguration() {
+    final configuration = peerConnection.getConfiguration;
+    final iceServers =
+        (configuration['iceServers'] as List<dynamic>?)?.map((iceServer) {
+      return {
+        'urls':
+            iceServer['url'] is String ? [iceServer['url']] : iceServer['url'],
+        'username': iceServer['username'] ?? '',
+        'credential': iceServer['credential'] ?? '',
+      };
+    }).toList();
+
+    return {
+      'bundlePolicy': 'max-compat',
+      'encodedInsertableStreams': false,
+      'iceCandidatePoolSize': 0,
+      'iceServers': iceServers ?? [],
+      'iceTransportPolicy': 'all',
+      'rtcpMuxPolicy': 'require',
     };
   }
 }
