@@ -68,7 +68,6 @@ class MainViewModel with ChangeNotifier {
           // TODO: Handle this case.
           break;
         case CallState.active:
-          print('current call is Active');
           logger.i('current call is Active');
           _ongoingInvitation = false;
           _ongoingCall = true;
@@ -111,7 +110,8 @@ class MainViewModel with ChangeNotifier {
             {
               _registered = true;
               logger.i(
-                  'Mainviewmodel :: observeResponses : Registered :: $_registered');
+                'Mainviewmodel :: observeResponses : Registered :: $_registered',
+              );
               break;
             }
           case SocketMethod.invite:
@@ -133,7 +133,6 @@ class MainViewModel with ChangeNotifier {
               logger.i(
                 'customheaders :: ${message.message.dialogParams?.customHeaders}',
               );
-              print('invite received ::  SocketMethod.INVITE $callFromPush');
 
               break;
             }
@@ -162,7 +161,6 @@ class MainViewModel with ChangeNotifier {
 
       // Observe Socket Error Messages
       ..onSocketErrorReceived = (TelnyxSocketError error) {
-        print('Error Received :: ${error.errorCode} : ${error.errorMessage}');
         Fluttertoast.showToast(
           msg: '${error.errorCode} : ${error.errorMessage}',
           toastLength: Toast.LENGTH_SHORT,
@@ -219,7 +217,7 @@ class MainViewModel with ChangeNotifier {
         );
       }
       // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
-      if (WidgetsBinding.instance?.lifecycleState !=
+      if (WidgetsBinding.instance.lifecycleState !=
           AppLifecycleState.resumed) {
         _telnyxClient.disconnect();
       }
@@ -254,7 +252,7 @@ class MainViewModel with ChangeNotifier {
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
     observeCurrentCall();
-    _currentCall?.startDebugStats();
+    // _currentCall?.startDebugStats();
   }
 
   void toggleSpeakerPhone() {
@@ -273,8 +271,6 @@ class MainViewModel with ChangeNotifier {
         _localNumber,
         'State',
       );
-
-      _currentCall?.startDebugStats();
 
       if (Platform.isIOS) {
         // only for iOS

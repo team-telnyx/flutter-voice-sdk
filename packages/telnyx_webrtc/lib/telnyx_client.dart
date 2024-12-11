@@ -422,10 +422,6 @@ class TelnyxClient {
       ringtonePath,
       ringBackpath,
       CallHandler((state) {
-        /*
-      * initialise this callback to handle call state changes on the client side
-      * */
-        print('Call state not overridden :Call State Changed to $state');
         _logger.i('Call state not overridden :Call State Changed to $state');
       }),
       _callEnded,

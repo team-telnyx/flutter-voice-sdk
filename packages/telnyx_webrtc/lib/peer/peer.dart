@@ -21,8 +21,6 @@ import 'package:telnyx_webrtc/model/jsonrpc.dart';
 class Peer {
   RTCPeerConnection? peerConnection;
 
-  final debugStatsDelay = const Duration(milliseconds: 20000);
-
   Peer(this._socket, this._debug, this._txClient);
 
   final _logger = Logger();
@@ -358,6 +356,8 @@ class Peer {
       _dcConstraints,
     );
 
+    await startStats(callId);
+
     if (media != 'data') {
       switch (sdpSemantics) {
         case 'plan-b':
@@ -445,9 +445,6 @@ class Peer {
       );
       return false;
     }
-    // Delay to allow call to be established
-    //ToDo(Oli) - Remove this delay, let's rely on a connection state change instead
-    await Future.delayed(debugStatsDelay);
 
     if (peerConnection == null) {
       _logger.d('Peer connection null');
