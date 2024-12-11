@@ -19,7 +19,7 @@ class TxSocket {
   late OnMessageCallback onMessage;
   late OnCloseCallback onClose;
 
-  connect() async {
+  void connect() async {
     try {
       _socket = WebSocket(hostAddress);
       _socket.onOpen.listen((e) {
@@ -31,14 +31,14 @@ class TxSocket {
       });
 
       _socket.onClose.listen((e) {
-        onClose.call(e.code ?? 0, e.reason ?? "Closed for unknown reason");
+        onClose.call(e.code ?? 0, e.reason ?? 'Closed for unknown reason');
       });
     } catch (e) {
       onClose.call(500, e.toString());
     }
   }
 
-  send(data) {
+  void send(data) {
     if (_socket.readyState == WebSocket.OPEN) {
       _socket.send(data);
       _logger.i('TxSocket :: send : \n\n$data');
@@ -47,7 +47,7 @@ class TxSocket {
     }
   }
 
-  close() {
+  void close() {
     _socket.close();
   }
 }

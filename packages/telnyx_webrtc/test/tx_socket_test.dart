@@ -8,20 +8,20 @@ import 'tx_socket_test.mocks.dart';
 @GenerateMocks([TxSocket])
 void main() {
   test('verify that connect calls without error', () {
-    var txSocket = MockTxSocket();
+    final txSocket = MockTxSocket();
     txSocket.connect();
     verify(txSocket.connect());
   });
 
   test('verify close calls socket close method without error', () {
-    var txSocket = MockTxSocket();
+    final txSocket = MockTxSocket();
     txSocket.close();
     verify(txSocket.close());
   });
 
   test('verify close calls socket send method without error', () {
-    var txSocket = MockTxSocket();
-    txSocket.send("any");
-    verify(txSocket.send("any"));
+    final txSocket = MockTxSocket();
+    txSocket.send('any');
+    verify(txSocket.send('any'));
   });
 }

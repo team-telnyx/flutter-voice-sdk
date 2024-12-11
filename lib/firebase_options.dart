@@ -47,34 +47,29 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyD4AeOUpzZbqNPfT8S9t5oMxeTqV920ea0',
-    appId: '1:1041583037627:web:a8b435ace03b9da5e19d9e',
-    messagingSenderId: '1041583037627',
-    projectId: 'traceit-ae280',
-    authDomain: 'traceit-ae280.firebaseapp.com',
-    databaseURL: 'https://traceit-ae280.firebaseio.com',
-    storageBucket: 'traceit-ae280.appspot.com',
-    measurementId: 'G-WMSQ66GN5P',
+    apiKey: 'AIzaSyCE72LitYVx9o6O8zeOKEvB3Fy6txeKj00',
+    appId: '1:884003177217:web:a718d5834c0cb9fa3b5100',
+    messagingSenderId: '884003177217',
+    projectId: 'fir-notification-test-1f87a',
+    authDomain: 'fir-notification-test-1f87a.firebaseapp.com',
+    storageBucket: 'fir-notification-test-1f87a.firebasestorage.app',
+    measurementId: 'G-XJYJL7XJH8',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBBvKRPAmK1AGqrhfN_3TalFnw-AKsof9M',
-    appId: '1:1041583037627:android:398bfd2d3a70b324e19d9e',
-    messagingSenderId: '1041583037627',
-    projectId: 'traceit-ae280',
-    databaseURL: 'https://traceit-ae280.firebaseio.com',
-    storageBucket: 'traceit-ae280.appspot.com',
+    apiKey: 'AIzaSyAwqtp6y8hs45rxxStGStRb5rWjwDDBNGw',
+    appId: '1:884003177217:android:bf1deaeb58b60c823b5100',
+    messagingSenderId: '884003177217',
+    projectId: 'fir-notification-test-1f87a',
+    storageBucket: 'fir-notification-test-1f87a.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDiCBmySlRCsQrNRT3HXpvgEyuYcefJd3k',
-    appId: '1:1041583037627:ios:7d2f12363ba2e56ae19d9e',
-    messagingSenderId: '1041583037627',
-    projectId: 'traceit-ae280',
-    databaseURL: 'https://traceit-ae280.firebaseio.com',
-    storageBucket: 'traceit-ae280.appspot.com',
-    androidClientId: '1041583037627-lchsc88avscqtq2if6lih4cihc7krle2.apps.googleusercontent.com',
+    apiKey: 'AIzaSyCYsBxsH_Lqkyd7vmELq6JJXuw1M78oE6g',
+    appId: '1:884003177217:ios:d8ea4aa95607364d3b5100',
+    messagingSenderId: '884003177217',
+    projectId: 'fir-notification-test-1f87a',
+    storageBucket: 'fir-notification-test-1f87a.firebasestorage.app',
     iosBundleId: 'com.telnyx.flutterWebrtc',
   );
-
 }

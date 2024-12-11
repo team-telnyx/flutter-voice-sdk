@@ -7,6 +7,7 @@ build/
 # If you're building an application, you may want to check-in your pubspec.lock
 pubspec.lock
 
+.lh/
 # Directory created by dartdoc
 # If you don't generate documentation locally you can remove this line.
 doc/api/
@@ -55,3 +56,5 @@ android/.idea/misc.xml
 android/.idea/other.xml
 android/.idea/vcs.xml
 android/app/lint-baseline.xml
+.DS_Store
+/.idea

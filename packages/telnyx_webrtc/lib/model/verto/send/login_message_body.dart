@@ -35,20 +35,21 @@ class LoginParams {
   String? passwd;
   UserVariables? userVariables;
   String? sessionId;
-  String? attachCall = "true";
-  LoginParams(
-      {this.login,
-      this.loginToken,
-      this.loginParams,
-      this.passwd,
-      this.userVariables,
-      this.sessionId,
-      this.attachCall});
+  String? attachCall = 'true';
+  LoginParams({
+    this.login,
+    this.loginToken,
+    this.loginParams,
+    this.passwd,
+    this.userVariables,
+    this.sessionId,
+    this.attachCall,
+  });
 
   LoginParams.fromJson(Map<String, dynamic> json) {
     login = json['login'];
     loginToken = json['login_token'];
-    attachCall = "true";
+    attachCall = 'true';
     if (json['loginParams'] != null) {
       loginParams = <String>[];
       json['loginParams'].forEach((v) {
@@ -96,9 +97,9 @@ class UserVariables {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['push_device_token'] = pushDeviceToken;
     data['push_notification_provider'] = pushNotificationProvider;
-    String pushEnvironment = kDebugMode ? "debug" : "production";
+    const String pushEnvironment = kDebugMode ? 'debug' : 'production';
     data['push_notification_environment'] = pushEnvironment;
-    print("pushEnvironment: $pushEnvironment");
+    print('pushEnvironment: $pushEnvironment');
     return data;
   }
 }

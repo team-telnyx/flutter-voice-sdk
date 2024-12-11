@@ -1,43 +1,38 @@
 import 'dart:convert';
 import 'dart:async';
-import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/peer/session.dart';
+import 'package:telnyx_webrtc/peer/signaling_state.dart';
+import 'package:telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
-import '../model/call_state.dart';
-import '../model/jsonrpc.dart';
-
-enum SignalingState {
-  ConnectionOpen,
-  ConnectionClosed,
-  ConnectionError,
-}
-
-class Session {
-  Session({required this.sid, required this.pid});
-
-  String pid;
-  String sid;
-  RTCPeerConnection? peerConnection;
-  RTCDataChannel? dc;
-  List<RTCIceCandidate> remoteCandidates = [];
-}
+import 'package:telnyx_webrtc/model/call_state.dart';
+import 'package:telnyx_webrtc/model/jsonrpc.dart';
 
 class Peer {
-  Peer(this._socket);
+  RTCPeerConnection? peerConnection;
+
+  final debugStatsDelay = const Duration(milliseconds: 20000);
+
+  Peer(this._socket, this._debug, this._txClient);
 
   final _logger = Logger();
 
   final String _selfId = randomNumeric(6);
 
   final TxSocket _socket;
+  final TelnyxClient _txClient;
+  final bool _debug;
+  WebRTCStatsReporter? _statsManager;
 
   final Map<String, Session> _sessions = {};
   MediaStream? _localStream;
@@ -61,14 +56,14 @@ class Peer {
       {
         'url': DefaultConfig.defaultStun,
         'username': DefaultConfig.username,
-        'credential': DefaultConfig.password
+        'credential': DefaultConfig.password,
       },
       {
         'url': DefaultConfig.defaultTurn,
         'username': DefaultConfig.username,
-        'credential': DefaultConfig.password
+        'credential': DefaultConfig.password,
       },
-    ]
+    ],
   };
 
   final Map<String, dynamic> _dcConstraints = {
@@ -81,16 +76,16 @@ class Peer {
     ],
   };
 
-  close() async {
+  void close() async {
     await _cleanSessions();
   }
 
   void muteUnmuteMic() {
     if (_localStream != null) {
-      bool enabled = _localStream!.getAudioTracks()[0].enabled;
+      final bool enabled = _localStream!.getAudioTracks()[0].enabled;
       _localStream!.getAudioTracks()[0].enabled = !enabled;
     } else {
-      _logger.d("Peer :: No local stream :: Unable to Mute / Unmute");
+      _logger.d('Peer :: No local stream :: Unable to Mute / Unmute');
     }
   }
 
@@ -98,49 +93,65 @@ class Peer {
     if (_localStream != null) {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
     } else {
-      _logger.d("Peer :: No local stream :: Unable to toggle speaker mode");
+      _logger.d('Peer :: No local stream :: Unable to toggle speaker mode');
     }
   }
 
   void invite(
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId,
-      String telnyxSessionId,
-      Map<String, String> customHeaders) async {
-    var sessionId = _selfId;
+    String callerName,
+    String callerNumber,
+    String destinationNumber,
+    String clientState,
+    String callId,
+    String telnyxSessionId,
+    Map<String, String> customHeaders,
+  ) async {
+    final sessionId = _selfId;
 
-    Session session = await _createSession(null,
-        peerId: "0", sessionId: sessionId, media: "audio");
+    final Session session = await _createSession(
+      null,
+      peerId: '0',
+      sessionId: sessionId,
+      callId: callId,
+      media: 'audio',
+    );
 
     _sessions[sessionId] = session;
 
-    _createOffer(session, "audio", callerName, callerNumber, destinationNumber,
-        clientState, callId, telnyxSessionId, customHeaders);
+    await _createOffer(
+      session,
+      'audio',
+      callerName,
+      callerNumber,
+      destinationNumber,
+      clientState,
+      callId,
+      telnyxSessionId,
+      customHeaders,
+    );
     onCallStateChange?.call(session, CallState.newCall);
   }
 
   Future<void> _createOffer(
-      Session session,
-      String media,
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId,
-      String sessionId,
-      Map<String, String> customHeaders) async {
+    Session session,
+    String media,
+    String callerName,
+    String callerNumber,
+    String destinationNumber,
+    String clientState,
+    String callId,
+    String sessionId,
+    Map<String, String> customHeaders,
+  ) async {
     try {
-      RTCSessionDescription s =
+      final RTCSessionDescription s =
           await session.peerConnection!.createOffer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
       if (session.remoteCandidates.isNotEmpty) {
         for (var candidate in session.remoteCandidates) {
           if (candidate.candidate != null) {
-            _logger.i("adding $candidate");
+            _logger.i('adding $candidate');
             await session.peerConnection?.addCandidate(candidate);
           }
         }
@@ -149,89 +160,108 @@ class Peer {
 
       await Future.delayed(const Duration(milliseconds: 500));
 
-      String? sdpUsed = "";
-      session.peerConnection
+      String? sdpUsed = '';
+      await session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
 
       Timer(const Duration(milliseconds: 500), () {
-        var dialogParams = DialogParams(
-            attach: false,
-            audio: true,
-            callID: callId,
-            callerIdName: callerName,
-            callerIdNumber: callerNumber,
-            clientState: clientState,
-            destinationNumber: destinationNumber,
-            remoteCallerIdName: "",
-            screenShare: false,
-            useStereo: false,
-            userVariables: [],
-            video: false,
-            customHeaders: customHeaders);
-        var inviteParams = InviteParams(
-            dialogParams: dialogParams,
-            sdp: sdpUsed,
-            sessid: sessionId,
-            userAgent: "Flutter-1.0");
-        var inviteMessage = InviteAnswerMessage(
-            id: const Uuid().v4(),
-            jsonrpc: JsonRPCConstant.jsonrpc,
-            method: SocketMethod.INVITE,
-            params: inviteParams);
+        final dialogParams = DialogParams(
+          attach: false,
+          audio: true,
+          callID: callId,
+          callerIdName: callerName,
+          callerIdNumber: callerNumber,
+          clientState: clientState,
+          destinationNumber: destinationNumber,
+          remoteCallerIdName: '',
+          screenShare: false,
+          useStereo: false,
+          userVariables: [],
+          video: false,
+          customHeaders: customHeaders,
+        );
+        final inviteParams = InviteParams(
+          dialogParams: dialogParams,
+          sdp: sdpUsed,
+          sessid: sessionId,
+          userAgent: 'Flutter-1.0',
+        );
+        final inviteMessage = InviteAnswerMessage(
+          id: const Uuid().v4(),
+          jsonrpc: JsonRPCConstant.jsonrpc,
+          method: SocketMethod.invite,
+          params: inviteParams,
+        );
 
-        String jsonInviteMessage = jsonEncode(inviteMessage);
+        final String jsonInviteMessage = jsonEncode(inviteMessage);
 
         _send(jsonInviteMessage);
       });
     } catch (e) {
-      _logger.e("Peer :: $e");
+      _logger.e('Peer :: $e');
     }
   }
 
   void remoteSessionReceived(String sdp) async {
     await _sessions[_selfId]
         ?.peerConnection
-        ?.setRemoteDescription(RTCSessionDescription(sdp, "answer"));
+        ?.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
   }
 
   void accept(
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId,
-      IncomingInviteParams invite,
-      Map<String, String> customHeaders,
-      bool isAttach) async {
-    var sessionId = _selfId;
-    Session session = await _createSession(null,
-        peerId: "0", sessionId: sessionId, media: "audio");
+    String callerName,
+    String callerNumber,
+    String destinationNumber,
+    String clientState,
+    String callId,
+    IncomingInviteParams invite,
+    Map<String, String> customHeaders,
+    bool isAttach,
+  ) async {
+    final sessionId = _selfId;
+    final Session session = await _createSession(
+      null,
+      peerId: '0',
+      sessionId: sessionId,
+      callId: callId,
+      media: 'audio',
+    );
     _sessions[sessionId] = session;
 
     await session.peerConnection
-        ?.setRemoteDescription(RTCSessionDescription(invite.sdp, "offer"));
+        ?.setRemoteDescription(RTCSessionDescription(invite.sdp, 'offer'));
 
-    _createAnswer(session, "audio", callerName, callerNumber, destinationNumber,
-        clientState, callId, customHeaders, isAttach);
+    await _createAnswer(
+      session,
+      'audio',
+      callerName,
+      callerNumber,
+      destinationNumber,
+      clientState,
+      callId,
+      customHeaders,
+      isAttach,
+    );
 
     onCallStateChange?.call(session, CallState.active);
   }
 
   Future<void> _createAnswer(
-      Session session,
-      String media,
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId,
-      Map<String, String> customHeaders,
-      bool isAttach) async {
+    Session session,
+    String media,
+    String callerName,
+    String callerNumber,
+    String destinationNumber,
+    String clientState,
+    String callId,
+    Map<String, String> customHeaders,
+    bool isAttach,
+  ) async {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
-          _logger.i("Peer :: Add Ice Candidate!");
+          _logger.i('Peer :: Add Ice Candidate!');
           if (candidate.candidate != null) {
             await session.peerConnection?.addCandidate(candidate);
           }
@@ -240,96 +270,106 @@ class Peer {
         }
       };
 
-      RTCSessionDescription s =
+      final RTCSessionDescription s =
           await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
       await Future.delayed(const Duration(milliseconds: 500));
 
-      String? sdpUsed = "";
-      session.peerConnection
+      String? sdpUsed = '';
+      await session.peerConnection
           ?.getLocalDescription()
           .then((value) => sdpUsed = value?.sdp.toString());
 
       Timer(const Duration(milliseconds: 500), () {
-        var dialogParams = DialogParams(
-            attach: false,
-            audio: true,
-            callID: callId,
-            callerIdName: callerNumber,
-            callerIdNumber: callerNumber,
-            clientState: clientState,
-            destinationNumber: destinationNumber,
-            remoteCallerIdName: "",
-            screenShare: false,
-            useStereo: false,
-            userVariables: [],
-            video: false,
-            customHeaders: customHeaders);
-        var inviteParams = InviteParams(
-            dialogParams: dialogParams,
-            sdp: sdpUsed,
-            sessid: session.sid,
-            userAgent: "Flutter-1.0");
-        var answerMessage = InviteAnswerMessage(
-            id: const Uuid().v4(),
-            jsonrpc: JsonRPCConstant.jsonrpc,
-            method: isAttach ? SocketMethod.ATTACH : SocketMethod.ANSWER,
-            params: inviteParams);
+        final dialogParams = DialogParams(
+          attach: false,
+          audio: true,
+          callID: callId,
+          callerIdName: callerNumber,
+          callerIdNumber: callerNumber,
+          clientState: clientState,
+          destinationNumber: destinationNumber,
+          remoteCallerIdName: '',
+          screenShare: false,
+          useStereo: false,
+          userVariables: [],
+          video: false,
+          customHeaders: customHeaders,
+        );
+        final inviteParams = InviteParams(
+          dialogParams: dialogParams,
+          sdp: sdpUsed,
+          sessid: session.sid,
+          userAgent: 'Flutter-1.0',
+        );
+        final answerMessage = InviteAnswerMessage(
+          id: const Uuid().v4(),
+          jsonrpc: JsonRPCConstant.jsonrpc,
+          method: isAttach ? SocketMethod.attach : SocketMethod.answer,
+          params: inviteParams,
+        );
 
-        String jsonAnswerMessage = jsonEncode(answerMessage);
+        final String jsonAnswerMessage = jsonEncode(answerMessage);
         _send(jsonAnswerMessage);
       });
     } catch (e) {
-      _logger.e("Peer :: $e");
+      _logger.e('Peer :: $e');
     }
   }
 
   void closeSession() {
-    var sess = _sessions[_selfId];
+    final sess = _sessions[_selfId];
     if (sess != null) {
-      _logger.d("Session end success");
+      _logger.d('Session end success');
       _closeSession(sess);
     } else {
-      _logger.d("Session end failed");
+      _logger.d('Session end failed');
     }
   }
 
   Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
       'audio': true,
-      'video': false
+      'video': false,
     };
 
-    MediaStream stream =
+    final MediaStream stream =
         await navigator.mediaDevices.getUserMedia(mediaConstraints);
     onLocalStream?.call(stream);
     return stream;
   }
 
-  Future<Session> _createSession(Session? session,
-      {required String peerId,
-      required String sessionId,
-      required String media}) async {
-    var newSession = session ?? Session(sid: sessionId, pid: peerId);
+  Future<Session> _createSession(
+    Session? session, {
+    required String peerId,
+    required String sessionId,
+    required String callId,
+    required String media,
+  }) async {
+    final newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') _localStream = await createStream(media);
 
-    RTCPeerConnection peerConnection = await createPeerConnection({
-      ..._iceServers,
-      ...{'sdpSemantics': sdpSemantics}
-    }, _dcConstraints);
+    peerConnection = await createPeerConnection(
+      {
+        ..._iceServers,
+        ...{'sdpSemantics': sdpSemantics},
+      },
+      _dcConstraints,
+    );
+
     if (media != 'data') {
       switch (sdpSemantics) {
         case 'plan-b':
-          peerConnection.onAddStream = (MediaStream stream) {
+          peerConnection?.onAddStream = (MediaStream stream) {
             onAddRemoteStream?.call(newSession, stream);
             _remoteStreams.add(stream);
           };
-          await peerConnection.addStream(_localStream!);
+          await peerConnection?.addStream(_localStream!);
           break;
         case 'unified-plan':
           // Unified-Plan
-          peerConnection.onTrack = (event) {
+          peerConnection?.onTrack = (event) {
             if (event.track.kind == 'video') {
               onAddRemoteStream?.call(newSession, event.streams[0]);
             } else if (event.track.kind == 'audio') {
@@ -337,43 +377,50 @@ class Peer {
             }
           };
           _localStream!.getTracks().forEach((track) {
-            peerConnection.addTrack(track, _localStream!);
+            peerConnection?.addTrack(track, _localStream!);
           });
           break;
       }
     }
-    peerConnection.onIceCandidate = (candidate) async {
-      if (!candidate.candidate.toString().contains("127.0.0.1")) {
-        _logger.i("Peer :: Adding ICE candidate :: ${candidate.toString()}");
-        peerConnection.addCandidate(candidate);
+
+    peerConnection?.onIceCandidate = (candidate) async {
+      final Call? currentCall = _txClient.calls[callId];
+
+      if (!candidate.candidate.toString().contains('127.0.0.1') ||
+          currentCall?.callState != CallState.active) {
+        _logger.i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
+        await peerConnection?.addCandidate(candidate);
       } else {
-        _logger.i("Peer :: Local candidate skipped!");
+        _logger.i('Peer :: Local candidate skipped!');
       }
       if (candidate.candidate == null) {
-        _logger.i("Peer :: onIceCandidate: complete!");
+        _logger.i('Peer :: onIceCandidate: complete!');
         return;
       }
     };
 
-    peerConnection.onIceConnectionState = (state) {
-      _logger.i("Peer :: ICE Connection State change :: $state");
+    peerConnection?.onIceConnectionState = (state) {
+      _logger.i('Peer :: ICE Connection State change :: $state');
       switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
-          peerConnection.restartIce();
+          peerConnection?.restartIce();
+          return;
+        case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
+          _statsManager?.stopStatsReporting();
           return;
         default:
           return;
       }
     };
 
-    peerConnection.onRemoveStream = (stream) {
+    peerConnection?.onRemoveStream = (stream) {
       onRemoveRemoteStream?.call(newSession, stream);
       _remoteStreams.removeWhere((it) {
         return (it.id == stream.id);
       });
     };
 
-    peerConnection.onDataChannel = (channel) {
+    peerConnection?.onDataChannel = (channel) {
       _addDataChannel(newSession, channel);
     };
 
@@ -382,24 +429,47 @@ class Peer {
   }
 
   void _addDataChannel(Session session, RTCDataChannel channel) {
-    channel.onDataChannelState = (e) {};
-    channel.onMessage = (RTCDataChannelMessage data) {
-      onDataChannelMessage?.call(session, channel, data);
-    };
+    channel
+      ..onDataChannelState = (e) {}
+      ..onMessage = (RTCDataChannelMessage data) {
+        onDataChannelMessage?.call(session, channel, data);
+      };
     session.dc = channel;
     onDataChannel?.call(session, channel);
   }
 
-  /*Future<void> _createDataChannel(Session session,
-      {label = 'fileTransfer'}) async {
-    RTCDataChannelInit dataChannelDict = RTCDataChannelInit()
-      ..maxRetransmits = 30;
-    RTCDataChannel channel =
-        await session.peerConnection!.createDataChannel(label, dataChannelDict);
-    _addDataChannel(session, channel);
-  }*/
+  Future<bool> startStats(String callId) async {
+    if (_debug == false) {
+      _logger.d(
+        'Peer :: Stats manager will not start. Debug mode not enabled on config',
+      );
+      return false;
+    }
+    // Delay to allow call to be established
+    //ToDo(Oli) - Remove this delay, let's rely on a connection state change instead
+    await Future.delayed(debugStatsDelay);
 
-  _send(event) {
+    if (peerConnection == null) {
+      _logger.d('Peer connection null');
+      return false;
+    }
+
+    _statsManager = WebRTCStatsReporter(_socket, peerConnection!, callId);
+    await _statsManager?.startStatsReporting();
+    _logger.d('Peer :: Stats Manager started for $callId');
+
+    return true;
+  }
+
+  void stopStats(String callId) {
+    if (_debug == false) {
+      return;
+    }
+    _statsManager?.stopStatsReporting();
+    _logger.d('Peer :: Stats Manager stopped for $callId');
+  }
+
+  void _send(event) {
     _socket.send(event);
   }
 
@@ -411,11 +481,12 @@ class Peer {
       await _localStream!.dispose();
       _localStream = null;
     }
-    _sessions.forEach((key, sess) async {
-      await sess.peerConnection?.close();
-      await sess.dc?.close();
-    });
-    _sessions.clear();
+    _sessions
+      ..forEach((key, sess) async {
+        await sess.peerConnection?.close();
+        await sess.dc?.close();
+      })
+      ..clear();
   }
 
   /*void _closeSessionByPeerId(String peerId) {
@@ -437,21 +508,9 @@ class Peer {
     });
     await _localStream?.dispose();
     _localStream = null;
-
     await session.peerConnection?.close();
+    await session.peerConnection?.dispose();
     await session.dc?.close();
+    stopStats(session.sid);
   }
 }
-
-int randomBetween(int from, int to) {
-  if (from > to) throw Exception('$from cannot be > $to');
-  var rand = Random();
-  return ((to - from) * rand.nextDouble()).toInt() + from;
-}
-
-String randomString(int length, {int from = 33, int to = 126}) {
-  return String.fromCharCodes(
-      List.generate(length, (index) => randomBetween(from, to)));
-}
-
-String randomNumeric(int length) => randomString(length, from: 48, to: 57);
