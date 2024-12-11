@@ -6,6 +6,7 @@ import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
@@ -18,15 +19,15 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
-
-  //"assets/audios/ringback.mp3"
   final TelnyxClient _telnyxClient = TelnyxClient();
 
   bool _registered = false;
+  bool _loggingIn = false;
   bool _ongoingInvitation = false;
   bool _ongoingCall = false;
   bool callFromPush = false;
   bool _speakerPhone = true;
+  CredentialConfig? _credentialConfig;
   IncomingInviteParams? _incomingInvite;
 
   String _localName = '';
@@ -34,6 +35,10 @@ class MainViewModel with ChangeNotifier {
 
   bool get registered {
     return _registered;
+  }
+
+  bool get loggingIn {
+    return _loggingIn;
   }
 
   bool get ongoingInvitation {
@@ -52,6 +57,14 @@ class MainViewModel with ChangeNotifier {
 
   IncomingInviteParams? get incomingInvitation {
     return _incomingInvite;
+  }
+
+  void resetCallInfo() {
+    _incomingInvite = null;
+    _ongoingInvitation = false;
+    _ongoingCall = false;
+    callFromPush = false;
+    logger.i('Mainviewmodel :: Reset Call Info');
   }
 
   void observeCurrentCall() {
@@ -92,22 +105,42 @@ class MainViewModel with ChangeNotifier {
     };
   }
 
-  void resetCallInfo() {
-    _incomingInvite = null;
-    _ongoingInvitation = false;
-    _ongoingCall = false;
-    callFromPush = false;
-    logger.i('Mainviewmodel :: Reset Call Info');
+  Future<void> _saveCredentialsForAutoLogin(
+    CredentialConfig credentialConfig,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sipUser', credentialConfig.sipUser);
+    await prefs.setString('sipPassword', credentialConfig.sipPassword);
+    await prefs.setString('sipName', credentialConfig.sipCallerIDName);
+    await prefs.setString('sipNumber', credentialConfig.sipCallerIDNumber);
+    if (credentialConfig.notificationToken != null) {
+      await prefs.setString(
+        'notificationToken',
+        credentialConfig.notificationToken!,
+      );
+    }
+  }
+
+  Future<void> _clearCredentialsForAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('sipUser');
+    await prefs.remove('sipPassword');
+    await prefs.remove('sipName');
+    await prefs.remove('sipNumber');
+    await prefs.remove('notificationToken');
   }
 
   void observeResponses() {
     // Observe Socket Messages Received
     _telnyxClient
-      ..onSocketMessageReceived = (TelnyxMessage message) {
+      ..onSocketMessageReceived = (TelnyxMessage message) async {
         logger.i('Mainviewmodel :: observeResponses :: Socket :: $message');
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
+              if (_credentialConfig != null) {
+                await _saveCredentialsForAutoLogin(_credentialConfig!);
+              }
               _registered = true;
               logger.i(
                 'Mainviewmodel :: observeResponses : Registered :: $_registered',
@@ -125,7 +158,7 @@ class MainViewModel with ChangeNotifier {
               } else {
                 // For early accept of call
                 if (waitingForInvite) {
-                  accept();
+                  await accept();
                   waitingForInvite = false;
                 }
               }
@@ -147,7 +180,7 @@ class MainViewModel with ChangeNotifier {
                 if (callFromPush) {
                   _endCallFromPush(true);
                 } else {
-                  FlutterCallkitIncoming.endCall(
+                  await FlutterCallkitIncoming.endCall(
                     currentCall?.callId ?? _incomingInvite!.callID!,
                   );
                   resetCallInfo();
@@ -175,7 +208,8 @@ class MainViewModel with ChangeNotifier {
             }
           case -32001:
             {
-              //Todo handle credential error
+              _loggingIn = false;
+              _clearCredentialsForAutoLogin();
               break;
             }
           case -32003:
@@ -193,18 +227,6 @@ class MainViewModel with ChangeNotifier {
       };
   }
 
-  void handlePushNotification(
-    PushMetaData pushMetaData,
-    CredentialConfig? credentialConfig,
-    TokenConfig? tokenConfig,
-  ) {
-    _telnyxClient.handlePushNotification(
-      pushMetaData,
-      credentialConfig,
-      tokenConfig,
-    );
-  }
-
   void _endCallFromPush(bool fromBye) {
     if (Platform.isIOS) {
       // end Call for Callkit on iOS
@@ -217,23 +239,41 @@ class MainViewModel with ChangeNotifier {
         );
       }
       // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
-      if (WidgetsBinding.instance.lifecycleState !=
-          AppLifecycleState.resumed) {
+
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         _telnyxClient.disconnect();
       }
     }
     resetCallInfo();
   }
 
+  void handlePushNotification(
+    PushMetaData pushMetaData,
+    CredentialConfig? credentialConfig,
+    TokenConfig? tokenConfig,
+  ) {
+    _telnyxClient.handlePushNotification(
+      pushMetaData,
+      credentialConfig,
+      tokenConfig,
+    );
+  }
+
   void disconnect() {
     _telnyxClient.disconnect();
+    _clearCredentialsForAutoLogin();
+    _loggingIn = false;
     _registered = false;
     notifyListeners();
   }
 
   void login(CredentialConfig credentialConfig) async {
+    _loggingIn = true;
+    notifyListeners();
+
     _localName = credentialConfig.sipCallerIDName;
     _localNumber = credentialConfig.sipCallerIDNumber;
+    _credentialConfig = credentialConfig;
     _telnyxClient.connectWithCredential(credentialConfig);
   }
 

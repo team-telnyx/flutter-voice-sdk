@@ -6,8 +6,8 @@ import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 import 'package:telnyx_webrtc/call.dart';
 
 class CallScreen extends StatefulWidget {
-  const CallScreen({super.key, required this.title, this.call});
-  final String title;
+  const CallScreen({super.key, this.call});
+
   final Call? call;
 
   @override
@@ -22,7 +22,7 @@ class _CallScreenState extends State<CallScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text('Ongoing Call'),
       ),
       body: SingleChildScrollView(
         child: Center(
