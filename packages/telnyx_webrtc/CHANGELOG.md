@@ -1,4 +1,4 @@
-## [0.1.0](https://pub.dev/packages/telnyx_webrtc/versions/0.1.1) (2024-12-12)
+## [0.1.1](https://pub.dev/packages/telnyx_webrtc/versions/0.1.1) (2024-12-12)
 
 ### Enhancement
 
