@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
@@ -23,19 +25,17 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   TextEditingController sipPasswordController = TextEditingController();
   TextEditingController sipNameController = TextEditingController();
   TextEditingController sipNumberController = TextEditingController();
+  CredentialConfig? credentialConfig;
 
   @override
   void initState() {
     super.initState();
-    if (!kIsWeb) {
-      _checkPermissions();
-    }
+
+    _checkPermissions();
 
     // Check if we have logged in before
     _checkCredentialsStored().then((value) {
-      if (value) {
-        _attemptLogin();
-      } else {
+      if (!value) {
         sipUserController.text = MOCK_USER;
         sipPasswordController.text = MOCK_PASSWORD;
       }
@@ -43,12 +43,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _checkPermissions() async {
-    await [
-      Permission.audio,
-      Permission.microphone,
-      Permission.bluetooth,
-      Permission.bluetoothConnect,
-    ].request();
+    if (kIsWeb) {
+      await [
+        Permission.audio,
+        Permission.microphone,
+        Permission.bluetooth,
+        Permission.bluetoothConnect,
+      ].request();
+    } else {
+      await [
+        Permission.microphone,
+      ].request();
+    }
   }
 
   Future<void> _attemptLogin() async {
@@ -60,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
       logger.i('iOS notification token :: $token');
     }
-    final credentialConfig = CredentialConfig(
+    credentialConfig = CredentialConfig(
       sipUser: sipUserController.text,
       sipPassword: sipPasswordController.text,
       sipCallerIDName: sipNameController.text,
@@ -71,10 +77,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       ringTonePath: 'assets/audio/incoming_call.mp3',
       ringbackPath: 'assets/audio/ringback_tone.mp3',
     );
-    await _saveCredentialsForAutoLogin(credentialConfig);
     setState(() {
       Provider.of<MainViewModel>(context, listen: false)
-          .login(credentialConfig);
+          .login(credentialConfig!);
     });
   }
 
@@ -84,14 +89,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final sipPassword = prefs.getString('sipPassword');
     final sipName = prefs.getString('sipName');
     final sipNumber = prefs.getString('sipNumber');
-    if (sipUser != null &&
-        sipPassword != null &&
-        sipName != null &&
-        sipNumber != null) {
+    if (sipUser != null && sipPassword != null) {
       sipUserController.text = sipUser;
       sipPasswordController.text = sipPassword;
-      sipNameController.text = sipName;
-      sipNumberController.text = sipNumber;
+      sipNameController.text = sipName ?? '';
+      sipNumberController.text = sipNumber ?? '';
       return true;
     }
     return false;
@@ -111,6 +113,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         credentialConfig.notificationToken!,
       );
     }
+    logger.i('Saved credentials for auto login');
   }
 
   @override
@@ -128,6 +131,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final bool isLoggingIn =
         Provider.of<MainViewModel>(context, listen: true).loggingIn;
     if (registered) {
+      //_saveCredentialsForAutoLogin(credentialConfig!);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');
       });

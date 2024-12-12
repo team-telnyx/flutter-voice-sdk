@@ -92,17 +92,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
           logger.i('iOS notification token :: $token');
         }
-        final credentialConfig = CredentialConfig(
-          sipUser: MOCK_USER,
-          sipPassword: MOCK_PASSWORD,
-          sipCallerIDName: '<caller_id>',
-          sipCallerIDNumber: '<caller_number>',
-          notificationToken: token,
-          autoReconnect: true,
-          debug: true,
-          ringTonePath: '',
-          ringbackPath: '',
-        );
+        final credentialConfig = await mainViewModel.getCredentialConfig();
         telnyxClient.handlePushNotification(
           pushMetaData,
           credentialConfig,
@@ -270,17 +260,7 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
     pushMetaData = PushMetaData.fromJson(data);
     logger.i('iOS notification token :: $token');
   }
-  final credentialConfig = CredentialConfig(
-    sipUser: MOCK_USER,
-    sipPassword: MOCK_PASSWORD,
-    sipCallerIDName: '<caller_id>',
-    sipCallerIDNumber: '<caller_number>',
-    notificationToken: token,
-    autoReconnect: true,
-    debug: true,
-    ringTonePath: '',
-    ringbackPath: '',
-  );
+  final credentialConfig = await mainViewModel.getCredentialConfig();
   mainViewModel
     ..handlePushNotification(pushMetaData!, credentialConfig, null)
     ..observeResponses();
