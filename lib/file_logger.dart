@@ -31,7 +31,7 @@ class FileLogger {
   Future<void> writeLog(String message) async {
     final timestamp = DateTime.now().toIso8601String();
     await _logFile.writeAsString('$timestamp: $message\n\n',
-        mode: FileMode.append);
+        mode: FileMode.append,);
   }
 
   /// Export the log file for sharing
@@ -43,11 +43,11 @@ class FileLogger {
         await clearLogs();
         return logs;
       } else {
-        throw Exception("Log file does not exist.");
+        throw Exception('Log file does not exist.');
       }
     } catch (e) {
       // Return an error message if something goes wrong
-      return "Error reading log file: $e";
+      return 'Error reading log file: $e';
     }
   }
 
