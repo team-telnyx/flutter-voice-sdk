@@ -400,7 +400,6 @@ class TelnyxClient {
   )
   Call get call {
     // If _call is null, initialize it with the default value.
-
     _call ??= _createCall();
     return _call!;
   }
@@ -634,7 +633,7 @@ class TelnyxClient {
   }
 
   /// Closes the socket connection, effectively logging the user out.
-  void disconnectWithCallBck(OnCloseCallback? closeCallback) {
+  void disconnectWithCallBack(OnCloseCallback? closeCallback) {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
     _logger.i('disconnect()');
