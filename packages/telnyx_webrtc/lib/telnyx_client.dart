@@ -40,46 +40,6 @@ class TelnyxClient {
   bool _isAttaching = false;
   bool _debug = false;
 
-  void checkReconnection() {
-    // Remember to cancel the subscription when it's no longer needed
-    Connectivity()
-        .onConnectivityChanged
-        .listen((List<ConnectivityResult> connectivityResult) {
-      if (connectivityResult.contains(ConnectivityResult.mobile)) {
-        _logger.i('Mobile network available.');
-        if (activeCalls().isNotEmpty && !_isAttaching) {
-          _reconnectToSocket();
-        } // Mobile network available.
-      } else if (connectivityResult.contains(ConnectivityResult.wifi)) {
-        _logger.i('Wi-fi is available.');
-        if (activeCalls().isNotEmpty && !_isAttaching) {
-          _reconnectToSocket();
-        }
-        // Wi-fi is available.
-        // Note for Android:
-        // When both mobile and Wi-Fi are turned on system will return Wi-Fi only as active network type
-      } else if (connectivityResult.contains(ConnectivityResult.ethernet)) {
-        _logger.i('Ethernet connection available.');
-        // Ethernet connection available.
-      } else if (connectivityResult.contains(ConnectivityResult.vpn)) {
-        // Vpn connection active.
-        // Note for iOS and macOS:
-        _logger.i('Vpn connection active.');
-      } else if (connectivityResult.contains(ConnectivityResult.bluetooth)) {
-        _logger.i('Bluetooth connection available.');
-        // Bluetooth connection available.
-      } else if (connectivityResult.contains(ConnectivityResult.other)) {
-        _logger.i(
-          'Connected to a network which is not in the above mentioned networks.',
-        );
-        // Connected to a network which is not in the above mentioned networks.
-      } else if (connectivityResult.contains(ConnectivityResult.none)) {
-        _logger.i('No available network types');
-        // No available network types
-      }
-    });
-  }
-
   TelnyxClient() {
     // Default implementation of onSocketMessageReceived
     onSocketMessageReceived = (TelnyxMessage message) {
@@ -154,6 +114,46 @@ class TelnyxClient {
   /// Returns the current Gateway state for the socket connection
   String getGatewayStatus() {
     return gatewayState;
+  }
+
+  void checkReconnection() {
+    // Remember to cancel the subscription when it's no longer needed
+    Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> connectivityResult) {
+      if (connectivityResult.contains(ConnectivityResult.mobile)) {
+        _logger.i('Mobile network available.');
+        if (activeCalls().isNotEmpty && !_isAttaching) {
+          _reconnectToSocket();
+        } // Mobile network available.
+      } else if (connectivityResult.contains(ConnectivityResult.wifi)) {
+        _logger.i('Wi-fi is available.');
+        if (activeCalls().isNotEmpty && !_isAttaching) {
+          _reconnectToSocket();
+        }
+        // Wi-fi is available.
+        // Note for Android:
+        // When both mobile and Wi-Fi are turned on system will return Wi-Fi only as active network type
+      } else if (connectivityResult.contains(ConnectivityResult.ethernet)) {
+        _logger.i('Ethernet connection available.');
+        // Ethernet connection available.
+      } else if (connectivityResult.contains(ConnectivityResult.vpn)) {
+        // Vpn connection active.
+        // Note for iOS and macOS:
+        _logger.i('Vpn connection active.');
+      } else if (connectivityResult.contains(ConnectivityResult.bluetooth)) {
+        _logger.i('Bluetooth connection available.');
+        // Bluetooth connection available.
+      } else if (connectivityResult.contains(ConnectivityResult.other)) {
+        _logger.i(
+          'Connected to a network which is not in the above mentioned networks.',
+        );
+        // Connected to a network which is not in the above mentioned networks.
+      } else if (connectivityResult.contains(ConnectivityResult.none)) {
+        _logger.i('No available network types');
+        // No available network types
+      }
+    });
   }
 
   /// Handles the push notification received from the backend
@@ -687,8 +687,9 @@ class TelnyxClient {
     }
   }
 
-  void _onMessage(dynamic data) {
+  void _onMessage(dynamic data) async {
     _logger.i('DEBUG MESSAGE: ${data.toString().trim()}');
+
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
         _logger.i('Received WebSocket message :: ${data.toString().trim()}');

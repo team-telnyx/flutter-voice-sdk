@@ -46,6 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         logger.i('Disconnecting!');
         break;
+      case 'Export Logs':
+        Provider.of<MainViewModel>(context, listen: false).exportLogs();
+        logger.i('Exporting logs!');
+        break;
     }
   }
 
@@ -70,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Logout'}.map((String choice) {
+                return {'Logout', 'Export Logs'}.map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),

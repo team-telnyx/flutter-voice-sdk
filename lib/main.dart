@@ -16,7 +16,6 @@ import 'package:telnyx_flutter_webrtc/view/screen/login_screen.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
-import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
@@ -44,7 +43,8 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         break;
       case Event.actionCallAccept:
         logger.i(
-            'actionCallAccept :: _firebaseMessagingBackgroundHandler call accepted');
+          'actionCallAccept :: _firebaseMessagingBackgroundHandler call accepted',
+        );
         TelnyxClient.setPushMetaData(
           message.data,
           isAnswer: true,
@@ -92,17 +92,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
           logger.i('iOS notification token :: $token');
         }
-        final credentialConfig = CredentialConfig(
-          sipUser: MOCK_USER,
-          sipPassword: MOCK_PASSWORD,
-          sipCallerIDName: '<caller_id>',
-          sipCallerIDNumber: '<caller_number>',
-          notificationToken: token,
-          autoReconnect: true,
-          debug: true,
-          ringTonePath: '',
-          ringbackPath: '',
-        );
+        final credentialConfig = await mainViewModel.getCredentialConfig();
         telnyxClient.handlePushNotification(
           pushMetaData,
           credentialConfig,
@@ -270,17 +260,7 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
     pushMetaData = PushMetaData.fromJson(data);
     logger.i('iOS notification token :: $token');
   }
-  final credentialConfig = CredentialConfig(
-    sipUser: MOCK_USER,
-    sipPassword: MOCK_PASSWORD,
-    sipCallerIDName: '<caller_id>',
-    sipCallerIDNumber: '<caller_number>',
-    notificationToken: token,
-    autoReconnect: true,
-    debug: true,
-    ringTonePath: '',
-    ringbackPath: '',
-  );
+  final credentialConfig = await mainViewModel.getCredentialConfig();
   mainViewModel
     ..handlePushNotification(pushMetaData!, credentialConfig, null)
     ..observeResponses();
