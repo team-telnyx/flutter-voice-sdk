@@ -2,8 +2,8 @@ name: telnyx_webrtc
 description: Enable real-time communication with WebRTC and Telnyx. Create and receive calls on Android, iOS and Web platforms
 homepage: https://telnyx.com/
 repository: https://github.com/team-telnyx/flutter-voice-sdk
-issue_tracker: https://github.com/team-telnyx/flutter-voice-sdk/issues?q=is%3Aopen+is%3Aissue
-version: 0.1.0
+issue_tracker: https://github.com/team-telnyx/flutter-voice-sdk/issues
+version: 0.1.1
 
 environment:
   sdk: ">=3.0.0 <3.22.3"
