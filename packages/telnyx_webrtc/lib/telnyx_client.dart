@@ -25,7 +25,6 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
-import 'package:telnyx_webrtc/utils/file_logger.dart';
 
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
@@ -1066,14 +1065,6 @@ class TelnyxClient {
         _logger.i('Received and ignored empty packet');
       }
     }
-
-    final messageLogger = await FileLogger.getInstance();
-    await messageLogger.writeLog(data.toString());
-  }
-
-  Future<String> exportLogs() async {
-    final messageLogger = await FileLogger.getInstance();
-    return await messageLogger.exportLogs();
   }
 
   void _sendNoCallError() {

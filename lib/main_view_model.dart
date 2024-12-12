@@ -7,6 +7,7 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:telnyx_flutter_webrtc/file_logger.dart';
 import 'package:telnyx_flutter_webrtc/main.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
@@ -191,6 +192,8 @@ class MainViewModel with ChangeNotifier {
             }
         }
         notifyListeners();
+        final messageLogger = await FileLogger.getInstance();
+        await messageLogger.writeLog(message.toString());
       }
 
       // Observe Socket Error Messages
@@ -437,7 +440,8 @@ class MainViewModel with ChangeNotifier {
   }
 
   void exportLogs() async {
-    final logContents = await _telnyxClient.exportLogs();
+    final messageLogger = await FileLogger.getInstance();
+    final logContents = await messageLogger.exportLogs();
     print(logContents);
   }
 }
