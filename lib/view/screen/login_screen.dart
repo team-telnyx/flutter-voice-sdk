@@ -131,7 +131,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final bool isLoggingIn =
         Provider.of<MainViewModel>(context, listen: true).loggingIn;
     if (registered) {
-      //_saveCredentialsForAutoLogin(credentialConfig!);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');
       });
