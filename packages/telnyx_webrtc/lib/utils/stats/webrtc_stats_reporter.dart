@@ -181,48 +181,81 @@ class WebRTCStatsReporter {
       final connectionStats = [];
       final statsObject = {};
 
+      final timestamp =
+          DateTime.now().toUtc().millisecondsSinceEpoch.toDouble();
+
       for (var report in stats) {
         switch (report.type) {
           case 'inbound-rtp':
-            audioInboundStats.add(report.values);
+            audioInboundStats.add({
+              ...report.values,
+              'timestamp': timestamp,
+              'track': {},
+            });
             break;
+
           case 'outbound-rtp':
-            audioOutboundStats.add(report.values);
+            audioOutboundStats.add({
+              ...report.values,
+              'timestamp': timestamp,
+              'track': _constructTrack(
+                  report.values.cast<String, dynamic>(), timestamp),
+            });
             break;
+
           case 'candidate-pair':
             connectionStats.add(
               StatParsingHelpers()
                   .parseCandidatePair(report.values.cast<String, dynamic>()),
             );
             break;
+
           default:
             statsObject[report.id] = report.values;
         }
       }
 
-      final messageData = {
-        'event': WebRTCStatsEvent.stats.value,
-        'tag': WebRTCStatsTag.stats.value,
-        'peerId': callId,
-        'connectionId': callId,
-        'data': {
-          'audio': {
-            'inbound': audioInboundStats,
-            'outbound': audioOutboundStats,
-          },
-          'connection': connectionStats,
-          'statsObject': statsObject,
+      final formattedData = {
+        'audio': {
+          'inbound': audioInboundStats,
+          'outbound': audioOutboundStats,
         },
+        'connection': connectionStats,
+        'statsObject': statsObject,
       };
+
 
       _sendDebugReportData(
         event: WebRTCStatsEvent.stats,
         tag: WebRTCStatsTag.stats,
-        data: messageData,
+        data: formattedData,
       );
     } catch (e) {
       _logger.e('Error collecting stats: $e');
     }
+  }
+
+  Map<String, dynamic>? _constructTrack(
+    Map<String, dynamic> reportValues,
+    double timestamp,
+  ) {
+    if (!reportValues.containsKey('mediaSourceId')) {
+      // Return null if media source info is not available
+      return null;
+    }
+
+    return {
+      'id': reportValues['mediaSourceId'],
+      'timestamp': timestamp,
+      'type': 'media-source',
+      'kind': reportValues['kind'],
+      'trackIdentifier': reportValues['trackIdentifier'],
+      'audioLevel': reportValues['audioLevel'] ?? 0,
+      'echoReturnLoss': reportValues['echoReturnLoss'],
+      'echoReturnLossEnhancement': reportValues['echoReturnLossEnhancement'],
+      'totalAudioEnergy': reportValues['totalAudioEnergy'],
+      'totalSamplesDuration': reportValues['totalSamplesDuration'],
+    };
   }
 
   void _sendAddConnectionMessage() {
