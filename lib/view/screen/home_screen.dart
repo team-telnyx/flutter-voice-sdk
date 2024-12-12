@@ -6,8 +6,7 @@ import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/invitation_widget.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.title});
-  final String title;
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -19,12 +18,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool invitation = false;
   bool ongoingCall = false;
-
-  @override
-  void initState() {
-    super.initState();
-    destinationController.text = 'isaac33882';
-  }
 
   void _observeResponses() {
     Provider.of<MainViewModel>(context, listen: true).observeResponses();
@@ -53,6 +46,10 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         logger.i('Disconnecting!');
         break;
+      case 'Export Logs':
+        Provider.of<MainViewModel>(context, listen: false).exportLogs();
+        logger.i('Exporting logs!');
+        break;
     }
   }
 
@@ -67,18 +64,17 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } else if (ongoingCall) {
       return CallScreen(
-        title: 'Ongoing Call',
         call: Provider.of<MainViewModel>(context, listen: false).currentCall,
       );
     } else {
       return Scaffold(
         appBar: AppBar(
-          title: Text(widget.title),
+          title: Text('Home'),
           actions: <Widget>[
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Logout'}.map((String choice) {
+                return {'Logout', 'Export Logs'}.map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
@@ -98,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   controller: destinationController,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    labelText: 'Destination',
+                    labelText: 'Enter Destination Number',
                   ),
                 ),
               ),

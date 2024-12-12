@@ -1,3 +1,14 @@
+## [0.1.0](https://pub.dev/packages/telnyx_webrtc/versions/0.1.1) (2024-12-12)
+
+### Enhancement
+
+- Improve IceCandidate handling to skip candidates when call is active
+- Improve PushNotification support on callkit for iOS
+
+### Bug Fixing
+
+- General bug fixes and import cleanups. 
+
 ## [0.1.0](https://pub.dev/packages/telnyx_webrtc/versions/0.1.0) (2024-11-07)
 
 ### Enhancement

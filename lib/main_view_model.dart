@@ -1,10 +1,14 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:telnyx_flutter_webrtc/file_logger.dart';
+import 'package:telnyx_flutter_webrtc/main.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
@@ -17,14 +21,15 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
-  //"assets/audios/ringback.mp3"
   final TelnyxClient _telnyxClient = TelnyxClient();
 
   bool _registered = false;
+  bool _loggingIn = false;
   bool _ongoingInvitation = false;
   bool _ongoingCall = false;
   bool callFromPush = false;
   bool _speakerPhone = true;
+  CredentialConfig? _credentialConfig;
   IncomingInviteParams? _incomingInvite;
 
   String _localName = '';
@@ -32,6 +37,10 @@ class MainViewModel with ChangeNotifier {
 
   bool get registered {
     return _registered;
+  }
+
+  bool get loggingIn {
+    return _loggingIn;
   }
 
   bool get ongoingInvitation {
@@ -52,6 +61,14 @@ class MainViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
+  void resetCallInfo() {
+    _incomingInvite = null;
+    _ongoingInvitation = false;
+    _ongoingCall = false;
+    callFromPush = false;
+    logger.i('Mainviewmodel :: Reset Call Info');
+  }
+
   void observeCurrentCall() {
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i('Call State :: $state');
@@ -66,7 +83,6 @@ class MainViewModel with ChangeNotifier {
           // TODO: Handle this case.
           break;
         case CallState.active:
-          print('current call is Active');
           logger.i('current call is Active');
           _ongoingInvitation = false;
           _ongoingCall = true;
@@ -91,96 +107,146 @@ class MainViewModel with ChangeNotifier {
     };
   }
 
+  Future<void> _saveCredentialsForAutoLogin(
+    CredentialConfig credentialConfig,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sipUser', credentialConfig.sipUser);
+    await prefs.setString('sipPassword', credentialConfig.sipPassword);
+    await prefs.setString('sipName', credentialConfig.sipCallerIDName);
+    await prefs.setString('sipNumber', credentialConfig.sipCallerIDNumber);
+    if (credentialConfig.notificationToken != null) {
+      await prefs.setString(
+        'notificationToken',
+        credentialConfig.notificationToken!,
+      );
+    }
+  }
+
+  Future<void> _clearCredentialsForAutoLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('sipUser');
+    await prefs.remove('sipPassword');
+    await prefs.remove('sipName');
+    await prefs.remove('sipNumber');
+    await prefs.remove('notificationToken');
+  }
+
   void observeResponses() {
     // Observe Socket Messages Received
-    _telnyxClient..onSocketMessageReceived = (TelnyxMessage message) {
-      switch (message.socketMethod) {
-        case SocketMethod.clientReady:
-          {
-            _registered = true;
-            logger.i('Registered :: $_registered');
-            break;
-          }
-        case SocketMethod.invite:
-          {
-            observeCurrentCall();
-
-            _incomingInvite = message.message.inviteParams;
-            if (!callFromPush) {
-              // only set _ongoingInvitation if the call is not from push notification
-              _ongoingInvitation = true;
-              showNotification(_incomingInvite!);
-            } else {
-              // For early accept of call
-              if (waitingForInvite) {
-                accept();
-                waitingForInvite = false;
+    _telnyxClient
+      ..onSocketMessageReceived = (TelnyxMessage message) async {
+        logger.i('Mainviewmodel :: observeResponses :: Socket :: $message');
+        switch (message.socketMethod) {
+          case SocketMethod.clientReady:
+            {
+              if (_credentialConfig != null) {
+                await _saveCredentialsForAutoLogin(_credentialConfig!);
               }
-              callFromPush = false;
-            }
-
-            logger.i(
-              'customheaders :: ${message.message.dialogParams?.customHeaders}',
-            );
-            print('invite received ::  SocketMethod.INVITE $callFromPush');
-
-            break;
-          }
-        case SocketMethod.answer:
-          {
-            _ongoingCall = true;
-            break;
-          }
-        case SocketMethod.bye:
-          {
-            _ongoingInvitation = false;
-            _ongoingCall = false;
-            if (Platform.isIOS) {
-              // end Call for Callkit on iOS
-              FlutterCallkitIncoming.endCall(
-                currentCall?.callId ?? _incomingInvite!.callID!,
+              _registered = true;
+              logger.i(
+                'Mainviewmodel :: observeResponses : Registered :: $_registered',
               );
+              break;
             }
+          case SocketMethod.invite:
+            {
+              observeCurrentCall();
+              _incomingInvite = message.message.inviteParams;
+              if (!callFromPush) {
+                // only set _ongoingInvitation if the call is not from push notification
+                _ongoingInvitation = true;
+                showNotification(_incomingInvite!);
+              } else {
+                // For early accept of call
+                if (waitingForInvite) {
+                  await accept();
+                  waitingForInvite = false;
+                }
+              }
 
-            break;
-          }
+              logger.i(
+                'customheaders :: ${message.message.dialogParams?.customHeaders}',
+              );
+
+              break;
+            }
+          case SocketMethod.answer:
+            {
+              _ongoingCall = true;
+              break;
+            }
+          case SocketMethod.bye:
+            {
+              if (Platform.isIOS) {
+                if (callFromPush) {
+                  _endCallFromPush(true);
+                } else {
+                  await FlutterCallkitIncoming.endCall(
+                    currentCall?.callId ?? _incomingInvite!.callID!,
+                  );
+                  resetCallInfo();
+                }
+              }
+              break;
+            }
+        }
+        notifyListeners();
+        final messageLogger = await FileLogger.getInstance();
+        await messageLogger.writeLog(message.toString());
       }
-      notifyListeners();
-    }
 
-    // Observe Socket Error Messages
-    ..onSocketErrorReceived = (TelnyxSocketError error) {
-      print('Error Received :: ${error.errorCode} : ${error.errorMessage}');
-      Fluttertoast.showToast(
-        msg: '${error.errorCode} : ${error.errorMessage}',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        timeInSecForIosWeb: 1,
+      // Observe Socket Error Messages
+      ..onSocketErrorReceived = (TelnyxSocketError error) {
+        Fluttertoast.showToast(
+          msg: '${error.errorCode} : ${error.errorMessage}',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+        );
+        switch (error.errorCode) {
+          case -32000:
+            {
+              //Todo handle token error
+              break;
+            }
+          case -32001:
+            {
+              _loggingIn = false;
+              break;
+            }
+          case -32003:
+            {
+              //Todo handle gateway timeout error
+              break;
+            }
+          case -32004:
+            {
+              //ToDo hande gateway failure error
+              break;
+            }
+        }
+        notifyListeners();
+      };
+  }
+
+  void _endCallFromPush(bool fromBye) {
+    if (Platform.isIOS) {
+      // end Call for Callkit on iOS
+      FlutterCallkitIncoming.endCall(
+        currentCall?.callId ?? _incomingInvite!.callID!,
       );
-      switch (error.errorCode) {
-        case -32000:
-          {
-            //Todo handle token error
-            break;
-          }
-        case -32001:
-          {
-            //Todo handle credential error
-            break;
-          }
-        case -32003:
-          {
-            //Todo handle gateway timeout error
-            break;
-          }
-        case -32004:
-          {
-            //ToDo hande gateway failure error
-            break;
-          }
+      if (!fromBye) {
+        _telnyxClient.calls.values.firstOrNull?.endCall(
+          _incomingInvite?.callID,
+        );
       }
-      notifyListeners();
-    };
+      // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+        _telnyxClient.disconnect();
+      }
+    }
+    resetCallInfo();
   }
 
   void handlePushNotification(
@@ -197,13 +263,18 @@ class MainViewModel with ChangeNotifier {
 
   void disconnect() {
     _telnyxClient.disconnect();
+    _loggingIn = false;
     _registered = false;
     notifyListeners();
   }
 
   void login(CredentialConfig credentialConfig) async {
+    _loggingIn = true;
+    notifyListeners();
+
     _localName = credentialConfig.sipCallerIDName;
     _localNumber = credentialConfig.sipCallerIDNumber;
+    _credentialConfig = credentialConfig;
     _telnyxClient.connectWithCredential(credentialConfig);
   }
 
@@ -222,7 +293,6 @@ class MainViewModel with ChangeNotifier {
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
     observeCurrentCall();
-    _currentCall?.startDebugStats();
   }
 
   void toggleSpeakerPhone() {
@@ -233,7 +303,35 @@ class MainViewModel with ChangeNotifier {
 
   bool waitingForInvite = false;
 
-  void accept({bool acceptFromNotification = false}) {
+  Future<CredentialConfig> getCredentialConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sipUser = prefs.getString('sipUser');
+    final sipPassword = prefs.getString('sipPassword');
+    final sipName = prefs.getString('sipName');
+    final sipNumber = prefs.getString('sipNumber');
+    if (sipUser != null &&
+        sipPassword != null &&
+        sipName != null &&
+        sipNumber != null) {
+      return CredentialConfig(
+        sipCallerIDName: sipName,
+        sipCallerIDNumber: sipNumber,
+        sipUser: sipUser,
+        sipPassword: sipPassword,
+        debug: true,
+      );
+    } else {
+      return CredentialConfig(
+        sipCallerIDName: 'Flutter Voice',
+        sipCallerIDNumber: '',
+        sipUser: MOCK_USER,
+        sipPassword: MOCK_PASSWORD,
+        debug: true,
+      );
+    }
+  }
+
+  Future<void> accept({bool acceptFromNotification = false}) async {
     if (_incomingInvite != null) {
       _currentCall = _telnyxClient.acceptCall(
         _incomingInvite!,
@@ -242,11 +340,9 @@ class MainViewModel with ChangeNotifier {
         'State',
       );
 
-      _currentCall?.startDebugStats();
-
       if (Platform.isIOS) {
         // only for iOS
-        FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+        await FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
       }
 
       // Hide if not already hidden
@@ -271,7 +367,7 @@ class MainViewModel with ChangeNotifier {
         );
 
         // Hide notfication when call is accepted
-        FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
+        await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
       notifyListeners();
     } else {
@@ -313,13 +409,12 @@ class MainViewModel with ChangeNotifier {
     if (Platform.isIOS) {
       /* when end call from CallScreen we need to tell Callkit to end the call as well
        */
-      if (endfromCallScreen) {
+      if (endfromCallScreen && callFromPush) {
         // end Call for Callkit on iOS
-        FlutterCallkitIncoming.endCall(
-          currentCall?.callId ?? _incomingInvite!.callID!,
-        );
-        currentCall?.endCall(_incomingInvite?.callID);
+        _endCallFromPush(false);
+        logger.i('end Call: CallfromPush $callFromPush');
       } else {
+        logger.i('end Call: CallfromCallScreen $callFromPush');
         // end Call normlly on iOS
         currentCall?.endCall(_incomingInvite?.callID);
       }
@@ -342,5 +437,11 @@ class MainViewModel with ChangeNotifier {
 
   void holdUnhold() {
     _telnyxClient.call.onHoldUnholdPressed();
+  }
+
+  void exportLogs() async {
+    final messageLogger = await FileLogger.getInstance();
+    final logContents = await messageLogger.exportLogs();
+    print(logContents);
   }
 }

@@ -1,7 +1,7 @@
-// ignore: avoid_web_libraries_in_flutter
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/main.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
@@ -11,9 +11,7 @@ import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.title});
-
-  final String title;
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -25,28 +23,36 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   TextEditingController sipPasswordController = TextEditingController();
   TextEditingController sipNameController = TextEditingController();
   TextEditingController sipNumberController = TextEditingController();
+  CredentialConfig? credentialConfig;
 
   @override
-  initState() {
-    if (!kIsWeb) {
-      _checkPermissions();
-    }
-
-    sipUserController.text = MOCK_USER;
-    sipPasswordController.text = MOCK_PASSWORD;
-
+  void initState() {
     super.initState();
+
+    _checkPermissions();
+
+    // Check if we have logged in before
+    _checkCredentialsStored().then((value) {
+      if (!value) {
+        sipUserController.text = MOCK_USER;
+        sipPasswordController.text = MOCK_PASSWORD;
+      }
+    });
   }
 
-  Future<void> _checkPermissions() async {
-    final Map<Permission, PermissionStatus> statuses = await [
-      Permission.audio,
-      Permission.microphone,
-      Permission.bluetooth,
-      Permission.bluetoothConnect,
-    ].request();
-    print(statuses[Permission.microphone]);
-    print(statuses[Permission.bluetooth]);
+  void _checkPermissions() async {
+    if (kIsWeb) {
+      await [
+        Permission.audio,
+        Permission.microphone,
+        Permission.bluetooth,
+        Permission.bluetoothConnect,
+      ].request();
+    } else {
+      await [
+        Permission.microphone,
+      ].request();
+    }
   }
 
   Future<void> _attemptLogin() async {
@@ -58,33 +64,54 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
       logger.i('iOS notification token :: $token');
     }
+    credentialConfig = CredentialConfig(
+      sipUser: sipUserController.text,
+      sipPassword: sipPasswordController.text,
+      sipCallerIDName: sipNameController.text,
+      sipCallerIDNumber: sipNumberController.text,
+      notificationToken: token,
+      autoReconnect: true,
+      debug: true,
+      ringTonePath: 'assets/audio/incoming_call.mp3',
+      ringbackPath: 'assets/audio/ringback_tone.mp3',
+    );
     setState(() {
-      final credentialConfig = CredentialConfig(
-        sipUser: sipUserController.text,
-        sipPassword: sipPasswordController.text,
-        sipCallerIDName: sipNameController.text,
-        sipCallerIDNumber: sipNumberController.text,
-        notificationToken: token,
-        autoReconnect: true,
-        debug: true,
-        ringTonePath: 'assets/audio/incoming_call.mp3',
-        ringbackPath: 'assets/audio/ringback_tone.mp3',
-      );
-
-      final tokenConfig = TokenConfig(
-        sipToken:
-            'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ0ZWxueXhfdGVsZXBob255IiwiZXhwIjoxNzA5NjM0Mzk4LCJpYXQiOjE3MDk1NDc5OTgsImlzcyI6InRlbG55eF90ZWxlcGhvbnkiLCJqdGkiOiIzOWY3ZDY2ZS0xY2JiLTQ2Y2QtOGM4ZS03NDJlOWZlYTUwNDAiLCJuYmYiOjE3MDk1NDc5OTcsInN1YiI6Ijg2YmEyZjA3LWU4NmEtNGU3NS05MTg2LTAwOTYxYWMzNDc0ZSIsInRlbF90b2tlbiI6Ik5iVldCTFFySDRoWk9TS2FGa0ZfMlctcndWcklJbExJcnltZkRFY0RETThydFk0ZUp6TkhmTVlaeWJyNVk2b0tTd2Exa0toZzZrREdDNHd4dUVSTDlodUdqOV9nRk5oVjZwVzRSWFB0dGFWMF9fNXhoVVRHb3F5czdmX0FsVUotZjZzNEktQXNMcm9vc3djNW13SEE3VmdHIiwidHlwIjoiYWNjZXNzIn0.8Y_MdGid2iZg0ERLJxQEbR2R5JRkg6kS_g0P4v5qFEvLWw4MIfEoUXMxyvSEvPd4t3ySS7xeB2_NFCB02kEDVg',
-        sipCallerIDName: sipNameController.text,
-        sipCallerIDNumber: sipNumberController.text,
-        notificationToken: token,
-        autoReconnect: true,
-        debug: true,
-        ringTonePath: 'assets/audio/incoming_call.mp3',
-        ringbackPath: 'assets/audio/ringback_tone.mp3',
-      );
       Provider.of<MainViewModel>(context, listen: false)
-          .login(credentialConfig);
+          .login(credentialConfig!);
     });
+  }
+
+  Future<bool> _checkCredentialsStored() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sipUser = prefs.getString('sipUser');
+    final sipPassword = prefs.getString('sipPassword');
+    final sipName = prefs.getString('sipName');
+    final sipNumber = prefs.getString('sipNumber');
+    if (sipUser != null && sipPassword != null) {
+      sipUserController.text = sipUser;
+      sipPasswordController.text = sipPassword;
+      sipNameController.text = sipName ?? '';
+      sipNumberController.text = sipNumber ?? '';
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _saveCredentialsForAutoLogin(
+    CredentialConfig credentialConfig,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sipUser', credentialConfig.sipUser);
+    await prefs.setString('sipPassword', credentialConfig.sipPassword);
+    await prefs.setString('sipName', credentialConfig.sipCallerIDName);
+    await prefs.setString('sipNumber', credentialConfig.sipCallerIDNumber);
+    if (credentialConfig.notificationToken != null) {
+      await prefs.setString(
+        'notificationToken',
+        credentialConfig.notificationToken!,
+      );
+    }
+    logger.i('Saved credentials for auto login');
   }
 
   @override
@@ -99,75 +126,82 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
     final bool registered =
         Provider.of<MainViewModel>(context, listen: true).registered;
+    final bool isLoggingIn =
+        Provider.of<MainViewModel>(context, listen: true).loggingIn;
     if (registered) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');
       });
     }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text('Telnyx Login'),
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: sipUserController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'SIP Username',
-                ),
+      body: isLoggingIn
+          ? Center(
+              child: CircularProgressIndicator(),
+            )
+          : Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextFormField(
+                      controller: sipUserController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'SIP Username',
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextFormField(
+                      controller: sipPasswordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'SIP Password',
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextFormField(
+                      controller: sipNameController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Caller ID Name',
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextFormField(
+                      controller: sipNumberController,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Caller ID Number',
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.blue,
+                      ),
+                      onPressed: () {
+                        _attemptLogin();
+                      },
+                      child: const Text('Login'),
+                    ),
+                  ),
+                ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: sipPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'SIP Password',
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: sipNameController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Caller ID Name',
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextFormField(
-                controller: sipNumberController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Caller ID Number',
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: TextButton(
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.blue,
-                ),
-                onPressed: () {
-                  _attemptLogin();
-                },
-                child: const Text('Login'),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

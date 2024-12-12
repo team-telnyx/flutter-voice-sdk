@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:telnyx_webrtc/utils/constants.dart';
 
 class PreferencesStorage {
