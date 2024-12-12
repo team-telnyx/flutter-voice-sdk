@@ -30,8 +30,10 @@ class FileLogger {
   /// Write a log entry to the file
   Future<void> writeLog(String message) async {
     final timestamp = DateTime.now().toIso8601String();
-    await _logFile.writeAsString('$timestamp: $message\n\n',
-        mode: FileMode.append,);
+    await _logFile.writeAsString(
+      '$timestamp: $message\n\n',
+      mode: FileMode.append,
+    );
   }
 
   /// Export the log file for sharing
