@@ -187,6 +187,7 @@ class WebRTCStatsReporter {
       for (var report in stats) {
         switch (report.type) {
           case 'inbound-rtp':
+            //Todo(Oliver): also this to stats object
             audioInboundStats.add({
               ...report.values,
               'timestamp': timestamp,
@@ -195,6 +196,7 @@ class WebRTCStatsReporter {
             break;
 
           case 'outbound-rtp':
+          //Todo(Oliver): also this to stats object
             audioOutboundStats.add({
               ...report.values,
               'timestamp': timestamp,
@@ -204,11 +206,80 @@ class WebRTCStatsReporter {
             break;
 
           case 'candidate-pair':
+            //ToDo(Oliver): Add this to connection but also to the stats object.
             connectionStats.add(
               StatParsingHelpers()
                   .parseCandidatePair(report.values.cast<String, dynamic>()),
             );
             break;
+
+            //ToDo(connection): we need to add local and remote structure as defined by Rad (Check chat)
+          /*
+          "connection": {
+        "bytesDiscardedOnSend": 0,
+        "bytesReceived": 1972,
+        "bytesSent": 286,
+        "consentRequestsSent": 0,
+        "currentRoundTripTime": 0.315,
+        "id": "CPpS9RDtdA_/63J8ZVo",
+        "lastPacketReceivedTimestamp": 1734090239245,
+        "lastPacketSentTimestamp": 1734090239250,
+        "local": {
+          "address": "91.90.191.146",
+          "candidateType": "srflx",
+          "foundation": "3512986574",
+          "id": "IpS9RDtdA",
+          "ip": "91.90.191.146",
+          "isRemote": false,
+          "networkAdapterType": "wifi",
+          "networkType": "wifi",
+          "port": 48620,
+          "priority": 1686052607,
+          "protocol": "udp",
+          "relatedAddress": "10.215.131.125",
+          "relatedPort": 48620,
+          "transportId": "T01",
+          "type": "local-candidate",
+          "url": "stun:stun.telnyx.com:3478",
+          "usernameFragment": "JCme",
+          "vpn": false
+        },
+        "localCandidateId": "IpS9RDtdA",
+        "nominated": false,
+        "packetsDiscardedOnSend": 0,
+        "packetsReceived": 2,
+        "packetsSent": 2,
+        "priority": 7.241540810661954e+18,
+        "remote": {
+          "address": "103.115.244.151",
+          "candidateType": "host",
+          "foundation": "1391250045",
+          "id": "I/63J8ZVo",
+          "ip": "103.115.244.151",
+          "isRemote": true,
+          "port": 29168,
+          "priority": 2130706431,
+          "protocol": "udp",
+          "transportId": "T01",
+          "type": "remote-candidate",
+          "usernameFragment": "la7R7GQTUvZNArtm"
+        },
+        "remoteCandidateId": "I/63J8ZVo",
+        "requestsReceived": 0,
+        "requestsSent": 13,
+        "responsesReceived": 4,
+        "responsesSent": 0,
+        "state": "succeeded",
+        "timestamp": 1734090239299.11,
+        "totalRoundTripTime": 1.262,
+        "transportId": "T01",
+        "type": "candidate-pair",
+        "writable": true
+      }
+
+          * */
+
+
 
           default:
             statsObject[report.id] = report.values;
