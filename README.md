@@ -180,23 +180,6 @@ In order to end a call, we can get a stored instance of Call and call the .endCa
     }
 ```
 
-### Handling Late Notifications 
-If notifcations arrive very late due to no internet connectivity, It is good to always flag it as a missed call. You can do that using the 
-code snippet below : 
-
-```dart
-const CALL_MISSED_TIMEOUT = 60;
-
- DateTime nowTime = DateTime.now();
- Duration? difference = nowTime?.difference(message.sentTime!);
-
- if (difference.inSeconds > CALL_MISSED_TIMEOUT) {
-    NotificationService.showMissedCallNotification(message);
-    return;
-}
-```
-
-
 ### DTMF (Dual Tone Multi Frequency)
 
 In order to send a DTMF message while on a call you can call the .dtmf(callID, tone), method where tone is a String value of the character you would like pressed:
@@ -476,7 +459,21 @@ For a detailed tutorial, please visit our official [Push Notification Docs](http
    });
 ```
 
+### Handling Late Notifications
+If notifications arrive very late due to no internet connectivity, It is good to always flag it as a missed call. You can do that using the
+code snippet below :
 
+```dart
+const CALL_MISSED_TIMEOUT = 60;
+
+ DateTime nowTime = DateTime.now();
+ Duration? difference = nowTime?.difference(message.sentTime!);
+
+ if (difference.inSeconds > CALL_MISSED_TIMEOUT) {
+    NotificationService.showMissedCallNotification(message);
+    return;
+}
+```
 
 #### Best Practices for Push Notifications on iOS
 1. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode). Make sure you are in `release` mode. Preferably test using Testfight or Appstore.
