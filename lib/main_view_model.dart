@@ -292,7 +292,6 @@ class MainViewModel with ChangeNotifier {
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
     observeCurrentCall();
-    // _currentCall?.startDebugStats();
   }
 
   void toggleSpeakerPhone() {
