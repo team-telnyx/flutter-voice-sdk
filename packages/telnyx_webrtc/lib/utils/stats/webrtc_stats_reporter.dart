@@ -181,7 +181,8 @@ class WebRTCStatsReporter {
       final connectionStats = [];
       final statsObject = {};
 
-      final timestamp = DateTime.now().toUtc().millisecondsSinceEpoch.toDouble();
+      final timestamp =
+          DateTime.now().toUtc().millisecondsSinceEpoch.toDouble();
 
       final Map<String, dynamic> localCandidates = {};
       final Map<String, dynamic> remoteCandidates = {};
@@ -296,19 +297,28 @@ class WebRTCStatsReporter {
           'outbound': audioOutboundStats,
         },
         'connection': connectionStats,
+      };
+
+      final reportData = {
+        'event': WebRTCStatsEvent.stats,
+        'tag': WebRTCStatsTag.stats,
+        'peerId': callId,
+        'connectionId': callId,
+        'timestamp': DateTime.now().toUtc().toIso8601String(),
+        'data': _normalizeData(formattedData),
         'statsObject': statsObject,
       };
 
-      _sendDebugReportData(
-        event: WebRTCStatsEvent.stats,
-        tag: WebRTCStatsTag.stats,
-        data: formattedData,
+      final message = DebugReportDataMessage(
+        reportId: debugStatsId,
+        reportData: reportData,
       );
+
+      _enqueueMessage(jsonEncode(message.toJson()));
     } catch (e) {
       _logger.e('Error collecting stats: $e');
     }
   }
-
 
   Map<String, dynamic>? _constructTrack(
     Map<String, dynamic> reportValues,
