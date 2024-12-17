@@ -14,7 +14,7 @@ import 'package:telnyx_webrtc/utils/stats/webrtc_stats_tag.dart';
 import 'package:uuid/uuid.dart';
 
 class WebRTCStatsReporter {
-  WebRTCStatsReporter(this.socket, this.peerConnection, this.callId);
+  WebRTCStatsReporter(this.socket, this.peerConnection, this.callId, this.peerId);
 
   final Logger _logger = Logger();
   final Queue<String> _messageQueue = Queue<String>();
@@ -28,6 +28,7 @@ class WebRTCStatsReporter {
   final TxSocket socket;
   final RTCPeerConnection peerConnection;
   final String callId;
+  final String peerId;
 
   Future<void> _initializeLogFile() async {
     try {
@@ -71,8 +72,8 @@ class WebRTCStatsReporter {
       _sendStartDebugReport(debugStatsId);
     }
 
-    _sendAddConnectionMessage();
-    _setupPeerEventHandlers();
+    await _sendAddConnectionMessage();
+    await _setupPeerEventHandlers();
 
     _timer = Timer.periodic(Duration(milliseconds: Constants.statsInterval),
         (_) async {
@@ -88,7 +89,7 @@ class WebRTCStatsReporter {
     _timer?.cancel();
   }
 
-  void _setupPeerEventHandlers() {
+  Future<void> _setupPeerEventHandlers() async {
     peerConnection
       ..onAddStream = (MediaStream stream) {
         final streamData = {
@@ -209,21 +210,25 @@ class WebRTCStatsReporter {
             break;
 
           case 'local-candidate':
-            localCandidates[report.id] = {
+            final localCandidate = {
               ...report.values,
               'id': report.id,
               'type': report.type,
               'timestamp': timestamp,
             };
+            localCandidates[report.id] = localCandidate;
+            statsObject[report.id] = localCandidate;
             break;
 
           case 'remote-candidate':
-            remoteCandidates[report.id] = {
+            final remoteCandidate = {
               ...report.values,
               'id': report.id,
               'type': report.type,
               'timestamp': timestamp,
             };
+            remoteCandidates[report.id] = remoteCandidate;
+            statsObject[report.id] = remoteCandidate;
             break;
 
           case 'candidate-pair':
@@ -233,16 +238,16 @@ class WebRTCStatsReporter {
             final localCandidate = localCandidates[localCandidateId];
             final remoteCandidate = remoteCandidates[remoteCandidateId];
 
-            if (localCandidate != null && remoteCandidate != null) {
-              final candidatePair = {
-                'id': report.id,
-                ...report.values,
-                'timestamp': timestamp,
-                'type': 'candidate-pair',
-                'local': localCandidate,
-                'remote': remoteCandidate,
-              };
+            final candidatePair = {
+              'id': report.id,
+              ...report.values,
+              'timestamp': timestamp,
+              'type': 'candidate-pair',
+            };
 
+            if (localCandidate != null && remoteCandidate != null) {
+              candidatePair['localCandidateId'] = localCandidateId;
+              candidatePair['remoteCandidateId'] = remoteCandidateId;
               connectionStats.add(candidatePair);
               statsObject[report.id] = candidatePair;
             } else {
@@ -272,16 +277,16 @@ class WebRTCStatsReporter {
         final localCandidate = localCandidates[localCandidateId];
         final remoteCandidate = remoteCandidates[remoteCandidateId];
 
-        if (localCandidate != null && remoteCandidate != null) {
-          final candidatePair = {
-            'id': report.id,
-            ...report.values,
-            'timestamp': unresolved['timestamp'],
-            'type': 'candidate-pair',
-            'local': localCandidate,
-            'remote': remoteCandidate,
-          };
+        final candidatePair = {
+          'id': report.id,
+          ...report.values,
+          'timestamp': unresolved['timestamp'],
+          'type': 'candidate-pair',
+        };
 
+        if (localCandidate != null && remoteCandidate != null) {
+          candidatePair['localCandidateId'] = localCandidateId;
+          candidatePair['remoteCandidateId'] = remoteCandidateId;
           connectionStats.add(candidatePair);
           statsObject[report.id] = candidatePair;
         } else {
@@ -300,9 +305,9 @@ class WebRTCStatsReporter {
       };
 
       final reportData = {
-        'event': WebRTCStatsEvent.stats,
-        'tag': WebRTCStatsTag.stats,
-        'peerId': callId,
+        'event': WebRTCStatsEvent.stats.value,
+        'tag': WebRTCStatsTag.stats.value,
+        'peerId': peerId,
         'connectionId': callId,
         'timestamp': DateTime.now().toUtc().toIso8601String(),
         'data': _normalizeData(formattedData),
@@ -343,19 +348,19 @@ class WebRTCStatsReporter {
     };
   }
 
-  void _sendAddConnectionMessage() {
+  Future<void> _sendAddConnectionMessage() async {
     final message = DebugReportDataMessage(
       reportId: debugStatsId,
       reportData: {
         'event': WebRTCStatsEvent.addConnection.value,
         'tag': WebRTCStatsTag.peer.value,
-        'peerId': callId,
+        'peerId': peerId,
         'connectionId': callId,
         'data': {
           'peerConfiguration': StatParsingHelpers().getPeerConfiguration(
             peerConnection.getConfiguration,
           ),
-          'options': {'peerId': callId, 'pc': {}},
+          'options': {'peerId': peerId, 'pc': {}},
         },
         'timestamp': DateTime.now().toUtc().toIso8601String(),
       },
@@ -383,7 +388,7 @@ class WebRTCStatsReporter {
     final reportData = {
       'event': event.value,
       'tag': tag.value,
-      'peerId': callId,
+      'peerId': peerId,
       'connectionId': callId,
       'timestamp': DateTime.now().toUtc().toIso8601String(),
       'data': _normalizeData(data),

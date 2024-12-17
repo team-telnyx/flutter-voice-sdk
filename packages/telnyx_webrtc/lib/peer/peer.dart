@@ -108,7 +108,7 @@ class Peer {
 
     final Session session = await _createSession(
       null,
-      peerId: '0',
+      peerId: Uuid().v4(),
       sessionId: sessionId,
       callId: callId,
       media: 'audio',
@@ -220,7 +220,7 @@ class Peer {
     final sessionId = _selfId;
     final Session session = await _createSession(
       null,
-      peerId: '0',
+      peerId: Uuid().v4(),
       sessionId: sessionId,
       callId: callId,
       media: 'audio',
@@ -356,7 +356,7 @@ class Peer {
       _dcConstraints,
     );
 
-    await startStats(callId);
+    await startStats(callId, peerId);
 
     if (media != 'data') {
       switch (sdpSemantics) {
@@ -458,7 +458,7 @@ class Peer {
     return true;
   } */
 
-  Future<bool> startStats(String callId) async {
+  Future<bool> startStats(String callId, String peerId) async {
     if (_debug == false) {
       _logger.d(
         'Peer :: Stats manager will not start. Debug mode not enabled on config',
@@ -471,7 +471,7 @@ class Peer {
       return false;
     }
 
-    _statsManager = WebRTCStatsReporter(_socket, peerConnection!, callId);
+    _statsManager = WebRTCStatsReporter(_socket, peerConnection!, callId, peerId);
     await _statsManager?.startStatsReporting();
 
     return true;
