@@ -14,7 +14,8 @@ import 'package:telnyx_webrtc/utils/stats/webrtc_stats_tag.dart';
 import 'package:uuid/uuid.dart';
 
 class WebRTCStatsReporter {
-  WebRTCStatsReporter(this.socket, this.peerConnection, this.callId, this.peerId);
+  WebRTCStatsReporter(
+      this.socket, this.peerConnection, this.callId, this.peerId);
 
   final Logger _logger = Logger();
   final Queue<String> _messageQueue = Queue<String>();
@@ -179,7 +180,7 @@ class WebRTCStatsReporter {
 
       final audioInboundStats = [];
       final audioOutboundStats = [];
-      final connectionStats = [];
+      Map<String, dynamic>? succeededConnection;
       final statsObject = {};
 
       final timestamp =
@@ -243,20 +244,23 @@ class WebRTCStatsReporter {
               ...report.values,
               'timestamp': timestamp,
               'type': 'candidate-pair',
+              'localCandidateId': localCandidateId,
+              'remoteCandidateId': remoteCandidateId,
             };
 
-            if (localCandidate != null && remoteCandidate != null) {
-              candidatePair['localCandidateId'] = localCandidateId;
-              candidatePair['remoteCandidateId'] = remoteCandidateId;
-              connectionStats.add(candidatePair);
-              statsObject[report.id] = candidatePair;
-            } else {
-              // Store unresolved candidate-pair for later processing
-              unresolvedCandidatePairs.add({
-                'report': report,
-                'timestamp': timestamp,
-              });
+            // Add to statsObject for all candidate pairs
+            statsObject[report.id] = candidatePair;
+
+            // Check if state is "succeeded" and keep it as the single connection
+            if (report.values['state'] == 'succeeded' &&
+                succeededConnection == null) {
+              succeededConnection = {
+                ...candidatePair,
+                'local': localCandidate,
+                'remote': remoteCandidate,
+              };
             }
+
             break;
 
           default:
@@ -268,40 +272,12 @@ class WebRTCStatsReporter {
         }
       }
 
-      // Process unresolved candidate-pairs
-      for (final unresolved in unresolvedCandidatePairs) {
-        final report = unresolved['report'];
-        final localCandidateId = report.values['localCandidateId'];
-        final remoteCandidateId = report.values['remoteCandidateId'];
-
-        final localCandidate = localCandidates[localCandidateId];
-        final remoteCandidate = remoteCandidates[remoteCandidateId];
-
-        final candidatePair = {
-          'id': report.id,
-          ...report.values,
-          'timestamp': unresolved['timestamp'],
-          'type': 'candidate-pair',
-        };
-
-        if (localCandidate != null && remoteCandidate != null) {
-          candidatePair['localCandidateId'] = localCandidateId;
-          candidatePair['remoteCandidateId'] = remoteCandidateId;
-          connectionStats.add(candidatePair);
-          statsObject[report.id] = candidatePair;
-        } else {
-          _logger.w(
-            'Failed to resolve local or remote candidate for candidate-pair ${report.id}',
-          );
-        }
-      }
-
       final formattedData = {
         'audio': {
           'inbound': audioInboundStats,
           'outbound': audioOutboundStats,
         },
-        'connection': connectionStats,
+        'connection': succeededConnection,
       };
 
       final reportData = {
