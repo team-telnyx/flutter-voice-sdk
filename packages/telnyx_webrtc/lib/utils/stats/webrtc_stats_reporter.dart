@@ -15,7 +15,11 @@ import 'package:uuid/uuid.dart';
 
 class WebRTCStatsReporter {
   WebRTCStatsReporter(
-      this.socket, this.peerConnection, this.callId, this.peerId);
+    this.socket,
+    this.peerConnection,
+    this.callId,
+    this.peerId,
+  );
 
   final Logger _logger = Logger();
   final Queue<String> _messageQueue = Queue<String>();
@@ -206,7 +210,9 @@ class WebRTCStatsReporter {
               ...report.values,
               'timestamp': timestamp,
               'track': _constructTrack(
-                  report.values.cast<String, dynamic>(), timestamp),
+                report.values.cast<String, dynamic>(),
+                timestamp,
+              ),
             });
             break;
 
@@ -317,7 +323,6 @@ class WebRTCStatsReporter {
           'outbound': audioOutboundStats,
         },
         'connection': succeededConnection ?? {},
-        // Use empty map if no succeeded connection
       };
 
       final reportData = {
@@ -328,7 +333,6 @@ class WebRTCStatsReporter {
         'timestamp': DateTime.now().toUtc().toIso8601String(),
         'data': _normalizeData(formattedData),
         'statsObject': statsObject,
-        // Includes all candidate-pair and other reports
       };
 
       final message = DebugReportDataMessage(
