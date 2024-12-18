@@ -1,76 +1,152 @@
-## 0.1.0
-- Implemented websocket and rtc peer reconnection logic in the event of a network disconnect or network switch.
+## [0.1.1](https://pub.dev/packages/telnyx_webrtc/versions/0.1.1) (2024-12-12)
 
-## 0.0.17
-- Include login credentials for connect method
+### Enhancement
 
-## 0.0.16
-- Implement Push Notifications mechanism for background/foreground
-- Fix One Way Audio
-- Provide a way to handle call state
+- Improve IceCandidate handling to skip candidates when call is active
+- Improve PushNotification support on callkit for iOS
 
-## 0.0.15
-- Fix dispose off audio tracks (release ios/android microphone)
+### Bug Fixing
 
-## 0.0.14
-- iOS Push Notification Fix and Handling
+- General bug fixes and import cleanups. 
 
-## 0.0.13
+## [0.1.0](https://pub.dev/packages/telnyx_webrtc/versions/0.1.0) (2024-11-07)
 
-- Android Push Notification Fix
-## 0.0.12
+### Enhancement
 
-- Fix No Audio for Web
+- Implemented WebSocket and RTC peer reconnection logic to ensure seamless recovery during network
+  disconnects or switches.
 
-## 0.0.11
+## [0.0.18](https://pub.dev/packages/telnyx_webrtc/versions/0.0.18) (2024-09-25)
 
-- Ringing State Fixed
+### Bug Fixing
 
-## 0.0.10
+- General bug fixes related to imports and how they work and switch between Mobile / Web
 
-- Fix gateway time out Issue
+## [0.0.17](https://pub.dev/packages/telnyx_webrtc/versions/0.0.17) (2024-08-12)
 
-## 0.0.9
+### Feature
 
-- Fix disconnect functionality allowing subsequent logins
-- Update sample app with new disconnect functionality
+- Added support to include login credentials for the `connect` method.
 
-## 0.0.8
+## [0.0.16](https://pub.dev/packages/telnyx_webrtc/versions/0.0.16) (2024-08-01)
 
-- Implement Ping / Pong socket functionality to socket alive
-- Fix serialized variable names for enhanced backend functionality
-- Code formatting 
+### Feature
 
-## 0.0.7
+- Implemented push notifications mechanism for both background and foreground states.
 
-- General bug fixes
-- Code formatting for readability 
+### Bug Fixing
 
-## 0.0.6
+- Fixed one-way audio issue.
+- Enhanced call state handling mechanism.
 
-- Enable speaker mode toggle
+## [0.0.15](https://pub.dev/packages/telnyx_webrtc/versions/0.0.15) (2024-06-27)
 
-## 0.0.5
+### Bug Fixing
 
-- Enable PSTN call integration via early SDP contained in Telnyx Media Message
-- Fixed ICE candidate error that would add a local IP ICE Candidate
+- Fixed disposal of audio tracks to release iOS/Android microphones properly.
 
-## 0.0.4
+## [0.0.14](https://pub.dev/packages/telnyx_webrtc/versions/0.0.14) (2024-03-20)
 
-- Improved stability by providing session ID to backend rather than waiting and setting one
-- Fixed gateway retry error that would continuously retry and never timeout
+### Bug Fixing
 
-## 0.0.3
+- Fixed iOS push notification handling and reliability.
 
-- Static code analysis fixes
-- Include Example folder with readme linking to example
-- SDK Stability: regular black box tests with display badge on repo 
+## [0.0.13](https://pub.dev/packages/telnyx_webrtc/versions/0.0.13) (2024-03-07)
 
-## 0.0.2
+### Bug Fixing
 
-- Simplify SDK usage, remove unnecessary parameters from various calls
-- Include reference links for pub dev listing
+- Resolved issues with Android push notifications.
 
-## 0.0.1
+## [0.0.12](https://pub.dev/packages/telnyx_webrtc/versions/0.0.12) (2024-02-27)
 
-* TODO: Describe initial release.
+### Bug Fixing
+
+- Fixed audio issues for the web platform.
+
+## [0.0.11](https://pub.dev/packages/telnyx_webrtc/versions/0.0.11) (2024-02-07)
+
+### Bug Fixing
+
+- Fixed ringing state behavior.
+
+## [0.0.10](https://pub.dev/packages/telnyx_webrtc/versions/0.0.10) (2024-01-04)
+
+### Bug Fixing
+
+- Fixed gateway timeout issues.
+
+## [0.0.9](https://pub.dev/packages/telnyx_webrtc/versions/0.0.9) (2022-10-22)
+
+### Feature
+
+- Updated the sample app with a new disconnect functionality.
+
+### Bug Fixing
+
+- Fixed disconnect functionality to allow subsequent logins.
+
+## [0.0.8](https://pub.dev/packages/telnyx_webrtc/versions/0.0.8) (2022-10-05)
+
+### Enhancement
+
+- Added Ping/Pong socket functionality to keep sockets alive.
+
+### Bug Fixing
+
+- Fixed serialized variable names for better backend functionality.
+- Improved code formatting for readability.
+
+## [0.0.7](https://pub.dev/packages/telnyx_webrtc/versions/0.0.7) (2022-09-21)
+
+### Bug Fixing
+
+- General bug fixes.
+- Improved code formatting for readability.
+
+## [0.0.6](https://pub.dev/packages/telnyx_webrtc/versions/0.0.6) (2022-09-05)
+
+### Feature
+
+- Enabled speaker mode toggle.
+
+## [0.0.5](https://pub.dev/packages/telnyx_webrtc/versions/0.0.5) (2022-09-02)
+
+### Feature
+
+- Enabled PSTN call integration using early SDP contained in Telnyx media messages.
+
+### Bug Fixing
+
+- Fixed ICE candidate error that would add a local IP ICE candidate.
+
+## [0.0.4](https://pub.dev/packages/telnyx_webrtc/versions/0.0.4) (2022-08-26)
+
+### Bug Fixing
+
+- Improved stability by providing a session ID to the backend immediately rather than waiting to set
+  one.
+- Fixed gateway retry errors that continuously retried without a timeout.
+
+## [0.0.3](https://pub.dev/packages/telnyx_webrtc/versions/0.0.3) (2022-08-03)
+
+### Enhancement
+
+- Improved SDK stability with regular black-box tests.
+- Included an example folder with documentation.
+
+### Bug Fixing
+
+- Resolved issues from static code analysis.
+
+## [0.0.2](https://pub.dev/packages/telnyx_webrtc/versions/0.0.2) (2022-07-22)
+
+### Enhancement
+
+- Simplified SDK usage by removing unnecessary parameters from various calls.
+- Added reference links for Pub.dev listing.
+
+## [0.0.1](https://pub.dev/packages/telnyx_webrtc/versions/0.0.1) (2022-07-18)
+
+### Initial Release
+
+- Initial release with basic functionality.

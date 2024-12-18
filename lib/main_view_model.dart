@@ -7,6 +7,8 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:telnyx_flutter_webrtc/file_logger.dart';
+import 'package:telnyx_flutter_webrtc/main.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
@@ -190,6 +192,8 @@ class MainViewModel with ChangeNotifier {
             }
         }
         notifyListeners();
+        final messageLogger = await FileLogger.getInstance();
+        await messageLogger.writeLog(message.toString());
       }
 
       // Observe Socket Error Messages
@@ -209,7 +213,6 @@ class MainViewModel with ChangeNotifier {
           case -32001:
             {
               _loggingIn = false;
-              _clearCredentialsForAutoLogin();
               break;
             }
           case -32003:
@@ -261,7 +264,6 @@ class MainViewModel with ChangeNotifier {
 
   void disconnect() {
     _telnyxClient.disconnect();
-    _clearCredentialsForAutoLogin();
     _loggingIn = false;
     _registered = false;
     notifyListeners();
@@ -302,6 +304,34 @@ class MainViewModel with ChangeNotifier {
 
   bool waitingForInvite = false;
 
+  Future<CredentialConfig> getCredentialConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sipUser = prefs.getString('sipUser');
+    final sipPassword = prefs.getString('sipPassword');
+    final sipName = prefs.getString('sipName');
+    final sipNumber = prefs.getString('sipNumber');
+    if (sipUser != null &&
+        sipPassword != null &&
+        sipName != null &&
+        sipNumber != null) {
+      return CredentialConfig(
+        sipCallerIDName: sipName,
+        sipCallerIDNumber: sipNumber,
+        sipUser: sipUser,
+        sipPassword: sipPassword,
+        debug: true,
+      );
+    } else {
+      return CredentialConfig(
+        sipCallerIDName: 'Flutter Voice',
+        sipCallerIDNumber: '',
+        sipUser: MOCK_USER,
+        sipPassword: MOCK_PASSWORD,
+        debug: true,
+      );
+    }
+  }
+
   Future<void> accept({bool acceptFromNotification = false}) async {
     if (_incomingInvite != null) {
       _currentCall = _telnyxClient.acceptCall(
@@ -337,7 +367,10 @@ class MainViewModel with ChangeNotifier {
           headers: <String, dynamic>{'platform': 'flutter'},
         );
 
-        // Hide notfication when call is accepted
+        _ongoingCall = true;
+        notifyListeners();
+
+        // Hide notification when call is accepted
         await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
       notifyListeners();
@@ -408,5 +441,11 @@ class MainViewModel with ChangeNotifier {
 
   void holdUnhold() {
     _telnyxClient.call.onHoldUnholdPressed();
+  }
+
+  void exportLogs() async {
+    final messageLogger = await FileLogger.getInstance();
+    final logContents = await messageLogger.exportLogs();
+    print(logContents);
   }
 }
