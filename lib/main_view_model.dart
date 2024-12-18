@@ -369,7 +369,7 @@ class MainViewModel with ChangeNotifier {
         _ongoingCall = true;
         notifyListeners();
 
-        // Hide notfication when call is accepted
+        // Hide notification when call is accepted
         await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
       notifyListeners();
