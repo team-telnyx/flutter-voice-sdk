@@ -366,6 +366,9 @@ class MainViewModel with ChangeNotifier {
           headers: <String, dynamic>{'platform': 'flutter'},
         );
 
+        _ongoingCall = true;
+        notifyListeners();
+
         // Hide notfication when call is accepted
         await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
