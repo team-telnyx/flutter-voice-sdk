@@ -244,23 +244,26 @@ class WebRTCStatsReporter {
               ...report.values,
               'timestamp': timestamp,
               'type': 'candidate-pair',
-              'localCandidateId': localCandidateId,
-              'remoteCandidateId': remoteCandidateId,
             };
 
-            // Add to statsObject for all candidate pairs
-            statsObject[report.id] = candidatePair;
+            if (localCandidate != null && remoteCandidate != null) {
+              candidatePair['localCandidateId'] = localCandidateId;
+              candidatePair['remoteCandidateId'] = remoteCandidateId;
+              candidatePair['local'] = localCandidate;
+              candidatePair['remote'] = remoteCandidate;
 
-            // Check if state is "succeeded" and keep it as the single connection
-            if (report.values['state'] == 'succeeded' &&
-                succeededConnection == null) {
-              succeededConnection = {
-                ...candidatePair,
-                'local': localCandidate,
-                'remote': remoteCandidate,
-              };
+              if (report.values['state'] == 'succeeded' &&
+                  succeededConnection == null) {
+                succeededConnection = candidatePair.cast<String, dynamic>();
+              }
+
+              statsObject[report.id] = candidatePair;
+            } else {
+              unresolvedCandidatePairs.add({
+                'report': report,
+                'timestamp': timestamp,
+              });
             }
-
             break;
 
           default:
@@ -272,12 +275,49 @@ class WebRTCStatsReporter {
         }
       }
 
+      // Process unresolved candidate-pairs
+      for (final unresolved in unresolvedCandidatePairs) {
+        final report = unresolved['report'];
+        final localCandidateId = report.values['localCandidateId'];
+        final remoteCandidateId = report.values['remoteCandidateId'];
+
+        final localCandidate = localCandidates[localCandidateId];
+        final remoteCandidate = remoteCandidates[remoteCandidateId];
+
+        final candidatePair = {
+          'id': report.id,
+          ...report.values,
+          'timestamp': unresolved['timestamp'],
+          'type': 'candidate-pair',
+        };
+
+        if (localCandidate != null && remoteCandidate != null) {
+          candidatePair['localCandidateId'] = localCandidateId;
+          candidatePair['remoteCandidateId'] = remoteCandidateId;
+          candidatePair['local'] = localCandidate;
+          candidatePair['remote'] = remoteCandidate;
+
+          if (candidatePair['state'] == 'succeeded' &&
+              succeededConnection == null) {
+            succeededConnection = candidatePair.cast<String, dynamic>();
+          }
+
+          statsObject[report.id] = candidatePair;
+        } else {
+          _logger.w(
+            'Failed to resolve local or remote candidate for candidate-pair ${report.id}',
+          );
+        }
+      }
+
+      // Format the data
       final formattedData = {
         'audio': {
           'inbound': audioInboundStats,
           'outbound': audioOutboundStats,
         },
-        'connection': succeededConnection,
+        'connection': succeededConnection ?? {},
+        // Use empty map if no succeeded connection
       };
 
       final reportData = {
@@ -288,6 +328,7 @@ class WebRTCStatsReporter {
         'timestamp': DateTime.now().toUtc().toIso8601String(),
         'data': _normalizeData(formattedData),
         'statsObject': statsObject,
+        // Includes all candidate-pair and other reports
       };
 
       final message = DebugReportDataMessage(
