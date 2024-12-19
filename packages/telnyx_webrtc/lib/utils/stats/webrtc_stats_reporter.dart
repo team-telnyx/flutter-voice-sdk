@@ -39,7 +39,6 @@ class WebRTCStatsReporter {
     try {
       final directory = await getApplicationDocumentsDirectory();
       _logFile = File('${directory.path}/webrtc_stats_log.json');
-
       if (!_logFile!.existsSync()) {
         _logFile!.createSync();
       }
@@ -53,7 +52,8 @@ class WebRTCStatsReporter {
     _processMessageQueue();
   }
 
-  void _processMessageQueue() async {
+  void _processMessageQueue() {
+    // Send all messages in the queue immediately (no artificial delay)
     while (_messageQueue.isNotEmpty) {
       final message = _messageQueue.removeFirst();
       socket.send(message);
@@ -64,8 +64,6 @@ class WebRTCStatsReporter {
       } catch (e) {
         _logger.e('Error writing message to log file: $e');
       }
-
-      await Future.delayed(Duration(milliseconds: 50));
     }
   }
 
@@ -80,8 +78,8 @@ class WebRTCStatsReporter {
     await _sendAddConnectionMessage();
     await _setupPeerEventHandlers();
 
-    _timer = Timer.periodic(Duration(milliseconds: Constants.statsInterval),
-        (_) async {
+    // Set the timer to mimic iOS behavior: fire every 2 seconds
+    _timer = Timer.periodic(Duration(seconds: 2), (_) async {
       await _collectAndSendStats();
     });
   }
@@ -204,7 +202,6 @@ class WebRTCStatsReporter {
               'track': {},
             });
             break;
-
           case 'outbound-rtp':
             audioOutboundStats.add({
               ...report.values,
@@ -215,7 +212,6 @@ class WebRTCStatsReporter {
               ),
             });
             break;
-
           case 'local-candidate':
             final localCandidate = {
               ...report.values,
@@ -226,7 +222,6 @@ class WebRTCStatsReporter {
             localCandidates[report.id] = localCandidate;
             statsObject[report.id] = localCandidate;
             break;
-
           case 'remote-candidate':
             final remoteCandidate = {
               ...report.values,
@@ -237,7 +232,6 @@ class WebRTCStatsReporter {
             remoteCandidates[report.id] = remoteCandidate;
             statsObject[report.id] = remoteCandidate;
             break;
-
           case 'candidate-pair':
             final localCandidateId = report.values['localCandidateId'];
             final remoteCandidateId = report.values['remoteCandidateId'];
@@ -258,10 +252,13 @@ class WebRTCStatsReporter {
               candidatePair['local'] = localCandidate;
               candidatePair['remote'] = remoteCandidate;
 
-              if (report.values['state'] == 'succeeded' &&
+              /*if (candidatePair['state'] == 'succeeded' &&
                   succeededConnection == null) {
                 succeededConnection = candidatePair.cast<String, dynamic>();
-              }
+              }*/
+
+              // Always set the succeededConnection to the most recent candidatePair
+              succeededConnection = candidatePair.cast<String, dynamic>();
 
               statsObject[report.id] = candidatePair;
             } else {
@@ -271,7 +268,6 @@ class WebRTCStatsReporter {
               });
             }
             break;
-
           default:
             statsObject[report.id] = {
               ...report.values,
@@ -303,10 +299,13 @@ class WebRTCStatsReporter {
           candidatePair['local'] = localCandidate;
           candidatePair['remote'] = remoteCandidate;
 
-          if (candidatePair['state'] == 'succeeded' &&
-              succeededConnection == null) {
-            succeededConnection = candidatePair.cast<String, dynamic>();
-          }
+          /*if (candidatePair['state'] == 'succeeded' &&
+                  succeededConnection == null) {
+                succeededConnection = candidatePair.cast<String, dynamic>();
+              }*/
+
+          // Always set the succeededConnection to the most recent candidatePair
+          succeededConnection = candidatePair.cast<String, dynamic>();
 
           statsObject[report.id] = candidatePair;
         } else {
