@@ -1,3 +1,9 @@
+## [0.1.2](https://pub.dev/packages/telnyx_webrtc/versions/0.1.2) (2024-12-20)
+
+### Bug Fixing
+
+- Fixed an issue where, when accepting a an invite, the destination number was being set to name instead of number.
+
 ## [0.1.1](https://pub.dev/packages/telnyx_webrtc/versions/0.1.1) (2024-12-12)
 
 ### Enhancement
