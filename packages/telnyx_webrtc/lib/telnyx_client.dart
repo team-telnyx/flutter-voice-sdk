@@ -591,7 +591,7 @@ class TelnyxClient {
       ..sessionCallerName = callerName
       ..sessionCallerNumber = callerNumber
       ..callState = CallState.active
-      ..sessionDestinationNumber = invite.callerIdName ?? 'Unknown Caller'
+      ..sessionDestinationNumber = invite.callerIdNumber ?? '-1'
       ..sessionClientState = clientState;
 
     final destinationNum = invite.callerIdNumber;
