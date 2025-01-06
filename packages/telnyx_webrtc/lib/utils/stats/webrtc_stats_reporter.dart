@@ -53,7 +53,6 @@ class WebRTCStatsReporter {
   }
 
   void _processMessageQueue() {
-    // Send all messages in the queue immediately (no artificial delay)
     while (_messageQueue.isNotEmpty) {
       final message = _messageQueue.removeFirst();
       socket.send(message);
@@ -78,7 +77,6 @@ class WebRTCStatsReporter {
     await _sendAddConnectionMessage();
     await _setupPeerEventHandlers();
 
-    // Set the timer to mimic iOS behavior: fire every 2 seconds
     _timer = Timer.periodic(Duration(seconds: 2), (_) async {
       await _collectAndSendStats();
     });
@@ -201,6 +199,12 @@ class WebRTCStatsReporter {
               'timestamp': timestamp,
               'track': {},
             });
+            statsObject[report.id] = {
+              ...report.values,
+              'id': report.id,
+              'type': report.type,
+              'timestamp': timestamp,
+            };
             break;
           case 'outbound-rtp':
             audioOutboundStats.add({
@@ -211,6 +215,12 @@ class WebRTCStatsReporter {
                 timestamp,
               ),
             });
+            statsObject[report.id] = {
+              ...report.values,
+              'id': report.id,
+              'type': report.type,
+              'timestamp': timestamp,
+            };
             break;
           case 'local-candidate':
             final localCandidate = {
