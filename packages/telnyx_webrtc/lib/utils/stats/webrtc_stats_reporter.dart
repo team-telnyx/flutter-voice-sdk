@@ -77,7 +77,7 @@ class WebRTCStatsReporter {
     await _sendAddConnectionMessage();
     await _setupPeerEventHandlers();
 
-    _timer = Timer.periodic(Duration(seconds: 2), (_) async {
+    _timer = Timer.periodic(Duration(seconds: 3), (_) async {
       await _collectAndSendStats();
     });
   }
@@ -282,6 +282,7 @@ class WebRTCStatsReporter {
             statsObject[report.id] = {
               ...report.values,
               'id': report.id,
+              'type': report.type,
               'timestamp': timestamp,
             };
         }
@@ -379,6 +380,8 @@ class WebRTCStatsReporter {
   }
 
   Future<void> _sendAddConnectionMessage() async {
+    // add a 2 second delay here to allow stats reporting to start before adding connection
+    await Future.delayed(Duration(seconds: 2));
     final message = DebugReportDataMessage(
       reportId: debugStatsId,
       reportData: {
