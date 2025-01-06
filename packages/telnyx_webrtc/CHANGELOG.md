@@ -1,3 +1,13 @@
+## [0.1.3](https://pub.dev/packages/telnyx_webrtc/versions/0.1.3) (2025-01-06)
+
+### Enhancement
+
+- Updated WebRTC to latest Flutter WebRTC version containing a hotfix for audio route issues on iOS
+
+### Bug Fixing
+
+- Fixed an issue where audio would not loop for ringtones or ringback tones
+
 ## [0.1.2](https://pub.dev/packages/telnyx_webrtc/versions/0.1.2) (2024-12-20)
 
 ### Bug Fixing
