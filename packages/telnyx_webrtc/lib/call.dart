@@ -283,6 +283,7 @@ class AudioService {
   Future<void> playLocalFile(String filePath) async {
     // Ensure the file path is correct and accessible from the web directory
     await _audioPlayer.setAsset(filePath);
+    await _audioPlayer.setLoopMode(LoopMode.all);
     await _audioPlayer.play();
   }
 
