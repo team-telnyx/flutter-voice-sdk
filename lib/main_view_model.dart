@@ -136,7 +136,7 @@ class MainViewModel with ChangeNotifier {
     // Observe Socket Messages Received
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) async {
-        logger.i('Mainviewmodel :: observeResponses :: Socket :: $message');
+        logger.i('Mainviewmodel :: observeResponses :: Socket :: ${message.message}');
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
