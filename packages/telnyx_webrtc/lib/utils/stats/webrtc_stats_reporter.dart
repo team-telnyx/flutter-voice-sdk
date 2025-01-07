@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:logger/logger.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_parsing_helpers.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart';
@@ -22,7 +21,8 @@ class WebRTCStatsReporter {
 
   final Logger _logger = Logger();
   final Queue<String> _messageQueue = Queue<String>();
-  File? _logFile;
+
+  //File? _logFile;
 
   Timer? _timer;
   bool debugReportStarted = false;
@@ -34,7 +34,7 @@ class WebRTCStatsReporter {
   final String callId;
   final String peerId;
 
-  Future<void> _initializeLogFile() async {
+  /*Future<void> _initializeLogFile() async {
     try {
       final directory = await getApplicationDocumentsDirectory();
       _logFile = File('${directory.path}/webrtc_stats_log.json');
@@ -44,7 +44,7 @@ class WebRTCStatsReporter {
     } catch (e) {
       _logger.e('Error initializing log file: $e');
     }
-  }
+  }*/
 
   void _enqueueMessage(String message) {
     _messageQueue.add(message);
