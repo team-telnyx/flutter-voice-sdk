@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:telnyx_webrtc/utils/constants.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_parsing_helpers.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart';
@@ -57,17 +56,19 @@ class WebRTCStatsReporter {
       final message = _messageQueue.removeFirst();
       socket.send(message);
 
+      //ToDo(Oliver): leave this here to uncomment to test as needed
       // Append the message to the log file.
-      try {
+      /*try {
         _logFile?.writeAsStringSync('$message\n\n,', mode: FileMode.append);
       } catch (e) {
         _logger.e('Error writing message to log file: $e');
-      }
+      }*/
     }
   }
 
   Future<void> startStatsReporting() async {
-    await _initializeLogFile();
+    //ToDo(Oliver): leave this here to uncomment to test as needed
+    //await _initializeLogFile();
 
     if (!debugReportStarted) {
       debugStatsId = uuid.v4();
@@ -191,7 +192,6 @@ class WebRTCStatsReporter {
       final List<Map<String, dynamic>> unresolvedCandidatePairs = [];
 
       for (var report in stats) {
-        print('ZZZ report: ${report.type}');
         switch (report.type) {
           case 'inbound-rtp':
             audioInboundStats.add({
@@ -262,11 +262,6 @@ class WebRTCStatsReporter {
               candidatePair['local'] = localCandidate;
               candidatePair['remote'] = remoteCandidate;
 
-              /*if (candidatePair['state'] == 'succeeded' &&
-                  succeededConnection == null) {
-                succeededConnection = candidatePair.cast<String, dynamic>();
-              }*/
-
               // Always set the succeededConnection to the most recent candidatePair
               succeededConnection = candidatePair.cast<String, dynamic>();
 
@@ -309,11 +304,6 @@ class WebRTCStatsReporter {
           candidatePair['remoteCandidateId'] = remoteCandidateId;
           candidatePair['local'] = localCandidate;
           candidatePair['remote'] = remoteCandidate;
-
-          /*if (candidatePair['state'] == 'succeeded' &&
-                  succeededConnection == null) {
-                succeededConnection = candidatePair.cast<String, dynamic>();
-              }*/
 
           // Always set the succeededConnection to the most recent candidatePair
           succeededConnection = candidatePair.cast<String, dynamic>();
