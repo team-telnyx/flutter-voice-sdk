@@ -212,20 +212,6 @@ class Call {
     peerConnection?.enableSpeakerPhone(enable);
   }
 
-  /// Starts the collection of debut stats for the call if debug mode is enabled, else false is returned
-  Future<bool> startDebugStats() async {
-    if (!debug) {
-      _logger.d('Debug is disabled, will not connect stats');
-      return false;
-    }
-    if (peerConnection == null) {
-      _logger.d('Peer connection null');
-      return false;
-    }
-    _logger.d('Peer connection debug started for $callId');
-    return await peerConnection?.startStats(callId ?? '') ?? false;
-  }
-
   /// Either places the call on hold, or unholds the call based on the current
   /// hold state.
   void onHoldUnholdPressed() {

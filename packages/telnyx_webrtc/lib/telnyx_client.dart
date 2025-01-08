@@ -100,7 +100,7 @@ class TelnyxClient {
   }
 
   // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
-  bool earlySDP = false;
+  bool _earlySDP = false;
 
   final String _storedHostAddress = DefaultConfig.socketHostAddress;
   CredentialConfig? storedCredentialConfig;
@@ -421,10 +421,6 @@ class TelnyxClient {
       ringtonePath,
       ringBackpath,
       CallHandler((state) {
-        /*
-      * initialise this callback to handle call state changes on the client side
-      * */
-        print('Call state not overridden :Call State Changed to $state');
         _logger.i('Call state not overridden :Call State Changed to $state');
       }),
       _callEnded,
@@ -972,7 +968,7 @@ class TelnyxClient {
                   }
                   mediaCall
                       .onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
-                  earlySDP = true;
+                  _earlySDP = true;
                 } else {
                   _logger.d('No SDP contained within Media Message');
                 }
@@ -1002,7 +998,7 @@ class TelnyxClient {
                   answerCall
                       .onRemoteSessionReceived(inviteAnswer.inviteParams?.sdp);
                   onSocketMessageReceived(message);
-                } else if (earlySDP) {
+                } else if (_earlySDP) {
                   onSocketMessageReceived(message);
                 } else {
                   _logger.d(
@@ -1010,7 +1006,7 @@ class TelnyxClient {
                   );
                   answerCall.endCall(inviteAnswer.inviteParams?.callID);
                 }
-                earlySDP = false;
+                _earlySDP = false;
                 answerCall.stopAudio();
                 break;
               }

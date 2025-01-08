@@ -21,8 +21,6 @@ import 'package:telnyx_webrtc/model/jsonrpc.dart';
 class Peer {
   RTCPeerConnection? peerConnection;
 
-  final debugStatsDelay = const Duration(milliseconds: 20000);
-
   Peer(this._socket, this._debug, this._txClient);
 
   final _logger = Logger();
@@ -110,7 +108,7 @@ class Peer {
 
     final Session session = await _createSession(
       null,
-      peerId: '0',
+      peerId: Uuid().v4(),
       sessionId: sessionId,
       callId: callId,
       media: 'audio',
@@ -222,7 +220,7 @@ class Peer {
     final sessionId = _selfId;
     final Session session = await _createSession(
       null,
-      peerId: '0',
+      peerId: Uuid().v4(),
       sessionId: sessionId,
       callId: callId,
       media: 'audio',
@@ -358,6 +356,8 @@ class Peer {
       _dcConstraints,
     );
 
+    await startStats(callId, peerId);
+
     if (media != 'data') {
       switch (sdpSemantics) {
         case 'plan-b':
@@ -438,25 +438,22 @@ class Peer {
     onDataChannel?.call(session, channel);
   }
 
-  Future<bool> startStats(String callId) async {
+  Future<bool> startStats(String callId, String peerId) async {
     if (_debug == false) {
       _logger.d(
         'Peer :: Stats manager will not start. Debug mode not enabled on config',
       );
       return false;
     }
-    // Delay to allow call to be established
-    //ToDo(Oli) - Remove this delay, let's rely on a connection state change instead
-    await Future.delayed(debugStatsDelay);
 
     if (peerConnection == null) {
       _logger.d('Peer connection null');
       return false;
     }
 
-    _statsManager = WebRTCStatsReporter(_socket, peerConnection!, callId);
+    _statsManager =
+        WebRTCStatsReporter(_socket, peerConnection!, callId, peerId);
     await _statsManager?.startStatsReporting();
-    _logger.d('Peer :: Stats Manager started for $callId');
 
     return true;
   }

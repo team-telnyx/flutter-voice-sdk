@@ -1,9 +1,10 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:logger/logger.dart';
-import 'package:telnyx_webrtc/utils/constants.dart';
+import 'package:telnyx_webrtc/utils/stats/stats_parsing_helpers.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_event.dart';
@@ -11,10 +12,17 @@ import 'package:telnyx_webrtc/utils/stats/webrtc_stats_tag.dart';
 import 'package:uuid/uuid.dart';
 
 class WebRTCStatsReporter {
-  WebRTCStatsReporter(this.socket, this.peerConnection, this.callId);
+  WebRTCStatsReporter(
+    this.socket,
+    this.peerConnection,
+    this.callId,
+    this.peerId,
+  );
 
   final Logger _logger = Logger();
   final Queue<String> _messageQueue = Queue<String>();
+
+  //File? _logFile;
 
   Timer? _timer;
   bool debugReportStarted = false;
@@ -24,37 +32,53 @@ class WebRTCStatsReporter {
   final TxSocket socket;
   final RTCPeerConnection peerConnection;
   final String callId;
+  final String peerId;
 
-  RTCSessionDescription? localSdp;
-  RTCSessionDescription? remoteSdp;
+  /*Future<void> _initializeLogFile() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      _logFile = File('${directory.path}/webrtc_stats_log.json');
+      if (!_logFile!.existsSync()) {
+        _logFile!.createSync();
+      }
+    } catch (e) {
+      _logger.e('Error initializing log file: $e');
+    }
+  }*/
 
   void _enqueueMessage(String message) {
     _messageQueue.add(message);
     _processMessageQueue();
   }
 
-  void _processMessageQueue() async {
+  void _processMessageQueue() {
     while (_messageQueue.isNotEmpty) {
       final message = _messageQueue.removeFirst();
       socket.send(message);
-      await Future.delayed(Duration(milliseconds: 50));
+
+      //ToDo(Oliver): leave this here to uncomment to test as needed
+      // Append the message to the log file.
+      /*try {
+        _logFile?.writeAsStringSync('$message\n\n,', mode: FileMode.append);
+      } catch (e) {
+        _logger.e('Error writing message to log file: $e');
+      }*/
     }
   }
 
   Future<void> startStatsReporting() async {
-    localSdp = await peerConnection.getLocalDescription();
-    remoteSdp = await peerConnection.getRemoteDescription();
+    //ToDo(Oliver): leave this here to uncomment to test as needed
+    //await _initializeLogFile();
 
     if (!debugReportStarted) {
       debugStatsId = uuid.v4();
       _sendStartDebugReport(debugStatsId);
     }
 
-    _sendAddConnectionMessage();
-    _setupPeerEventHandlers();
+    await _sendAddConnectionMessage();
+    await _setupPeerEventHandlers();
 
-    _timer = Timer.periodic(Duration(milliseconds: Constants.statsInterval),
-        (_) async {
+    _timer = Timer.periodic(Duration(seconds: 3), (_) async {
       await _collectAndSendStats();
     });
   }
@@ -67,7 +91,7 @@ class WebRTCStatsReporter {
     _timer?.cancel();
   }
 
-  void _setupPeerEventHandlers() {
+  Future<void> _setupPeerEventHandlers() async {
     peerConnection
       ..onAddStream = (MediaStream stream) {
         final streamData = {
@@ -97,7 +121,8 @@ class WebRTCStatsReporter {
           'candidate': candidate.candidate,
           'sdpMLineIndex': candidate.sdpMLineIndex,
           'sdpMid': candidate.sdpMid,
-          'usernameFragment': parseUsernameFragment(candidate),
+          'usernameFragment':
+              StatParsingHelpers().parseUsernameFragment(candidate),
         };
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceCandidate,
@@ -106,11 +131,22 @@ class WebRTCStatsReporter {
         );
       }
       ..onSignalingState = (RTCSignalingState signalingState) async {
+        final localSdp = await peerConnection.getLocalDescription();
+        final remoteSdp = await peerConnection.getRemoteDescription();
+
         final description = {
-          'signalingState': signalingState.toString(),
-          'localDescription': localSdp?.sdp,
-          'remoteDescription': remoteSdp?.sdp,
+          'signalingState':
+              StatParsingHelpers().parseSignalingStateChange(signalingState),
+          'remoteDescription': {
+            'type': remoteSdp?.type,
+            'sdp': remoteSdp?.sdp,
+          },
+          'localDescription': {
+            'type': localSdp?.type,
+            'sdp': localSdp?.sdp,
+          },
         };
+
         _sendDebugReportData(
           event: WebRTCStatsEvent.onSignalingStateChange,
           tag: WebRTCStatsTag.connection,
@@ -121,14 +157,20 @@ class WebRTCStatsReporter {
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceConnectionStateChange,
           tag: WebRTCStatsTag.connection,
-          data: {'iceConnectionState': iceConnectionState.toString()},
+          data: {
+            'iceConnectionState': StatParsingHelpers()
+                .parseIceConnectionStateChange(iceConnectionState),
+          },
         );
       }
       ..onIceGatheringState = (RTCIceGatheringState iceGatheringState) {
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceGatheringStateChange,
           tag: WebRTCStatsTag.connection,
-          data: {'iceGatheringState': iceGatheringState.toString()},
+          data: {
+            'iceGatheringState': StatParsingHelpers()
+                .parseIceGatheringStateChange(iceGatheringState),
+          },
         );
       };
   }
@@ -139,69 +181,215 @@ class WebRTCStatsReporter {
 
       final audioInboundStats = [];
       final audioOutboundStats = [];
-      final connectionStats = [];
+      Map<String, dynamic>? succeededConnection;
       final statsObject = {};
+
+      final timestamp =
+          DateTime.now().toUtc().millisecondsSinceEpoch.toDouble();
+
+      final Map<String, dynamic> localCandidates = {};
+      final Map<String, dynamic> remoteCandidates = {};
+      final List<Map<String, dynamic>> unresolvedCandidatePairs = [];
 
       for (var report in stats) {
         switch (report.type) {
           case 'inbound-rtp':
-            audioInboundStats.add(report.values);
+            audioInboundStats.add({
+              ...report.values,
+              'timestamp': timestamp,
+              'track': {},
+            });
+            statsObject[report.id] = {
+              ...report.values,
+              'id': report.id,
+              'type': report.type,
+              'timestamp': timestamp,
+            };
             break;
           case 'outbound-rtp':
-            audioOutboundStats.add(report.values);
+            audioOutboundStats.add({
+              ...report.values,
+              'timestamp': timestamp,
+              'track': _constructTrack(
+                report.values.cast<String, dynamic>(),
+                timestamp,
+              ),
+            });
+            statsObject[report.id] = {
+              ...report.values,
+              'id': report.id,
+              'type': report.type,
+              'timestamp': timestamp,
+            };
+            break;
+          case 'local-candidate':
+            final localCandidate = {
+              ...report.values,
+              'id': report.id,
+              'type': report.type,
+              'timestamp': timestamp,
+            };
+            localCandidates[report.id] = localCandidate;
+            statsObject[report.id] = localCandidate;
+            break;
+          case 'remote-candidate':
+            final remoteCandidate = {
+              ...report.values,
+              'id': report.id,
+              'type': report.type,
+              'timestamp': timestamp,
+            };
+            remoteCandidates[report.id] = remoteCandidate;
+            statsObject[report.id] = remoteCandidate;
             break;
           case 'candidate-pair':
-            connectionStats.add(
-              _parseCandidatePair(report.values.cast<String, dynamic>()),
-            );
+            final localCandidateId = report.values['localCandidateId'];
+            final remoteCandidateId = report.values['remoteCandidateId'];
+
+            final localCandidate = localCandidates[localCandidateId];
+            final remoteCandidate = remoteCandidates[remoteCandidateId];
+
+            final candidatePair = {
+              'id': report.id,
+              ...report.values,
+              'timestamp': timestamp,
+              'type': 'candidate-pair',
+            };
+
+            if (localCandidate != null && remoteCandidate != null) {
+              candidatePair['localCandidateId'] = localCandidateId;
+              candidatePair['remoteCandidateId'] = remoteCandidateId;
+              candidatePair['local'] = localCandidate;
+              candidatePair['remote'] = remoteCandidate;
+
+              // Always set the succeededConnection to the most recent candidatePair
+              succeededConnection = candidatePair.cast<String, dynamic>();
+
+              statsObject[report.id] = candidatePair;
+            } else {
+              unresolvedCandidatePairs.add({
+                'report': report,
+                'timestamp': timestamp,
+              });
+            }
             break;
           default:
-            statsObject[report.id] = report.values;
+            statsObject[report.id] = {
+              ...report.values,
+              'id': report.id,
+              'type': report.type,
+              'timestamp': timestamp,
+            };
         }
       }
 
-      final messageData = {
-        'event': WebRTCStatsEvent.stats.value,
-        'tag': WebRTCStatsTag.stats.value,
-        'peerId': callId,
-        'connectionId': callId,
-        'data': {
-          'audio': {
-            'inbound': audioInboundStats,
-            'outbound': audioOutboundStats,
-          },
-          'connection': connectionStats,
-          'statsObject': statsObject,
+      // Process unresolved candidate-pairs
+      for (final unresolved in unresolvedCandidatePairs) {
+        final report = unresolved['report'];
+        final localCandidateId = report.values['localCandidateId'];
+        final remoteCandidateId = report.values['remoteCandidateId'];
+
+        final localCandidate = localCandidates[localCandidateId];
+        final remoteCandidate = remoteCandidates[remoteCandidateId];
+
+        final candidatePair = {
+          'id': report.id,
+          ...report.values,
+          'timestamp': unresolved['timestamp'],
+          'type': 'candidate-pair',
+        };
+
+        if (localCandidate != null && remoteCandidate != null) {
+          candidatePair['localCandidateId'] = localCandidateId;
+          candidatePair['remoteCandidateId'] = remoteCandidateId;
+          candidatePair['local'] = localCandidate;
+          candidatePair['remote'] = remoteCandidate;
+
+          // Always set the succeededConnection to the most recent candidatePair
+          succeededConnection = candidatePair.cast<String, dynamic>();
+
+          statsObject[report.id] = candidatePair;
+        } else {
+          _logger.w(
+            'Failed to resolve local or remote candidate for candidate-pair ${report.id}',
+          );
+        }
+      }
+
+      // Format the data
+      final formattedData = {
+        'audio': {
+          'inbound': audioInboundStats,
+          'outbound': audioOutboundStats,
         },
+        'connection': succeededConnection ?? {},
       };
 
-      _sendDebugReportData(
-        event: WebRTCStatsEvent.stats,
-        tag: WebRTCStatsTag.stats,
-        data: messageData,
+      final reportData = {
+        'event': WebRTCStatsEvent.stats.value,
+        'tag': WebRTCStatsTag.stats.value,
+        'peerId': peerId,
+        'connectionId': callId,
+        'timestamp': DateTime.now().toUtc().toIso8601String(),
+        'data': _normalizeData(formattedData),
+        'statsObject': statsObject,
+      };
+
+      final message = DebugReportDataMessage(
+        reportId: debugStatsId,
+        reportData: reportData,
       );
+
+      _enqueueMessage(jsonEncode(message.toJson()));
     } catch (e) {
       _logger.e('Error collecting stats: $e');
     }
   }
 
-  void _sendAddConnectionMessage() {
-    final data = {
-      'event': WebRTCStatsEvent.addConnection.value,
-      'tag': WebRTCStatsTag.peer.value,
-      'connectionId': callId,
-      'peerId': callId,
-      'data': {
-        'peerConfiguration': _getPeerConfiguration(),
-        'options': {'peerId': callId},
-      },
-    };
+  Map<String, dynamic>? _constructTrack(
+    Map<String, dynamic> reportValues,
+    double timestamp,
+  ) {
+    if (!reportValues.containsKey('mediaSourceId')) {
+      // Return null if media source info is not available
+      return null;
+    }
 
-    _sendDebugReportData(
-      event: WebRTCStatsEvent.addConnection,
-      tag: WebRTCStatsTag.peer,
-      data: data,
+    return {
+      'id': reportValues['mediaSourceId'],
+      'timestamp': timestamp,
+      'type': 'media-source',
+      'kind': reportValues['kind'],
+      'trackIdentifier': reportValues['trackIdentifier'],
+      'audioLevel': reportValues['audioLevel'] ?? 0,
+      'echoReturnLoss': reportValues['echoReturnLoss'],
+      'echoReturnLossEnhancement': reportValues['echoReturnLossEnhancement'],
+      'totalAudioEnergy': reportValues['totalAudioEnergy'],
+      'totalSamplesDuration': reportValues['totalSamplesDuration'],
+    };
+  }
+
+  Future<void> _sendAddConnectionMessage() async {
+    // add a 2 second delay here to allow stats reporting to start before adding connection
+    await Future.delayed(Duration(seconds: 2));
+    final message = DebugReportDataMessage(
+      reportId: debugStatsId,
+      reportData: {
+        'event': WebRTCStatsEvent.addConnection.value,
+        'tag': WebRTCStatsTag.peer.value,
+        'peerId': peerId,
+        'connectionId': callId,
+        'data': {
+          'peerConfiguration': StatParsingHelpers().getPeerConfiguration(
+            peerConnection.getConfiguration,
+          ),
+          'options': {'peerId': peerId, 'pc': {}},
+        },
+        'timestamp': DateTime.now().toUtc().toIso8601String(),
+      },
     );
+
+    _enqueueMessage(jsonEncode(message.toJson()));
   }
 
   void _sendStartDebugReport(String sessionId) {
@@ -218,63 +406,30 @@ class WebRTCStatsReporter {
   void _sendDebugReportData({
     required WebRTCStatsEvent event,
     required WebRTCStatsTag tag,
-    required Map<String, dynamic> data,
+    required dynamic data,
   }) {
+    final reportData = {
+      'event': event.value,
+      'tag': tag.value,
+      'peerId': peerId,
+      'connectionId': callId,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+      'data': _normalizeData(data),
+    };
+
     final message = DebugReportDataMessage(
       reportId: debugStatsId,
-      reportData: {
-        'event': event.value,
-        'tag': tag.value,
-        'peerId': callId,
-        'connectionId': callId,
-        'timestamp': DateTime.now().toUtc().toIso8601String(),
-        'data': data,
-      },
+      reportData: reportData,
     );
 
     _enqueueMessage(jsonEncode(message.toJson()));
   }
 
-  Map<String, dynamic> _parseCandidatePair(Map<String, dynamic> candidate) {
-    return {
-      'id': candidate['id'],
-      'state': candidate['state'],
-      'bytesSent': candidate['bytesSent'],
-      'bytesReceived': candidate['bytesReceived'],
-      'currentRoundTripTime': candidate['currentRoundTripTime'],
-      'priority': candidate['priority'],
-      'nominated': candidate['nominated'],
-    };
-  }
-
-  String? parseUsernameFragment(RTCIceCandidate candidate) {
-    if (candidate.candidate == null || candidate.candidate!.isEmpty) {
-      return null;
+  dynamic _normalizeData(dynamic data) {
+    // Check if the `data` is a single key-value pair, return the value directly.
+    if (data is Map<String, dynamic> && data.length == 1) {
+      return data.values.first;
     }
-    final regex = RegExp(r'ufrag\s+(\w+)');
-    final match = regex.firstMatch(candidate.candidate!);
-    return match?.group(1);
-  }
-
-  Map<String, dynamic> _getPeerConfiguration() {
-    final configuration = peerConnection.getConfiguration;
-    final iceServers =
-        (configuration['iceServers'] as List<dynamic>?)?.map((iceServer) {
-      return {
-        'urls':
-            iceServer['url'] is String ? [iceServer['url']] : iceServer['url'],
-        'username': iceServer['username'] ?? '',
-        'credential': iceServer['credential'] ?? '',
-      };
-    }).toList();
-
-    return {
-      'bundlePolicy': 'max-compat',
-      'encodedInsertableStreams': false,
-      'iceCandidatePoolSize': 0,
-      'iceServers': iceServers ?? [],
-      'iceTransportPolicy': 'all',
-      'rtcpMuxPolicy': 'require',
-    };
+    return data;
   }
 }

@@ -136,7 +136,7 @@ class MainViewModel with ChangeNotifier {
     // Observe Socket Messages Received
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) async {
-        logger.i('Mainviewmodel :: observeResponses :: Socket :: $message');
+        logger.i('Mainviewmodel :: observeResponses :: Socket :: ${message.message}');
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
@@ -242,6 +242,7 @@ class MainViewModel with ChangeNotifier {
         );
       }
       // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
+
       if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         _telnyxClient.disconnect();
       }
@@ -366,7 +367,10 @@ class MainViewModel with ChangeNotifier {
           headers: <String, dynamic>{'platform': 'flutter'},
         );
 
-        // Hide notfication when call is accepted
+        _ongoingCall = true;
+        notifyListeners();
+
+        // Hide notification when call is accepted
         await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
       notifyListeners();

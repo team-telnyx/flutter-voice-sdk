@@ -6,12 +6,10 @@ class StatsMessage {
   final int debugReportVersion;
   final String id;
   final String jsonrpc;
-  final Map<String, dynamic>? reportData;
 
   StatsMessage({
     required this.type,
     required this.reportId,
-    this.reportData,
     this.debugReportVersion = 1,
     String? id,
     this.jsonrpc = '2.0',
@@ -24,7 +22,6 @@ class StatsMessage {
       'type': type,
       'debug_report_id': reportId,
       'debug_report_version': debugReportVersion,
-      'debug_report_data': reportData,
     };
   }
 }
@@ -44,12 +41,14 @@ class DebugReportStopMessage extends StatsMessage {
 }
 
 class DebugReportDataMessage extends StatsMessage {
+  final Map<String, dynamic>? reportData;
+
   DebugReportDataMessage({
     required super.reportId,
-    required Map<String, dynamic> super.reportData,
+    required this.reportData,
   }) : super(
-          type: 'debug_report_data',
-        );
+    type: 'debug_report_data',
+  );
 
   @override
   Map<String, dynamic> toJson() {
@@ -58,3 +57,4 @@ class DebugReportDataMessage extends StatsMessage {
     return json;
   }
 }
+
