@@ -39,14 +39,16 @@ class CallHandler {
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
-  Call(this.txSocket,
-      this._txClient,
-      this.sessid,
-      this.ringToneFile,
-      this.ringBackFile,
-      this.callHandler,
-      this.callEnded,
-      this.debug,);
+  Call(
+    this.txSocket,
+    this._txClient,
+    this.sessid,
+    this.ringToneFile,
+    this.ringBackFile,
+    this.callHandler,
+    this.callEnded,
+    this.debug,
+  );
 
   late CallHandler callHandler;
   late CallState callState;
@@ -73,12 +75,13 @@ class Call {
 
   /// Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
-  void newInvite(String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState, {
-        Map<String, String> customHeaders = const {},
-      }) {
+  void newInvite(
+    String callerName,
+    String callerNumber,
+    String destinationNumber,
+    String clientState, {
+    Map<String, String> customHeaders = const {},
+  }) {
     _txClient.newInvite(
       callerName,
       callerNumber,
@@ -98,13 +101,14 @@ class Call {
 
   /// Accepts the incoming call specified via the [invite] parameter, sending
   /// your local specified [callerName], [callerNumber] and [clientState]
-  Call acceptCall(IncomingInviteParams invite,
-      String callerName,
-      String callerNumber,
-      String clientState, {
-        bool isAttach = false,
-        Map<String, String> customHeaders = const {},
-      }) {
+  Call acceptCall(
+    IncomingInviteParams invite,
+    String callerName,
+    String callerNumber,
+    String clientState, {
+    bool isAttach = false,
+    Map<String, String> customHeaders = const {},
+  }) {
     return _txClient.acceptCall(
       invite,
       callerName,
@@ -186,7 +190,7 @@ class Call {
     );
 
     final infoParams =
-    InfoParams(dialogParams: dialogParams, dtmf: tone, sessid: sessid);
+        InfoParams(dialogParams: dialogParams, dtmf: tone, sessid: sessid);
 
     final dtmfMessageBody = DtmfInfoMessage(
       id: uuid,
@@ -274,7 +278,6 @@ class Call {
   void stopAudio() {
     audioService.stopAudio();
   }
-
 }
 
 class AudioService {
