@@ -4,6 +4,7 @@ import CallKit
 import PushKit
 import Flutter
 import flutter_callkit_incoming
+import WebRTC
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
@@ -27,10 +28,16 @@ import flutter_callkit_incoming
     
     func didActivateAudioSession(_ audioSession: AVAudioSession) {
         print("onRunner  :: Activate Audio Session")
+
+        RTCAudioSession.sharedInstance().audioSessionDidActivate(audioSession)
+        RTCAudioSession.sharedInstance().isAudioEnabled = true
     }
     
     func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
         print("onRunner  :: DeActivate Audio Session")
+
+        RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
+        RTCAudioSession.sharedInstance().isAudioEnabled = false
     }
     
   override func application(
@@ -44,6 +51,9 @@ import flutter_callkit_incoming
       let voipRegistry: PKPushRegistry = PKPushRegistry(queue: mainQueue)
       voipRegistry.delegate = self
       voipRegistry.desiredPushTypes = [PKPushType.voIP]
+
+      RTCAudioSession.sharedInstance().useManualAudio = true
+      RTCAudioSession.sharedInstance().isAudioEnabled = false
       
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -117,6 +127,10 @@ import flutter_callkit_incoming
                 data.uuid = uuid!.uuidString
                 data.nameCaller = caller
                 SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                   completion()
+                }
             }
         }
     
