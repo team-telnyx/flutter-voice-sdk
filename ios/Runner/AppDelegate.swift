@@ -15,15 +15,17 @@ import WebRTC
     }
     
     func onDecline(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
-        
+        print("onRunner ::  Decline")
+        action.fulfill()
     }
     
     func onEnd(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
+        print("onRunner ::  End")
         action.fulfill()
     }
     
     func onTimeOut(_ call: flutter_callkit_incoming.Call) {
-        
+        print("onRunner ::  TimeOut")
     }
     
     func didActivateAudioSession(_ audioSession: AVAudioSession) {
