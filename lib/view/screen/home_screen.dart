@@ -42,10 +42,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _observeResponses() {
     Provider.of<MainViewModel>(context, listen: true).observeResponses();
-    invitation = Provider.of<MainViewModel>(context, listen: true).callState ==
-        CallStateStatus.ongoingInvitation;
-    ongoingCall = Provider.of<MainViewModel>(context, listen: true).callState ==
-        CallStateStatus.ongoingCall;
+    invitation =
+        Provider.of<MainViewModel>(context, listen: true).ongoingInvitation;
+    ongoingCall = Provider.of<MainViewModel>(context, listen: true).ongoingCall;    Provider.of<MainViewModel>(context, listen: true).observeResponses();
+
   }
 
   void _callDestination() {

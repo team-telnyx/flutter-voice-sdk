@@ -20,28 +20,18 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 
-enum CallStateStatus {
-  idle,
-  ringing,
-  ongoingInvitation,
-  ongoingCall,
-}
-
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
   final TelnyxClient _telnyxClient = TelnyxClient();
 
   bool _registered = false;
   bool _loggingIn = false;
+  bool _ongoingInvitation = false;
+  bool _ongoingCall = false;
   bool callFromPush = false;
-  bool _isObservingResponses = false;
-  bool _isObservingCallState = false;
   bool _speakerPhone = true;
   CredentialConfig? _credentialConfig;
   IncomingInviteParams? _incomingInvite;
-
-  // ignore: unused_field
-  Call? _currentCall;
 
   String _localName = '';
   String _localNumber = '';
@@ -54,17 +44,15 @@ class MainViewModel with ChangeNotifier {
     return _loggingIn;
   }
 
-  CallStateStatus _callState = CallStateStatus.idle;
-
-  CallStateStatus get callState => _callState;
-
-  set callState(CallStateStatus newState) {
-    if (newState == CallStateStatus.ongoingCall) {
-      logger.i('Call ongoing');
-    }
-    _callState = newState;
-    notifyListeners();
+  bool get ongoingInvitation {
+    return _ongoingInvitation;
   }
+
+  bool get ongoingCall {
+    return _ongoingCall;
+  }
+
+  Call? _currentCall;
 
   Call? get currentCall {
     return _telnyxClient.calls.values.firstOrNull;
@@ -74,67 +62,55 @@ class MainViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
- void updateCallFromPush(bool value) {
-    callFromPush = value;
-    notifyListeners();
-  }
-
   void resetCallInfo() {
-    logger.i('Mainviewmodel :: Reset Call Info');
     _incomingInvite = null;
-    callState = CallStateStatus.idle;
-    _isObservingCallState = false;
+    _ongoingInvitation = false;
+    _ongoingCall = false;
     callFromPush = false;
-    notifyListeners();
+    logger.i('Mainviewmodel :: Reset Call Info');
   }
 
   void observeCurrentCall() {
-    if (_isObservingCallState) {
-      logger.i('Call State :: Already Observing');
-      return;
-    }
-
-    _isObservingCallState = true;
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i('Call State :: $state');
       switch (state) {
         case CallState.newCall:
-          // TODO: Handle this case.
+        // TODO: Handle this case.
           break;
         case CallState.connecting:
-          // TODO: Handle this case.
+        // TODO: Handle this case.
           break;
         case CallState.ringing:
-          // TODO: Handle this case.
+        // TODO: Handle this case.
           break;
         case CallState.active:
           logger.i('current call is Active');
-          _callState = CallStateStatus.ongoingCall;
-          notifyListeners();
+          _ongoingInvitation = false;
+          _ongoingCall = true;
           if (Platform.isIOS) {
             // only for iOS
-            FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
-            _isObservingCallState = false;
-            break;
+            // end Call for Callkit on iOS
+            FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
           }
+
           break;
         case CallState.held:
-          // TODO: Handle this case.
+        // TODO: Handle this case.
           break;
         case CallState.done:
           FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
           // TODO: Handle this case.
           break;
         case CallState.error:
-          // TODO: Handle this case.
+        // TODO: Handle this case.
           break;
       }
     };
   }
 
   Future<void> _saveCredentialsForAutoLogin(
-    CredentialConfig credentialConfig,
-  ) async {
+      CredentialConfig credentialConfig,
+      ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('sipUser', credentialConfig.sipUser);
     await prefs.setString('sipPassword', credentialConfig.sipPassword);
@@ -158,18 +134,10 @@ class MainViewModel with ChangeNotifier {
   }
 
   void observeResponses() {
-    if (_isObservingResponses) {
-      return;
-    }
-    logger.i('Observing Responses');
-    _isObservingResponses = true;
-
     // Observe Socket Messages Received
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) async {
-        logger.i(
-          'Mainviewmodel :: observeResponses :: Socket :: ${message.message}',
-        );
+        logger.i('Mainviewmodel :: observeResponses :: Socket :: ${message.message}');
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
@@ -184,40 +152,33 @@ class MainViewModel with ChangeNotifier {
             }
           case SocketMethod.invite:
             {
-              callState = CallStateStatus.ongoingInvitation;
-              _incomingInvite = message.message.inviteParams;
               observeCurrentCall();
+              _incomingInvite = message.message.inviteParams;
               if (!callFromPush) {
+                // only set _ongoingInvitation if the call is not from push notification
+                _ongoingInvitation = true;
                 showNotification(_incomingInvite!);
               } else {
+                // For early accept of call
                 if (waitingForInvite) {
-                  logger.i(
-                    'Previously accepted via Push Notification, accepting call',
-                  );
                   await accept();
                   waitingForInvite = false;
                 }
               }
-              notifyListeners();
+
+              logger.i(
+                'customheaders :: ${message.message.dialogParams?.customHeaders}',
+              );
+
               break;
             }
           case SocketMethod.answer:
             {
-              callState = CallStateStatus.ongoingCall;
-              notifyListeners();
-              break;
-            }
-          case SocketMethod.ringing:
-            {
-              callState = CallStateStatus.ringing;
-              notifyListeners();
+              _ongoingCall = true;
               break;
             }
           case SocketMethod.bye:
             {
-              callState = CallStateStatus.idle;
-
-              /// For IOS
               if (Platform.isIOS) {
                 if (callFromPush) {
                   _endCallFromPush(true);
@@ -228,12 +189,6 @@ class MainViewModel with ChangeNotifier {
                   resetCallInfo();
                 }
               }
-
-              /// For Android
-              else {
-                resetCallInfo();
-              }
-              notifyListeners();
               break;
             }
         }
@@ -242,7 +197,7 @@ class MainViewModel with ChangeNotifier {
         await messageLogger.writeLog(message.toString());
       }
 
-      // Observe Socket Error Messages
+    // Observe Socket Error Messages
       ..onSocketErrorReceived = (TelnyxSocketError error) {
         Fluttertoast.showToast(
           msg: '${error.errorCode} : ${error.errorMessage}',
@@ -297,10 +252,10 @@ class MainViewModel with ChangeNotifier {
   }
 
   void handlePushNotification(
-    PushMetaData pushMetaData,
-    CredentialConfig? credentialConfig,
-    TokenConfig? tokenConfig,
-  ) {
+      PushMetaData pushMetaData,
+      CredentialConfig? credentialConfig,
+      TokenConfig? tokenConfig,
+      ) {
     _telnyxClient.handlePushNotification(
       pushMetaData,
       credentialConfig,
@@ -339,20 +294,7 @@ class MainViewModel with ChangeNotifier {
       'Fake State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
-    FlutterCallkitIncoming.startCall(
-      CallKitParams(
-        id: _currentCall!.callId,
-        nameCaller: _localName,
-        handle: destination,
-        appName: 'Telnyx Flutter Voice',
-        avatar: 'https://i.pravatar.cc/100',
-        duration: 30000,
-        extra: {},
-        headers: <String, dynamic>{'platform': 'flutter'},
-      ),
-    );
     observeCurrentCall();
-    notifyListeners();
   }
 
   void toggleSpeakerPhone() {
@@ -369,7 +311,6 @@ class MainViewModel with ChangeNotifier {
     final sipPassword = prefs.getString('sipPassword');
     final sipName = prefs.getString('sipName');
     final sipNumber = prefs.getString('sipNumber');
-    final notificationToken = prefs.getString('notificationToken');
     if (sipUser != null &&
         sipPassword != null &&
         sipName != null &&
@@ -379,7 +320,6 @@ class MainViewModel with ChangeNotifier {
         sipCallerIDNumber: sipNumber,
         sipUser: sipUser,
         sipPassword: sipPassword,
-        notificationToken: notificationToken,
         debug: true,
       );
     } else {
@@ -394,7 +334,7 @@ class MainViewModel with ChangeNotifier {
   }
 
   Future<void> accept({bool acceptFromNotification = false}) async {
-    if (callState == CallStateStatus.ongoingCall) {
+    if (ongoingCall) {
       return;
     }
 
@@ -432,18 +372,16 @@ class MainViewModel with ChangeNotifier {
           headers: <String, dynamic>{'platform': 'flutter'},
         );
 
-        _callState = CallStateStatus.ongoingCall;
+        _ongoingCall = true;
         notifyListeners();
 
-        /// Hide Notification when call is accepted
+        // Hide notification when call is accepted
         await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
       notifyListeners();
     } else {
-      logger.i('Answered early, waiting for invite');
       waitingForInvite = true;
     }
-    notifyListeners();
   }
 
   Future<void> showNotification(IncomingInviteParams message) async {
@@ -471,7 +409,6 @@ class MainViewModel with ChangeNotifier {
     });
   }
 
-
   void endCall({bool endfromCallScreen = false}) {
     logger.i(' Platform ::: endfromCallScreen :: $endfromCallScreen');
     if (currentCall == null) {
@@ -496,7 +433,8 @@ class MainViewModel with ChangeNotifier {
       currentCall?.endCall(_incomingInvite?.callID);
     }
 
-    resetCallInfo();
+    _ongoingInvitation = false;
+    _ongoingCall = false;
     notifyListeners();
   }
 
@@ -515,6 +453,6 @@ class MainViewModel with ChangeNotifier {
   void exportLogs() async {
     final messageLogger = await FileLogger.getInstance();
     final logContents = await messageLogger.exportLogs();
-    logger.i(logContents);
+    print(logContents);
   }
 }
