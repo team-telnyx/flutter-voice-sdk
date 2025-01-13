@@ -258,7 +258,7 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
     ....
   ```  
 
-Note: Notice for didActivateAudioSession and didDeactivateAudioSession that we are handling WebRTC manually. This is to handle the beforementioned bug where there is no audio on iOS when using it with CallKit.
+Note: Notice for didActivateAudioSession and didDeactivateAudioSession that we are handling WebRTC manually. This is to handle the before mentioned bug where there is no audio on iOS when using it with CallKit.
 
 1. Register / Invalidate the push device token for iOS within AppDelegate.swift class
 ```swift
