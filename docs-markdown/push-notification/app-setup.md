@@ -235,7 +235,7 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
     }
 
     func onEnd(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
-        NSLog("onRunner  :: TimeOut")
+        NSLog("onRunner  :: onEnd")
         action.fulfill()
     }
 
