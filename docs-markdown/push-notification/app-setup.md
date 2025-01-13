@@ -365,17 +365,6 @@ void call(String destination) {
       nameCaller: _localName,
       appName: 'My Calling App',
       handle: destination,
-      type: 0,
-      textAccept: 'Accept',
-      textDecline: 'Decline',
-      missedCallNotification: const NotificationParams(
-         showNotification: false,
-         isShowCallback: false,
-         subtitle: 'Missed call',
-      ),
-      duration: 30000,
-      extra: {},
-      headers: <String, dynamic>{'platform': 'flutter'},
    );
    
    FlutterCallkitIncoming.startCall(params);

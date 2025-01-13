@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
@@ -134,9 +135,13 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   mainViewModel.callFromPush = true;
 }
 
+var fromBackground = false;
+var inForeground = true;
+
 @pragma('vm:entry-point')
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  var incomingPushCall = false;
 
   if (defaultTargetPlatform == TargetPlatform.android) {
     // Android Only - Push Notifications
@@ -157,35 +162,41 @@ Future<void> main() async {
       logger.i('onEvent :: ${event?.event}');
       switch (event!.event) {
         case Event.actionCallIncoming:
+          incomingPushCall = true;
           // retrieve the push metadata from extras
-          if (Platform.isAndroid) {
-            final data = await TelnyxClient.getPushData();
-            if (data != null) {
-              await handlePush(data);
-            } else {
-              logger.i('actionCallIncoming :: Push Data is null!');
-            }
-          } else if (Platform.isIOS) {
-            if (event.body['extra']['metadata'] == null) {
-              logger.i('actionCallIncoming :: Push Data is null!');
-              return;
-            }
-            logger.i(
-              "received push Call for iOS ${event.body['extra']['metadata']}",
-            );
-            await handlePush(
-              event.body['extra']['metadata'] as Map<dynamic, dynamic>,
-            );
+          if (event.body['extra']['metadata'] == null) {
+            logger.i('actionCallIncoming :: Push Data is null!');
+            return;
           }
-
+          logger.i(
+              "received push Call for iOS ${event.body['extra']['metadata']}");
+          var metadata = event.body['extra']['metadata'];
+          if (metadata is String) {
+            metadata = jsonDecode(metadata);
+          }
+          await handlePush(metadata);
           break;
+
         case Event.actionCallStart:
           // TODO: started an outgoing call
           // TODO: show screen calling in Flutter
           break;
         case Event.actionCallAccept:
-          logger.i('actionCallAccept :: call accepted');
-          await mainViewModel.accept();
+          final metadata = event.body['extra']['metadata'];
+          if (metadata == null || (incomingPushCall && fromBackground)) {
+            logger.i('Accepted Call Directly');
+            await mainViewModel.accept();
+
+            /// Reset the incomingPushCall flag and fromBackground flag
+            incomingPushCall = false;
+            fromBackground = false;
+          } else {
+            logger.i(
+                'Received push Call with metadata on Accept, handle push here $metadata');
+            final data = metadata as Map<dynamic, dynamic>;
+            data['isAnswer'] = true;
+            await handlePush(data);
+          }
           break;
         case Event.actionCallDecline:
           logger.i('actionCallDecline :: call declined');
@@ -227,7 +238,32 @@ Future<void> main() async {
     });
   }
 
-  runApp(const MyApp());
+  final credentialConfig = await mainViewModel.getCredentialConfig();
+  runApp(
+    FGBGNotifier(
+      onEvent: (FGBGType type) => switch (type) {
+        FGBGType.foreground => {
+            logger.i('We are in the foreground, CONNECTING'),
+            // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
+            if (!mainViewModel.callFromPush)
+              {
+                mainViewModel.login(credentialConfig),
+              },
+            fromBackground = false,
+            inForeground = true,
+          },
+        FGBGType.background => {
+            logger.i(
+              'We are in the background setting fromBackground == true, DISCONNECTING',
+            ),
+            fromBackground = true,
+            inForeground = false,
+            mainViewModel.disconnect(),
+          }
+      },
+      child: const MyApp(),
+    ),
+  );
 }
 
 Future<void> askForNotificationPermission() async {

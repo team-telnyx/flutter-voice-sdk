@@ -293,6 +293,7 @@ class MainViewModel with ChangeNotifier {
       'Fake State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
+    FlutterCallkitIncoming.startCall(CallKitParams());
     observeCurrentCall();
   }
 
