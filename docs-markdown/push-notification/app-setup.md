@@ -428,11 +428,38 @@ Future<void> main() async {
         child: const MyApp()),
   );
 }
-
 ```
 
 Note: Notice that in the foreground event we check if we are in the foreground as a result of a push notification, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect. This is because handlePushNotification will be called when the user accepts the call from the push notification and we will reconnect to the socket there.
 
+This also means however that when we are showing a notification, which on iOS can be full screen, we need to make sure that we don't disconnect when the notification is shown. We can do this with FGBG's ignoreWhile method like so:
+
+```dart
+  Future<void> showNotification(IncomingInviteParams message) async {
+    // Temporarily ignore FGBG events while showing the CallKit notification
+    FGBGEvents.ignoreWhile(() async {
+      CallKitParams callKitParams = CallKitParams(
+        id: message.callID,
+        nameCaller: message.callerIdName,
+        appName: 'Calling Vault',
+        handle: message.callerIdNumber,
+        type: 0,
+        textAccept: 'Accept',
+        textDecline: 'Decline',
+        missedCallNotification: const NotificationParams(
+          showNotification: false,
+          isShowCallback: false,
+          subtitle: 'Missed call',
+        ),
+        duration: 30000,
+        extra: {},
+        headers: <String, dynamic>{'platform': 'flutter'},
+      );
+
+      await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
+    });
+  }
+```
 
 
 #### Best Practices for Push Notifications on iOS

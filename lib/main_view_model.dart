@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -445,28 +446,31 @@ class MainViewModel with ChangeNotifier {
     notifyListeners();
   }
 
-  void showNotification(IncomingInviteParams message) {
-    final CallKitParams callKitParams = CallKitParams(
-      id: message.callID,
-      nameCaller: message.callerIdName,
-      appName: 'Telnyx Flutter Voice',
-      avatar: 'https://i.pravatar.cc/100',
-      handle: message.callerIdNumber,
-      type: 0,
-      textAccept: 'Accept',
-      textDecline: 'Decline',
-      missedCallNotification: const NotificationParams(
-        showNotification: false,
-        isShowCallback: false,
-        subtitle: 'Missed call',
-      ),
-      duration: 30000,
-      extra: {},
-      headers: <String, dynamic>{'platform': 'flutter'},
-    );
+  Future<void> showNotification(IncomingInviteParams message) async {
+    // Temporarily ignore FGBG events while showing the CallKit notification
+    FGBGEvents.ignoreWhile(() async {
+      final CallKitParams callKitParams = CallKitParams(
+        id: message.callID,
+        nameCaller: message.callerIdName,
+        appName: 'Telnyx Flutter Voice',
+        handle: message.callerIdNumber,
+        type: 0,
+        textAccept: 'Accept',
+        textDecline: 'Decline',
+        missedCallNotification: const NotificationParams(
+          showNotification: false,
+          isShowCallback: false,
+          subtitle: 'Missed call',
+        ),
+        duration: 30000,
+        extra: {},
+        headers: <String, dynamic>{'platform': 'flutter'},
+      );
 
-    FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
+      await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
+    });
   }
+
 
   void endCall({bool endfromCallScreen = false}) {
     logger.i(' Platform ::: endfromCallScreen :: $endfromCallScreen');
