@@ -19,18 +19,28 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 
+enum CallStateStatus {
+  idle,
+  ringing,
+  ongoingInvitation,
+  ongoingCall,
+}
+
 class MainViewModel with ChangeNotifier {
   final logger = Logger();
   final TelnyxClient _telnyxClient = TelnyxClient();
 
   bool _registered = false;
   bool _loggingIn = false;
-  bool _ongoingInvitation = false;
-  bool _ongoingCall = false;
   bool callFromPush = false;
+  bool _isObservingResponses = false;
+  bool _isObservingCallState = false;
   bool _speakerPhone = true;
   CredentialConfig? _credentialConfig;
   IncomingInviteParams? _incomingInvite;
+
+  // ignore: unused_field
+  Call? _currentCall;
 
   String _localName = '';
   String _localNumber = '';
@@ -43,15 +53,17 @@ class MainViewModel with ChangeNotifier {
     return _loggingIn;
   }
 
-  bool get ongoingInvitation {
-    return _ongoingInvitation;
-  }
+  CallStateStatus _callState = CallStateStatus.idle;
 
-  bool get ongoingCall {
-    return _ongoingCall;
-  }
+  CallStateStatus get callState => _callState;
 
-  Call? _currentCall;
+  set callState(CallStateStatus newState) {
+    if (newState == CallStateStatus.ongoingCall) {
+      logger.i('Call ongoing');
+    }
+    _callState = newState;
+    notifyListeners();
+  }
 
   Call? get currentCall {
     return _telnyxClient.calls.values.firstOrNull;
@@ -61,15 +73,27 @@ class MainViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
+ void updateCallFromPush(bool value) {
+    callFromPush = value;
+    notifyListeners();
+  }
+
   void resetCallInfo() {
-    _incomingInvite = null;
-    _ongoingInvitation = false;
-    _ongoingCall = false;
-    callFromPush = false;
     logger.i('Mainviewmodel :: Reset Call Info');
+    _incomingInvite = null;
+    callState = CallStateStatus.idle;
+    _isObservingCallState = false;
+    callFromPush = false;
+    notifyListeners();
   }
 
   void observeCurrentCall() {
+    if (_isObservingCallState) {
+      logger.i('Call State :: Already Observing');
+      return;
+    }
+
+    _isObservingCallState = true;
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i('Call State :: $state');
       switch (state) {
@@ -84,14 +108,14 @@ class MainViewModel with ChangeNotifier {
           break;
         case CallState.active:
           logger.i('current call is Active');
-          _ongoingInvitation = false;
-          _ongoingCall = true;
+          _callState = CallStateStatus.ongoingCall;
+          notifyListeners();
           if (Platform.isIOS) {
             // only for iOS
-            // end Call for Callkit on iOS
-            FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
+            FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
+            _isObservingCallState = false;
+            break;
           }
-
           break;
         case CallState.held:
           // TODO: Handle this case.
@@ -133,10 +157,18 @@ class MainViewModel with ChangeNotifier {
   }
 
   void observeResponses() {
+    if (_isObservingResponses) {
+      return;
+    }
+    logger.i('Observing Responses');
+    _isObservingResponses = true;
+
     // Observe Socket Messages Received
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) async {
-        logger.i('Mainviewmodel :: observeResponses :: Socket :: ${message.message}');
+        logger.i(
+          'Mainviewmodel :: observeResponses :: Socket :: ${message.message}',
+        );
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
@@ -151,33 +183,40 @@ class MainViewModel with ChangeNotifier {
             }
           case SocketMethod.invite:
             {
-              observeCurrentCall();
+              callState = CallStateStatus.ongoingInvitation;
               _incomingInvite = message.message.inviteParams;
+              observeCurrentCall();
               if (!callFromPush) {
-                // only set _ongoingInvitation if the call is not from push notification
-                _ongoingInvitation = true;
                 showNotification(_incomingInvite!);
               } else {
-                // For early accept of call
                 if (waitingForInvite) {
+                  logger.i(
+                    'Previously accepted via Push Notification, accepting call',
+                  );
                   await accept();
                   waitingForInvite = false;
                 }
               }
-
-              logger.i(
-                'customheaders :: ${message.message.dialogParams?.customHeaders}',
-              );
-
+              notifyListeners();
               break;
             }
           case SocketMethod.answer:
             {
-              _ongoingCall = true;
+              callState = CallStateStatus.ongoingCall;
+              notifyListeners();
+              break;
+            }
+          case SocketMethod.ringing:
+            {
+              callState = CallStateStatus.ringing;
+              notifyListeners();
               break;
             }
           case SocketMethod.bye:
             {
+              callState = CallStateStatus.idle;
+
+              /// For IOS
               if (Platform.isIOS) {
                 if (callFromPush) {
                   _endCallFromPush(true);
@@ -188,6 +227,12 @@ class MainViewModel with ChangeNotifier {
                   resetCallInfo();
                 }
               }
+
+              /// For Android
+              else {
+                resetCallInfo();
+              }
+              notifyListeners();
               break;
             }
         }
@@ -293,8 +338,20 @@ class MainViewModel with ChangeNotifier {
       'Fake State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
-    FlutterCallkitIncoming.startCall(CallKitParams());
+    FlutterCallkitIncoming.startCall(
+      CallKitParams(
+        id: _currentCall!.callId,
+        nameCaller: _localName,
+        handle: destination,
+        appName: 'Telnyx Flutter Voice',
+        avatar: 'https://i.pravatar.cc/100',
+        duration: 30000,
+        extra: {},
+        headers: <String, dynamic>{'platform': 'flutter'},
+      ),
+    );
     observeCurrentCall();
+    notifyListeners();
   }
 
   void toggleSpeakerPhone() {
@@ -311,6 +368,7 @@ class MainViewModel with ChangeNotifier {
     final sipPassword = prefs.getString('sipPassword');
     final sipName = prefs.getString('sipName');
     final sipNumber = prefs.getString('sipNumber');
+    final notificationToken = prefs.getString('notificationToken');
     if (sipUser != null &&
         sipPassword != null &&
         sipName != null &&
@@ -320,6 +378,7 @@ class MainViewModel with ChangeNotifier {
         sipCallerIDNumber: sipNumber,
         sipUser: sipUser,
         sipPassword: sipPassword,
+        notificationToken: notificationToken,
         debug: true,
       );
     } else {
@@ -334,6 +393,10 @@ class MainViewModel with ChangeNotifier {
   }
 
   Future<void> accept({bool acceptFromNotification = false}) async {
+    if (callState == CallStateStatus.ongoingCall) {
+      return;
+    }
+
     if (_incomingInvite != null) {
       _currentCall = _telnyxClient.acceptCall(
         _incomingInvite!,
@@ -368,16 +431,18 @@ class MainViewModel with ChangeNotifier {
           headers: <String, dynamic>{'platform': 'flutter'},
         );
 
-        _ongoingCall = true;
+        _callState = CallStateStatus.ongoingCall;
         notifyListeners();
 
-        // Hide notification when call is accepted
+        /// Hide Notification when call is accepted
         await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
       }
       notifyListeners();
     } else {
+      logger.i('Answered early, waiting for invite');
       waitingForInvite = true;
     }
+    notifyListeners();
   }
 
   void showNotification(IncomingInviteParams message) {
@@ -427,8 +492,7 @@ class MainViewModel with ChangeNotifier {
       currentCall?.endCall(_incomingInvite?.callID);
     }
 
-    _ongoingInvitation = false;
-    _ongoingCall = false;
+    resetCallInfo();
     notifyListeners();
   }
 
@@ -447,6 +511,6 @@ class MainViewModel with ChangeNotifier {
   void exportLogs() async {
     final messageLogger = await FileLogger.getInstance();
     final logContents = await messageLogger.exportLogs();
-    print(logContents);
+    logger.i(logContents);
   }
 }
