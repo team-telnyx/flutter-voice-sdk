@@ -441,7 +441,7 @@ This also means however that when we are showing a notification, which on iOS ca
       CallKitParams callKitParams = CallKitParams(
         id: message.callID,
         nameCaller: message.callerIdName,
-        appName: 'Calling Vault',
+        appName: 'Telnyx Flutter Demo',
         handle: message.callerIdNumber,
         type: 0,
         textAccept: 'Accept',
