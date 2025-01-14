@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
@@ -19,11 +21,30 @@ class _HomeScreenState extends State<HomeScreen> {
   bool invitation = false;
   bool ongoingCall = false;
 
+  @override
+  void initState() {
+    super.initState();
+    askForNotificationPermission();
+  }
+
+  Future<void> askForNotificationPermission() async {
+    await FlutterCallkitIncoming.requestNotificationPermission('notification');
+    final status = await Permission.notification.status;
+    if (status.isDenied) {
+      // We haven't asked for permission yet or the permission has been denied before, but not permanently
+      await Permission.notification.request();
+    }
+    // You can also directly ask permission about its status.
+    if (await Permission.location.isRestricted) {
+      // The OS restricts access, for example, because of parental controls.
+    }
+  }
+
   void _observeResponses() {
-    Provider.of<MainViewModel>(context, listen: true).observeResponses();
-    invitation =
-        Provider.of<MainViewModel>(context, listen: true).ongoingInvitation;
-    ongoingCall = Provider.of<MainViewModel>(context, listen: true).ongoingCall;
+    invitation = Provider.of<MainViewModel>(context, listen: true).callState ==
+        CallStateStatus.ongoingInvitation;
+    ongoingCall = Provider.of<MainViewModel>(context, listen: true).callState ==
+        CallStateStatus.ongoingCall;
   }
 
   void _callDestination() {

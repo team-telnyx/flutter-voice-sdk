@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:telnyx_flutter_webrtc/main_view_model.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
@@ -39,7 +39,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
             .i('actionCallIncoming :: Received Incoming Call! from background');
         break;
       case Event.actionCallStart:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallAccept:
         logger.i(
@@ -52,7 +52,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         );
         break;
       case Event.actionCallDecline:
-        /*
+      /*
         * When the user declines the call from the push notification, the app will no longer be visible, and we have to
         * handle the endCall user here.
         *
@@ -100,34 +100,34 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         );
         break;
       case Event.actionDidUpdateDevicePushTokenVoip:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallEnded:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallTimeout:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallCallback:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallToggleHold:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallToggleMute:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallToggleDmtf:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallToggleGroup:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallToggleAudioSession:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
       case Event.actionCallCustom:
-        // TODO: Handle this case.
+      // TODO: Handle this case.
         break;
     }
   });
@@ -142,7 +142,6 @@ Future<void> main() async {
     // Android Only - Push Notifications
     await Firebase.initializeApp();
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    //await askForNotificationPermission();
 
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
@@ -157,7 +156,7 @@ Future<void> main() async {
       logger.i('onEvent :: ${event?.event}');
       switch (event!.event) {
         case Event.actionCallIncoming:
-          // retrieve the push metadata from extras
+        // retrieve the push metadata from extras
           if (Platform.isAndroid) {
             final data = await TelnyxClient.getPushData();
             if (data != null) {
@@ -180,8 +179,8 @@ Future<void> main() async {
 
           break;
         case Event.actionCallStart:
-          // TODO: started an outgoing call
-          // TODO: show screen calling in Flutter
+        // TODO: started an outgoing call
+        // TODO: show screen calling in Flutter
           break;
         case Event.actionCallAccept:
           logger.i('actionCallAccept :: call accepted');
@@ -200,48 +199,55 @@ Future<void> main() async {
           mainViewModel.endCall();
           break;
         case Event.actionCallCallback:
-          // TODO: only Android - click action `Call back` from missed call notification
+        // TODO: only Android - click action `Call back` from missed call notification
           break;
         case Event.actionCallToggleHold:
-          // TODO: only iOS
+        // TODO: only iOS
           break;
         case Event.actionCallToggleMute:
-          // TODO: only iOS
+        // TODO: only iOS
           break;
         case Event.actionCallToggleDmtf:
-          // TODO: only iOS
+        // TODO: only iOS
           break;
         case Event.actionCallToggleGroup:
-          // TODO: only iOS
+        // TODO: only iOS
           break;
         case Event.actionCallToggleAudioSession:
-          // TODO: only iOS
+        // TODO: only iOS
           break;
         case Event.actionDidUpdateDevicePushTokenVoip:
-          // TODO: only iOS
+        // TODO: only iOS
           break;
         case Event.actionCallCustom:
-          // TODO: for custom action
+        // TODO: for custom action
           break;
       }
     });
   }
 
-  runApp(const MyApp());
-}
-
-Future<void> askForNotificationPermission() async {
-  await FlutterCallkitIncoming.requestNotificationPermission('notification');
-  final status = await Permission.notification.status;
-  if (status.isDenied) {
-    // We haven't asked for permission yet or the permission has been denied before, but not permanently
-    await Permission.notification.request();
-  }
-
-  // You can also directly ask permission about its status.
-  if (await Permission.location.isRestricted) {
-    // The OS restricts access, for example, because of parental controls.
-  }
+  final credentialConfig = await mainViewModel.getCredentialConfig();
+  runApp(
+    FGBGNotifier(
+      onEvent: (FGBGType type) => switch (type) {
+        FGBGType.foreground => {
+          logger.i('We are in the foreground, CONNECTING'),
+          // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
+          if (!mainViewModel.callFromPush)
+            {
+              mainViewModel.login(credentialConfig),
+            },
+        },
+        FGBGType.background => {
+          logger.i(
+            'We are in the background setting fromBackground == true, DISCONNECTING',
+          ),
+          mainViewModel.disconnect(),
+        }
+      },
+      child: const MyApp(),
+    ),
+  );
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {

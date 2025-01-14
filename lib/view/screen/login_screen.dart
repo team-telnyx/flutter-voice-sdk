@@ -71,7 +71,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       sipCallerIDNumber: sipNumberController.text,
       notificationToken: token,
       autoReconnect: true,
-      debug: true,
+      debug: false,
       ringTonePath: 'assets/audio/incoming_call.mp3',
       ringbackPath: 'assets/audio/ringback_tone.mp3',
     );
