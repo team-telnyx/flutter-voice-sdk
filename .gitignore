@@ -58,3 +58,7 @@ android/.idea/vcs.xml
 android/app/lint-baseline.xml
 .DS_Store
 /.idea
+
+ios/Podfile.lock
+ios/Pods/
+ios/Runner/GoogleService-Info.plist
