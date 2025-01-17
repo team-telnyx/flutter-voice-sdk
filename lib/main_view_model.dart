@@ -75,7 +75,12 @@ class MainViewModel with ChangeNotifier {
     logger.i('Mainviewmodel :: Reset Call Info');
     _incomingInvite = null;
     callState = CallStateStatus.idle;
-    callFromPush = false;
+    updateCallFromPush(false);
+    notifyListeners();
+  }
+
+  void updateCallFromPush(bool value) {
+    callFromPush = value;
     notifyListeners();
   }
 
@@ -84,10 +89,10 @@ class MainViewModel with ChangeNotifier {
       logger.i('Call State :: $state');
       switch (state) {
         case CallState.newCall:
-        // TODO: Handle this case.
+          // TODO: Handle this case.
           break;
         case CallState.connecting:
-        // TODO: Handle this case.
+          // TODO: Handle this case.
           break;
         case CallState.ringing:
           _callState = CallStateStatus.ringing;
@@ -105,22 +110,22 @@ class MainViewModel with ChangeNotifier {
 
           break;
         case CallState.held:
-        // TODO: Handle this case.
+          // TODO: Handle this case.
           break;
         case CallState.done:
           FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
           // TODO: Handle this case.
           break;
         case CallState.error:
-        // TODO: Handle this case.
+          // TODO: Handle this case.
           break;
       }
     };
   }
 
   Future<void> _saveCredentialsForAutoLogin(
-      CredentialConfig credentialConfig,
-      ) async {
+    CredentialConfig credentialConfig,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('sipUser', credentialConfig.sipUser);
     await prefs.setString('sipPassword', credentialConfig.sipPassword);
@@ -147,7 +152,8 @@ class MainViewModel with ChangeNotifier {
     // Observe Socket Messages Received
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) async {
-        logger.i('Mainviewmodel :: observeResponses :: Socket :: ${message.message}');
+        logger.i(
+            'Mainviewmodel :: observeResponses :: Socket :: ${message.message}');
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
@@ -162,11 +168,10 @@ class MainViewModel with ChangeNotifier {
             }
           case SocketMethod.invite:
             {
+              callState = CallStateStatus.ongoingInvitation;
+              _incomingInvite = message.message.inviteParams;
               observeCurrentCall();
               if (!callFromPush) {
-                // only set _ongoingInvitation if the call is not from push notification
-                callState = CallStateStatus.ongoingInvitation;
-                _incomingInvite = message.message.inviteParams;
                 await showNotification(_incomingInvite!);
               } else {
                 // For early accept of call
@@ -180,11 +185,19 @@ class MainViewModel with ChangeNotifier {
                 'customheaders :: ${message.message.dialogParams?.customHeaders}',
               );
 
+              notifyListeners();
               break;
             }
           case SocketMethod.answer:
             {
               callState = CallStateStatus.ongoingCall;
+              notifyListeners();
+              break;
+            }
+          case SocketMethod.ringing:
+            {
+              callState = CallStateStatus.ringing;
+              notifyListeners();
               break;
             }
           case SocketMethod.bye:
@@ -209,7 +222,7 @@ class MainViewModel with ChangeNotifier {
         await messageLogger.writeLog(message.toString());
       }
 
-    // Observe Socket Error Messages
+      // Observe Socket Error Messages
       ..onSocketErrorReceived = (TelnyxSocketError error) {
         Fluttertoast.showToast(
           msg: '${error.errorCode} : ${error.errorMessage}',
@@ -264,10 +277,10 @@ class MainViewModel with ChangeNotifier {
   }
 
   void handlePushNotification(
-      PushMetaData pushMetaData,
-      CredentialConfig? credentialConfig,
-      TokenConfig? tokenConfig,
-      ) {
+    PushMetaData pushMetaData,
+    CredentialConfig? credentialConfig,
+    TokenConfig? tokenConfig,
+  ) {
     _telnyxClient.handlePushNotification(
       pushMetaData,
       credentialConfig,
@@ -392,8 +405,10 @@ class MainViewModel with ChangeNotifier {
       }
       notifyListeners();
     } else {
+      logger.i('Answered early, waiting for invite');
       waitingForInvite = true;
     }
+    notifyListeners();
   }
 
   Future<void> showNotification(IncomingInviteParams message) async {
