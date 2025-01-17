@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 // Theme colors
 const surfaceColor = Color(0xFFFEFDF5);
@@ -11,14 +10,12 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      textTheme: GoogleFonts.nunitoTextTheme(),
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
         onPrimary: secondaryColor,
         secondary: secondaryColor,
         onSecondary: primaryColor,
         surface: surfaceColor,
-        background: surfaceColor,
       ),
 
       // Input decoration theme
@@ -47,47 +44,47 @@ class AppTheme {
       // Elevated button theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ButtonStyle(
-          padding: MaterialStateProperty.all(
+          padding: WidgetStateProperty.all(
             const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           ),
-          shape: MaterialStateProperty.all(
+          shape: WidgetStateProperty.all(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          backgroundColor: MaterialStateProperty.resolveWith<Color>(
-            (Set<MaterialState> states) {
-              if (states.contains(MaterialState.disabled)) {
+          backgroundColor: WidgetStateProperty.resolveWith<Color>(
+            (Set<WidgetState> states) {
+              if (states.contains(WidgetState.disabled)) {
                 return disabledColor;
               }
               return primaryColor;
             },
           ),
-          foregroundColor: MaterialStateProperty.all(secondaryColor),
+          foregroundColor: WidgetStateProperty.all(secondaryColor),
         ),
       ),
 
       // Outlined button theme
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: ButtonStyle(
-          padding: MaterialStateProperty.all(
+          padding: WidgetStateProperty.all(
             const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           ),
-          shape: MaterialStateProperty.all(
+          shape: WidgetStateProperty.all(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
               side: const BorderSide(color: primaryColor),
             ),
           ),
-          backgroundColor: MaterialStateProperty.resolveWith<Color>(
-            (Set<MaterialState> states) {
-              if (states.contains(MaterialState.disabled)) {
+          backgroundColor: WidgetStateProperty.resolveWith<Color>(
+            (Set<WidgetState> states) {
+              if (states.contains(WidgetState.disabled)) {
                 return disabledColor;
               }
               return secondaryColor;
             },
           ),
-          foregroundColor: MaterialStateProperty.all(primaryColor),
+          foregroundColor: WidgetStateProperty.all(primaryColor),
         ),
       ),
 
