@@ -3,7 +3,6 @@
 
 # Telnyx Flutter Voice SDK
 
-
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
 ## Features
@@ -217,6 +216,9 @@ To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
 ###  Adding push notifications - Android platform
 The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. To receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android).
+
+Note: for flutter, an easy way to add the firebase configuration after setting up the firebase project is to simply run the `flutterfire configure` command in the terminal. For example, if your firebase project is called `myproject` you would run `flutterfire configure myproject`. This will generate all the required files and configurations for your project.
+
 The Demo app uses the [FlutterCallkitIncoming](https://pub.dev/packages/flutter_callkit_incoming) plugin to show incoming calls. To show a notification when receiving a call, you can follow the steps below:
 1. Listen for Background Push Notifications, Implement the `FirebaseMessaging.onBackgroundMessage` method in your `main` method
 ```dart
