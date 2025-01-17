@@ -11,19 +11,15 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 
 class NotificationService {
   static Future showNotification(RemoteMessage message) async {
-    final logger = Logger();
-    print('Received Incoming NotificationService!');
-    logger.i('Received Incoming NotificationService! from background');
+    Logger().i('Received Incoming NotificationService! from background');
     final metadata =
         PushMetaData.fromJson(jsonDecode(message.data['metadata']));
-    final received = message.data['message'];
     final currentUuid = const Uuid().v4();
 
     final CallKitParams callKitParams = CallKitParams(
       id: currentUuid,
       nameCaller: metadata.callerName,
       appName: 'Telnyx Flutter Voice',
-      avatar: 'https://i.pravatar.cc/100',
       handle: metadata.callerNumber,
       type: 0,
       textAccept: 'Accept',
@@ -42,7 +38,6 @@ class NotificationService {
         isShowLogo: false,
         ringtonePath: 'system_ringtone_default',
         backgroundColor: '#0955fa',
-        backgroundUrl: 'https://i.pravatar.cc/500',
         actionColor: '#4CAF50',
         textColor: '#ffffff',
         incomingCallNotificationChannelName: 'Incoming Call',
@@ -70,9 +65,7 @@ class NotificationService {
   }
 
   static Future showMissedCallNotification(RemoteMessage message) async {
-    final logger = Logger();
-    print('Received Incoming NotificationService!');
-    logger.i('Received Incoming NotificationService! from background');
+    Logger().i('Received Incoming NotificationService! from background');
     final metadata =
         PushMetaData.fromJson(jsonDecode(message.data['metadata']));
     final received = message.data['message'];
@@ -82,7 +75,6 @@ class NotificationService {
       id: currentUuid,
       nameCaller: metadata.callerName,
       appName: 'Telnyx Flutter Voice',
-      avatar: 'https://i.pravatar.cc/100',
       handle: metadata.callerNumber,
       type: 0,
       textAccept: 'Accept',
@@ -101,7 +93,6 @@ class NotificationService {
         isShowLogo: false,
         ringtonePath: 'system_ringtone_default',
         backgroundColor: '#0955fa',
-        backgroundUrl: 'https://i.pravatar.cc/500',
         actionColor: '#4CAF50',
         textColor: '#ffffff',
         incomingCallNotificationChannelName: 'Incoming Call',
