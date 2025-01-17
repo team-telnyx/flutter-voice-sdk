@@ -30,9 +30,13 @@ dev_dependencies:
   telnyx_webrtc:
     path: ./packages/telnyx_webrtc
 
+
 flutter:
   uses-material-design: true
 
   assets:
     - assets/audio/incoming_call.mp3
     - assets/audio/ringback_tone.mp3
+    - assets/launcher.png
+    - assets/telnyx_logo.svg
+    - assets/telnyx_logo.png
