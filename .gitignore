@@ -62,3 +62,5 @@ android/app/lint-baseline.xml
 ios/Podfile.lock
 ios/Pods/
 ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+firebase.json
