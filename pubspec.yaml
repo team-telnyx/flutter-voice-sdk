@@ -21,7 +21,6 @@ dependencies:
   path_provider: ^2.1.5
   flutter_fgbg: ^0.6.0
 
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -30,13 +29,6 @@ dev_dependencies:
   fluttertoast: ^8.0.9
   telnyx_webrtc:
     path: ./packages/telnyx_webrtc
-  flutter_native_splash: ^2.4.4
-
-flutter_native_splash:
-  color: "#FFFFFF"
-  image: "assets/telnyx_logo.png"
-  android: true
-  ios: true
 
 flutter:
   uses-material-design: true
