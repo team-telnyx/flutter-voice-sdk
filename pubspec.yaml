@@ -36,3 +36,5 @@ flutter:
   assets:
     - assets/audio/incoming_call.mp3
     - assets/audio/ringback_tone.mp3
+    - assets/launcher.png
+    - assets/telnyx_logo.svg
