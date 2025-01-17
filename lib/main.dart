@@ -19,7 +19,7 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
-
+import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
 final logger = Logger();
@@ -396,9 +396,7 @@ class _MyAppState extends State<MyApp> {
       ],
       child: MaterialApp(
         title: 'Telnyx WebRTC',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-        ),
+        theme: AppTheme.lightTheme,
         initialRoute: '/',
         routes: {
           '/': (context) => const LoginScreen(),
