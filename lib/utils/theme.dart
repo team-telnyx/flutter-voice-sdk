@@ -64,6 +64,29 @@ class AppTheme {
         ),
       ),
 
+      // Text button theme
+      textButtonTheme: TextButtonThemeData(
+        style: ButtonStyle(
+          padding: WidgetStateProperty.all(
+            const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          ),
+          shape: WidgetStateProperty.all(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith<Color>(
+            (Set<WidgetState> states) {
+              if (states.contains(WidgetState.disabled)) {
+                return disabledColor;
+              }
+              return primaryColor;
+            },
+          ),
+          foregroundColor: WidgetStateProperty.all(secondaryColor),
+        ),
+      ),
+
       // Outlined button theme
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: ButtonStyle(

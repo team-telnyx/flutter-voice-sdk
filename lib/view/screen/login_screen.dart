@@ -190,9 +190,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.blue,
-                      ),
                       onPressed: () {
                         _attemptLogin();
                       },
