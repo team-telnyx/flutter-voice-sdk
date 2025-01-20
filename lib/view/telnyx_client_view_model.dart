@@ -28,7 +28,7 @@ enum CallStateStatus {
   ongoingCall,
 }
 
-class MainViewModel with ChangeNotifier {
+class TelnyxClientViewModel with ChangeNotifier {
   final logger = Logger();
   final TelnyxClient _telnyxClient = TelnyxClient();
 

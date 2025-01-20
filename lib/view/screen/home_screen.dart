@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:telnyx_flutter_webrtc/view/main_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
@@ -41,34 +41,34 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _observeResponses() {
-    invitation = Provider.of<MainViewModel>(context, listen: true).callState ==
+    invitation = Provider.of<TelnyxClientViewModel>(context, listen: true).callState ==
         CallStateStatus.ongoingInvitation;
-    ongoingCall = Provider.of<MainViewModel>(context, listen: true).callState ==
+    ongoingCall = Provider.of<TelnyxClientViewModel>(context, listen: true).callState ==
         CallStateStatus.ongoingCall;
   }
 
   void _callDestination() {
-    Provider.of<MainViewModel>(context, listen: false)
+    Provider.of<TelnyxClientViewModel>(context, listen: false)
         .call(destinationController.text);
     logger.i('Calling!');
   }
 
   void _endCall() {
-    Provider.of<MainViewModel>(context, listen: false).endCall();
+    Provider.of<TelnyxClientViewModel>(context, listen: false).endCall();
     logger.i('Calling!');
   }
 
   void handleOptionClick(String value) {
     switch (value) {
       case 'Logout':
-        Provider.of<MainViewModel>(context, listen: false).disconnect();
+        Provider.of<TelnyxClientViewModel>(context, listen: false).disconnect();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           Navigator.of(context).pushReplacementNamed('/');
         });
         logger.i('Disconnecting!');
         break;
       case 'Export Logs':
-        Provider.of<MainViewModel>(context, listen: false).exportLogs();
+        Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         logger.i('Exporting logs!');
         break;
     }
@@ -80,12 +80,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (invitation) {
       return InvitationWidget(
         title: 'Home',
-        invitation: Provider.of<MainViewModel>(context, listen: false)
+        invitation: Provider.of<TelnyxClientViewModel>(context, listen: false)
             .incomingInvitation,
       );
     } else if (ongoingCall) {
       return CallScreen(
-        call: Provider.of<MainViewModel>(context, listen: false).currentCall,
+        call: Provider.of<TelnyxClientViewModel>(context, listen: false).currentCall,
       );
     } else {
       return Scaffold(

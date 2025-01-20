@@ -25,7 +25,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  provider: ^6.0.2
+  provider: ^6.1.2
   flutter_masked_text2: ^0.9.1
   fluttertoast: ^8.0.9
   telnyx_webrtc:

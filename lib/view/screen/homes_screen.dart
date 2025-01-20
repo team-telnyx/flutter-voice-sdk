@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/invitation_widget.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
 
 class HomesScreen extends StatefulWidget {
   const HomesScreen({super.key});
@@ -28,129 +33,29 @@ class _HomesScreenState extends State<HomesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final clientState = context.select<TelnyxClientViewModel, CallStateStatus> (
+        (txClient) => txClient.callState
+    );
+
     return Scaffold(
       body: SingleChildScrollView(
         child: Column(
           children: [
-            const ControlHeaders(isConnected: true),
+            const ControlHeaders(),
             const SizedBox(height: 10),
+            if (clientState == CallStateStatus.disconnected)
+              const LoginControls(),
+            if (clientState == CallStateStatus.idle)
+              Text('Destination'),
+            if (clientState == CallStateStatus.ringing)
+              const Text('Ringing'),
+            if (clientState == CallStateStatus.ongoingInvitation)
+              const InvitationWidget(title: '',),
+            if (clientState == CallStateStatus.ongoingCall)
+              const CallScreen(),
           ],
         ),
       ),
-    );
-  }
-}
-
-class LoginControls extends StatefulWidget {
-  const LoginControls({super.key});
-
-  @override
-  State<LoginControls> createState() => _LoginControlsState();
-}
-
-class _LoginControlsState extends State<LoginControls> {
-  bool isTokenLogin = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        const Text('Token Login'),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: <Widget>[
-            Switch(
-              value: isTokenLogin,
-              onChanged: (value) {
-                setState(() {
-                  isTokenLogin = value;
-                });
-              },
-            ),
-            Text(isTokenLogin ? 'On' : 'Off'),
-          ],
-        ),
-        const SizedBox(height: 20),
-        const Text('Profile'),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: <Widget>[
-            Text('User'),
-            ElevatedButton(
-              onPressed: () {
-                // Open Bottom Sheet
-              },
-              child: const Text('Switch Profile'),
-            ),
-          ],
-        ),
-        Spacer(),
-        ElevatedButton(
-          onPressed: () {
-            // Logout
-          },
-          child: const Text('Connect'),
-        ),
-      ],
-    );
-  }
-}
-
-class ControlHeaders extends StatefulWidget {
-  final bool isConnected;
-
-  const ControlHeaders({super.key, required this.isConnected});
-
-  @override
-  State<ControlHeaders> createState() => _ControlHeadersState();
-}
-
-class _ControlHeadersState extends State<ControlHeaders> {
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        SvgPicture.asset('assets/telnyx_logo.svg'),
-        Text(
-          widget.isConnected
-              ? 'Enter a destination (+E164 phone number or sip URI) to initiate your call.'
-              : 'Please confirm details below and click ‘Connect’ to make a call.',
-        ),
-        const SizedBox(height: 20),
-        const Text('Socket'),
-        const SizedBox(height: 10),
-        SocketConnectivityStatus(isConnected: widget.isConnected),
-        const SizedBox(height: 20),
-        const Text('Session ID'),
-        const SizedBox(height: 10),
-        const Text('-'),
-      ],
-    );
-  }
-}
-
-class SocketConnectivityStatus extends StatelessWidget {
-  final bool isConnected;
-
-  const SocketConnectivityStatus({super.key, required this.isConnected});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: isConnected ? Colors.green : Colors.red,
-            borderRadius: BorderRadius.circular(5),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text(isConnected ? 'Client-ready' : 'Disconnected'),
-      ],
     );
   }
 }

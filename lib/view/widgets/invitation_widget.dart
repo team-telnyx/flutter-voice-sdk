@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:telnyx_flutter_webrtc/view/main_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 
@@ -29,7 +29,7 @@ class InvitationWidget extends StatelessWidget {
                     foregroundColor: Colors.red[400],
                   ),
                   onPressed: () {
-                    Provider.of<MainViewModel>(context, listen: false)
+                    Provider.of<TelnyxClientViewModel>(context, listen: false)
                         .endCall();
                     print('Decline Call');
                   },

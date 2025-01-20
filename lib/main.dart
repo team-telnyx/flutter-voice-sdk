@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_fgbg/flutter_fgbg.dart';
-import 'package:telnyx_flutter_webrtc/view/main_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
@@ -23,7 +23,7 @@ import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
 final logger = Logger();
-final mainViewModel = MainViewModel();
+final mainViewModel = TelnyxClientViewModel();
 const MOCK_USER = '<MOCK_USER>';
 const MOCK_PASSWORD = '<MOCK_PASSWORD>';
 const CALL_MISSED_TIMEOUT = 30;
