@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class LoginControls extends StatefulWidget {
   const LoginControls({super.key});
@@ -13,11 +17,11 @@ class _LoginControlsState extends State<LoginControls> {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text('Token Login'),
-        const SizedBox(height: 10),
+        Text('Token Login', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: spacingS),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: <Widget>[
             Switch(
               value: isTokenLogin,
@@ -27,30 +31,39 @@ class _LoginControlsState extends State<LoginControls> {
                 });
               },
             ),
+            SizedBox(width: spacingS),
             Text(isTokenLogin ? 'On' : 'Off'),
           ],
         ),
-        const SizedBox(height: 20),
-        const Text('Profile'),
-        const SizedBox(height: 10),
+        const SizedBox(height: spacingXL),
+        Text('Profile', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: spacingS),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: <Widget>[
             Text('User'),
-            ElevatedButton(
-              onPressed: () {
-                // Open Bottom Sheet
-              },
+            SizedBox(width: spacingS),
+            TextButton(
+              onPressed: () {},
               child: const Text('Switch Profile'),
             ),
           ],
         ),
-        Spacer(),
-        ElevatedButton(
-          onPressed: () {
-            // Logout
-          },
-          child: const Text('Connect'),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              Provider.of<TelnyxClientViewModel>(context, listen: false).login(
+                CredentialConfig(
+                  sipUser: 'placeholder',
+                  sipPassword: 'placeholder',
+                  sipCallerIDName: 'placeholder',
+                  sipCallerIDNumber: 'placeholder',
+                  debug: false,
+                ),
+              );
+            },
+            child: const Text('Connect'),
+          ),
         ),
       ],
     );

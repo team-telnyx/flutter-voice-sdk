@@ -115,12 +115,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {}
-  }
-
-  @override
   Widget build(BuildContext context) {
     Provider.of<TelnyxClientViewModel>(context, listen: true).observeResponses();
 

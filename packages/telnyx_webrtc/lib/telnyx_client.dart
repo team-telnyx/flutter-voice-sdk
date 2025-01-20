@@ -47,24 +47,24 @@ class TelnyxClient {
         case SocketMethod.invite:
           {
             _logger.i(
-              'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
+              'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
             );
             break;
           }
         case SocketMethod.bye:
           {
             _logger.i(
-              'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
+              'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
             );
             break;
           }
         default:
           _logger.i(
-            'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
+            'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
           );
       }
       _logger.i(
-        'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
+        'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
       );
     };
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
+import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 
 class ControlHeaders extends StatefulWidget {
@@ -16,20 +17,31 @@ class _ControlHeadersState extends State<ControlHeaders> {
     return Consumer<TelnyxClientViewModel>(
       builder: (context, txClient, child) {
         return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            SvgPicture.asset('assets/telnyx_logo.svg'),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 58),
+              child: Center(
+                child: Image.asset(
+                  logo_path,
+                  width: 222,
+                  height: 58,
+                ),
+              ),
+            ),
             Text(
               txClient.registered
                   ? 'Enter a destination (+E164 phone number or sip URI) to initiate your call.'
                   : 'Please confirm details below and click ‘Connect’ to make a call.',
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
-            const SizedBox(height: 20),
-            const Text('Socket'),
-            const SizedBox(height: 10),
+            const SizedBox(height: spacingXL),
+            Text('Socket', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: spacingS),
             SocketConnectivityStatus(isConnected: txClient.registered),
-            const SizedBox(height: 20),
-            const Text('Session ID'),
-            const SizedBox(height: 10),
+            const SizedBox(height: spacingXL),
+            Text('Session ID', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: spacingS),
             const Text('-'),
           ],
         );

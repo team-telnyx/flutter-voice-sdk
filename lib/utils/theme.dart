@@ -5,6 +5,8 @@ const surfaceColor = Color(0xFFFEFDF5);
 const primaryColor = Colors.black;
 const secondaryColor = Colors.white;
 const disabledColor = Color(0xFF808080); // Gray for disabled state
+const telnyx_soft_black = Color(0xFF272727);
+const telnyx_grey = Color(0xFF525252);
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -16,6 +18,24 @@ class AppTheme {
         secondary: secondaryColor,
         onSecondary: primaryColor,
         surface: surfaceColor,
+      ),
+
+      textTheme: TextTheme(
+        headlineMedium: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w400,
+          color: telnyx_soft_black,
+        ),
+        bodyMedium: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: telnyx_soft_black,
+        ),
+        labelMedium: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: telnyx_grey,
+        ),
       ),
 
       // Input decoration theme
@@ -49,30 +69,7 @@ class AppTheme {
           ),
           shape: WidgetStateProperty.all(
             RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          backgroundColor: WidgetStateProperty.resolveWith<Color>(
-            (Set<WidgetState> states) {
-              if (states.contains(WidgetState.disabled)) {
-                return disabledColor;
-              }
-              return primaryColor;
-            },
-          ),
-          foregroundColor: WidgetStateProperty.all(secondaryColor),
-        ),
-      ),
-
-      // Text button theme
-      textButtonTheme: TextButtonThemeData(
-        style: ButtonStyle(
-          padding: WidgetStateProperty.all(
-            const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          ),
-          shape: WidgetStateProperty.all(
-            RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(24),
             ),
           ),
           backgroundColor: WidgetStateProperty.resolveWith<Color>(
@@ -95,8 +92,8 @@ class AppTheme {
           ),
           shape: WidgetStateProperty.all(
             RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: primaryColor),
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(style: BorderStyle.solid, color: Colors.red, width: 2),
             ),
           ),
           backgroundColor: WidgetStateProperty.resolveWith<Color>(

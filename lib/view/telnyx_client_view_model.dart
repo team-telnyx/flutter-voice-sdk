@@ -50,7 +50,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _loggingIn;
   }
 
-  CallStateStatus _callState = CallStateStatus.idle;
+  CallStateStatus _callState = CallStateStatus.disconnected;
 
   CallStateStatus get callState => _callState;
 
@@ -73,7 +73,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void resetCallInfo() {
-    logger.i('Mainviewmodel :: Reset Call Info');
+    logger.i('TxClientViewModel :: Reset Call Info');
     _incomingInvite = null;
     callState = CallStateStatus.idle;
     updateCallFromPush(false);
@@ -154,7 +154,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) async {
         logger.i(
-            'Mainviewmodel :: observeResponses :: Socket :: ${message.message}');
+            'TxClientViewModel :: observeResponses :: Socket :: ${message.message}');
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
@@ -163,8 +163,9 @@ class TelnyxClientViewModel with ChangeNotifier {
               }
               _registered = true;
               logger.i(
-                'Mainviewmodel :: observeResponses : Registered :: $_registered',
+                'TxClientViewModel :: observeResponses : Registered :: $_registered',
               );
+              _callState = CallStateStatus.idle;
               break;
             }
           case SocketMethod.invite:
@@ -304,6 +305,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     _localNumber = credentialConfig.sipCallerIDNumber;
     _credentialConfig = credentialConfig;
     _telnyxClient.connectWithCredential(credentialConfig);
+    observeResponses();
   }
 
   void loginWithToken(TokenConfig tokenConfig) {
