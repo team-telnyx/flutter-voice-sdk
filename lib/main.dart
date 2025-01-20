@@ -290,13 +290,13 @@ Future<void> main() async {
               {
                 mainViewModel.login(credentialConfig),
               },
-        },
+          },
         FGBGType.background => {
             logger.i(
               'We are in the background setting fromBackground == true, DISCONNECTING',
             ),
-          fromBackground = true,
-          mainViewModel.disconnect(),
+            fromBackground = true,
+            mainViewModel.disconnect(),
           }
       },
       child: const MyApp(),
@@ -387,13 +387,10 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-// This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider.value(value: mainViewModel),
-      ],
+    return ChangeNotifierProvider(
+      create: (context) => mainViewModel,
       child: MaterialApp(
         title: 'Telnyx WebRTC',
         theme: AppTheme.lightTheme,
