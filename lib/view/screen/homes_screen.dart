@@ -40,7 +40,7 @@ class _HomesScreenState extends State<HomesScreen> {
     return Scaffold(
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(spacingL),
+          padding: const EdgeInsets.all(spacingXXL),
           child: Column(
             children: [
               const ControlHeaders(),
