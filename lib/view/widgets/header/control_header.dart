@@ -60,14 +60,14 @@ class SocketConnectivityStatus extends StatelessWidget {
     return Row(
       children: <Widget>[
         Container(
-          width: 10,
-          height: 10,
+          width: spacingS,
+          height: spacingS,
           decoration: BoxDecoration(
             color: isConnected ? Colors.green : Colors.red,
             borderRadius: BorderRadius.circular(5),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: spacingS),
         Text(isConnected ? 'Client-ready' : 'Disconnected'),
       ],
     );

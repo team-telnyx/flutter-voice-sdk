@@ -13,7 +13,6 @@ import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
-import 'package:telnyx_flutter_webrtc/view/screen/login_screen.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
@@ -24,7 +23,7 @@ import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
 final logger = Logger();
-final mainViewModel = TelnyxClientViewModel();
+final txClientViewModel = TelnyxClientViewModel();
 const MOCK_USER = '<MOCK_USER>';
 const MOCK_PASSWORD = '<MOCK_PASSWORD>';
 const CALL_MISSED_TIMEOUT = 30;
@@ -74,7 +73,7 @@ class AppInitializer {
               final metadata = event.body['extra']['metadata'];
               if (metadata == null || (incomingPushCall && fromBackground)) {
                 logger.i('Accepted Call Directly');
-                await mainViewModel.accept();
+                await txClientViewModel.accept();
 
                 /// Reset the incomingPushCall flag and fromBackground flag
                 incomingPushCall = false;
@@ -92,7 +91,7 @@ class AppInitializer {
               final metadata = event.body['extra']['metadata'];
               if (metadata == null) {
                 logger.i('Decline Call Directly');
-                mainViewModel.endCall();
+                txClientViewModel.endCall();
               } else {
                 logger.i('Received push Call for iOS $metadata');
                 final data = metadata as Map<dynamic, dynamic>;
@@ -101,11 +100,11 @@ class AppInitializer {
               }
               break;
             case Event.actionCallEnded:
-              mainViewModel.endCall();
+              txClientViewModel.endCall();
               logger.i('actionCallEnded :: call ended');
               break;
             case Event.actionCallTimeout:
-              mainViewModel.endCall();
+              txClientViewModel.endCall();
               logger.i('Decline Call');
               break;
             case Event.actionCallCallback:
@@ -231,7 +230,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
           logger.i('iOS notification token :: $token');
         }
-        final credentialConfig = await mainViewModel.getCredentialConfig();
+        final credentialConfig = await txClientViewModel.getCredentialConfig();
         telnyxClient.handlePushNotification(
           pushMetaData,
           credentialConfig,
@@ -270,7 +269,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         break;
     }
   });
-  mainViewModel.updateCallFromPush(true);
+  txClientViewModel.updateCallFromPush(true);
 }
 
 @pragma('vm:entry-point')
@@ -280,16 +279,16 @@ Future<void> main() async {
     await AppInitializer().initialize();
   }
 
-  final credentialConfig = await mainViewModel.getCredentialConfig();
+  final credentialConfig = await txClientViewModel.getCredentialConfig();
   runApp(
     FGBGNotifier(
       onEvent: (FGBGType type) => switch (type) {
         FGBGType.foreground => {
             logger.i('We are in the foreground, CONNECTING'),
             // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
-            if (!mainViewModel.callFromPush)
+            if (!txClientViewModel.callFromPush)
               {
-                mainViewModel.login(credentialConfig),
+                txClientViewModel.login(credentialConfig),
               },
           },
         FGBGType.background => {
@@ -297,7 +296,7 @@ Future<void> main() async {
               'We are in the background setting fromBackground == true, DISCONNECTING',
             ),
             fromBackground = true,
-            mainViewModel.disconnect(),
+            txClientViewModel.disconnect(),
           }
       },
       child: const MyApp(),
@@ -306,7 +305,7 @@ Future<void> main() async {
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
-  mainViewModel.updateCallFromPush(true);
+  txClientViewModel.updateCallFromPush(true);
 
   logger.i('Handle Push Init');
   String? token;
@@ -321,8 +320,8 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
     pushMetaData = PushMetaData.fromJson(data);
     logger.i('iOS notification token :: $token');
   }
-  final credentialConfig = await mainViewModel.getCredentialConfig();
-  mainViewModel
+  final credentialConfig = await txClientViewModel.getCredentialConfig();
+  txClientViewModel
     ..handlePushNotification(pushMetaData!, credentialConfig, null)
     ..observeResponses();
   logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
@@ -359,7 +358,7 @@ class _MyAppState extends State<MyApp> {
         logger.i('OnMessage Time :: Notification Message: ${message.sentTime}');
         TelnyxClient.setPushMetaData(message.data);
         NotificationService.showNotification(message);
-        mainViewModel.updateCallFromPush(true);
+        txClientViewModel.updateCallFromPush(true);
       });
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         logger.i('onMessageOpenedApp :: Notification Message: ${message.data}');
@@ -380,7 +379,7 @@ class _MyAppState extends State<MyApp> {
             logger.d('getPushData : No data');
           }
         });
-      } else if (Platform.isIOS && !mainViewModel.callFromPush) {
+      } else if (Platform.isIOS && !txClientViewModel.callFromPush) {
         logger.i('iOS :: connect');
       }
     } catch (e) {
@@ -391,7 +390,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (context) => mainViewModel,
+      create: (context) => txClientViewModel,
       child: MaterialApp(
         title: 'Telnyx WebRTC',
         theme: AppTheme.lightTheme,
