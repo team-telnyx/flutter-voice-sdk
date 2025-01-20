@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/main.dart';
-import 'package:telnyx_flutter_webrtc/main_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/main_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';

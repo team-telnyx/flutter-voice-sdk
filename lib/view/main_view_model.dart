@@ -21,6 +21,7 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 
 enum CallStateStatus {
+  disconnected,
   idle,
   ringing,
   ongoingInvitation,

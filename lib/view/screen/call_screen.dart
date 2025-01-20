@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
-import 'package:telnyx_flutter_webrtc/main_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/main_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 import 'package:telnyx_webrtc/call.dart';
 
