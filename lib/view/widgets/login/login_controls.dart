@@ -17,6 +17,7 @@ class _LoginControlsState extends State<LoginControls> {
   void _showProfileSwitcher() {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
       isScrollControlled: true,
       builder: (context) => Padding(
         padding: EdgeInsets.only(
@@ -39,7 +40,7 @@ class _LoginControlsState extends State<LoginControls> {
         const SizedBox(height: spacingS),
         Row(
           children: <Widget>[
-            Text(selectedProfile?.name ?? 'No profile selected'),
+            Text(selectedProfile?.sipCallerIDName ?? 'No profile selected'),
             SizedBox(width: spacingS),
             TextButton(
               onPressed: _showProfileSwitcher,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 // Theme colors
 const surfaceColor = Color(0xFFFEFDF5);
+const darkSurfaceColor = Color(0xFFf6f4e6);
 const primaryColor = Colors.black;
 const secondaryColor = Colors.white;
 const disabledColor = Color(0xFF808080); // Gray for disabled state
@@ -17,7 +18,7 @@ class AppTheme {
         onPrimary: secondaryColor,
         secondary: secondaryColor,
         onSecondary: primaryColor,
-        surface: surfaceColor,
+        surface: darkSurfaceColor,
       ),
 
       textTheme: TextTheme(

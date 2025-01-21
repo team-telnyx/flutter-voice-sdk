@@ -1,7 +1,6 @@
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class Profile {
-  final String name;
   final bool isTokenLogin;
   final String token;
   final String sipUser;
@@ -10,7 +9,6 @@ class Profile {
   final String sipCallerIDNumber;
 
   Profile({
-    required this.name,
     required this.isTokenLogin,
     this.token = '',
     this.sipUser = '',
@@ -21,7 +19,6 @@ class Profile {
 
   factory Profile.fromJson(Map<String, dynamic> json) {
     return Profile(
-      name: json['name'] as String,
       isTokenLogin: json['isTokenLogin'] as bool,
       token: json['token'] as String? ?? '',
       sipUser: json['sipUser'] as String? ?? '',
@@ -33,7 +30,6 @@ class Profile {
 
   Map<String, dynamic> toJson() {
     return {
-      'name': name,
       'isTokenLogin': isTokenLogin,
       'token': token,
       'sipUser': sipUser,

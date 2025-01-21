@@ -12,8 +12,143 @@ class ProfileSwitcherBottomSheet extends StatefulWidget {
       _ProfileSwitcherBottomSheetState();
 }
 
-class _ProfileSwitcherBottomSheetState extends State<ProfileSwitcherBottomSheet> {
+class _ProfileSwitcherBottomSheetState
+    extends State<ProfileSwitcherBottomSheet> {
   bool _isAddingProfile = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.80,
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Text(
+                    'Existing Profiles',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              if (!_isAddingProfile)
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _isAddingProfile = true;
+                    });
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add new profile'),
+                ),
+            ],
+          ),
+          const SizedBox(height: spacingM),
+          if (_isAddingProfile)
+            const AddProfileForm()
+          else
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ProfileList(),
+                  const SizedBox(height: spacingL),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: spacingM),
+                      ElevatedButton(
+                        onPressed:
+                            context.watch<ProfileProvider>().selectedProfile !=
+                                    null
+                                ? () => Navigator.pop(context)
+                                : null,
+                        child: const Text('Confirm'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class ProfileList extends StatelessWidget {
+  const ProfileList({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ProfileProvider>(
+      builder: (context, provider, child) {
+        if (provider.profiles.isEmpty) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('No profiles yet'),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          shrinkWrap: true,
+          itemCount: provider.profiles.length,
+          itemBuilder: (context, index) {
+            final profile = provider.profiles[index];
+            final isSelected = provider.selectedProfile?.sipCallerIDName ==
+                profile.sipCallerIDName;
+
+            return ListTile(
+              title: Text(profile.sipCallerIDName),
+              subtitle: Text(profile.isTokenLogin ? 'Token' : 'Credentials'),
+              selected: isSelected,
+              selectedTileColor: Theme.of(context).colorScheme.surface,
+              leading: Icon(
+                profile.isTokenLogin ? Icons.key : Icons.person,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).iconTheme.color,
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () =>
+                    provider.removeProfile(profile.sipCallerIDName),
+              ),
+              onTap: () => provider.selectProfile(profile.sipCallerIDName),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class AddProfileForm extends StatefulWidget {
+  const AddProfileForm({Key? key}) : super(key: key);
+
+  @override
+  _AddProfileFormState createState() => _AddProfileFormState();
+}
+
+class _AddProfileFormState extends State<AddProfileForm> {
   bool _isTokenLogin = false;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -44,68 +179,14 @@ class _ProfileSwitcherBottomSheetState extends State<ProfileSwitcherBottomSheet>
     _isTokenLogin = false;
   }
 
-  Widget _buildProfileList() {
-    return Consumer<ProfileProvider>(
-      builder: (context, provider, child) {
-        if (provider.profiles.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('No profiles yet'),
-            ),
-          );
-        }
-
-        return ListView.builder(
-          shrinkWrap: true,
-          itemCount: provider.profiles.length,
-          itemBuilder: (context, index) {
-            final profile = provider.profiles[index];
-            final isSelected = provider.selectedProfile?.name == profile.name;
-
-            return ListTile(
-              title: Text(profile.name),
-              subtitle: Text(profile.isTokenLogin ? 'Token' : 'Credentials'),
-              selected: isSelected,
-              selectedTileColor: Theme.of(context).colorScheme.primaryContainer,
-              leading: Icon(
-                profile.isTokenLogin ? Icons.key : Icons.person,
-                color: isSelected
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).iconTheme.color,
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () => provider.removeProfile(profile.name),
-              ),
-              onTap: () => provider.selectProfile(profile.name),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildAddProfileForm() {
+  @override
+  Widget build(BuildContext context) {
     return Form(
       key: _formKey,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextFormField(
-            controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Profile Name',
-              hintText: 'Enter a name for this profile',
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a profile name';
-              }
-              return null;
-            },
-          ),
           const SizedBox(height: spacingM),
           Row(
             children: [
@@ -204,7 +285,6 @@ class _ProfileSwitcherBottomSheetState extends State<ProfileSwitcherBottomSheet>
               TextButton(
                 onPressed: () {
                   setState(() {
-                    _isAddingProfile = false;
                     _resetForm();
                   });
                 },
@@ -215,7 +295,6 @@ class _ProfileSwitcherBottomSheetState extends State<ProfileSwitcherBottomSheet>
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
                     final profile = Profile(
-                      name: _nameController.text,
                       isTokenLogin: _isTokenLogin,
                       token: _tokenController.text,
                       sipUser: _sipUserController.text,
@@ -227,7 +306,6 @@ class _ProfileSwitcherBottomSheetState extends State<ProfileSwitcherBottomSheet>
                     try {
                       context.read<ProfileProvider>().addProfile(profile);
                       setState(() {
-                        _isAddingProfile = false;
                         _resetForm();
                       });
                     } catch (e) {
@@ -241,78 +319,6 @@ class _ProfileSwitcherBottomSheetState extends State<ProfileSwitcherBottomSheet>
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const Text(
-                    'Existing Profiles',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              if (!_isAddingProfile)
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _isAddingProfile = true;
-                    });
-                  },
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add new profile'),
-                ),
-            ],
-          ),
-          const SizedBox(height: spacingM),
-          if (_isAddingProfile)
-            _buildAddProfileForm()
-          else
-            Flexible(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildProfileList(),
-                  const SizedBox(height: spacingL),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel'),
-                      ),
-                      const SizedBox(width: spacingM),
-                      ElevatedButton(
-                        onPressed: context.watch<ProfileProvider>().selectedProfile != null
-                            ? () => Navigator.pop(context)
-                            : null,
-                        child: const Text('Confirm'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );

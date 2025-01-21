@@ -48,7 +48,7 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<void> addProfile(Profile profile) async {
-    if (_profiles.any((p) => p.name == profile.name)) {
+    if (_profiles.any((p) => p.sipCallerIDName == profile.sipCallerIDName)) {
       throw Exception('A profile with this name already exists');
     }
     _profiles.add(profile);
@@ -57,8 +57,8 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<void> removeProfile(String name) async {
-    _profiles.removeWhere((profile) => profile.name == name);
-    if (_selectedProfile?.name == name) {
+    _profiles.removeWhere((profile) => profile.sipCallerIDName == name);
+    if (_selectedProfile?.sipCallerIDName == name) {
       _selectedProfile = null;
     }
     await _saveProfiles();
@@ -66,7 +66,7 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<void> selectProfile(String name) async {
-    _selectedProfile = _profiles.firstWhere((profile) => profile.name == name);
+    _selectedProfile = _profiles.firstWhere((profile) => profile.sipCallerIDName == name);
     await _saveProfiles();
     notifyListeners();
   }
