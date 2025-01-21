@@ -389,8 +389,11 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => txClientViewModel,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => txClientViewModel),
+        ChangeNotifierProvider(create: (context) => ProfileProvider()),
+      ],
       child: MaterialApp(
         title: 'Telnyx WebRTC',
         theme: AppTheme.lightTheme,
