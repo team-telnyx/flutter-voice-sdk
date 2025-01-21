@@ -5,9 +5,10 @@ import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 
 class AddProfileForm extends StatefulWidget {
+  final Profile? existingProfile;
   final VoidCallback onCancelPressed;
 
-  const AddProfileForm({Key? key, required this.onCancelPressed})
+  const AddProfileForm({Key? key, required this.onCancelPressed, this.existingProfile})
       : super(key: key);
 
   @override
@@ -23,6 +24,20 @@ class _AddProfileFormState extends State<AddProfileForm> {
   final _sipPasswordController = TextEditingController();
   final _sipCallerIDNameController = TextEditingController();
   final _sipCallerIDNumberController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingProfile != null) {
+      final profile = widget.existingProfile!;
+      _isTokenLogin = profile.isTokenLogin;
+      _tokenController.text = profile.token;
+      _sipUserController.text = profile.sipUser;
+      _sipPasswordController.text = profile.sipPassword;
+      _sipCallerIDNameController.text = profile.sipCallerIDName;
+      _sipCallerIDNumberController.text = profile.sipCallerIDNumber;
+    }
+  }
 
   @override
   void dispose() {

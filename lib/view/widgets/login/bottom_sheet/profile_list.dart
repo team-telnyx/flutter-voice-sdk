@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/model/profile_model.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 
 class ProfileList extends StatelessWidget {
-  const ProfileList({Key? key}) : super(key: key);
+  final void Function(Profile) onProfileEditSelected;
+  const ProfileList({Key? key, required this.onProfileEditSelected})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +29,7 @@ class ProfileList extends StatelessWidget {
             final isSelected = provider.selectedProfile?.sipCallerIDName ==
                 profile.sipCallerIDName;
 
-            return  ListTile(
+            return ListTile(
               title: Text(profile.sipCallerIDName),
               subtitle: Text(profile.isTokenLogin ? 'Token' : 'Credentials'),
               selected: isSelected,
@@ -37,10 +40,20 @@ class ProfileList extends StatelessWidget {
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).iconTheme.color,
               ),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () =>
-                    provider.removeProfile(profile.sipCallerIDName),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () =>
+                      onProfileEditSelected(profile),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () =>
+                        provider.removeProfile(profile.sipCallerIDName),
+                  ),
+                ],
               ),
               onTap: () => provider.selectProfile(profile.sipCallerIDName),
             );

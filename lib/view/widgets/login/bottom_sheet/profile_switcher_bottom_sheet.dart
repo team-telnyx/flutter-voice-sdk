@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/model/profile_model.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/bottom_sheet/add_profile_form.dart';
@@ -16,6 +17,7 @@ class ProfileSwitcherBottomSheet extends StatefulWidget {
 class _ProfileSwitcherBottomSheetState
     extends State<ProfileSwitcherBottomSheet> {
   bool _isAddingProfile = false;
+  Profile? _selectedProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -75,13 +77,21 @@ class _ProfileSwitcherBottomSheetState
                   _isAddingProfile = false;
                 }),
               },
+              existingProfile: _selectedProfile,
             )
           else
             Flexible(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const ProfileList(),
+                  ProfileList(
+                    onProfileEditSelected: (profile) => {
+                      setState(() {
+                        _selectedProfile = profile;
+                        _isAddingProfile = true;
+                      }),
+                    },
+                  ),
                   const SizedBox(height: spacingL),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
