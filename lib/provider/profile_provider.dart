@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/model/profile_model.dart';
 
 class ProfileProvider with ChangeNotifier {

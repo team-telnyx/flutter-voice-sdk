@@ -43,10 +43,10 @@ class Profile {
     };
   }
 
-  TelnyxConfig toTelnyxConfig() {
+  Config toTelnyxConfig() {
     if (isTokenLogin) {
       return TokenConfig(
-        token: token,
+        sipToken: token,
         sipCallerIDName: sipCallerIDName,
         sipCallerIDNumber: sipCallerIDNumber,
         debug: false,
