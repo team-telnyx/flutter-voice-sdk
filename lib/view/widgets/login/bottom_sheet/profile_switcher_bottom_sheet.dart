@@ -59,7 +59,7 @@ class _ProfileSwitcherBottomSheetState
                 'Add new profile',
                 style: TextStyle(
                   color: Colors.black,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
               style: ElevatedButton.styleFrom(

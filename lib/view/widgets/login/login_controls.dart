@@ -37,7 +37,7 @@ class _LoginControlsState extends State<LoginControls> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Text('Profile', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: spacingS),
+        const SizedBox(height: spacingXS),
         Row(
           children: <Widget>[
             Text(selectedProfile?.sipCallerIDName ?? 'No profile selected'),
@@ -48,6 +48,7 @@ class _LoginControlsState extends State<LoginControls> {
             ),
           ],
         ),
+        const SizedBox(height: spacingS),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -65,7 +66,22 @@ class _LoginControlsState extends State<LoginControls> {
                     }
                   }
                 : null,
-            child: const Text('Connect'),
+            child: Consumer<TelnyxClientViewModel>(
+              builder: (context, provider, child) {
+                if (provider.loggingIn) {
+                  return SizedBox(
+                    width: spacingXL,
+                    height: spacingXL,
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  );
+                } else {
+                  return const Text('Connect');
+                }
+              },
+            ),
           ),
         ),
       ],
