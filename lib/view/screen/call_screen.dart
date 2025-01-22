@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
-import 'package:telnyx_flutter_webrtc/main_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 import 'package:telnyx_webrtc/call.dart';
 
@@ -36,13 +36,13 @@ class _CallScreenState extends State<CallScreen> {
                 dialButtonColor: Colors.red,
                 makeCall: (number) {
                   //End call
-                  Provider.of<MainViewModel>(context, listen: false)
+                  Provider.of<TelnyxClientViewModel>(context, listen: false)
                       .endCall(endfromCallScreen: true);
                 },
                 keyPressed: (number) {
                   callInputController.text =
                       callInputController.value.text + number;
-                  Provider.of<MainViewModel>(context, listen: false)
+                  Provider.of<TelnyxClientViewModel>(context, listen: false)
                       .dtmf(number);
                 },
               ),
@@ -53,7 +53,7 @@ class _CallScreenState extends State<CallScreen> {
                   IconButton(
                     onPressed: () {
                       print('mic');
-                      Provider.of<MainViewModel>(context, listen: false)
+                      Provider.of<TelnyxClientViewModel>(context, listen: false)
                           .muteUnmute();
                     },
                     icon: const Icon(Icons.mic),
@@ -61,7 +61,7 @@ class _CallScreenState extends State<CallScreen> {
                   IconButton(
                     onPressed: () {
                       print('speakerphone');
-                      Provider.of<MainViewModel>(context, listen: false)
+                      Provider.of<TelnyxClientViewModel>(context, listen: false)
                           .toggleSpeakerPhone();
                     },
                     icon: const Icon(Icons.volume_up),
@@ -69,7 +69,7 @@ class _CallScreenState extends State<CallScreen> {
                   IconButton(
                     onPressed: () {
                       print('pause');
-                      Provider.of<MainViewModel>(context, listen: false)
+                      Provider.of<TelnyxClientViewModel>(context, listen: false)
                           .holdUnhold();
                     },
                     icon: const Icon(Icons.pause),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/main.dart';
-import 'package:telnyx_flutter_webrtc/main_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -76,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       ringbackPath: 'assets/audio/ringback_tone.mp3',
     );
     setState(() {
-      Provider.of<MainViewModel>(context, listen: false)
+      Provider.of<TelnyxClientViewModel>(context, listen: false)
           .login(credentialConfig!);
     });
   }
@@ -115,19 +115,13 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    if (state == AppLifecycleState.resumed) {}
-  }
-
-  @override
   Widget build(BuildContext context) {
-    Provider.of<MainViewModel>(context, listen: true).observeResponses();
+    Provider.of<TelnyxClientViewModel>(context, listen: true).observeResponses();
 
     final bool registered =
-        Provider.of<MainViewModel>(context, listen: true).registered;
+        Provider.of<TelnyxClientViewModel>(context, listen: true).registered;
     final bool isLoggingIn =
-        Provider.of<MainViewModel>(context, listen: true).loggingIn;
+        Provider.of<TelnyxClientViewModel>(context, listen: true).loggingIn;
     if (registered) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushReplacementNamed(context, '/home');

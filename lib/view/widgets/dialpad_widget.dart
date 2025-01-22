@@ -64,7 +64,7 @@ class DialPadState extends State<DialPad> {
     super.initState();
   }
 
-  _setText(String? value) async {
+  void _setText(String? value) async {
     if (widget.keyPressed != null) widget.keyPressed!(value!);
 
     setState(() {
