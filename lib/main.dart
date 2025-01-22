@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_fgbg/flutter_fgbg.dart';
+import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/homes_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
@@ -389,8 +390,11 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (context) => txClientViewModel,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => txClientViewModel),
+        ChangeNotifierProvider(create: (context) => ProfileProvider()),
+      ],
       child: MaterialApp(
         title: 'Telnyx WebRTC',
         theme: AppTheme.lightTheme,

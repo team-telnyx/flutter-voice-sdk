@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/login/bottom_sheet/profile_switcher_bottom_sheet.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class LoginControls extends StatefulWidget {
@@ -12,57 +14,74 @@ class LoginControls extends StatefulWidget {
 }
 
 class _LoginControlsState extends State<LoginControls> {
-  bool isTokenLogin = false;
+  void _showProfileSwitcher() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: const ProfileSwitcherBottomSheet(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final profileProvider = context.watch<ProfileProvider>();
+    final selectedProfile = profileProvider.selectedProfile;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text('Token Login', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: spacingS),
-        Row(
-          children: <Widget>[
-            Switch(
-              value: isTokenLogin,
-              onChanged: (value) {
-                setState(() {
-                  isTokenLogin = value;
-                });
-              },
-            ),
-            SizedBox(width: spacingS),
-            Text(isTokenLogin ? 'On' : 'Off'),
-          ],
-        ),
-        const SizedBox(height: spacingXL),
         Text('Profile', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: spacingS),
+        const SizedBox(height: spacingXS),
         Row(
           children: <Widget>[
-            Text('User'),
+            Text(selectedProfile?.sipCallerIDName ?? 'No profile selected'),
             SizedBox(width: spacingS),
             TextButton(
-              onPressed: () {},
+              onPressed: _showProfileSwitcher,
               child: const Text('Switch Profile'),
             ),
           ],
         ),
+        const SizedBox(height: spacingS),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () {
-              Provider.of<TelnyxClientViewModel>(context, listen: false).login(
-                CredentialConfig(
-                  sipUser: 'placeholder',
-                  sipPassword: 'placeholder',
-                  sipCallerIDName: 'placeholder',
-                  sipCallerIDNumber: 'placeholder',
-                  debug: false,
-                ),
-              );
-            },
-            child: const Text('Connect'),
+            onPressed: selectedProfile != null
+                ? () {
+                    final viewModel = context.read<TelnyxClientViewModel>();
+                    if (selectedProfile.isTokenLogin) {
+                      viewModel.loginWithToken(
+                        selectedProfile.toTelnyxConfig() as TokenConfig,
+                      );
+                    } else {
+                      viewModel.login(
+                        selectedProfile.toTelnyxConfig() as CredentialConfig,
+                      );
+                    }
+                  }
+                : null,
+            child: Consumer<TelnyxClientViewModel>(
+              builder: (context, provider, child) {
+                if (provider.loggingIn) {
+                  return SizedBox(
+                    width: spacingXL,
+                    height: spacingXL,
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  );
+                } else {
+                  return const Text('Connect');
+                }
+              },
+            ),
           ),
         ),
       ],
