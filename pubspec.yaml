@@ -21,6 +21,7 @@ dependencies:
   path_provider: ^2.1.5
   flutter_fgbg: ^0.6.0
   provider: ^6.1.2
+  flutter_svg: ^2.0.17
 
 dev_dependencies:
   flutter_test:
@@ -39,3 +40,4 @@ flutter:
     - assets/audio/ringback_tone.mp3
     - assets/launcher.png
     - assets/images/
+    - assets/icons/
