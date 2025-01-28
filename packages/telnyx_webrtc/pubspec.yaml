@@ -12,12 +12,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_webrtc: ^0.12.5+hotfix.2
+  flutter_webrtc: ^0.12.7
   logger: ^2.5.0
-  uuid: ^3.0.6
-  just_audio: ^0.9.42
-  shared_preferences: ^2.2.3
-  connectivity_plus: ^6.1.0
+  uuid: ^4.5.1
+  just_audio: ^0.9.43
+  shared_preferences: ^2.4.0
+  connectivity_plus: ^6.1.2
 
 dev_dependencies:
   flutter_test:
