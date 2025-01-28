@@ -1,4 +1,4 @@
-![Pub Version](https://img.shields.io/pub/v/telnyx_webrtc?color=blue&logo=telnyx)
+[![Pub Version](https://img.shields.io/pub/v/telnyx_webrtc?color=blue&logo=telnyx)](https://pub.dev/packages/telnyx_webrtc)
 [![Flutter Test](https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml)
 
 # Telnyx Flutter Voice SDK
