@@ -121,7 +121,7 @@ class TelnyxClientViewModel with ChangeNotifier {
           // TODO: Handle this case.
           break;
         case CallState.ringing:
-          _callState = CallStateStatus.ringing;
+          _callState = CallStateStatus.ongoingInvitation;
           notifyListeners();
           break;
         case CallState.active:
