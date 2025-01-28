@@ -5,7 +5,6 @@ import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
-import 'package:telnyx_flutter_webrtc/view/widgets/invitation_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -41,10 +40,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _observeResponses() {
-    invitation = Provider.of<TelnyxClientViewModel>(context, listen: true).callState ==
-        CallStateStatus.ongoingInvitation;
-    ongoingCall = Provider.of<TelnyxClientViewModel>(context, listen: true).callState ==
-        CallStateStatus.ongoingCall;
+    invitation =
+        Provider.of<TelnyxClientViewModel>(context, listen: true).callState ==
+            CallStateStatus.ongoingInvitation;
+    ongoingCall =
+        Provider.of<TelnyxClientViewModel>(context, listen: true).callState ==
+            CallStateStatus.ongoingCall;
   }
 
   void _callDestination() {
@@ -77,15 +78,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     _observeResponses();
-    if (invitation) {
-      return InvitationWidget(
-        title: 'Home',
-        invitation: Provider.of<TelnyxClientViewModel>(context, listen: false)
-            .incomingInvitation,
-      );
-    } else if (ongoingCall) {
+    if (ongoingCall) {
       return CallScreen(
-        call: Provider.of<TelnyxClientViewModel>(context, listen: false).currentCall,
+        call: Provider.of<TelnyxClientViewModel>(context, listen: false)
+            .currentCall,
       );
     } else {
       return Scaffold(

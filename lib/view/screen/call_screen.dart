@@ -31,21 +31,6 @@ class _CallScreenState extends State<CallScreen> {
               const SizedBox(height: 16),
               Text(widget.call?.sessionDestinationNumber ?? 'Unknown Caller'),
               const SizedBox(height: 8),
-              DialPad(
-                backspaceButtonIconColor: Colors.red,
-                dialButtonColor: Colors.red,
-                makeCall: (number) {
-                  //End call
-                  Provider.of<TelnyxClientViewModel>(context, listen: false)
-                      .endCall(endfromCallScreen: true);
-                },
-                keyPressed: (number) {
-                  callInputController.text =
-                      callInputController.value.text + number;
-                  Provider.of<TelnyxClientViewModel>(context, listen: false)
-                      .dtmf(number);
-                },
-              ),
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,

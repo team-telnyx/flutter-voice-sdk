@@ -36,8 +36,12 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _loggingIn = false;
   bool callFromPush = false;
   bool _speakerPhone = true;
+  bool _mute = false;
+  bool _hold = false;
+
   CredentialConfig? _credentialConfig;
   IncomingInviteParams? _incomingInvite;
+
 
   String _localName = '';
   String _localNumber = '';
@@ -48,6 +52,22 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool get loggingIn {
     return _loggingIn;
+  }
+
+  bool get speakerPhoneState {
+    return _speakerPhone;
+  }
+
+  bool get muteState {
+    return _mute;
+  }
+
+  bool get holdState {
+    return _hold;
+  }
+
+  String get sessionId {
+    return _telnyxClient.sessid;
   }
 
   CallStateStatus _callState = CallStateStatus.disconnected;
@@ -75,6 +95,10 @@ class TelnyxClientViewModel with ChangeNotifier {
   void resetCallInfo() {
     logger.i('TxClientViewModel :: Reset Call Info');
     _incomingInvite = null;
+    _currentCall = null;
+    _speakerPhone = false;
+    _mute = false;
+    _hold = false;
     callState = CallStateStatus.idle;
     updateCallFromPush(false);
     notifyListeners();
@@ -325,12 +349,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeCurrentCall();
   }
 
-  void toggleSpeakerPhone() {
-    _speakerPhone = !_speakerPhone;
-    currentCall?.enableSpeakerPhone(_speakerPhone);
-    notifyListeners();
-  }
-
   bool waitingForInvite = false;
 
   Future<CredentialConfig> getCredentialConfig() async {
@@ -468,15 +486,25 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void dtmf(String tone) {
-    _telnyxClient.call.dtmf(_telnyxClient.call.callId, tone);
+    currentCall?.dtmf(_telnyxClient.call.callId, tone);
   }
 
   void muteUnmute() {
-    _telnyxClient.call.onMuteUnmutePressed();
+      _mute = !_mute;
+    _currentCall?.onMuteUnmutePressed();
+    notifyListeners();
   }
 
   void holdUnhold() {
-    _telnyxClient.call.onHoldUnholdPressed();
+    _hold = !_hold;
+    currentCall?.onHoldUnholdPressed();
+    notifyListeners();
+  }
+
+  void toggleSpeakerPhone() {
+    _speakerPhone = !_speakerPhone;
+    currentCall?.enableSpeakerPhone(_speakerPhone);
+    notifyListeners();
   }
 
   void exportLogs() async {

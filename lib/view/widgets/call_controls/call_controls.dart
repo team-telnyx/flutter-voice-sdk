@@ -5,6 +5,7 @@ import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 
 class CallControls extends StatefulWidget {
   const CallControls({super.key});
@@ -36,6 +37,8 @@ class _CallControlsState extends State<CallControls> {
         Padding(
           padding: const EdgeInsets.all(spacingXS),
           child: TextFormField(
+            readOnly: clientState != CallStateStatus.idle,
+            enabled: clientState == CallStateStatus.idle,
             controller: _destinationController,
             decoration: InputDecoration(
               hintStyle: Theme.of(context).textTheme.labelSmall,
@@ -55,7 +58,18 @@ class _CallControlsState extends State<CallControls> {
           Center(
             child: CallButton(
               onPressed: () {
-                // ToDo add call functionality
+                final destination = _destinationController.text;
+                if (destination.isNotEmpty) {
+                  context.read<TelnyxClientViewModel>().call(destination);
+                }
+              },
+            ),
+          )
+        else if (clientState == CallStateStatus.ringing)
+          Center(
+            child: DeclineButton(
+              onPressed: () {
+                context.read<TelnyxClientViewModel>().endCall();
               },
             ),
           )
@@ -63,20 +77,16 @@ class _CallControlsState extends State<CallControls> {
           Center(
             child: CallInvitation(
               onAccept: () {
-                // ToDo add accept functionality
+                context.read<TelnyxClientViewModel>().accept();
               },
               onDecline: () {
-                // ToDo add decline functionality
+                context.read<TelnyxClientViewModel>().endCall();
               },
             ),
           )
         else if (clientState == CallStateStatus.ongoingCall)
           Center(
-            child: CallButton(
-              onPressed: () {
-                // ToDo add hangup functionality
-              },
-            ),
+            child: OnGoingCallControls(),
           ),
       ],
     );
@@ -84,59 +94,56 @@ class _CallControlsState extends State<CallControls> {
 }
 
 class OnGoingCallControls extends StatelessWidget {
-  final VoidCallback onHangup;
-
-  const OnGoingCallControls({super.key, required this.onHangup});
+  const OnGoingCallControls({
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             CallControlButton(
               enabledIcon: Icons.mic,
               disabledIcon: Icons.mic_off,
-              isDisabled: false,
-              /* ToDo get this from provider */
-              onEnabled: () {
-                // ToDo add mute functionality
-              },
-              onDisabled: () {
-                // ToDo add unmute functionality
+              isDisabled: context.select<TelnyxClientViewModel, bool>(
+                (txClient) => txClient.muteState,
+              ),
+              onToggle: () {
+                context.read<TelnyxClientViewModel>().muteUnmute();
               },
             ),
             DeclineButton(
               onPressed: () {
-                // ToDo add hangup functionality
+                context.read<TelnyxClientViewModel>().endCall();
               },
             ),
             CallControlButton(
               enabledIcon: Icons.volume_up,
               disabledIcon: Icons.volume_off,
-              isDisabled: false,
-              /* ToDo get this from provider */
-              onEnabled: () {
-                // ToDo add speaker functionality
-              },
-              onDisabled: () {
-                // ToDo add speaker functionality
+              isDisabled: context.select<TelnyxClientViewModel, bool>(
+                (txClient) => txClient.speakerPhoneState,
+              ),
+              onToggle: () {
+                context.read<TelnyxClientViewModel>().toggleSpeakerPhone();
               },
             ),
           ],
         ),
+        SizedBox(height: spacingM),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             CallControlButton(
               enabledIcon: Icons.play_arrow,
               disabledIcon: Icons.pause,
-              isDisabled: false,
-              /* ToDo get this from provider */
-              onEnabled: () {
-                // ToDo add hold functionality
-              },
-              onDisabled: () {
-                // ToDo add unhold functionality
+              isDisabled: context.select<TelnyxClientViewModel, bool>(
+                (txClient) => txClient.holdState,
+              ),
+              onToggle: () {
+                context.read<TelnyxClientViewModel>().holdUnhold();
               },
             ),
             SizedBox(width: iconSize),
@@ -144,15 +151,28 @@ class OnGoingCallControls extends StatelessWidget {
               enabledIcon: Icons.dialpad,
               disabledIcon: Icons.dialpad,
               isDisabled: false,
-              onEnabled: () {
-                // ToDo add dialpad functionality
-              },
-              onDisabled: () {
-                // ToDo add dialpad functionality
+              onToggle: () {
+                showModalBottomSheet(
+                  context: context,
+                  backgroundColor: Colors.transparent,
+                  isScrollControlled: true,
+                  builder: (context) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: MediaQuery.of(context).viewInsets.bottom,
+                      ),
+                      child: DialPad(
+                        onDigitPressed: (digit) {
+                          context.read<TelnyxClientViewModel>().dtmf(digit);
+                        },
+                      ),
+                    );
+                  },
+                );
               },
             ),
           ],
-        )
+        ),
       ],
     );
   }
@@ -162,16 +182,14 @@ class CallControlButton extends StatefulWidget {
   final IconData enabledIcon;
   final IconData disabledIcon;
   final bool isDisabled;
-  final VoidCallback onEnabled;
-  final VoidCallback onDisabled;
+  final VoidCallback onToggle;
 
   const CallControlButton({
     super.key,
     required this.enabledIcon,
     required this.disabledIcon,
     required this.isDisabled,
-    required this.onEnabled,
-    required this.onDisabled,
+    required this.onToggle,
   });
 
   @override
@@ -191,7 +209,7 @@ class _CallControlButtonState extends State<CallControlButton> {
       child: IconButton(
         icon:
             Icon(widget.isDisabled ? widget.disabledIcon : widget.enabledIcon),
-        onPressed: widget.isDisabled ? widget.onDisabled : widget.onEnabled,
+        onPressed: widget.onToggle,
       ),
     );
   }
@@ -201,8 +219,11 @@ class CallInvitation extends StatelessWidget {
   final VoidCallback onAccept;
   final VoidCallback onDecline;
 
-  const CallInvitation(
-      {super.key, required this.onAccept, required this.onDecline});
+  const CallInvitation({
+    super.key,
+    required this.onAccept,
+    required this.onDecline,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -212,6 +233,7 @@ class CallInvitation extends StatelessWidget {
         CallButton(
           onPressed: onAccept,
         ),
+        SizedBox(width: spacingM),
         DeclineButton(
           onPressed: onDecline,
         ),
@@ -224,8 +246,11 @@ abstract class BaseButton extends StatelessWidget {
   final VoidCallback onPressed;
   final String iconPath;
 
-  const BaseButton(
-      {super.key, required this.onPressed, required this.iconPath});
+  const BaseButton({
+    super.key,
+    required this.onPressed,
+    required this.iconPath,
+  });
 
   @override
   Widget build(BuildContext context) {

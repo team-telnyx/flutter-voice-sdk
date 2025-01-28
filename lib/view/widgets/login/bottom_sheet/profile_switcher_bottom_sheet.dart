@@ -23,20 +23,20 @@ class _ProfileSwitcherBottomSheetState
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.80,
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(spacingL),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: spacingS),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Existing Profiles',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: fontSizeL,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -65,7 +65,7 @@ class _ProfileSwitcherBottomSheetState
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.surface,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24.0),
+                  borderRadius: BorderRadius.circular(spacingXXL),
                 ),
               ),
             ),

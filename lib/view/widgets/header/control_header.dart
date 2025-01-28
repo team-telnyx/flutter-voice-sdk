@@ -42,7 +42,12 @@ class _ControlHeadersState extends State<ControlHeaders> {
             const SizedBox(height: spacingXL),
             Text('Session ID', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: spacingS),
-            const Text('-'),
+            Text(
+              context.select<TelnyxClientViewModel, String>(
+                (txClient) => txClient.sessionId,
+              ),
+            ),
+            const SizedBox(height: spacingXL),
           ],
         );
       },

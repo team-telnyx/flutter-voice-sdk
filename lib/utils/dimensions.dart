@@ -16,4 +16,4 @@ const fontSizeL = 18.0;
 const fontSizeXL = 24.0;
 const fontSizeXXL = 32.0;
 
-const iconSize = 64.0;
+const iconSize = 72.0;

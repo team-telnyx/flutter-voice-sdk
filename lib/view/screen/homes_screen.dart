@@ -3,11 +3,9 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
-import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_controls.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
-import 'package:telnyx_flutter_webrtc/view/widgets/invitation_widget.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
 
 class HomesScreen extends StatefulWidget {
@@ -47,16 +45,9 @@ class _HomesScreenState extends State<HomesScreen> {
               const ControlHeaders(),
               const SizedBox(height: spacingS),
               if (clientState == CallStateStatus.disconnected)
-                const LoginControls(),
-              if (clientState == CallStateStatus.idle)
+                const LoginControls()
+              else
                 const CallControls(),
-              if (clientState == CallStateStatus.ringing) const Text('Ringing'),
-              if (clientState == CallStateStatus.ongoingInvitation)
-                const InvitationWidget(
-                  title: '',
-                ),
-              if (clientState == CallStateStatus.ongoingCall)
-                const CallScreen(),
             ],
           ),
         ),
