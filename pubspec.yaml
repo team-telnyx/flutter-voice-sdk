@@ -22,12 +22,11 @@ dependencies:
   flutter_fgbg: ^0.6.0
   provider: ^6.1.2
   flutter_svg: ^2.0.17
+  fluttertoast: ^8.2.10
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_masked_text2: ^0.9.1
-  fluttertoast: ^8.0.9
   telnyx_webrtc:
     path: ./packages/telnyx_webrtc
 

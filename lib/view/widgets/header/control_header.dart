@@ -20,12 +20,12 @@ class _ControlHeadersState extends State<ControlHeaders> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 58),
+              padding: const EdgeInsets.symmetric(vertical: spacingXXXXXXL),
               child: Center(
                 child: Image.asset(
                   logo_path,
-                  width: 222,
-                  height: 58,
+                  width: logoWidth,
+                  height: logoHeight,
                 ),
               ),
             ),

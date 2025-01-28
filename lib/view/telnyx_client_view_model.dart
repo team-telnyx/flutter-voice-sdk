@@ -10,6 +10,7 @@ import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
 import 'package:telnyx_flutter_webrtc/main.dart';
+import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
@@ -41,7 +42,6 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   CredentialConfig? _credentialConfig;
   IncomingInviteParams? _incomingInvite;
-
 
   String _localName = '';
   String _localNumber = '';
@@ -94,6 +94,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   void resetCallInfo() {
     logger.i('TxClientViewModel :: Reset Call Info');
+    BackgroundDetector.ignore = false;
     _incomingInvite = null;
     _currentCall = null;
     _speakerPhone = false;
@@ -316,6 +317,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   void disconnect() {
     _telnyxClient.disconnect();
+    callState = CallStateStatus.disconnected;
     _loggingIn = false;
     _registered = false;
     notifyListeners();
@@ -433,28 +435,27 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   Future<void> showNotification(IncomingInviteParams message) async {
-    // Temporarily ignore FGBG events while showing the CallKit notification
-    FGBGEvents.ignoreWhile(() async {
-      final CallKitParams callKitParams = CallKitParams(
-        id: message.callID,
-        nameCaller: message.callerIdName,
-        appName: 'Telnyx Flutter Voice',
-        handle: message.callerIdNumber,
-        type: 0,
-        textAccept: 'Accept',
-        textDecline: 'Decline',
-        missedCallNotification: const NotificationParams(
-          showNotification: false,
-          isShowCallback: false,
-          subtitle: 'Missed call',
-        ),
-        duration: 30000,
-        extra: {},
-        headers: <String, dynamic>{'platform': 'flutter'},
-      );
+    // Temporarily ignore lifecycle events during notification to avoid actions being done while app is in background and notification in foreground.
+    BackgroundDetector.ignore = true;
+    final CallKitParams callKitParams = CallKitParams(
+      id: message.callID,
+      nameCaller: message.callerIdName,
+      appName: 'Telnyx Flutter Voice',
+      handle: message.callerIdNumber,
+      type: 0,
+      textAccept: 'Accept',
+      textDecline: 'Decline',
+      missedCallNotification: const NotificationParams(
+        showNotification: false,
+        isShowCallback: false,
+        subtitle: 'Missed call',
+      ),
+      duration: 30000,
+      extra: {},
+      headers: <String, dynamic>{'platform': 'flutter'},
+    );
 
-      await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
-    });
+    await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
   }
 
   void endCall({bool endfromCallScreen = false}) {
@@ -490,7 +491,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void muteUnmute() {
-      _mute = !_mute;
+    _mute = !_mute;
     _currentCall?.onMuteUnmutePressed();
     notifyListeners();
   }
