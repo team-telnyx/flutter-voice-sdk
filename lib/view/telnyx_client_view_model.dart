@@ -27,7 +27,6 @@ enum CallStateStatus {
   ringing,
   ongoingInvitation,
   connectingToCall,
-  heldCall,
   ongoingCall,
 }
 
@@ -140,8 +139,6 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.held:
           logger.i('Held');
-          _callState = CallStateStatus.heldCall;
-          notifyListeners();
           break;
         case CallState.done:
           FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
@@ -295,9 +292,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         currentCall?.callId ?? _incomingInvite!.callID!,
       );
       if (!fromBye) {
-        _telnyxClient.calls.values.firstOrNull?.endCall(
-          _incomingInvite?.callID,
-        );
+        _telnyxClient.calls.values.firstOrNull?.endCall();
       }
       // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
 
@@ -481,10 +476,10 @@ class TelnyxClientViewModel with ChangeNotifier {
       } else {
         logger.i('end Call: CallfromCallScreen $callFromPush');
         // end Call normlly on iOS
-        currentCall?.endCall(_incomingInvite?.callID);
+        currentCall?.endCall();
       }
     } else if (Platform.isAndroid || kIsWeb) {
-      currentCall?.endCall(_incomingInvite?.callID);
+      currentCall?.endCall();
     }
 
     _callState = CallStateStatus.idle;
