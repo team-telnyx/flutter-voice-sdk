@@ -167,7 +167,7 @@ class Call {
 
   /// Sends a DTMF message with the chosen [tone] to the call
   /// specified via the [callID]
-  void dtmf(String? callID, String tone) {
+  void dtmf(String tone) {
     final uuid = const Uuid().v4();
     final dialogParams = DialogParams(
       attach: false,

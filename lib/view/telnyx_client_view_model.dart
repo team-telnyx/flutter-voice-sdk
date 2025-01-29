@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -181,7 +180,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) async {
         logger.i(
-            'TxClientViewModel :: observeResponses :: Socket :: ${message.message}');
+          'TxClientViewModel :: observeResponses :: Socket :: ${message.message}',
+        );
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
@@ -487,7 +487,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void dtmf(String tone) {
-    currentCall?.dtmf(_telnyxClient.call.callId, tone);
+    currentCall?.dtmf(tone);
   }
 
   void muteUnmute() {
@@ -511,6 +511,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   void exportLogs() async {
     final messageLogger = await FileLogger.getInstance();
     final logContents = await messageLogger.exportLogs();
-    print(logContents);
+    logger.i('Log Contents :: $logContents');
+    //ToDo: Implement log export
   }
 }
