@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/buttons/call_buttons.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_invitation.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/ongoing_call_controls.dart';
-import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 
 class CallControls extends StatefulWidget {
   const CallControls({super.key});
@@ -86,6 +83,10 @@ class _CallControlsState extends State<CallControls> {
                 context.read<TelnyxClientViewModel>().endCall();
               },
             ),
+          )
+        else if (clientState == CallStateStatus.connectingToCall)
+          Center(
+            child: CircularProgressIndicator(),
           )
         else if (clientState == CallStateStatus.ongoingCall)
           Center(

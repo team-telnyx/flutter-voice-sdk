@@ -26,6 +26,8 @@ enum CallStateStatus {
   idle,
   ringing,
   ongoingInvitation,
+  connectingToCall,
+  heldCall,
   ongoingCall,
 }
 
@@ -115,10 +117,12 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i('Call State :: $state');
       switch (state) {
         case CallState.newCall:
-          // TODO: Handle this case.
+          logger.i('New Call');
           break;
         case CallState.connecting:
-          // TODO: Handle this case.
+          logger.i('Connecting');
+          _callState = CallStateStatus.connectingToCall;
+          notifyListeners();
           break;
         case CallState.ringing:
           _callState = CallStateStatus.ongoingInvitation;
@@ -130,20 +134,21 @@ class TelnyxClientViewModel with ChangeNotifier {
           notifyListeners();
           if (Platform.isIOS) {
             // only for iOS
-            // end Call for Callkit on iOS
             FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
           }
 
           break;
         case CallState.held:
-          // TODO: Handle this case.
+          logger.i('Held');
+          _callState = CallStateStatus.heldCall;
+          notifyListeners();
           break;
         case CallState.done:
           FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
           // TODO: Handle this case.
           break;
         case CallState.error:
-          // TODO: Handle this case.
+          logger.i('error');
           break;
       }
     };
