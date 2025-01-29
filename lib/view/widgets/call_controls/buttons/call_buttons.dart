@@ -17,6 +17,7 @@ abstract class BaseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      customBorder: const CircleBorder(),
       onTap: onPressed,
       child: SvgPicture.asset(
         iconPath,
@@ -67,7 +68,7 @@ class _CallControlButtonState extends State<CallControlButton> {
       ),
       child: IconButton(
         icon:
-        Icon(widget.isDisabled ? widget.disabledIcon : widget.enabledIcon),
+            Icon(widget.isDisabled ? widget.disabledIcon : widget.enabledIcon),
         onPressed: widget.onToggle,
       ),
     );
