@@ -6,6 +6,10 @@
   object, the call ID is inferred from the call object itself. This means users only need to keep
   track of the call objects that are in use and call the relevant methods on the call object itself.
 
+### Bug Fixing
+
+- Fixed an issue where the Bye Params (such as cause = USER_BUSY) were not being included in the ReceivedMessage.
+
 ## [0.1.4](https://pub.dev/packages/telnyx_webrtc/versions/0.1.4) (2025-01-28)
 
 ### Enhancement
