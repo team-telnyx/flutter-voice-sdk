@@ -1,3 +1,9 @@
+## [0.1.4](https://pub.dev/packages/telnyx_webrtc/versions/0.1.4) (2025-01-28)
+
+### Enhancement
+
+- Update UUID dependency to latest version to avoid conflicts with implementers of the SDK
+
 ## [0.1.3](https://pub.dev/packages/telnyx_webrtc/versions/0.1.3) (2025-01-06)
 
 ### Enhancement
