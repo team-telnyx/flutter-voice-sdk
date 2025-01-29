@@ -1,3 +1,11 @@
+## [1.0.0](https://pub.dev/packages/telnyx_webrtc/versions/1.0.0) (2025-01-29)
+
+### Enhancement - Breaking Changes
+
+- Call ID no longer required when ending call or using DTMF. As these methods belong to a call
+  object, the call ID is inferred from the call object itself. This means users only need to keep
+  track of the call objects that are in use and call the relevant methods on the call object itself.
+
 ## [0.1.4](https://pub.dev/packages/telnyx_webrtc/versions/0.1.4) (2025-01-28)
 
 ### Enhancement
@@ -18,7 +26,8 @@
 
 ### Bug Fixing
 
-- Fixed an issue where, when accepting a an invite, the destination number was being set to name instead of number.
+- Fixed an issue where, when accepting a an invite, the destination number was being set to name
+  instead of number.
 
 ## [0.1.1](https://pub.dev/packages/telnyx_webrtc/versions/0.1.1) (2024-12-12)
 
@@ -29,7 +38,7 @@
 
 ### Bug Fixing
 
-- General bug fixes and import cleanups. 
+- General bug fixes and import cleanups.
 
 ## [0.1.0](https://pub.dev/packages/telnyx_webrtc/versions/0.1.0) (2024-11-07)
 
