@@ -28,7 +28,7 @@ jobs:
       - name: Start Android Emulator & Run Patrol
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33    # or whichever API level you need
+          api-level: 33
           arch: x86_64
           profile: Nexus 6
           script: |
