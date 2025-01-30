@@ -11,24 +11,25 @@ jobs:
     
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
           channel: 'stable'
-          
+
       - name: Install dependencies
         run: flutter pub get
-        
-      - name: Start Android Emulator
+
+      - name: Start Android Emulator & Run Tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          api-level: 33
           arch: x86_64
           profile: Nexus 6
           script: |
-            flutter test integration_test/app_test.dart \
+            # 1) Run your Patrol test file (replace with correct file path)
+            flutter test integration_test/patrol_test.dart \
               --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} \
               --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} \
               --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }}
