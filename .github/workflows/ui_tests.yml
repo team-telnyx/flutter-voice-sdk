@@ -3,6 +3,7 @@ name: Flutter UI Tests
 on:
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   integration_test:
@@ -12,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
@@ -21,15 +22,18 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Start Android Emulator & Run Tests
+      - name: Install Patrol CLI
+        run: flutter pub global activate patrol_cli
+
+      - name: Start Android Emulator & Run Patrol
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
+          api-level: 33    # or whichever API level you need
           arch: x86_64
           profile: Nexus 6
           script: |
-            # 1) Run your Patrol test file (replace with correct file path)
-            flutter test integration_test/patrol_test.dart \
+            patrol test \
+              -t integration_test/patrol_test.dart \
               --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} \
               --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} \
               --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }}
