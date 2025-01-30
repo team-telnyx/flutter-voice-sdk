@@ -1,0 +1,34 @@
+name: Flutter UI Tests
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  integration_test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Start Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: Nexus 6
+          script: |
+            flutter test integration_test/app_test.dart \
+              --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} \
+              --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} \
+              --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }}
