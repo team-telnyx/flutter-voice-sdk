@@ -10,20 +10,27 @@ void main() {
 
   group('End-to-End Test', () {
     testWidgets('Full call flow test', (WidgetTester tester) async {
-      // Start the app
-      app.main();
+      // 1. Start the app
+      await app.main();
       await tester.pumpAndSettle();
 
-      // Create user with debug mode
-      await tester.tap(find.byIcon(Icons.add));
+      // 2. Open the bottom sheet by pressing "Switch Profile"
+      await tester.tap(find.text('Switch Profile'));
       await tester.pumpAndSettle();
 
-      // Get credentials from environment variables
-      final username = String.fromEnvironment('APP_LOGIN_USER', defaultValue: '');
-      final password = String.fromEnvironment('APP_LOGIN_PASSWORD', defaultValue: '');
-      final number = String.fromEnvironment('APP_LOGIN_NUMBER', defaultValue: '');
+      // 3. Tap "Add new profile" to show the add-profile form
+      await tester.tap(find.text('Add new profile'));
+      await tester.pumpAndSettle();
 
-      // Fill in user details
+      // 4. Retrieve credentials from environment variables
+      final username =
+          const String.fromEnvironment('APP_LOGIN_USER', defaultValue: '');
+      final password =
+          const String.fromEnvironment('APP_LOGIN_PASSWORD', defaultValue: '');
+      final number =
+          const String.fromEnvironment('APP_LOGIN_NUMBER', defaultValue: '');
+
+      // 5. Fill in SIP details in the bottom sheet
       await tester.enterText(
         find.widgetWithText(TextFormField, 'SIP Username'),
         username,
@@ -41,39 +48,49 @@ void main() {
         number,
       );
 
-      // Save user
-      await tester.tap(find.widgetWithText(ElevatedButton, 'Save'));
+      // 6. Save the new profile
+      await tester.tap(find.text('Save'));
       await tester.pumpAndSettle();
 
-      // Select user from bottom sheet
-      await tester.tap(find.text(username));
-      await tester.pumpAndSettle();
+      // 7. Tap "Confirm" to close the bottom sheet (if needed)
+      final confirmButton = find.text('Confirm');
+      if (confirmButton.evaluate().isNotEmpty) {
+        await tester.tap(confirmButton);
+        await tester.pumpAndSettle();
+      }
 
-      // Wait for connection
+      // 8. Now tap "Connect" on the main screen if your UI requires a manual connect:
+      final connectButton = find.text('Connect');
+      if (connectButton.evaluate().isNotEmpty) {
+        await tester.tap(connectButton);
+        await tester.pumpAndSettle();
+      }
+
+      // 9. Wait a bit for the SIP connection to establish
       await tester.pumpAndSettle(const Duration(seconds: 5));
 
-      // Enter number to call
+      // 10. Enter the number to call
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Destination'),
         '18004377950',
       );
       await tester.pumpAndSettle();
 
-      // Make call
+      // 11. Make the call
       await tester.tap(find.byType(CallButton));
       await tester.pumpAndSettle();
 
-      // Wait for call to be established
+      // 12. Wait for call to be established
       await tester.pumpAndSettle(const Duration(seconds: 10));
 
-      // Test mute functionality
-      final muteButton = find.byIcon(Icons.mic_off);
-      await tester.tap(muteButton);
+      // 13. Test Hold/Unhold (tap pause on/off)
+      final holdButton = find.byIcon(Icons.pause);
+      await tester.tap(holdButton);
       await tester.pumpAndSettle();
-      await tester.tap(muteButton);
+      await tester.tap(holdButton);
       await tester.pumpAndSettle();
 
-      // Test DTMF
+      // 14. Test DTMF (open keypad & press digits)
       final keypadButton = find.byIcon(Icons.dialpad);
       await tester.tap(keypadButton);
       await tester.pumpAndSettle();
@@ -84,11 +101,16 @@ void main() {
       await tester.tap(find.text('3'));
       await tester.pumpAndSettle();
 
-      // End call
+      // close the keypad
+      final closeKeypadButton = find.byIcon(Icons.close);
+      await tester.tap(closeKeypadButton);
+      await tester.pumpAndSettle();
+
+      // 15. End call
       await tester.tap(find.byIcon(Icons.call_end));
       await tester.pumpAndSettle();
 
-      // Verify we're back at the home screen
+      // 16. Verify we're back at the home screen
       expect(find.byType(HomeScreen), findsOneWidget);
     });
   });
