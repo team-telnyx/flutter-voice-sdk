@@ -11,12 +11,9 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/permission_handler-11.3.1" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences_windows-2.4.1" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences_linux-2.4.1" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_fgbg-0.6.0" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_webrtc-0.12.5+hotfix.2" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_core-3.10.0" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences_android-2.4.1" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences_foundation-2.5.4" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/fluttertoast-8.2.10" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/connectivity_plus-6.1.2" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/audio_session-0.1.23" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_core_web-2.19.0" />
@@ -25,7 +22,10 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/path_provider_foundation-2.4.1" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/path_provider_android-2.2.15" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_messaging_web-3.10.0" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences-2.3.5" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/fluttertoast-8.2.10" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_fgbg-0.6.0" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_webrtc-0.12.7" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences-2.4.0" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

@@ -1,14 +1,3 @@
----
-type: page
-title: Flutter Push Notification Setup
-description: A step-by-step guide to setting up push notifications in Flutter. Learn how to configure and implement notifications to ensure seamless communication in your application.
-keywords:
-  - developer
-  - documentation
-  - Push Notification
-  - Flutter
----
-
 ## Android
 
 The Telnyx Flutter Client WebRTC SDK uses Firebase Cloud Messaging (FCM) to deliver push notifications for Android devices. To enable notifications for incoming calls on your Android mobile device, you need to set up Firebase Cloud Messaging in your application.

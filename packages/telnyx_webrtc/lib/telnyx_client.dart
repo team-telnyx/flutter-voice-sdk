@@ -921,7 +921,7 @@ class TelnyxClient {
                       .changeState(CallState.active, offerCall);
                 }
                 if (_pendingDeclineFromPush) {
-                  offerCall.endCall(invite.inviteParams?.callID);
+                  offerCall.endCall();
                   offerCall.callHandler.changeState(CallState.done, offerCall);
                   _pendingDeclineFromPush = false;
                 }
@@ -1004,7 +1004,7 @@ class TelnyxClient {
                   _logger.d(
                     'No SDP provided for Answer or Media, cannot initialize call',
                   );
-                  answerCall.endCall(inviteAnswer.inviteParams?.callID);
+                  answerCall.endCall();
                 }
                 _earlySDP = false;
                 answerCall.stopAudio();

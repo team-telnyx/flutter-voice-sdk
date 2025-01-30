@@ -120,14 +120,9 @@ class Call {
   }
 
   /// Attempts to end the call identified via the [callID]
-  void endCall(String? callID) {
-    if (callId == null) {
-      _logger.d('Call ID is null');
-      return;
-    }
-
+  void endCall() {
     final uuid = const Uuid().v4();
-    final byeDialogParams = ByeDialogParams(callId: callID ?? callId);
+    final byeDialogParams = ByeDialogParams(callId: callId);
 
     final byeParams = SendByeParams(
       cause: CauseCode.USER_BUSY.name,
@@ -172,7 +167,7 @@ class Call {
 
   /// Sends a DTMF message with the chosen [tone] to the call
   /// specified via the [callID]
-  void dtmf(String? callID, String tone) {
+  void dtmf(String tone) {
     final uuid = const Uuid().v4();
     final dialogParams = DialogParams(
       attach: false,

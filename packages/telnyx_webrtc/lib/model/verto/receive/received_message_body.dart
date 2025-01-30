@@ -1,4 +1,5 @@
 import 'package:logger/logger.dart';
+import 'package:telnyx_webrtc/model/verto/receive/receive_bye_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 
@@ -10,6 +11,7 @@ class ReceivedMessage {
   StateParams? stateParams;
   IncomingInviteParams? inviteParams;
   DialogParams? dialogParams;
+  ReceiveByeParams? byeParams;
 
   String? voiceSdkId;
 
@@ -21,6 +23,7 @@ class ReceivedMessage {
     this.stateParams,
     this.inviteParams,
     this.dialogParams,
+    this.byeParams,
     this.voiceSdkId,
   });
 
@@ -35,6 +38,9 @@ class ReceivedMessage {
         json['params'] != null ? StateParams.fromJson(json['params']) : null;
     inviteParams = json['params'] != null
         ? IncomingInviteParams.fromJson(json['params'])
+        : null;
+    byeParams = json['params'] != null
+        ? ReceiveByeParams.fromJson(json['params'])
         : null;
     if (json['params']['dialogParams'] != null) {
       dialogParams = DialogParams.fromJson(json['params']['dialogParams']);
@@ -58,6 +64,9 @@ class ReceivedMessage {
     }
     if (inviteParams != null) {
       data['params'] = inviteParams!.toJson();
+    }
+    if (byeParams != null) {
+      data['params'] = byeParams!.toJson();
     }
     if (dialogParams != null) {
       data['dialogParams'] = dialogParams!.toJson();

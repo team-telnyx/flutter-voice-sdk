@@ -7,13 +7,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
-import 'package:telnyx_flutter_webrtc/view/screen/homes_screen.dart';
+import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
+import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
-import 'package:telnyx_flutter_webrtc/view/screen/call_screen.dart';
-import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
@@ -44,7 +42,6 @@ class AppInitializer {
   Future<void> initialize() async {
     if (!_isInitialized) {
       _isInitialized = true;
-      var incomingPushCall = false;
       if (!kIsWeb) {
         // generate random number as string
         logger.i('FlutterCallkitIncoming :: Initializing listening for events');
@@ -52,7 +49,6 @@ class AppInitializer {
           logger.i('onEvent :: ${event?.event} :: ${event?.body}');
           switch (event!.event) {
             case Event.actionCallIncoming:
-              incomingPushCall = true;
               // retrieve the push metadata from extras
               if (event.body['extra']['metadata'] == null) {
                 logger.i('actionCallIncoming :: Push Data is null!');
@@ -71,21 +67,24 @@ class AppInitializer {
               logger.i('actionCallStart :: call start');
               break;
             case Event.actionCallAccept:
-              final metadata = event.body['extra']['metadata'];
-              if (metadata == null || (incomingPushCall && fromBackground)) {
-                logger.i('Accepted Call Directly');
+              if (txClientViewModel.incomingInvitation != null) {
                 await txClientViewModel.accept();
-
-                /// Reset the incomingPushCall flag and fromBackground flag
-                incomingPushCall = false;
-                fromBackground = false;
               } else {
-                logger.i(
-                  'Received push Call with metadata on Accept, handle push here $metadata',
-                );
-                final data = metadata as Map<dynamic, dynamic>;
-                data['isAnswer'] = true;
-                await handlePush(data);
+                final metadata = event.body['extra']['metadata'];
+                if (metadata == null || fromBackground) {
+                  logger.i('Accepted Call Directly');
+                  await txClientViewModel.accept();
+
+                  /// Reset the incomingPushCall flag and fromBackground flag
+                  fromBackground = false;
+                } else {
+                  logger.i(
+                    'Received push Call with metadata on Accept, handle push here $metadata',
+                  );
+                  final data = metadata as Map<dynamic, dynamic>;
+                  data['isAnswer'] = true;
+                  await handlePush(data);
+                }
               }
               break;
             case Event.actionCallDecline:
@@ -282,23 +281,25 @@ Future<void> main() async {
 
   final credentialConfig = await txClientViewModel.getCredentialConfig();
   runApp(
-    FGBGNotifier(
-      onEvent: (FGBGType type) => switch (type) {
-        FGBGType.foreground => {
+    BackgroundDetector(
+      onLifecycleEvent: (AppLifecycleState state) => {
+        if (state == AppLifecycleState.resumed)
+          {
             logger.i('We are in the foreground, CONNECTING'),
             // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
             if (!txClientViewModel.callFromPush)
               {
                 txClientViewModel.login(credentialConfig),
               },
-          },
-        FGBGType.background => {
+          }
+        else if (state == AppLifecycleState.paused)
+          {
             logger.i(
               'We are in the background setting fromBackground == true, DISCONNECTING',
             ),
             fromBackground = true,
             txClientViewModel.disconnect(),
-          }
+          },
       },
       child: const MyApp(),
     ),
@@ -400,9 +401,7 @@ class _MyAppState extends State<MyApp> {
         theme: AppTheme.lightTheme,
         initialRoute: '/',
         routes: {
-          '/': (context) => const HomesScreen(),
-          '/home': (context) => const HomeScreen(),
-          '/call': (context) => const CallScreen(),
+          '/': (context) => const HomeScreen(),
         },
       ),
     );

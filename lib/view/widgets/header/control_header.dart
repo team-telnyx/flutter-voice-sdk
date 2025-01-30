@@ -20,12 +20,12 @@ class _ControlHeadersState extends State<ControlHeaders> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 58),
+              padding: const EdgeInsets.symmetric(vertical: spacingXXXXXXL),
               child: Center(
                 child: Image.asset(
                   logo_path,
-                  width: 222,
-                  height: 58,
+                  width: logoWidth,
+                  height: logoHeight,
                 ),
               ),
             ),
@@ -42,7 +42,12 @@ class _ControlHeadersState extends State<ControlHeaders> {
             const SizedBox(height: spacingXL),
             Text('Session ID', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: spacingS),
-            const Text('-'),
+            Text(
+              context.select<TelnyxClientViewModel, String>(
+                (txClient) => txClient.sessionId,
+              ),
+            ),
+            const SizedBox(height: spacingXL),
           ],
         );
       },

@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
-import 'package:flutter_fgbg/flutter_fgbg.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
 import 'package:telnyx_flutter_webrtc/main.dart';
+import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
@@ -25,6 +25,7 @@ enum CallStateStatus {
   idle,
   ringing,
   ongoingInvitation,
+  connectingToCall,
   ongoingCall,
 }
 
@@ -36,6 +37,9 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _loggingIn = false;
   bool callFromPush = false;
   bool _speakerPhone = true;
+  bool _mute = false;
+  bool _hold = false;
+
   CredentialConfig? _credentialConfig;
   IncomingInviteParams? _incomingInvite;
 
@@ -48,6 +52,22 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool get loggingIn {
     return _loggingIn;
+  }
+
+  bool get speakerPhoneState {
+    return _speakerPhone;
+  }
+
+  bool get muteState {
+    return _mute;
+  }
+
+  bool get holdState {
+    return _hold;
+  }
+
+  String get sessionId {
+    return _telnyxClient.sessid;
   }
 
   CallStateStatus _callState = CallStateStatus.disconnected;
@@ -74,7 +94,12 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   void resetCallInfo() {
     logger.i('TxClientViewModel :: Reset Call Info');
+    BackgroundDetector.ignore = false;
     _incomingInvite = null;
+    _currentCall = null;
+    _speakerPhone = false;
+    _mute = false;
+    _hold = false;
     callState = CallStateStatus.idle;
     updateCallFromPush(false);
     notifyListeners();
@@ -90,13 +115,15 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i('Call State :: $state');
       switch (state) {
         case CallState.newCall:
-          // TODO: Handle this case.
+          logger.i('New Call');
           break;
         case CallState.connecting:
-          // TODO: Handle this case.
+          logger.i('Connecting');
+          _callState = CallStateStatus.connectingToCall;
+          notifyListeners();
           break;
         case CallState.ringing:
-          _callState = CallStateStatus.ringing;
+          _callState = CallStateStatus.ongoingInvitation;
           notifyListeners();
           break;
         case CallState.active:
@@ -105,20 +132,19 @@ class TelnyxClientViewModel with ChangeNotifier {
           notifyListeners();
           if (Platform.isIOS) {
             // only for iOS
-            // end Call for Callkit on iOS
             FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
           }
 
           break;
         case CallState.held:
-          // TODO: Handle this case.
+          logger.i('Held');
           break;
         case CallState.done:
           FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
           // TODO: Handle this case.
           break;
         case CallState.error:
-          // TODO: Handle this case.
+          logger.i('error');
           break;
       }
     };
@@ -154,7 +180,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     _telnyxClient
       ..onSocketMessageReceived = (TelnyxMessage message) async {
         logger.i(
-            'TxClientViewModel :: observeResponses :: Socket :: ${message.message}');
+          'TxClientViewModel :: observeResponses :: Socket :: ${message.message}',
+        );
         switch (message.socketMethod) {
           case SocketMethod.clientReady:
             {
@@ -265,9 +292,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         currentCall?.callId ?? _incomingInvite!.callID!,
       );
       if (!fromBye) {
-        _telnyxClient.calls.values.firstOrNull?.endCall(
-          _incomingInvite?.callID,
-        );
+        _telnyxClient.calls.values.firstOrNull?.endCall();
       }
       // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
 
@@ -292,6 +317,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   void disconnect() {
     _telnyxClient.disconnect();
+    callState = CallStateStatus.disconnected;
     _loggingIn = false;
     _registered = false;
     notifyListeners();
@@ -323,12 +349,6 @@ class TelnyxClientViewModel with ChangeNotifier {
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
     observeCurrentCall();
-  }
-
-  void toggleSpeakerPhone() {
-    _speakerPhone = !_speakerPhone;
-    currentCall?.enableSpeakerPhone(_speakerPhone);
-    notifyListeners();
   }
 
   bool waitingForInvite = false;
@@ -415,28 +435,27 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   Future<void> showNotification(IncomingInviteParams message) async {
-    // Temporarily ignore FGBG events while showing the CallKit notification
-    FGBGEvents.ignoreWhile(() async {
-      final CallKitParams callKitParams = CallKitParams(
-        id: message.callID,
-        nameCaller: message.callerIdName,
-        appName: 'Telnyx Flutter Voice',
-        handle: message.callerIdNumber,
-        type: 0,
-        textAccept: 'Accept',
-        textDecline: 'Decline',
-        missedCallNotification: const NotificationParams(
-          showNotification: false,
-          isShowCallback: false,
-          subtitle: 'Missed call',
-        ),
-        duration: 30000,
-        extra: {},
-        headers: <String, dynamic>{'platform': 'flutter'},
-      );
+    // Temporarily ignore lifecycle events during notification to avoid actions being done while app is in background and notification in foreground.
+    BackgroundDetector.ignore = true;
+    final CallKitParams callKitParams = CallKitParams(
+      id: message.callID,
+      nameCaller: message.callerIdName,
+      appName: 'Telnyx Flutter Voice',
+      handle: message.callerIdNumber,
+      type: 0,
+      textAccept: 'Accept',
+      textDecline: 'Decline',
+      missedCallNotification: const NotificationParams(
+        showNotification: false,
+        isShowCallback: false,
+        subtitle: 'Missed call',
+      ),
+      duration: 30000,
+      extra: {},
+      headers: <String, dynamic>{'platform': 'flutter'},
+    );
 
-      await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
-    });
+    await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
   }
 
   void endCall({bool endfromCallScreen = false}) {
@@ -457,10 +476,10 @@ class TelnyxClientViewModel with ChangeNotifier {
       } else {
         logger.i('end Call: CallfromCallScreen $callFromPush');
         // end Call normlly on iOS
-        currentCall?.endCall(_incomingInvite?.callID);
+        currentCall?.endCall();
       }
     } else if (Platform.isAndroid || kIsWeb) {
-      currentCall?.endCall(_incomingInvite?.callID);
+      currentCall?.endCall();
     }
 
     _callState = CallStateStatus.idle;
@@ -468,20 +487,31 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void dtmf(String tone) {
-    _telnyxClient.call.dtmf(_telnyxClient.call.callId, tone);
+    currentCall?.dtmf(tone);
   }
 
   void muteUnmute() {
-    _telnyxClient.call.onMuteUnmutePressed();
+    _mute = !_mute;
+    _currentCall?.onMuteUnmutePressed();
+    notifyListeners();
   }
 
   void holdUnhold() {
-    _telnyxClient.call.onHoldUnholdPressed();
+    _hold = !_hold;
+    currentCall?.onHoldUnholdPressed();
+    notifyListeners();
+  }
+
+  void toggleSpeakerPhone() {
+    _speakerPhone = !_speakerPhone;
+    currentCall?.enableSpeakerPhone(_speakerPhone);
+    notifyListeners();
   }
 
   void exportLogs() async {
     final messageLogger = await FileLogger.getInstance();
     final logContents = await messageLogger.exportLogs();
-    print(logContents);
+    logger.i('Log Contents :: $logContents');
+    //ToDo: Implement log export
   }
 }

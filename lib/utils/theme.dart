@@ -8,6 +8,9 @@ const secondaryColor = Colors.white;
 const disabledColor = Color(0xFF808080); // Gray for disabled state
 const telnyx_soft_black = Color(0xFF272727);
 const telnyx_grey = Color(0xFF525252);
+const telnyx_green = Color(0xFF00E3AA);
+const active_text_field_color = Color(0xFF008563);
+const call_control_color = Color(0xFFF5F3E4);
 
 class AppTheme {
   static ThemeData get lightTheme {
@@ -34,6 +37,11 @@ class AppTheme {
         ),
         labelMedium: TextStyle(
           fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: telnyx_grey,
+        ),
+        labelSmall: TextStyle(
+          fontSize: 14,
           fontWeight: FontWeight.w400,
           color: telnyx_grey,
         ),
