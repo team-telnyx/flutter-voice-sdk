@@ -12,9 +12,6 @@ public class MainActivityTest {
     @Parameters(name = "{0}")
     public static Object[] testCases() {
         PatrolJUnitRunner instrumentation = (PatrolJUnitRunner) InstrumentationRegistry.getInstrumentation();
-        // replace "MainActivity.class" with "io.flutter.embedding.android.FlutterActivity.class"
-        // if in AndroidManifest.xml in manifest/application/activity you have
-        //     android:name="io.flutter.embedding.android.FlutterActivity"
         instrumentation.setUp(MainActivity.class);
         instrumentation.waitForPatrolAppService();
         return instrumentation.listDartTests();
