@@ -19,7 +19,6 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
-import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
 final logger = Logger();
 final txClientViewModel = TelnyxClientViewModel();
@@ -136,9 +135,7 @@ class AppInitializer {
       }
 
       /// Firebase
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
+      await Firebase.initializeApp();
       if (Platform.isAndroid) {
         FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler,
