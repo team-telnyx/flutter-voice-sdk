@@ -46,7 +46,12 @@ jobs:
         # 7) Build app & test APK
       - name: Build app & test APK
         run: |
-          patrol build android --target integration_test/patrol_test.dart --verbose
+          patrol build android \
+            --target integration_test/patrol_test.dart \
+            --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} \
+            --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} \
+            --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }} \
+            --verbose
 
       # 8) Run tests on Firebase Test Lab
       - name: Run Tests on Firebase Test Lab
