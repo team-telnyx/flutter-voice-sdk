@@ -44,20 +44,17 @@ jobs:
         # 7) Build app & test APK
       - name: Build app & test APK
         run: |
-          # Example approach with flutter directly (not always 1:1 with Patrol).
-          flutter build apk --debug
-          flutter build apk --debug \
-            --target=integration_test/patrol_test.dart \
-            -t test_bundle.dart \
-            --split-debug-info=build/app/intermediates/symbols
+          patrol build android --target integration_test/example_test.dart
 
       # 8) Run tests on Firebase Test Lab
       - name: Run Tests on Firebase Test Lab
         run: |
-          # Typically you define your device matrix, e.g. a Pixel 5, API 33
           gcloud firebase test android run \
-            --type instrumentation \
-            --app build/app/outputs/flutter-apk/app-debug.apk \
-            --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
-            --device model=Pixel5,version=33,locale=en,orientation=portrait \
-            --timeout 5m
+          --type instrumentation \
+          --use-orchestrator \
+          --app build/app/outputs/apk/debug/app-debug.apk \
+          --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+          --timeout 1m \
+          --device model=MediumPhone.arm,version=34,locale=en,orientation=portrait \
+          --record-video \
+          --environment-variables clearPackageData=true
