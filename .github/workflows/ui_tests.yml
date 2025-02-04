@@ -16,8 +16,8 @@ jobs:
       - name: Create google-services.json
         run: |
           cat <<EOF > android/app/google-services.json
-             ${{ secrets.GOOGLE_SERVICES_JSON }}
-           EOF
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
 
       # 3) Install Flutter
       - name: Set up Flutter
