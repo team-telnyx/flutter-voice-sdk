@@ -34,13 +34,14 @@ jobs:
       - name: Install Patrol CLI
         run: flutter pub global activate patrol_cli
 
-      # 6) Install Google Cloud SDK
-      - name: Install Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
+        # 6) Authenticate Cloud SDK
+      - name: 'Authenticate Cloud SDK'
+        uses: 'google-github-actions/auth@v2'
         with:
-          service_account_key: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_KEY }}
-          project_id: ${{ secrets.GCLOUD_PROJECT_ID }}
-          export_default_credentials: true
+          credentials_json: '${{ secrets.GCLOUD_SERVICE_ACCOUNT_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
         # 7) Build app & test APK
       - name: Build app & test APK
