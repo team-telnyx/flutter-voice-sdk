@@ -1,4 +1,4 @@
-name: Flutter UI Tests
+name: Flutter UI Tests (Firebase Test Lab)
 
 on:
   pull_request:
@@ -7,39 +7,57 @@ on:
 
 jobs:
   integration_test:
-    name: Integration Tests
     runs-on: ubuntu-latest
-    
     steps:
+      # 1) Check out repo
       - uses: actions/checkout@v3
 
+      # 2) Create google-services.json if you have it in a secret
       - name: Create google-services.json
         run: |
           cat <<EOF > android/app/google-services.json
-           ${{ secrets.GOOGLE_SERVICES_JSON }}
-          EOF
+             ${{ secrets.GOOGLE_SERVICES_JSON }}
+           EOF
 
+      # 3) Install Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
           channel: 'stable'
 
+      # 4) Install Dependencies
       - name: Install dependencies
         run: flutter pub get
 
+      # 5) Install Patrol CLI
       - name: Install Patrol CLI
         run: flutter pub global activate patrol_cli
 
-      - name: Start Android Emulator & Run Patrol
-        uses: reactivecircus/android-emulator-runner@v2
+      # 6) Install Google Cloud SDK
+      - name: Install Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v1
         with:
-          api-level: 33
-          arch: x86_64
-          profile: Nexus 6
-          script: |
-            patrol test \
-              -t integration_test/patrol_test.dart \
-              --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} \
-              --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} \
-              --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }}
+          service_account_key: ${{ secrets.GCLOUD_SERVICE_ACCOUNT_KEY }}
+          project_id: ${{ secrets.GCLOUD_PROJECT_ID }}
+
+        # 7) Build app & test APK
+      - name: Build app & test APK
+        run: |
+          # Example approach with flutter directly (not always 1:1 with Patrol).
+          flutter build apk --debug
+          flutter build apk --debug \
+            --target=integration_test/patrol_test.dart \
+            -t test_bundle.dart \
+            --split-debug-info=build/app/intermediates/symbols
+
+      # 8) Run tests on Firebase Test Lab
+      - name: Run Tests on Firebase Test Lab
+        run: |
+          # Typically you define your device matrix, e.g. a Pixel 5, API 33
+          gcloud firebase test android run \
+            --type instrumentation \
+            --app build/app/outputs/flutter-apk/app-debug.apk \
+            --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+            --device model=Pixel5,version=33,locale=en,orientation=portrait \
+            --timeout 5m
