@@ -44,7 +44,7 @@ jobs:
         # 7) Build app & test APK
       - name: Build app & test APK
         run: |
-          patrol build android --target integration_test/example_test.dart
+          patrol build android --target integration_test/patrol_test.dart 
 
       # 8) Run tests on Firebase Test Lab
       - name: Run Tests on Firebase Test Lab
