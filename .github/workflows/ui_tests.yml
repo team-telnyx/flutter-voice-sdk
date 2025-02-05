@@ -1,0 +1,67 @@
+name: Flutter UI Tests (Firebase Test Lab)
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  integration_test:
+    runs-on: ubuntu-latest
+    steps:
+      # 1) Check out repo
+      - uses: actions/checkout@v3
+
+      # 2) Create google-services.json if you have it in a secret
+      - name: Create google-services.json
+        run: |
+          cat <<EOF > android/app/google-services.json
+          ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
+
+      # 3) Install Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+
+      # 4) Install Dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5) Install Patrol CLI
+      - name: Install Patrol CLI
+        run: flutter pub global activate patrol_cli
+
+        # 6) Authenticate Cloud SDK
+      - name: 'Authenticate Cloud SDK'
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCLOUD_SERVICE_ACCOUNT_KEY }}'
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+        # 7) Build app & test APK
+      - name: Build app & test APK
+        run: |
+          patrol build android \
+            --target integration_test/patrol_test.dart \
+            --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} \
+            --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} \
+            --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }} \
+            --verbose
+
+      # 8) Run tests on Firebase Test Lab
+      - name: Run Tests on Firebase Test Lab
+        run: |
+          gcloud firebase test android run \
+          --type instrumentation \
+          --use-orchestrator \
+          --app build/app/outputs/apk/debug/app-debug.apk \
+          --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+          --timeout 1m \
+          --device model=MediumPhone.arm,version=34,locale=en,orientation=portrait \
+          --record-video \
+          --environment-variables clearPackageData=true

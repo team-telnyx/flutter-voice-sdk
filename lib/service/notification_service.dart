@@ -5,17 +5,27 @@ import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 
 class NotificationService {
   static Future showNotification(RemoteMessage message) async {
-    Logger().i('Received Incoming NotificationService! from background');
-    final metadata =
-        PushMetaData.fromJson(jsonDecode(message.data['metadata']));
+    Logger().i('Received Incoming NotificationService! from background ${message.data}');
+
+    final data = message.data.containsKey('extra') ? jsonDecode(message.data['extra']) : {};
+    final alert = data['aps']?['alert'] ?? 'No alert';
+
+    if (alert == 'Missed call!') {
+      Logger().i('Missed call notification, do not show call kit');
+      return;
+    }
+
+    final metadata = PushMetaData.fromJson(jsonDecode(message.data['metadata']));
     final currentUuid = const Uuid().v4();
 
+    BackgroundDetector.ignore = true;
     final CallKitParams callKitParams = CallKitParams(
       id: currentUuid,
       nameCaller: metadata.callerName,
@@ -68,7 +78,6 @@ class NotificationService {
     Logger().i('Received Incoming NotificationService! from background');
     final metadata =
         PushMetaData.fromJson(jsonDecode(message.data['metadata']));
-    final received = message.data['message'];
     final currentUuid = const Uuid().v4();
 
     final CallKitParams callKitParams = CallKitParams(

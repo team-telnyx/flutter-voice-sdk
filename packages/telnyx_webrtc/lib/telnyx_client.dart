@@ -47,24 +47,24 @@ class TelnyxClient {
         case SocketMethod.invite:
           {
             _logger.i(
-              'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
+              'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
             );
             break;
           }
         case SocketMethod.bye:
           {
             _logger.i(
-              'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
+              'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
             );
             break;
           }
         default:
           _logger.i(
-            'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
+            'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
           );
       }
       _logger.i(
-        'TelnyxClient :: onSocketMessageReceived  Override this on client side: $message',
+        'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
       );
     };
 
@@ -921,7 +921,7 @@ class TelnyxClient {
                       .changeState(CallState.active, offerCall);
                 }
                 if (_pendingDeclineFromPush) {
-                  offerCall.endCall(invite.inviteParams?.callID);
+                  offerCall.endCall();
                   offerCall.callHandler.changeState(CallState.done, offerCall);
                   _pendingDeclineFromPush = false;
                 }
@@ -1004,7 +1004,7 @@ class TelnyxClient {
                   _logger.d(
                     'No SDP provided for Answer or Media, cannot initialize call',
                   );
-                  answerCall.endCall(inviteAnswer.inviteParams?.callID);
+                  answerCall.endCall();
                 }
                 _earlySDP = false;
                 answerCall.stopAudio();
