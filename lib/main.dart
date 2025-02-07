@@ -287,11 +287,11 @@ Future<void> main() async {
             // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
             if (!txClientViewModel.callFromPush)
               {
-                if (config is CredentialConfig)
+                if (config != null && config is CredentialConfig)
                   {
                     txClientViewModel.login(config),
                   }
-                else if (config is TokenConfig)
+                else if (config != null && config is TokenConfig)
                   {
                     txClientViewModel.loginWithToken(config),
                   },

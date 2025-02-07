@@ -382,13 +382,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         debug: true,
       );
     } else {
-      return CredentialConfig(
-        sipCallerIDName: 'Flutter Voice',
-        sipCallerIDNumber: '',
-        sipUser: MOCK_USER,
-        sipPassword: MOCK_PASSWORD,
-        debug: true,
-      );
+     return null;
     }
   }
 
@@ -407,12 +401,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         debug: true,
       );
     } else {
-      return TokenConfig(
-        sipCallerIDName: 'Flutter Voice',
-        sipCallerIDNumber: '',
-        sipToken: '',
-        debug: true,
-      );
+      return null;
     }
   }
 
