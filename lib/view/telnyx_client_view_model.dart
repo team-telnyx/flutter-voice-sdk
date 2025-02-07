@@ -353,12 +353,22 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool waitingForInvite = false;
 
-  Future<CredentialConfig> getCredentialConfig() async {
+  Future<Config?> getConfig() async {
+    final config = await _getCredentialConfig();
+    if (config != null) {
+      return config;
+    } else {
+      return await _getTokenConfig();
+    }
+  }
+
+  Future<CredentialConfig?> _getCredentialConfig() async {
     final prefs = await SharedPreferences.getInstance();
     final sipUser = prefs.getString('sipUser');
     final sipPassword = prefs.getString('sipPassword');
     final sipName = prefs.getString('sipName');
     final sipNumber = prefs.getString('sipNumber');
+    final notificationToken = prefs.getString('notificationToken');
     if (sipUser != null &&
         sipPassword != null &&
         sipName != null &&
@@ -368,6 +378,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         sipCallerIDNumber: sipNumber,
         sipUser: sipUser,
         sipPassword: sipPassword,
+        notificationToken: notificationToken,
         debug: true,
       );
     } else {
@@ -376,6 +387,30 @@ class TelnyxClientViewModel with ChangeNotifier {
         sipCallerIDNumber: '',
         sipUser: MOCK_USER,
         sipPassword: MOCK_PASSWORD,
+        debug: true,
+      );
+    }
+  }
+
+  Future<TokenConfig?> _getTokenConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final sipName = prefs.getString('sipName');
+    final sipNumber = prefs.getString('sipNumber');
+    final notificationToken = prefs.getString('notificationToken');
+    if (token != null && sipName != null && sipNumber != null) {
+      return TokenConfig(
+        sipCallerIDName: sipName,
+        sipCallerIDNumber: sipNumber,
+        sipToken: token,
+        notificationToken: notificationToken,
+        debug: true,
+      );
+    } else {
+      return TokenConfig(
+        sipCallerIDName: 'Flutter Voice',
+        sipCallerIDNumber: '',
+        sipToken: '',
         debug: true,
       );
     }
