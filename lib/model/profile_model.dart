@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
@@ -51,6 +52,10 @@ class Profile {
   Future<String?> getNotificationTokenForPlatform() async {
     var token;
     if (defaultTargetPlatform == TargetPlatform.android) {
+      // If no apps are initialized, initialize one now.
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
       token = (await FirebaseMessaging.instance.getToken())!;
     } else if (Platform.isIOS) {
       token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
