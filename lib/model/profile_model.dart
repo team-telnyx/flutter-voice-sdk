@@ -1,3 +1,9 @@
+import 'dart:io';
+
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class Profile {
@@ -7,6 +13,7 @@ class Profile {
   final String sipPassword;
   final String sipCallerIDName;
   final String sipCallerIDNumber;
+  final String? notificationToken;
 
   Profile({
     required this.isTokenLogin,
@@ -15,6 +22,7 @@ class Profile {
     this.sipPassword = '',
     this.sipCallerIDName = '',
     this.sipCallerIDNumber = '',
+    this.notificationToken = '',
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -25,6 +33,7 @@ class Profile {
       sipPassword: json['sipPassword'] as String? ?? '',
       sipCallerIDName: json['sipCallerIDName'] as String? ?? '',
       sipCallerIDNumber: json['sipCallerIDNumber'] as String? ?? '',
+      notificationToken: json['notificationToken'] as String? ?? '',
     );
   }
 
@@ -36,15 +45,31 @@ class Profile {
       'sipPassword': sipPassword,
       'sipCallerIDName': sipCallerIDName,
       'sipCallerIDNumber': sipCallerIDNumber,
+      'notificationToken': notificationToken,
     };
   }
 
-  Config toTelnyxConfig() {
+  Future<String?> getNotificationTokenForPlatform() async {
+    var token;
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      // If no apps are initialized, initialize one now.
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp();
+      }
+      token = (await FirebaseMessaging.instance.getToken())!;
+    } else if (Platform.isIOS) {
+      token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
+    }
+    return token;
+  }
+
+  Future<Config> toTelnyxConfig() async {
     if (isTokenLogin) {
       return TokenConfig(
         sipToken: token,
         sipCallerIDName: sipCallerIDName,
         sipCallerIDNumber: sipCallerIDNumber,
+        notificationToken: await getNotificationTokenForPlatform() ?? '',
         debug: false,
       );
     } else {
@@ -53,6 +78,7 @@ class Profile {
         sipPassword: sipPassword,
         sipCallerIDName: sipCallerIDName,
         sipCallerIDNumber: sipCallerIDNumber,
+        notificationToken: await getNotificationTokenForPlatform() ?? '',
         debug: false,
       );
     }

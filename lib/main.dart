@@ -19,6 +19,7 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 final logger = Logger();
 final txClientViewModel = TelnyxClientViewModel();
@@ -227,11 +228,11 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
           logger.i('iOS notification token :: $token');
         }
-        final credentialConfig = await txClientViewModel.getCredentialConfig();
+        final config = await txClientViewModel.getConfig();
         telnyxClient.handlePushNotification(
           pushMetaData,
-          credentialConfig,
-          null,
+          config is CredentialConfig ? config : null,
+          config is TokenConfig ? config : null,
         );
         break;
       case Event.actionDidUpdateDevicePushTokenVoip:
@@ -276,7 +277,7 @@ Future<void> main() async {
     await AppInitializer().initialize();
   }
 
-  final credentialConfig = await txClientViewModel.getCredentialConfig();
+  final config = await txClientViewModel.getConfig();
   runApp(
     BackgroundDetector(
       onLifecycleEvent: (AppLifecycleState state) => {
@@ -286,7 +287,14 @@ Future<void> main() async {
             // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
             if (!txClientViewModel.callFromPush)
               {
-                txClientViewModel.login(credentialConfig),
+                if (config != null && config is CredentialConfig)
+                  {
+                    txClientViewModel.login(config),
+                  }
+                else if (config != null && config is TokenConfig)
+                  {
+                    txClientViewModel.loginWithToken(config),
+                  },
               },
           }
         else if (state == AppLifecycleState.paused)
@@ -319,9 +327,13 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
     pushMetaData = PushMetaData.fromJson(data);
     logger.i('iOS notification token :: $token');
   }
-  final credentialConfig = await txClientViewModel.getCredentialConfig();
+  final config = await txClientViewModel.getConfig();
   txClientViewModel
-    ..handlePushNotification(pushMetaData!, credentialConfig, null)
+    ..handlePushNotification(
+      pushMetaData!,
+      config is CredentialConfig ? config : null,
+      config is TokenConfig ? config : null,
+    )
     ..observeResponses();
   logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
 }

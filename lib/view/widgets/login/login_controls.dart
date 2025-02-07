@@ -53,16 +53,13 @@ class _LoginControlsState extends State<LoginControls> {
           width: double.infinity,
           child: ElevatedButton(
             onPressed: selectedProfile != null
-                ? () {
+                ? () async {
                     final viewModel = context.read<TelnyxClientViewModel>();
-                    if (selectedProfile.isTokenLogin) {
-                      viewModel.loginWithToken(
-                        selectedProfile.toTelnyxConfig() as TokenConfig,
-                      );
-                    } else {
-                      viewModel.login(
-                        selectedProfile.toTelnyxConfig() as CredentialConfig,
-                      );
+                    final config = await selectedProfile.toTelnyxConfig();
+                    if (config is TokenConfig) {
+                      viewModel.loginWithToken(config);
+                    } else if (config is CredentialConfig) {
+                      viewModel.login(config);
                     }
                   }
                 : null,
