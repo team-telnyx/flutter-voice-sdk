@@ -138,13 +138,15 @@ class AppInitializer {
       }
 
       /// Firebase
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
       if (!kIsWeb && Platform.isAndroid) {
         FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler,
         );
       } else {
-        logger.i('Web or iOS - Skipping Firebase Messaging onBackgroundMessage');
+        logger
+            .i('Web or iOS - Skipping Firebase Messaging onBackgroundMessage');
       }
 
       if (defaultTargetPlatform == TargetPlatform.android) {
@@ -282,6 +284,7 @@ Future<void> main() async {
   final config = await txClientViewModel.getConfig();
   runApp(
     BackgroundDetector(
+      skipWeb: true,
       onLifecycleEvent: (AppLifecycleState state) => {
         if (state == AppLifecycleState.resumed)
           {
