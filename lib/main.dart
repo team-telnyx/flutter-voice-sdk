@@ -21,7 +21,7 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
-import 'firebase_options.dart';
+import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
 final logger = Logger();
 final txClientViewModel = TelnyxClientViewModel();

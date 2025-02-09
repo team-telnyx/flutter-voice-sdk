@@ -437,7 +437,8 @@ class Peer {
           // Unified Plan
           pc.onTrack = (event) {
             _logger.i(
-                'Peer :: onTrack => kind=${event.track.kind}, streams=${event.streams.length}');
+              'Peer :: onTrack => kind=${event.track.kind}, streams=${event.streams.length}',
+            );
             if (event.streams.isNotEmpty) {
               onAddRemoteStream?.call(newSession, event.streams[0]);
               _remoteStreams.add(event.streams[0]);

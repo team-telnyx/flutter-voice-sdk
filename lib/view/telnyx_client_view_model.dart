@@ -507,7 +507,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         logger.i('end Call: CallfromPush $callFromPush');
       } else {
         logger.i('end Call: CallfromCallScreen $callFromPush');
-        // end Call normlly on iOS
+        // end Call normally on iOS
         currentCall?.endCall();
       }
     } else if (kIsWeb || Platform.isAndroid) {
