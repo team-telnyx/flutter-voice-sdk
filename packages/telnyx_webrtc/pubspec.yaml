@@ -12,7 +12,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_webrtc: ^0.12.7
+  flutter_webrtc: ^0.12.8
   logger: ^2.5.0
   uuid: ^4.5.1
   just_audio: ^0.9.43
