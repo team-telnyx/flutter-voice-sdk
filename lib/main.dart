@@ -21,6 +21,8 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
+import 'firebase_options.dart';
+
 final logger = Logger();
 final txClientViewModel = TelnyxClientViewModel();
 const MOCK_USER = '<MOCK_USER>';
@@ -136,13 +138,13 @@ class AppInitializer {
       }
 
       /// Firebase
-      await Firebase.initializeApp();
-      if (Platform.isAndroid) {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      if (!kIsWeb && Platform.isAndroid) {
         FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler,
         );
       } else {
-        logger.i('iOS - Skipping Firebase Messaging onBackgroundMessage');
+        logger.i('Web or iOS - Skipping Firebase Messaging onBackgroundMessage');
       }
 
       if (defaultTargetPlatform == TargetPlatform.android) {
@@ -390,8 +392,10 @@ class _MyAppState extends State<MyApp> {
             logger.d('getPushData : No data');
           }
         });
-      } else if (Platform.isIOS && !txClientViewModel.callFromPush) {
+      } else if (!kIsWeb && Platform.isIOS && !txClientViewModel.callFromPush) {
         logger.i('iOS :: connect');
+      } else {
+        logger.i('Web :: connect');
       }
     } catch (e) {
       logger.e('Error: $e');

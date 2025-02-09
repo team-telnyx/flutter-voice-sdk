@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -23,10 +24,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> askForNotificationPermission() async {
-    await FlutterCallkitIncoming.requestNotificationPermission('notification');
-    final status = await Permission.notification.status;
-    if (status.isDenied) {
-      await Permission.notification.request();
+    if (!kIsWeb) {
+      await FlutterCallkitIncoming.requestNotificationPermission(
+        'notification',
+      );
+      final status = await Permission.notification.status;
+      if (status.isDenied) {
+        await Permission.notification.request();
+      }
     }
   }
 

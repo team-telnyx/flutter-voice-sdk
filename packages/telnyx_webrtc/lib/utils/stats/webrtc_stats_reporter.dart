@@ -6,7 +6,8 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_parsing_helpers.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_message.dart';
-import 'package:telnyx_webrtc/tx_socket.dart';
+import 'package:telnyx_webrtc/tx_socket.dart'
+    if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_event.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_tag.dart';
 import 'package:uuid/uuid.dart';
