@@ -1,14 +1,22 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class BackgroundDetector extends StatefulWidget {
   static BackgroundDetector? _instance;
 
+  static bool _skipWeb = false;
+
+  static bool get skipWeb => _skipWeb;
+  static set skipWeb(bool value) => _skipWeb = value;
+
   factory BackgroundDetector({
     Key? key,
+    bool skipWeb = false,
     required Widget child,
     void Function(AppLifecycleState)? onLifecycleEvent,
   }) {
+    _skipWeb = skipWeb;
     _instance ??= BackgroundDetector._internal(
       key: key,
       onLifecycleEvent: onLifecycleEvent,
@@ -35,6 +43,7 @@ class BackgroundDetector extends StatefulWidget {
 
   /// Whether to globally ignore lifecycle events
   static bool get ignore => _ignoreLifecycleEvents;
+
   static set ignore(bool value) => _ignoreLifecycleEvents = value;
 
   /// Temporarily ignore lifecycle events during [action].
@@ -69,6 +78,7 @@ class _BackgroundDetectorState extends State<BackgroundDetector>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (BackgroundDetector.skipWeb == true && kIsWeb) return;
     // Only emit if NOT ignoring
     if (!BackgroundDetector.ignore) {
       widget.onLifecycleEvent?.call(state);

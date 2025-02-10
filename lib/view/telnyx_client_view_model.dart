@@ -8,8 +8,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
-import 'package:telnyx_flutter_webrtc/main.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
+import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
@@ -130,7 +130,7 @@ class TelnyxClientViewModel with ChangeNotifier {
           logger.i('current call is Active');
           _callState = CallStateStatus.ongoingCall;
           notifyListeners();
-          if (Platform.isIOS) {
+          if (!kIsWeb && Platform.isIOS) {
             // only for iOS
             FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
           }
@@ -140,7 +140,9 @@ class TelnyxClientViewModel with ChangeNotifier {
           logger.i('Held');
           break;
         case CallState.done:
-          FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
+          if (!kIsWeb) {
+            FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
+          }
           // TODO: Handle this case.
           break;
         case CallState.error:
@@ -233,7 +235,7 @@ class TelnyxClientViewModel with ChangeNotifier {
             {
               callState = CallStateStatus.idle;
 
-              if (Platform.isIOS) {
+              if (!kIsWeb && Platform.isIOS) {
                 if (callFromPush) {
                   _endCallFromPush(true);
                 } else {
@@ -247,8 +249,11 @@ class TelnyxClientViewModel with ChangeNotifier {
             }
         }
         notifyListeners();
-        final messageLogger = await FileLogger.getInstance();
-        await messageLogger.writeLog(message.toString());
+
+        if (!kIsWeb) {
+          final messageLogger = await FileLogger.getInstance();
+          await messageLogger.writeLog(message.toString());
+        }
       }
 
       // Observe Socket Error Messages
@@ -258,6 +263,8 @@ class TelnyxClientViewModel with ChangeNotifier {
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 1,
+          backgroundColor: telnyx_green,
+          textColor: Colors.white,
         );
         switch (error.errorCode) {
           case -32000:
@@ -286,7 +293,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void _endCallFromPush(bool fromBye) {
-    if (Platform.isIOS) {
+    if (!kIsWeb && Platform.isIOS) {
       // end Call for Callkit on iOS
       FlutterCallkitIncoming.endCall(
         currentCall?.callId ?? _incomingInvite!.callID!,
@@ -382,7 +389,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         debug: true,
       );
     } else {
-     return null;
+      return null;
     }
   }
 
@@ -418,13 +425,13 @@ class TelnyxClientViewModel with ChangeNotifier {
         'State',
       );
 
-      if (Platform.isIOS) {
+      if (!kIsWeb && Platform.isIOS) {
         // only for iOS
         await FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
       }
 
       // Hide if not already hidden
-      if (Platform.isAndroid && !acceptFromNotification) {
+      if (!kIsWeb && Platform.isAndroid && !acceptFromNotification) {
         final CallKitParams callKitParams = CallKitParams(
           id: _incomingInvite!.callID,
           nameCaller: _incomingInvite!.callerIdName,
@@ -459,6 +466,9 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   Future<void> showNotification(IncomingInviteParams message) async {
+    if (kIsWeb) {
+      return;
+    }
     // Temporarily ignore lifecycle events during notification to avoid actions being done while app is in background and notification in foreground.
     BackgroundDetector.ignore = true;
     final CallKitParams callKitParams = CallKitParams(
@@ -490,7 +500,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i('Current Call is not null');
     }
 
-    if (Platform.isIOS) {
+    if (!kIsWeb && Platform.isIOS) {
       /* when end call from CallScreen we need to tell Callkit to end the call as well
        */
       if (endfromCallScreen && callFromPush) {
@@ -499,10 +509,10 @@ class TelnyxClientViewModel with ChangeNotifier {
         logger.i('end Call: CallfromPush $callFromPush');
       } else {
         logger.i('end Call: CallfromCallScreen $callFromPush');
-        // end Call normlly on iOS
+        // end Call normally on iOS
         currentCall?.endCall();
       }
-    } else if (Platform.isAndroid || kIsWeb) {
+    } else if (kIsWeb || Platform.isAndroid) {
       currentCall?.endCall();
     }
 
@@ -527,6 +537,17 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void toggleSpeakerPhone() {
+    if (kIsWeb) {
+      Fluttertoast.showToast(
+        msg: 'Toggling loud speaker is disabled on the web client',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.BOTTOM,
+        timeInSecForIosWeb: 1,
+        backgroundColor: telnyx_green,
+        textColor: Colors.white,
+      );
+      return;
+    }
     _speakerPhone = !_speakerPhone;
     currentCall?.enableSpeakerPhone(_speakerPhone);
     notifyListeners();

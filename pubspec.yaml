@@ -21,7 +21,7 @@ dependencies:
   path_provider: ^2.1.5
   provider: ^6.1.2
   flutter_svg: ^2.0.17
-  fluttertoast: ^8.2.10
+  fluttertoast: ^8.2.11
 
 dev_dependencies:
   flutter_test:

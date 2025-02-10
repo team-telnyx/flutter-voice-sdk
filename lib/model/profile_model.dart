@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
+import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class Profile {
@@ -51,10 +52,17 @@ class Profile {
 
   Future<String?> getNotificationTokenForPlatform() async {
     var token;
+
+    if (kIsWeb) {
+      return null;
+    }
+
     if (defaultTargetPlatform == TargetPlatform.android) {
       // If no apps are initialized, initialize one now.
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
+        await Firebase.initializeApp(
+          options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
+        );
       }
       token = (await FirebaseMessaging.instance.getToken())!;
     } else if (Platform.isIOS) {

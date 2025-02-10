@@ -21,6 +21,8 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
+import 'package:telnyx_flutter_webrtc/firebase_options.dart';
+
 final logger = Logger();
 final txClientViewModel = TelnyxClientViewModel();
 const MOCK_USER = '<MOCK_USER>';
@@ -136,13 +138,16 @@ class AppInitializer {
       }
 
       /// Firebase
-      await Firebase.initializeApp();
-      if (Platform.isAndroid) {
+      await Firebase.initializeApp(
+        options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
+      );
+      if (!kIsWeb && Platform.isAndroid) {
         FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler,
         );
       } else {
-        logger.i('iOS - Skipping Firebase Messaging onBackgroundMessage');
+        logger
+            .i('Web or iOS - Skipping Firebase Messaging onBackgroundMessage');
       }
 
       if (defaultTargetPlatform == TargetPlatform.android) {
@@ -165,7 +170,9 @@ var fromBackground = false;
 // Android Only - Push Notifications
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
+  );
   logger.i('Handling a background message ${message.toMap().toString()}');
   await NotificationService.showNotification(message);
   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
@@ -280,6 +287,7 @@ Future<void> main() async {
   final config = await txClientViewModel.getConfig();
   runApp(
     BackgroundDetector(
+      skipWeb: true,
       onLifecycleEvent: (AppLifecycleState state) => {
         if (state == AppLifecycleState.resumed)
           {
@@ -390,8 +398,10 @@ class _MyAppState extends State<MyApp> {
             logger.d('getPushData : No data');
           }
         });
-      } else if (Platform.isIOS && !txClientViewModel.callFromPush) {
+      } else if (!kIsWeb && Platform.isIOS && !txClientViewModel.callFromPush) {
         logger.i('iOS :: connect');
+      } else {
+        logger.i('Web :: connect');
       }
     } catch (e) {
       logger.e('Error: $e');

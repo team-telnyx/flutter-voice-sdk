@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/telnyx-webrtc-flutter.iml" filepath="$PROJECT_DIR$/.idea/telnyx-webrtc-flutter.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/telnyx_webrtc_flutter.iml" filepath="$PROJECT_DIR$/.idea/telnyx_webrtc_flutter.iml" />
     </modules>
   </component>
 </project>
