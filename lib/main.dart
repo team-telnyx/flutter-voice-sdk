@@ -139,7 +139,8 @@ class AppInitializer {
 
       /// Firebase
       await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform);
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
       if (!kIsWeb && Platform.isAndroid) {
         FirebaseMessaging.onBackgroundMessage(
           _firebaseMessagingBackgroundHandler,
@@ -169,7 +170,9 @@ var fromBackground = false;
 // Android Only - Push Notifications
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   logger.i('Handling a background message ${message.toMap().toString()}');
   await NotificationService.showNotification(message);
   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
