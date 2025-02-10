@@ -60,7 +60,9 @@ class Profile {
     if (defaultTargetPlatform == TargetPlatform.android) {
       // If no apps are initialized, initialize one now.
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+        await Firebase.initializeApp(
+          options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
+        );
       }
       token = (await FirebaseMessaging.instance.getToken())!;
     } else if (Platform.isIOS) {

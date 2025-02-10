@@ -139,7 +139,7 @@ class AppInitializer {
 
       /// Firebase
       await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
+        options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
       );
       if (!kIsWeb && Platform.isAndroid) {
         FirebaseMessaging.onBackgroundMessage(
@@ -171,7 +171,7 @@ var fromBackground = false;
 @pragma('vm:entry-point')
 Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
+    options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
   );
   logger.i('Handling a background message ${message.toMap().toString()}');
   await NotificationService.showNotification(message);
