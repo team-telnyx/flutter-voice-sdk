@@ -60,12 +60,10 @@ class Peer {
   final Map<String, dynamic> _iceServers = {
     'iceServers': [
       {
-        'url': DefaultConfig.defaultStun,
-        'username': DefaultConfig.username,
-        'credential': DefaultConfig.password,
-      },
-      {
-        'url': DefaultConfig.defaultTurn,
+        'urls': [
+          DefaultConfig.defaultStun,
+          DefaultConfig.defaultTurn,
+        ],
         'username': DefaultConfig.username,
         'credential': DefaultConfig.password,
       },
