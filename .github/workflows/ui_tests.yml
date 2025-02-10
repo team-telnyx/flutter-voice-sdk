@@ -12,11 +12,18 @@ jobs:
       # 1) Check out repo
       - uses: actions/checkout@v3
 
-      # 2) Create google-services.json if you have it in a secret
+      # 2a) Create google-services.json if you have it in a secret
       - name: Create google-services.json
         run: |
           cat <<EOF > android/app/google-services.json
           ${{ secrets.GOOGLE_SERVICES_JSON }}
+          EOF
+
+      # 2b) Create firebase-options.dart if you have it in a secret
+      - name: Create firebase-options.dart
+        run: |
+          cat <<EOF > lib/firebase_options.dart
+          ${{ secrets.FIREBASE_OPTIONS_DART }}
           EOF
 
       # 3) Install Flutter
