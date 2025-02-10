@@ -12,6 +12,9 @@ void main() {
     ($) async {
       // 1. Start the app using Patrol
       await $.pumpWidgetAndSettle(const MyApp());
+
+      // Wait for app to launch and grand permission
+      await Future.delayed(const Duration(seconds: 3));
       await $.native.grantPermissionWhenInUse();
 
       // 2. Open the bottom sheet by pressing "Switch Profile"
