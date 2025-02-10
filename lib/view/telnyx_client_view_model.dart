@@ -263,6 +263,8 @@ class TelnyxClientViewModel with ChangeNotifier {
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 1,
+          backgroundColor: telnyx_green,
+          textColor: Colors.white,
         );
         switch (error.errorCode) {
           case -32000:
@@ -542,6 +544,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         gravity: ToastGravity.BOTTOM,
         timeInSecForIosWeb: 1,
         backgroundColor: telnyx_green,
+        textColor: Colors.white,
       );
       return;
     }
