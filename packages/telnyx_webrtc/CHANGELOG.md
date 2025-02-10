@@ -1,3 +1,10 @@
+## [1.0.1](https://pub.dev/packages/telnyx_webrtc/versions/1.0.0) (2025-02-10)
+
+### Bug Fixing
+
+- Fixed an issue where running stats on calls could cause a call to end if the description was not set.
+- Fixed the web version of the SDK that was having issues working on Safari. 
+
 ## [1.0.0](https://pub.dev/packages/telnyx_webrtc/versions/1.0.0) (2025-01-29)
 
 ### Enhancement - Breaking Changes
