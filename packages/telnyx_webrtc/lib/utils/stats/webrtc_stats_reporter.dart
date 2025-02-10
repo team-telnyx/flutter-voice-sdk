@@ -131,20 +131,34 @@ class WebRTCStatsReporter {
         );
       }
       ..onSignalingState = (RTCSignalingState signalingState) async {
-        final localSdp = await peerConnection.getLocalDescription();
-        final remoteSdp = await peerConnection.getRemoteDescription();
+        RTCSessionDescription? localSdp;
+        RTCSessionDescription? remoteSdp;
+
+        try {
+          localSdp = await peerConnection.getLocalDescription();
+          remoteSdp = await peerConnection.getRemoteDescription();
+        } catch (e) {
+          _logger.e('Error retrieving descriptions for Signaling State Stats: $e');
+        }
+
+        // If both are null, just skip
+        if (localSdp == null && remoteSdp == null) {
+          return;
+        }
 
         final description = {
           'signalingState':
               StatParsingHelpers().parseSignalingStateChange(signalingState),
-          'remoteDescription': {
-            'type': remoteSdp?.type,
-            'sdp': remoteSdp?.sdp,
-          },
-          'localDescription': {
-            'type': localSdp?.type,
-            'sdp': localSdp?.sdp,
-          },
+          if (remoteSdp != null)
+            'remoteDescription': {
+              'type': remoteSdp.type,
+              'sdp': remoteSdp.sdp,
+            },
+          if (localSdp != null)
+            'localDescription': {
+              'type': localSdp.type,
+              'sdp': localSdp.sdp,
+            },
         };
 
         _sendDebugReportData(
