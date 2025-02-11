@@ -451,7 +451,7 @@ class TelnyxClientViewModel with ChangeNotifier {
           headers: <String, dynamic>{'platform': 'flutter'},
         );
 
-        _callState = CallStateStatus.ongoingCall;
+        _callState = CallStateStatus.connectingToCall;
         notifyListeners();
 
         // Hide notification when call is accepted

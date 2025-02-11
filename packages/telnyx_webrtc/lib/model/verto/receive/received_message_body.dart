@@ -35,7 +35,7 @@ class ReceivedMessage {
         ? ReattachedParams.fromJson(json['params'])
         : null;
     stateParams =
-    json['params'] != null ? StateParams.fromJson(json['params']) : null;
+        json['params'] != null ? StateParams.fromJson(json['params']) : null;
     inviteParams = json['params'] != null
         ? IncomingInviteParams.fromJson(json['params'])
         : null;
@@ -93,7 +93,7 @@ class ReceivedResult {
     jsonrpc = json['jsonrpc'];
     id = json['id'];
     resultParams =
-    json['result'] != null ? ResultParams.fromJson(json['result']) : null;
+        json['result'] != null ? ResultParams.fromJson(json['result']) : null;
     sessId = json['sessid'];
     error = json['error'] != null
         ? TelnyxSocketError.fromJson(json['error'])
@@ -152,7 +152,7 @@ class ResultParams {
 
   ResultParams.fromJson(Map<String, dynamic> json) {
     stateParams =
-    json['params'] != null ? StateParams.fromJson(json['params']) : null;
+        json['params'] != null ? StateParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -306,5 +306,47 @@ class Variables {
     data['Event-Calling-Line-Number'] = eventCallingLineNumber;
     data['Event-Sequence'] = eventSequence;
     return data;
+  }
+}
+
+class CallActiveMessage {
+  final String id;
+  final String jsonrpc;
+  final String voiceSdkId;
+  final String sessid;
+
+  CallActiveMessage({
+    required this.id,
+    required this.jsonrpc,
+    required this.voiceSdkId,
+    required this.sessid,
+  });
+
+  /// Returns `null` if the [json] does not match the structure
+  static CallActiveMessage? tryParse(Map<String, dynamic> json) {
+    try {
+      // 1. Must contain 'id' & 'voice_sdk_id' *as strings*
+      if (json['id'] is! String) return null;
+      if (json['voice_sdk_id'] is! String) return null;
+
+      // 2. Must contain 'jsonrpc' with value '2.0'
+      if (json['jsonrpc'] != '2.0') return null;
+
+      // 3. Must contain `result` which itself is a map with 'sessid' (string).
+      final result = json['result'];
+      if (result is! Map) return null;
+      if (result['sessid'] is! String) return null;
+
+      // If everything checks out, build the object.
+      return CallActiveMessage(
+        id: json['id'] as String,
+        jsonrpc: json['jsonrpc'] as String,
+        voiceSdkId: json['voice_sdk_id'] as String,
+        sessid: result['sessid'] as String,
+      );
+    } catch (e) {
+      // If anything throws or is missing, return null
+      return null;
+    }
   }
 }
