@@ -699,31 +699,6 @@ class TelnyxClient {
           }
         }
 
-
-        // Attempt to parse JSON
-        late Map<String, dynamic> messageJson;
-        try {
-          messageJson = jsonDecode(data?.toString().trim() ?? '') as Map<String, dynamic>;
-        } on FormatException catch (_) {
-          _logger.e('Failed to parse message as valid JSON');
-          return;
-        }
-
-        final callActive = CallActiveMessage.tryParse(messageJson);
-        if (callActive != null) {
-          // When a call is active (meaning audio is actually passing through the call) we receive a message like so:
-          // {"id":"d9becab3-8f57-498d-b1fa-41f8c2744997","jsonrpc":"2.0","result":{"sessid":"76085ff4-4431-4ad3-9856-ea18e0c998d3"},"voice_sdk_id":"VSDK1Cu_OUTpaj4yDwSROTFST5nO1r2nh1A"}
-          // Prior to this call state should be 'Connecting'
-          // After this call state should be 'Active'
-          _logger.i('Received Call Active Message');
-          final call = calls.isNotEmpty ? calls.values.last : null;
-          if (call != null) {
-            call.callHandler.changeState(CallState.active, call);
-          }
-        }
-
-
-
         //Login success
         if (data.toString().trim().contains('result')) {
           final paramJson = jsonEncode(data.toString());
