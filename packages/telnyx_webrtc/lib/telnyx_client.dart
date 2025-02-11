@@ -901,7 +901,7 @@ class TelnyxClient {
                 onSocketMessageReceived.call(message);
 
                 offerCall.callHandler
-                    .changeState(CallState.connecting, offerCall);
+                    .changeState(CallState.ringing, offerCall);
                 if (!_pendingAnswerFromPush) {
                   offerCall.playRingtone(ringtonePath);
                   offerCall.callHandler
