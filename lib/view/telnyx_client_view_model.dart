@@ -347,9 +347,13 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void loginWithToken(TokenConfig tokenConfig) {
+    _loggingIn = true;
+    notifyListeners();
+
     _localName = tokenConfig.sipCallerIDName;
     _localNumber = tokenConfig.sipCallerIDNumber;
     _telnyxClient.connectWithToken(tokenConfig);
+    observeResponses();
   }
 
   void call(String destination) {
