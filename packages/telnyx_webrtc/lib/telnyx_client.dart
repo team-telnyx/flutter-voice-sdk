@@ -915,7 +915,7 @@ class TelnyxClient {
                   );
                   _pendingAnswerFromPush = false;
                   offerCall.callHandler
-                      .changeState(CallState.ringing, offerCall);
+                      .changeState(CallState.connecting, offerCall);
                 }
                 if (_pendingDeclineFromPush) {
                   offerCall.endCall();
