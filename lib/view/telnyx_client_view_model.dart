@@ -106,6 +106,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void updateCallFromPush(bool value) {
+    callState = CallStateStatus.connectingToCall;
     callFromPush = value;
     notifyListeners();
   }
@@ -123,6 +124,10 @@ class TelnyxClientViewModel with ChangeNotifier {
           notifyListeners();
           break;
         case CallState.ringing:
+          if (_callState == CallStateStatus.connectingToCall) {
+            // Ringing state as a result of an invitation after a push notification reaction - ignore invitation as we should be connecting and auto answering
+            return;
+          }
           _callState = CallStateStatus.ongoingInvitation;
           notifyListeners();
           break;
