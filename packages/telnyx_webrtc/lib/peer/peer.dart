@@ -402,6 +402,10 @@ class Peer {
     peerConnection?.onIceConnectionState = (state) {
       _logger.i('Peer :: ICE Connection State change :: $state');
       switch (state) {
+        case RTCIceConnectionState.RTCIceConnectionStateConnected:
+          final Call? currentCall = _txClient.calls[callId];
+          currentCall?.callHandler.changeState(CallState.active, currentCall);
+          onCallStateChange?.call(newSession, CallState.active);
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
           peerConnection?.restartIce();
           return;

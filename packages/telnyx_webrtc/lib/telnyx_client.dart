@@ -168,14 +168,14 @@ class TelnyxClient {
     CredentialConfig? credentialConfig,
     TokenConfig? tokenConfig,
   ) {
-    print(jsonEncode(pushMetaData));
+    _logger.i(jsonEncode(pushMetaData));
     _isCallFromPush = true;
 
     if (pushMetaData.isAnswer == true) {
-      print('_pendingAnswerFromPush true');
+      _logger.i('_pendingAnswerFromPush true');
       _pendingAnswerFromPush = true;
     } else {
-      print('_pendingAnswerFromPush false');
+      _logger.i('_pendingAnswerFromPush false');
     }
 
     if (pushMetaData.isDecline == true) {
@@ -262,7 +262,6 @@ class TelnyxClient {
         _logger.i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
-        print('Connecting to WebSocket :: ${txSocket.hostAddress}');
       } else {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
@@ -345,7 +344,6 @@ class TelnyxClient {
         _logger.i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
-        print('Connecting to WebSocket :: ${txSocket.hostAddress}');
       } else {
         txSocket.hostAddress = _storedHostAddress;
         _logger.i('connecting to WebSocket $_storedHostAddress');
@@ -586,7 +584,7 @@ class TelnyxClient {
       ..callId = invite.callID
       ..sessionCallerName = callerName
       ..sessionCallerNumber = callerNumber
-      ..callState = CallState.active
+      ..callState = CallState.connecting
       ..sessionDestinationNumber = invite.callerIdNumber ?? '-1'
       ..sessionClientState = clientState;
 
@@ -603,7 +601,7 @@ class TelnyxClient {
       customHeaders,
       isAttach,
     );
-    answerCall.callHandler.changeState(CallState.active, answerCall);
+    answerCall.callHandler.changeState(CallState.connecting, answerCall);
     answerCall.stopAudio();
     if (answerCall.callId != null) {
       updateCall(answerCall);
@@ -754,7 +752,7 @@ class TelnyxClient {
                           ),
                           jsonrpc: '2.0',
                         );
-                        print(
+                        _logger.i(
                           'attachCallMessage :: ${attachCallMessage.toJson()}',
                         );
                         txSocket.send(jsonEncode(attachCallMessage));
@@ -806,7 +804,6 @@ class TelnyxClient {
                   }
                 default:
                   {
-                    //ToDo(Oli): messaging has changed, we need to look at this again so that we don't get a bunch of default cases for some messages
                     _logger.i(
                       '$stateMessage',
                     );
@@ -904,7 +901,7 @@ class TelnyxClient {
                 onSocketMessageReceived.call(message);
 
                 offerCall.callHandler
-                    .changeState(CallState.connecting, offerCall);
+                    .changeState(CallState.ringing, offerCall);
                 if (!_pendingAnswerFromPush) {
                   offerCall.playRingtone(ringtonePath);
                   offerCall.callHandler
@@ -918,7 +915,7 @@ class TelnyxClient {
                   );
                   _pendingAnswerFromPush = false;
                   offerCall.callHandler
-                      .changeState(CallState.active, offerCall);
+                      .changeState(CallState.connecting, offerCall);
                 }
                 if (_pendingDeclineFromPush) {
                   offerCall.endCall();
