@@ -1,4 +1,10 @@
-## [1.0.1](https://pub.dev/packages/telnyx_webrtc/versions/1.0.0) (2025-02-10)
+## [1.0.2](https://pub.dev/packages/telnyx_webrtc/versions/1.0.2) (2025-02-14)
+
+### Bug Fixing
+
+- Fixed an issue where the call states were not being updated correctly, identifying a call as active when it was still connecting (ICE Gathering). This caused a scenario where users thought a call was active but couldn't hear anything. 
+
+## [1.0.1](https://pub.dev/packages/telnyx_webrtc/versions/1.0.1) (2025-02-10)
 
 ### Bug Fixing
 
