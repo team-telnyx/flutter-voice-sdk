@@ -28,6 +28,8 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
+
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -603,7 +605,40 @@ class TelnyxClient {
     }
   }
 
-  // Creates an invitation to send to a [destinationNumber] or SIP Destination
+  /// Disables push notifications for the current previously authenticated user - either by [CredentialConfig] or [TokenConfig]
+  /// returns : {"jsonrpc":"2.0","id":"","result":{"message":"disable push notification success"}}
+  ///
+  void disablePushNotifications() {
+    final config = _storedCredentialConfig ?? _storedTokenConfig;
+    if (config != null && config.notificationToken != null) {
+      final uuid = const Uuid().v4();
+      final disablePushParams = DisablePushParams(
+        user: config is CredentialConfig ? config.sipUser : null,
+        loginToken: config is TokenConfig ? config.sipToken : null,
+        userVariables: PushUserVariables(
+          pushNotificationToken: config.notificationToken!,
+          pushNotificationProvider:
+              defaultTargetPlatform == TargetPlatform.android
+                  ? 'android'
+                  : 'ios',
+        ),
+      );
+      final disablePushMessage = DisablePushMessage(
+        id: uuid,
+        method: SocketMethod.disablePush,
+        params: disablePushParams,
+        jsonrpc: JsonRPCConstant.jsonrpc,
+      );
+
+      final String jsonDisablePushMessage = jsonEncode(disablePushMessage);
+      txSocket.send(jsonDisablePushMessage);
+    } else {
+      _logger.e(
+          'No user or associated notification token found - we cannot disable push notifications');
+    }
+  }
+
+  /// Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
   Call newInvite(
     String callerName,
