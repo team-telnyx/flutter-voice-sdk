@@ -74,12 +74,12 @@ class MockTelnyxClient extends _i1.Mock implements _i4.TelnyxClient {
       super.noSuchMethod(Invocation.setter(#call, _call),
           returnValueForMissingStub: null);
   @override
-  set storedCredentialConfig(_i7.CredentialConfig? _storedCredentialConfig) =>
+  set _storedCredentialConfig(_i7.CredentialConfig? _storedCredentialConfig) =>
       super.noSuchMethod(
           Invocation.setter(#storedCredentialConfig, _storedCredentialConfig),
           returnValueForMissingStub: null);
   @override
-  set storedTokenConfig(_i7.TokenConfig? _storedTokenConfig) => super
+  set _storedTokenConfig(_i7.TokenConfig? _storedTokenConfig) => super
       .noSuchMethod(Invocation.setter(#storedTokenConfig, _storedTokenConfig),
           returnValueForMissingStub: null);
   @override
