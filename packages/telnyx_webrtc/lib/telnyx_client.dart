@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -18,6 +17,10 @@ import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/constants.dart';
+import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
+import 'package:telnyx_webrtc/utils/logging/default_logger.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/preference_storage.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
@@ -26,22 +29,35 @@ import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
 
+/// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
+
+/// Callback for when the socket receives an error
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
 /// The TelnyxClient class that can be used to control the SDK. Such as connect,
 /// disconnect, check gateway status or create instance of [Call] to make calls.
 class TelnyxClient {
+  /// Callback for when the socket receives a message
   late OnSocketMessageReceived onSocketMessageReceived;
+
+  /// Callback for when the socket receives an error
   late OnSocketErrorReceived onSocketErrorReceived;
-  String ringtonePath = '';
-  String ringBackpath = '';
+
+  /// The path to the ringtone file (audio to play when receiving a call)
+  String _ringtonePath = '';
+
+  /// The path to the ringback file (audio to play when calling)
+  String _ringBackpath = '';
+
+  CustomLogger _logger = DefaultLogger();
+
   PushMetaData? _pushMetaData;
   bool _isAttaching = false;
   bool _debug = false;
 
+  /// Default constructor for the TelnyxClient
   TelnyxClient() {
-    // Default implementation of onSocketMessageReceived
     onSocketMessageReceived = (TelnyxMessage message) {
       switch (message.socketMethod) {
         case SocketMethod.invite:
@@ -68,31 +84,38 @@ class TelnyxClient {
       );
     };
 
-    checkReconnection();
+    _checkReconnection();
   }
 
+  /// The current instance of [TxSocket] associated with this client
   TxSocket txSocket = TxSocket(
     DefaultConfig.socketHostAddress,
   );
+
   bool _closed = false;
   bool _connected = false;
-  final _logger = Logger();
 
   /// The current session ID related to this client
   String sessid = const Uuid().v4();
 
   Timer? _gatewayResponseTimer;
-  bool _autoReconnectLogin = true;
   bool _waitingForReg = true;
   bool _pendingAnswerFromPush = false;
   bool _pendingDeclineFromPush = false;
   bool _isCallFromPush = false;
   bool _registered = false;
   int _registrationRetryCounter = 0;
+
+  bool _autoReconnectLogin = true;
   int _connectRetryCounter = 0;
+
+  /// The current gateway state for the socket connection
   String gatewayState = GatewayState.idle;
+
+  /// The current gateway response time for the socket connection
   Map<String, Call> calls = {};
 
+  /// Calls that are available in the TelnyxClient with the [CallState.active] meaning they are currently being used
   Map<String, Call> activeCalls() {
     return Map.fromEntries(
       calls.entries.where((entry) => entry.value.callState == CallState.active),
@@ -103,8 +126,16 @@ class TelnyxClient {
   bool _earlySDP = false;
 
   final String _storedHostAddress = DefaultConfig.socketHostAddress;
-  CredentialConfig? storedCredentialConfig;
-  TokenConfig? storedTokenConfig;
+
+  CredentialConfig? _storedCredentialConfig;
+
+  TokenConfig? _storedTokenConfig;
+
+  /// The stored [CredentialConfig] for the client - if no stored credential is present, this will be null
+  CredentialConfig? get storedCredential => _storedCredentialConfig;
+
+  /// The stored [TokenConfig] for the client - if no stored token is present, this will be null
+  TokenConfig? get storedToken => _storedTokenConfig;
 
   /// Returns whether or not the client is connected to the socket connection
   bool isConnected() {
@@ -116,7 +147,21 @@ class TelnyxClient {
     return gatewayState;
   }
 
-  void checkReconnection() {
+  /// Set the custom logger for the SDK
+  void setCustomLogger(CustomLogger logger) {
+    _logger = logger;
+    GlobalLogger.logger = logger;
+  }
+
+  /// Set or adjust the log level for the SDK
+  void setLogLevel(LogLevel level) {
+    _logger.setLogLevel(level);
+  }
+
+  /// Get the custom logger for the SDK
+  CustomLogger get logger => _logger;
+
+  void _checkReconnection() {
     // Remember to cancel the subscription when it's no longer needed
     Connectivity()
         .onConnectivityChanged
@@ -191,6 +236,9 @@ class TelnyxClient {
     });
   }
 
+  /// Sets the push metadata for the client and saves it to the shared preferences
+  /// The [isAnswer] flag is used to determine if the push notification indicates that we should answer the pending invite
+  /// The [isDecline] flag is used to determine if the push notification indicates that we should decline the pending invite
   static void setPushMetaData(
     Map<String, dynamic> pushMetaData, {
     bool isAnswer = false,
@@ -202,6 +250,7 @@ class TelnyxClient {
     PreferencesStorage.saveMetadata(jsonEncode(metaData));
   }
 
+  /// Gets the push metadata for the client
   static Future<Map<String, dynamic>?> getPushData() async {
     return await PreferencesStorage.getMetaData();
   }
@@ -251,8 +300,15 @@ class TelnyxClient {
     }
   }
 
+  /// Connects to the WebSocket using the provided [tokenConfig]
   void connectWithToken(TokenConfig tokenConfig) {
+    // First check if there is a custom logger set within the config - if so, we set it here
+    _logger = tokenConfig.customLogger ?? DefaultLogger();
+    GlobalLogger.logger = _logger;
+
+    // Now that a logger is set, we can set the log level
     _logger
+      ..setLogLevel(tokenConfig.logLevel)
       ..i('connect()')
       ..i('connecting to WebSocket $_storedHostAddress');
     try {
@@ -290,8 +346,17 @@ class TelnyxClient {
     }
   }
 
+  /// Connects to the WebSocket using the provided [CredentialConfig]
   void connectWithCredential(CredentialConfig credentialConfig) {
-    _logger.i('connect()');
+    // First check if there is a custom logger set within the config - if so, we set it here
+    // Use custom logger if provided or fallback to default.
+    _logger = credentialConfig.customLogger ?? DefaultLogger();
+    GlobalLogger.logger = _logger;
+
+    // Now that a logger is set, we can set the log level
+    _logger
+      ..setLogLevel(credentialConfig.logLevel)
+      ..i('connect()');
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
@@ -330,6 +395,8 @@ class TelnyxClient {
   @Deprecated(
     'Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)',
   )
+
+  /// Connects to the WebSocket with a previously provided [Config]
   void connect() {
     _logger.i('connect()');
     if (isConnected()) {
@@ -380,10 +447,10 @@ class TelnyxClient {
     txSocket.close();
     // Delay to allow connection
     Timer(const Duration(seconds: 1), () {
-      if (storedCredentialConfig != null) {
-        connectWithCredential(storedCredentialConfig!);
-      } else if (storedTokenConfig != null) {
-        connectWithToken(storedTokenConfig!);
+      if (_storedCredentialConfig != null) {
+        connectWithCredential(_storedCredentialConfig!);
+      } else if (_storedTokenConfig != null) {
+        connectWithToken(_storedTokenConfig!);
       }
     });
   }
@@ -396,6 +463,8 @@ class TelnyxClient {
   @Deprecated(
     'telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()',
   )
+
+  /// The current instance of [Call] associated with this client. Can be used
   Call get call {
     // If _call is null, initialize it with the default value.
     _call ??= _createCall();
@@ -416,8 +485,8 @@ class TelnyxClient {
       txSocket,
       this,
       sessid,
-      ringtonePath,
-      ringBackpath,
+      _ringtonePath,
+      _ringBackpath,
       CallHandler((state) {
         _logger.i('Call state not overridden :Call State Changed to $state');
       }),
@@ -433,13 +502,13 @@ class TelnyxClient {
   /// May return a [TelnyxSocketError] in the case of an authentication error
   @Deprecated('Use connectWithCredential(..) instead')
   void credentialLogin(CredentialConfig config) {
-    storedCredentialConfig = config;
+    _storedCredentialConfig = config;
     final uuid = const Uuid().v4();
     final user = config.sipUser;
     final password = config.sipPassword;
     final fcmToken = config.notificationToken;
-    ringBackpath = config.ringbackPath ?? '';
-    ringtonePath = config.ringTonePath ?? '';
+    _ringBackpath = config.ringbackPath ?? '';
+    _ringtonePath = config.ringTonePath ?? '';
     _debug = config.debug;
     UserVariables? notificationParams;
     _autoReconnectLogin = config.autoReconnect ?? true;
@@ -487,12 +556,12 @@ class TelnyxClient {
   /// May return a [TelnyxSocketError] in the case of an authentication error
   @Deprecated('Use connectWithToken(..) instead')
   void tokenLogin(TokenConfig config) {
-    storedTokenConfig = config;
+    _storedTokenConfig = config;
     final uuid = const Uuid().v4();
     final token = config.sipToken;
     final fcmToken = config.notificationToken;
-    ringBackpath = config.ringbackPath ?? '';
-    ringtonePath = config.ringTonePath ?? '';
+    _ringBackpath = config.ringbackPath ?? '';
+    _ringtonePath = config.ringTonePath ?? '';
     _debug = config.debug;
     UserVariables? notificationParams;
     _autoReconnectLogin = config.autoReconnect ?? true;
@@ -565,7 +634,7 @@ class TelnyxClient {
     );
 
     //play ringback tone
-    inviteCall.playAudio(ringBackpath);
+    inviteCall.playAudio(_ringBackpath);
     inviteCall.callHandler.changeState(CallState.newCall, inviteCall);
     return inviteCall;
   }
@@ -609,6 +678,7 @@ class TelnyxClient {
     return answerCall;
   }
 
+  /// Provides the current [Call] instance associated with the [callId] otherwise returns null
   Call? getCallOrNull(String callId) {
     if (calls.containsKey(callId)) {
       _logger.d('Invite Call found');
@@ -618,6 +688,7 @@ class TelnyxClient {
     return null;
   }
 
+  /// Update the [Call] instance associated with the [callId]
   void updateCall(Call call) {
     if (calls.containsKey(call.callId)) {
       calls[call.callId!] = call;
@@ -900,10 +971,9 @@ class TelnyxClient {
 
                 onSocketMessageReceived.call(message);
 
-                offerCall.callHandler
-                    .changeState(CallState.ringing, offerCall);
+                offerCall.callHandler.changeState(CallState.ringing, offerCall);
                 if (!_pendingAnswerFromPush) {
-                  offerCall.playRingtone(ringtonePath);
+                  offerCall.playRingtone(_ringtonePath);
                   offerCall.callHandler
                       .changeState(CallState.ringing, offerCall);
                 } else {
