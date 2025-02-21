@@ -568,4 +568,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i('Log Contents :: $logContents');
     //ToDo: Implement log export
   }
+
+  void disablePushNotifications() {
+    _telnyxClient.disablePushNotifications();
+  }
 }

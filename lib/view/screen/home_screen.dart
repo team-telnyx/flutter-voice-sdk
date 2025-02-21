@@ -43,6 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Export Logs':
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
+      case 'Disable Push Notifications':
+        Provider.of<TelnyxClientViewModel>(context, listen: false).disablePushNotifications();
+        break;
     }
   }
 
@@ -60,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Logout', 'Export Logs'}.map((String choice) {
+                return {'Logout', 'Export Logs', 'Disable Push Notifications'}.map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
