@@ -99,8 +99,8 @@ var config = CredentialConfig(
   sipUser: 'username',
   sipPassword: 'password',
   sipCallerIDName: 'Caller Name',
-  sipCallerIDNumber: '1234567890',
-  debug: true,  // Enable logging
+  sipCallerIDNumber: '1234567890', 
+   debug: true,  // Enable debug mode which allows you to track call metrics and download them from the portal - this is different to the log level and custom logger
   logLevel: LogLevel.debug,  // Set log level
   customLogger: MyCustomLogger(),  // Optional: provide custom logger
 );
