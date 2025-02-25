@@ -77,19 +77,10 @@ You can implement your own logging solution by extending the `CustomLogger` abst
 ```dart
 class MyCustomLogger extends CustomLogger {
   @override
-  void e(String message) => print('ERROR: $message');
-  
-  @override
-  void w(String message) => print('WARNING: $message');
-  
-  @override
-  void d(String message) => print('DEBUG: $message');
-  
-  @override
-  void i(String message) => print('INFO: $message');
-  
-  @override
-  void v(String message) => print('VERTO: $message');
+  log(LogLevel level, String message) {
+    print('[$level] $message');
+    // Implement any extra logging logic you would like here (eg. Send to a server, write to a file, etc.)
+  }
 }
 ```
 
