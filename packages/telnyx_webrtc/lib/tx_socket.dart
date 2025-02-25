@@ -1,24 +1,32 @@
 import 'dart:io';
-import 'package:logger/logger.dart';
 
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+
+/// Message callback for when a message is received
 typedef OnMessageCallback = void Function(dynamic msg);
+
+/// Close callback for when the connection is closed
 typedef OnCloseCallback = void Function(int code, String reason);
+
+/// Open callback for when the connection is opened
 typedef OnOpenCallback = void Function();
 
+/// TxSocket class to handle the WebSocket connection
 class TxSocket {
+  /// Default constructor that initializes the host address and logger
   TxSocket(this.hostAddress);
 
   String hostAddress;
-  final _logger = Logger();
 
   late WebSocket _socket;
   late OnOpenCallback onOpen;
   late OnMessageCallback onMessage;
   late OnCloseCallback onClose;
 
+  /// Connect to the WebSocket server
   void connect() async {
     try {
-      _logger.i('TxSocket :: connect : $hostAddress');
+      GlobalLogger.logger.i('TxSocket :: connect : $hostAddress');
 
       _socket = await WebSocket.connect(hostAddress);
       _socket
@@ -41,11 +49,13 @@ class TxSocket {
     }
   }
 
+  /// Send data to the WebSocket server
   void send(dynamic data) {
     _socket.add(data);
-    _logger.i('TxSocket :: send : \n\n$data');
+    GlobalLogger.logger.i('TxSocket :: send : \n\n$data');
   }
 
+  /// Close the WebSocket connection
   void close() {
     _socket.close();
   }
