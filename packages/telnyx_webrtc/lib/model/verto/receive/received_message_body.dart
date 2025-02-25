@@ -47,7 +47,7 @@ class ReceivedMessage {
     }
     if (json['voice_sdk_id'] != null) {
       voiceSdkId = json['voice_sdk_id'];
-      GlobalLogger.logger.i('Voice SDK ID: $voiceSdkId');
+      GlobalLogger().i('Voice SDK ID: $voiceSdkId');
     }
   }
 

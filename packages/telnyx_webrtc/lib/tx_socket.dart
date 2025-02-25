@@ -26,7 +26,7 @@ class TxSocket {
   /// Connect to the WebSocket server
   void connect() async {
     try {
-      GlobalLogger.logger.i('TxSocket :: connect : $hostAddress');
+      GlobalLogger().i('TxSocket :: connect : $hostAddress');
 
       _socket = await WebSocket.connect(hostAddress);
       _socket
@@ -52,7 +52,7 @@ class TxSocket {
   /// Send data to the WebSocket server
   void send(dynamic data) {
     _socket.add(data);
-    GlobalLogger.logger.i('TxSocket :: send : \n\n$data');
+    GlobalLogger().i('TxSocket :: send : \n\n$data');
   }
 
   /// Close the WebSocket connection

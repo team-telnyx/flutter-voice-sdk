@@ -8,53 +8,17 @@ class DefaultLogger implements CustomLogger {
   LogLevel _logLevel = LogLevel.info;
 
   @override
-  void d(String message) {
-    if (_logLevel.index <= LogLevel.debug.index) {
-      if (kDebugMode) {
-        print('DEBUG: $message');
-      }
-    }
-  }
-
-  @override
-  void e(String message) {
-    if (_logLevel.index <= LogLevel.error.index) {
-      if (kDebugMode) {
-        print('ERROR: $message');
-      }
-    }
-  }
-
-  @override
-  void i(String message) {
-    if (_logLevel.index <= LogLevel.info.index) {
-      if (kDebugMode) {
-        print('INFO: $message');
-      }
-    }
-  }
-
-  @override
-  void v(String message) {
-    if (_logLevel.index <= LogLevel.verto.index) {
-      if (kDebugMode) {
-        print('VERTO: $message');
-      }
-    }
-  }
-
-  @override
-  void w(String message) {
-    if (_logLevel.index <= LogLevel.warning.index) {
-      if (kDebugMode) {
-        print('WARNING: $message');
-      }
-    }
-  }
-
-  @override
   void setLogLevel(LogLevel level) {
     _logLevel = level;
+  }
+
+  @override
+  void log(LogLevel level, String message) {
+    if (_logLevel.index <= level.index) {
+      if (kDebugMode) {
+        print('${level.name.toUpperCase()}: $message');
+      }
+    }
   }
 }
 

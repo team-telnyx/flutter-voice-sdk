@@ -30,7 +30,6 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 
-
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 
@@ -64,24 +63,24 @@ class TelnyxClient {
       switch (message.socketMethod) {
         case SocketMethod.invite:
           {
-            _logger.i(
+            GlobalLogger().i(
               'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
             );
             break;
           }
         case SocketMethod.bye:
           {
-            _logger.i(
+            GlobalLogger().i(
               'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
             );
             break;
           }
         default:
-          _logger.i(
+          GlobalLogger().i(
             'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
           );
       }
-      _logger.i(
+      GlobalLogger().i(
         'TelnyxClient :: onSocketMessageReceived  Override this on client side: ${message.message}',
       );
     };
@@ -169,12 +168,12 @@ class TelnyxClient {
         .onConnectivityChanged
         .listen((List<ConnectivityResult> connectivityResult) {
       if (connectivityResult.contains(ConnectivityResult.mobile)) {
-        _logger.i('Mobile network available.');
+        GlobalLogger().i('Mobile network available.');
         if (activeCalls().isNotEmpty && !_isAttaching) {
           _reconnectToSocket();
         } // Mobile network available.
       } else if (connectivityResult.contains(ConnectivityResult.wifi)) {
-        _logger.i('Wi-fi is available.');
+        GlobalLogger().i('Wi-fi is available.');
         if (activeCalls().isNotEmpty && !_isAttaching) {
           _reconnectToSocket();
         }
@@ -182,22 +181,22 @@ class TelnyxClient {
         // Note for Android:
         // When both mobile and Wi-Fi are turned on system will return Wi-Fi only as active network type
       } else if (connectivityResult.contains(ConnectivityResult.ethernet)) {
-        _logger.i('Ethernet connection available.');
+        GlobalLogger().i('Ethernet connection available.');
         // Ethernet connection available.
       } else if (connectivityResult.contains(ConnectivityResult.vpn)) {
         // Vpn connection active.
         // Note for iOS and macOS:
-        _logger.i('Vpn connection active.');
+        GlobalLogger().i('Vpn connection active.');
       } else if (connectivityResult.contains(ConnectivityResult.bluetooth)) {
-        _logger.i('Bluetooth connection available.');
+        GlobalLogger().i('Bluetooth connection available.');
         // Bluetooth connection available.
       } else if (connectivityResult.contains(ConnectivityResult.other)) {
-        _logger.i(
+        GlobalLogger().i(
           'Connected to a network which is not in the above mentioned networks.',
         );
         // Connected to a network which is not in the above mentioned networks.
       } else if (connectivityResult.contains(ConnectivityResult.none)) {
-        _logger.i('No available network types');
+        GlobalLogger().i('No available network types');
         // No available network types
       }
     });
@@ -215,14 +214,14 @@ class TelnyxClient {
     CredentialConfig? credentialConfig,
     TokenConfig? tokenConfig,
   ) {
-    _logger.i(jsonEncode(pushMetaData));
+    GlobalLogger().i(jsonEncode(pushMetaData));
     _isCallFromPush = true;
 
     if (pushMetaData.isAnswer == true) {
-      _logger.i('_pendingAnswerFromPush true');
+      GlobalLogger().i('_pendingAnswerFromPush true');
       _pendingAnswerFromPush = true;
     } else {
-      _logger.i('_pendingAnswerFromPush false');
+      GlobalLogger().i('_pendingAnswerFromPush false');
     }
 
     if (pushMetaData.isDecline == true) {
@@ -263,7 +262,7 @@ class TelnyxClient {
     PushMetaData? pushMetaData,
     OnOpenCallback openCallback,
   ) {
-    _logger.i('connect() ${pushMetaData?.toJson()}');
+    GlobalLogger().i('connect() ${pushMetaData?.toJson()}');
     if (pushMetaData != null) {
       _pushMetaData = pushMetaData;
     }
@@ -271,19 +270,19 @@ class TelnyxClient {
       if (pushMetaData?.voiceSdkId != null) {
         txSocket.hostAddress =
             '$_storedHostAddress?voice_sdk_id=${pushMetaData?.voiceSdkId}';
-        _logger.i(
+        GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voiceSdkId}',
         );
       } else {
         txSocket.hostAddress = _storedHostAddress;
-        _logger.i('connecting to WebSocket $_storedHostAddress');
+        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
       }
       txSocket
         ..connect()
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          _logger.i('Web Socket is now connected');
+          GlobalLogger().i('Web Socket is now connected');
           _onOpen();
           openCallback.call();
         }
@@ -291,14 +290,14 @@ class TelnyxClient {
           _onMessage(data);
         }
         ..onClose = (int closeCode, String closeReason) {
-          _logger.i('Closed [$closeCode, $closeReason]!');
+          GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _connected = false;
           _onClose(true, closeCode, closeReason);
         };
     } catch (e, string) {
-      _logger.e('${e.toString()} :: $string');
+      GlobalLogger().e('${e.toString()} :: $string');
       _connected = false;
-      _logger.e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
     }
   }
 
@@ -311,24 +310,24 @@ class TelnyxClient {
     // Now that a logger is set, we can set the log level
     _logger
       ..setLogLevel(tokenConfig.logLevel)
-      ..i('connect()')
-      ..i('connecting to WebSocket $_storedHostAddress');
+      ..log(LogLevel.info, 'connect()')
+      ..log(LogLevel.info, 'connecting to WebSocket $_storedHostAddress');
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
             '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
-        _logger.i(
+        GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
       } else {
         txSocket.hostAddress = _storedHostAddress;
-        _logger.i('connecting to WebSocket $_storedHostAddress');
+        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
       }
       txSocket
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          _logger.i('Web Socket is now connected');
+          GlobalLogger().i('Web Socket is now connected');
           _onOpen();
           tokenLogin(tokenConfig);
         }
@@ -336,15 +335,15 @@ class TelnyxClient {
           _onMessage(data);
         }
         ..onClose = (int closeCode, String closeReason) {
-          _logger.i('Closed [$closeCode, $closeReason]!');
+          GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _connected = false;
           _onClose(true, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
-      _logger.e(e.toString());
+      GlobalLogger().e(e.toString());
       _connected = false;
-      _logger.e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
     }
   }
 
@@ -358,23 +357,23 @@ class TelnyxClient {
     // Now that a logger is set, we can set the log level
     _logger
       ..setLogLevel(credentialConfig.logLevel)
-      ..i('connect()');
+      ..log(LogLevel.info, 'connect()');
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
             '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
-        _logger.i(
+        GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
       } else {
         txSocket.hostAddress = _storedHostAddress;
-        _logger.i('connecting to WebSocket $_storedHostAddress');
+        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
       }
       txSocket
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          _logger.i('Web Socket is now connected');
+          GlobalLogger().i('Web Socket is now connected');
           _onOpen();
           credentialLogin(credentialConfig);
         }
@@ -382,15 +381,15 @@ class TelnyxClient {
           _onMessage(data);
         }
         ..onClose = (int closeCode, String closeReason) {
-          _logger.i('Closed [$closeCode, $closeReason]!');
+          GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _connected = false;
           _onClose(true, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
-      _logger.e(e.toString());
+      GlobalLogger().e(e.toString());
       _connected = false;
-      _logger.e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
     }
   }
 
@@ -400,43 +399,43 @@ class TelnyxClient {
 
   /// Connects to the WebSocket with a previously provided [Config]
   void connect() {
-    _logger.i('connect()');
+    GlobalLogger().i('connect()');
     if (isConnected()) {
-      _logger.i('WebSocket $_storedHostAddress is already connected');
+      GlobalLogger().i('WebSocket $_storedHostAddress is already connected');
       return;
     }
-    _logger.i('connecting to WebSocket $_storedHostAddress');
+    GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
             '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
-        _logger.i(
+        GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
       } else {
         txSocket.hostAddress = _storedHostAddress;
-        _logger.i('connecting to WebSocket $_storedHostAddress');
+        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
       }
       txSocket
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          _logger.i('Web Socket is now connected');
+          GlobalLogger().i('Web Socket is now connected');
           _onOpen();
         }
         ..onMessage = (dynamic data) {
           _onMessage(data);
         }
         ..onClose = (int closeCode, String closeReason) {
-          _logger.i('Closed [$closeCode, $closeReason]!');
+          GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _connected = false;
           _onClose(true, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
-      _logger.e(e.toString());
+      GlobalLogger().e(e.toString());
       _connected = false;
-      _logger.e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
     }
   }
 
@@ -474,7 +473,7 @@ class TelnyxClient {
   }
 
   void _callEnded() {
-    _logger.i('Call Ended');
+    GlobalLogger().i('Call Ended');
     _call = null;
   }
 
@@ -490,7 +489,8 @@ class TelnyxClient {
       _ringtonePath,
       _ringBackpath,
       CallHandler((state) {
-        _logger.i('Call state not overridden :Call State Changed to $state');
+        GlobalLogger()
+            .i('Call state not overridden :Call State Changed to $state');
       }),
       _callEnded,
       _debug,
@@ -595,7 +595,7 @@ class TelnyxClient {
     );
 
     final String jsonLoginMessage = jsonEncode(loginMessage);
-    _logger.i('Token Login Message $jsonLoginMessage');
+    GlobalLogger().i('Token Login Message $jsonLoginMessage');
     if (isConnected()) {
       txSocket.send(jsonLoginMessage);
     } else {
@@ -633,8 +633,9 @@ class TelnyxClient {
       final String jsonDisablePushMessage = jsonEncode(disablePushMessage);
       txSocket.send(jsonDisablePushMessage);
     } else {
-      _logger.e(
-          'No user or associated notification token found - we cannot disable push notifications');
+      GlobalLogger().e(
+        'No user or associated notification token found - we cannot disable push notifications',
+      );
     }
   }
 
@@ -716,10 +717,10 @@ class TelnyxClient {
   /// Provides the current [Call] instance associated with the [callId] otherwise returns null
   Call? getCallOrNull(String callId) {
     if (calls.containsKey(callId)) {
-      _logger.d('Invite Call found');
+      GlobalLogger().d('Invite Call found');
       return calls[callId];
     }
-    _logger.d('Invite Call not found');
+    GlobalLogger().d('Invite Call not found');
     return null;
   }
 
@@ -736,9 +737,9 @@ class TelnyxClient {
   void disconnectWithCallBack(OnCloseCallback? closeCallback) {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
-    _logger.i('disconnect()');
+    GlobalLogger().i('disconnect()');
     if (_closed) {
-      _logger.i('WebSocket is already closed');
+      GlobalLogger().i('WebSocket is already closed');
       closeCallback?.call(0, 'Client send disconnect');
       return;
     }
@@ -752,7 +753,7 @@ class TelnyxClient {
         closeCallback?.call(0, 'Client send disconnect');
       });
     } catch (error) {
-      _logger.e('close() | error closing the WebSocket: $error');
+      GlobalLogger().e('close() | error closing the WebSocket: $error');
     }
   }
 
@@ -760,7 +761,7 @@ class TelnyxClient {
   void disconnect() {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
-    _logger.i('disconnect()');
+    GlobalLogger().i('disconnect()');
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
     _closed = true;
@@ -770,46 +771,51 @@ class TelnyxClient {
     try {
       txSocket.close();
     } catch (error) {
-      _logger.e('close() | error closing the WebSocket: $error');
+      GlobalLogger().e('close() | error closing the WebSocket: $error');
     }
   }
 
   /// WebSocket Event Handlers
   void _onOpen() {
-    _logger.i('WebSocket connected');
+    GlobalLogger().i('WebSocket connected');
   }
 
   void _onClose(bool wasClean, int code, String reason) {
-    _logger.i('WebSocket closed');
+    GlobalLogger().i('WebSocket closed');
     if (wasClean == false) {
-      _logger.i('WebSocket abrupt disconnection');
+      GlobalLogger().i('WebSocket abrupt disconnection');
     }
   }
 
   void _onMessage(dynamic data) async {
-    _logger.i('DEBUG MESSAGE: ${data.toString().trim()}');
+    GlobalLogger().i('DEBUG MESSAGE: ${data.toString().trim()}');
 
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
-        _logger.i('Received WebSocket message :: ${data.toString().trim()}');
+        GlobalLogger()
+            .i('Received WebSocket message :: ${data.toString().trim()}');
         if (data.toString().trim().contains('error')) {
           final errorJson = jsonEncode(data.toString());
-          _logger
-              .i('Received WebSocket message - Contains Error :: $errorJson');
+          _logger.log(
+            LogLevel.info,
+            'Received WebSocket message - Contains Error :: $errorJson',
+          );
           try {
             final ReceivedResult errorResult =
                 ReceivedResult.fromJson(jsonDecode(data.toString()));
             onSocketErrorReceived.call(errorResult.error!);
           } on Exception catch (e) {
-            _logger.e('Error parsing JSON: $e');
+            GlobalLogger().e('Error parsing JSON: $e');
           }
         }
 
         //Login success
         if (data.toString().trim().contains('result')) {
           final paramJson = jsonEncode(data.toString());
-          _logger
-              .i('Received WebSocket message - Contains Result :: $paramJson');
+          _logger.log(
+            LogLevel.info,
+            'Received WebSocket message - Contains Result :: $paramJson',
+          );
 
           try {
             final ReceivedResult stateMessage =
@@ -826,7 +832,7 @@ class TelnyxClient {
                 case GatewayState.reged:
                   {
                     if (!_registered) {
-                      _logger.i(
+                      GlobalLogger().i(
                         'GATEWAY REGISTERED :: ${stateMessage.toString()}',
                       );
                       _invalidateGatewayResponseTimer();
@@ -858,7 +864,7 @@ class TelnyxClient {
                           ),
                           jsonrpc: '2.0',
                         );
-                        _logger.i(
+                        GlobalLogger().i(
                           'attachCallMessage :: ${attachCallMessage.toJson()}',
                         );
                         txSocket.send(jsonEncode(attachCallMessage));
@@ -870,7 +876,7 @@ class TelnyxClient {
                   }
                 case GatewayState.failed:
                   {
-                    _logger.i(
+                    GlobalLogger().i(
                       'GATEWAY REGISTRATION FAILED :: ${stateMessage.toString()}',
                     );
                     gatewayState = GatewayState.failed;
@@ -884,20 +890,23 @@ class TelnyxClient {
                   }
                 case GatewayState.unreged:
                   {
-                    _logger.i('GATEWAY UNREGED :: ${stateMessage.toString()}');
+                    GlobalLogger()
+                        .i('GATEWAY UNREGED :: ${stateMessage.toString()}');
                     gatewayState = GatewayState.unreged;
                     break;
                   }
                 case GatewayState.register:
                   {
-                    _logger
-                        .i('GATEWAY REGISTERING :: ${stateMessage.toString()}');
+                    _logger.log(
+                      LogLevel.info,
+                      'GATEWAY REGISTERING :: ${stateMessage.toString()}',
+                    );
                     gatewayState = GatewayState.register;
                     break;
                   }
                 case GatewayState.unregister:
                   {
-                    _logger.i(
+                    GlobalLogger().i(
                       'GATEWAY UNREGISTERED :: ${stateMessage.toString()}',
                     );
                     gatewayState = GatewayState.unregister;
@@ -905,19 +914,20 @@ class TelnyxClient {
                   }
                 case GatewayState.attached:
                   {
-                    _logger.i('GATEWAY ATTACHED :: ${stateMessage.toString()}');
+                    GlobalLogger()
+                        .i('GATEWAY ATTACHED :: ${stateMessage.toString()}');
                     break;
                   }
                 default:
                   {
-                    _logger.i(
+                    GlobalLogger().i(
                       '$stateMessage',
                     );
                   }
               }
             }
           } on Exception catch (e) {
-            _logger.e('Error parsing JSON: $e');
+            GlobalLogger().e('Error parsing JSON: $e');
           }
         } else if (data.toString().trim().contains('method')) {
           //Received Telnyx Method Message
@@ -926,16 +936,16 @@ class TelnyxClient {
           final ReceivedMessage clientReadyMessage =
               ReceivedMessage.fromJson(jsonDecode(data.toString()));
           if (clientReadyMessage.voiceSdkId != null) {
-            _logger.i('VoiceSdkID :: ${clientReadyMessage.voiceSdkId}');
+            GlobalLogger().i('VoiceSdkID :: ${clientReadyMessage.voiceSdkId}');
             _pushMetaData = PushMetaData(
               callerNumber: null,
               callerName: null,
               voiceSdkId: clientReadyMessage.voiceSdkId,
             );
           } else {
-            _logger.e('VoiceSdkID not found');
+            GlobalLogger().e('VoiceSdkID not found');
           }
-          _logger.i(
+          GlobalLogger().i(
             'Received WebSocket message - Contains Method :: $messageJson',
           );
           switch (messageJson['method']) {
@@ -954,7 +964,7 @@ class TelnyxClient {
             case SocketMethod.clientReady:
               {
                 if (gatewayState != GatewayState.reged) {
-                  _logger.i('Retrieving Gateway state...');
+                  GlobalLogger().i('Retrieving Gateway state...');
                   if (_waitingForReg) {
                     _requestGatewayStatus();
                     _gatewayResponseTimer = Timer(
@@ -968,7 +978,7 @@ class TelnyxClient {
                         }
                         _registrationRetryCounter++;
                       } else {
-                        _logger.i('GATEWAY REGISTRATION TIMEOUT');
+                        GlobalLogger().i('GATEWAY REGISTRATION TIMEOUT');
                         final error = TelnyxSocketError(
                           errorCode:
                               TelnyxErrorConstants.gatewayTimeoutErrorCode,
@@ -992,7 +1002,7 @@ class TelnyxClient {
               }
             case SocketMethod.invite:
               {
-                _logger.i('INCOMING INVITATION :: $messageJson');
+                GlobalLogger().i('INCOMING INVITATION :: $messageJson');
                 final ReceivedMessage invite =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 final message = TelnyxMessage(
@@ -1031,7 +1041,7 @@ class TelnyxClient {
               }
             case SocketMethod.attach:
               {
-                _logger.i('ATTACH RECEIVED :: $messageJson');
+                GlobalLogger().i('ATTACH RECEIVED :: $messageJson');
                 final ReceivedMessage invite =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 final message = TelnyxMessage(
@@ -1057,14 +1067,15 @@ class TelnyxClient {
               }
             case SocketMethod.media:
               {
-                _logger.i('MEDIA RECEIVED :: $messageJson');
+                GlobalLogger().i('MEDIA RECEIVED :: $messageJson');
                 final ReceivedMessage mediaReceived =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 if (mediaReceived.inviteParams?.sdp != null) {
                   final Call? mediaCall =
                       calls[mediaReceived.inviteParams?.callID];
                   if (mediaCall == null) {
-                    _logger.d('Error : Call  is null from Media Message');
+                    GlobalLogger()
+                        .d('Error : Call  is null from Media Message');
                     _sendNoCallError();
                     return;
                   }
@@ -1072,19 +1083,19 @@ class TelnyxClient {
                       .onRemoteSessionReceived(mediaReceived.inviteParams?.sdp);
                   _earlySDP = true;
                 } else {
-                  _logger.d('No SDP contained within Media Message');
+                  GlobalLogger().d('No SDP contained within Media Message');
                 }
                 break;
               }
             case SocketMethod.answer:
               {
-                _logger.i('INVITATION ANSWERED :: $messageJson');
+                GlobalLogger().i('INVITATION ANSWERED :: $messageJson');
                 final ReceivedMessage inviteAnswer =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 final Call? answerCall =
                     calls[inviteAnswer.inviteParams?.callID];
                 if (answerCall == null) {
-                  _logger.d('Error : Call  is null from Answer Message');
+                  GlobalLogger().d('Error : Call  is null from Answer Message');
                   _sendNoCallError();
                   return;
                 }
@@ -1103,7 +1114,7 @@ class TelnyxClient {
                 } else if (_earlySDP) {
                   onSocketMessageReceived(message);
                 } else {
-                  _logger.d(
+                  GlobalLogger().d(
                     'No SDP provided for Answer or Media, cannot initialize call',
                   );
                   answerCall.endCall();
@@ -1114,12 +1125,12 @@ class TelnyxClient {
               }
             case SocketMethod.bye:
               {
-                _logger.i('BYE RECEIVED :: $messageJson');
+                GlobalLogger().i('BYE RECEIVED :: $messageJson');
                 final ReceivedMessage bye =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 final Call? byeCall = calls[bye.inviteParams?.callID];
                 if (byeCall == null) {
-                  _logger.d('Error : Call  is null from Bye Message');
+                  GlobalLogger().d('Error : Call  is null from Bye Message');
                   _sendNoCallError();
                   return;
                 }
@@ -1134,17 +1145,18 @@ class TelnyxClient {
               }
             case SocketMethod.ringing:
               {
-                _logger.i('RINGING RECEIVED :: $messageJson');
+                GlobalLogger().i('RINGING RECEIVED :: $messageJson');
                 final ReceivedMessage ringing =
                     ReceivedMessage.fromJson(jsonDecode(data.toString()));
                 final Call? ringingCall = calls[ringing.inviteParams?.callID];
                 if (ringingCall == null) {
-                  _logger.d('Error : Call  is null from Ringing Message');
+                  GlobalLogger()
+                      .d('Error : Call  is null from Ringing Message');
                   _sendNoCallError();
                   return;
                 }
 
-                _logger.i(
+                GlobalLogger().i(
                   'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}',
                 );
                 final message = TelnyxMessage(
@@ -1156,10 +1168,10 @@ class TelnyxClient {
               }
           }
         } else {
-          _logger.i('Received and ignored empty packet');
+          GlobalLogger().i('Received and ignored empty packet');
         }
       } else {
-        _logger.i('Received and ignored empty packet');
+        GlobalLogger().i('Received and ignored empty packet');
       }
     }
   }

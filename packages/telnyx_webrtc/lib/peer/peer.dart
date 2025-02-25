@@ -81,7 +81,7 @@ class Peer {
       final bool enabled = _localStream!.getAudioTracks()[0].enabled;
       _localStream!.getAudioTracks()[0].enabled = !enabled;
     } else {
-      GlobalLogger.logger.d('Peer :: No local stream :: Unable to Mute / Unmute');
+      GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
     }
   }
 
@@ -89,7 +89,7 @@ class Peer {
     if (_localStream != null) {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
     } else {
-      GlobalLogger.logger.d('Peer :: No local stream :: Unable to toggle speaker mode');
+      GlobalLogger().d('Peer :: No local stream :: Unable to toggle speaker mode');
     }
   }
 
@@ -147,7 +147,7 @@ class Peer {
       if (session.remoteCandidates.isNotEmpty) {
         for (var candidate in session.remoteCandidates) {
           if (candidate.candidate != null) {
-            GlobalLogger.logger.i('adding $candidate');
+            GlobalLogger().i('adding $candidate');
             await session.peerConnection?.addCandidate(candidate);
           }
         }
@@ -195,7 +195,7 @@ class Peer {
         _send(jsonInviteMessage);
       });
     } catch (e) {
-      GlobalLogger.logger.e('Peer :: $e');
+      GlobalLogger().e('Peer :: $e');
     }
   }
 
@@ -257,7 +257,7 @@ class Peer {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
-          GlobalLogger.logger.i('Peer :: Add Ice Candidate!');
+          GlobalLogger().i('Peer :: Add Ice Candidate!');
           if (candidate.candidate != null) {
             await session.peerConnection?.addCandidate(candidate);
           }
@@ -310,17 +310,17 @@ class Peer {
         _send(jsonAnswerMessage);
       });
     } catch (e) {
-      GlobalLogger.logger.e('Peer :: $e');
+      GlobalLogger().e('Peer :: $e');
     }
   }
 
   void closeSession() {
     final sess = _sessions[_selfId];
     if (sess != null) {
-      GlobalLogger.logger.i('Session end success');
+      GlobalLogger().i('Session end success');
       _closeSession(sess);
     } else {
-      GlobalLogger.logger.d('Session end failed');
+      GlobalLogger().d('Session end failed');
     }
   }
 
@@ -386,19 +386,19 @@ class Peer {
 
       if (!candidate.candidate.toString().contains('127.0.0.1') ||
           currentCall?.callState != CallState.active) {
-        GlobalLogger.logger.i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
+        GlobalLogger().i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
         await peerConnection?.addCandidate(candidate);
       } else {
-        GlobalLogger.logger.i('Peer :: Local candidate skipped!');
+        GlobalLogger().i('Peer :: Local candidate skipped!');
       }
       if (candidate.candidate == null) {
-        GlobalLogger.logger.i('Peer :: onIceCandidate: complete!');
+        GlobalLogger().i('Peer :: onIceCandidate: complete!');
         return;
       }
     };
 
     peerConnection?.onIceConnectionState = (state) {
-      GlobalLogger.logger.i('Peer :: ICE Connection State change :: $state');
+      GlobalLogger().i('Peer :: ICE Connection State change :: $state');
       switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateConnected:
           final Call? currentCall = _txClient.calls[callId];
@@ -442,14 +442,14 @@ class Peer {
 
   Future<bool> startStats(String callId, String peerId) async {
     if (_debug == false) {
-      GlobalLogger.logger.d(
+      GlobalLogger().d(
         'Peer :: Stats manager will not start. Debug mode not enabled on config',
       );
       return false;
     }
 
     if (peerConnection == null) {
-      GlobalLogger.logger.d('Peer connection null');
+      GlobalLogger().d('Peer connection null');
       return false;
     }
 
@@ -465,7 +465,7 @@ class Peer {
       return;
     }
     _statsManager?.stopStatsReporting();
-    GlobalLogger.logger.i('Peer :: Stats Manager stopped for $callId');
+    GlobalLogger().i('Peer :: Stats Manager stopped for $callId');
   }
 
   void _send(event) {

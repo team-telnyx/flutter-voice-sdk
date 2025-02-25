@@ -11,19 +11,6 @@ abstract class CustomLogger {
     _logLevel = level;
   }
 
-  /// Log a message with the error log level.
-  void e(String message);
-
-  /// Log a message with the warning log level.
-  void w(String message);
-
-  /// Log a message with the debug log level.
-  void d(String message);
-
-  /// Log a message with the info log level.
-  void i(String message);
-
-  /// Log a message with the verto log level. Verto logs are logs related to the Verto protocol.
-  void v(String message);
+  /// Log a message with the specified log level.
+  void log(LogLevel level, String message);
 }
-

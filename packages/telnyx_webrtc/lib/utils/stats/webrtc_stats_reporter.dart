@@ -144,7 +144,7 @@ class WebRTCStatsReporter {
           localSdp = await peerConnection.getLocalDescription();
           remoteSdp = await peerConnection.getRemoteDescription();
         } catch (e) {
-          GlobalLogger.logger.e('Error retrieving descriptions for Signaling State Stats: $e');
+          GlobalLogger().e('Error retrieving descriptions for Signaling State Stats: $e');
         }
 
         // If both are null, just skip
@@ -330,7 +330,7 @@ class WebRTCStatsReporter {
 
           statsObject[report.id] = candidatePair;
         } else {
-          GlobalLogger.logger.w(
+          GlobalLogger().w(
             'Failed to resolve local or remote candidate for candidate-pair ${report.id}',
           );
         }
@@ -362,7 +362,7 @@ class WebRTCStatsReporter {
 
       _enqueueMessage(jsonEncode(message.toJson()));
     } catch (e) {
-      GlobalLogger.logger.e('Error collecting stats: $e');
+      GlobalLogger().e('Error collecting stats: $e');
     }
   }
 

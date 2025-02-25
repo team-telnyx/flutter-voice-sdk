@@ -25,26 +25,47 @@ class CustomSDKLogger implements CustomLogger {
   }
 
   @override
+  void log(LogLevel level, String message) {
+    switch (level) {
+      case LogLevel.error:
+        e(message);
+        break;
+      case LogLevel.warning:
+        w(message);
+        break;
+      case LogLevel.debug:
+        d(message);
+        break;
+      case LogLevel.info:
+        i(message);
+        break;
+      case LogLevel.verto:
+        v(message);
+        break;
+      case LogLevel.all:
+        v(message);
+        break;
+      case LogLevel.none:
+        break;
+    }
+  }
+
   void d(String message) {
     logger.d(message);
   }
 
-  @override
   void e(String message) {
     logger.e(message);
   }
 
-  @override
   void i(String message) {
     logger.i(message);
   }
 
-  @override
   void v(String message) {
     logger.t(message);
   }
 
-  @override
   void w(String message) {
     logger.w(message);
   }
