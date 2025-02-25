@@ -55,6 +55,57 @@ Once an instance is created, you can call the .connect() method to connect to th
     TelnyxClient _telnyxClient = TelnyxClient();
 ```
 
+### Logging Configuration
+The SDK provides a flexible logging system that allows you to control the verbosity of logs and even implement your own custom logging solution. There are two main aspects to configure:
+
+1. **Log Level**
+The `LogLevel` enum determines which types of logs are displayed:
+```dart
+enum LogLevel {
+  none,    // Disable all logs (default)
+  error,   // Print error logs only
+  warning, // Print warning logs only
+  debug,   // Print debug logs only
+  info,    // Print info logs only
+  verto,   // Print verto protocol messages
+  all      // Print all logs
+}
+```
+
+2. **Custom Logger**
+You can implement your own logging solution by extending the `CustomLogger` abstract class:
+```dart
+class MyCustomLogger extends CustomLogger {
+  @override
+  void e(String message) => print('ERROR: $message');
+  
+  @override
+  void w(String message) => print('WARNING: $message');
+  
+  @override
+  void d(String message) => print('DEBUG: $message');
+  
+  @override
+  void i(String message) => print('INFO: $message');
+  
+  @override
+  void v(String message) => print('VERTO: $message');
+}
+```
+
+Both the log level and custom logger can be configured in the `Config` class:
+```dart
+var config = CredentialConfig(
+  sipUser: 'username',
+  sipPassword: 'password',
+  sipCallerIDName: 'Caller Name',
+  sipCallerIDNumber: '1234567890',
+  debug: true,  // Enable logging
+  logLevel: LogLevel.debug,  // Set log level
+  customLogger: MyCustomLogger(),  // Optional: provide custom logger
+);
+```
+
 ### Logging into Telnyx Client
 To log into the Telnyx WebRTC client, you'll need to authenticate using a Telnyx SIP Connection. Follow our [quickstart guide](https://developers.telnyx.com/docs/v2/webrtc/quickstart) to create **JWTs** (JSON Web Tokens) to authenticate. To log in with a token we use the connectWithToken() method. You can also authenticate directly with the SIP Connection `username` and `password` with the connectWithCredential() method:
 
