@@ -26,12 +26,12 @@ typedef CallStateCallback = void Function(CallState state);
 
 class CallHandler {
   late CallStateCallback onCallStateChanged;
+  late Call? call;
 
-  CallHandler(this.onCallStateChanged);
+  CallHandler(this.onCallStateChanged, this.call);
 
-  void changeState(CallState state, Call call) {
-    // You can add any additional logic here before invoking the callback
-    call.callState = state;
+  void changeState(CallState state) {
+    call?.callState = state;
     onCallStateChanged(state);
   }
 }
@@ -72,6 +72,7 @@ class Call {
   String sessionClientState = '';
   Map<String, String> customHeaders = {};
   final _logger = Logger();
+
 
   /// Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
@@ -155,7 +156,7 @@ class Call {
       _logger.d('Session end peer connection null');
     }
     stopAudio();
-    callHandler.changeState(CallState.done, this);
+    callHandler.changeState(CallState.done);
     callEnded();
     _txClient.calls.remove(callId);
     final message = TelnyxMessage(
@@ -213,11 +214,11 @@ class Call {
     if (onHold) {
       _sendHoldModifier('unhold');
       onHold = false;
-      callHandler.changeState(CallState.active, this);
+      callHandler.changeState(CallState.active);
     } else {
       _sendHoldModifier('hold');
       onHold = true;
-      callHandler.changeState(CallState.held, this);
+      callHandler.changeState(CallState.held);
     }
   }
 
