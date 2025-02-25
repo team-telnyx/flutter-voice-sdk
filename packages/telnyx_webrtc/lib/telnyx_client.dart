@@ -13,6 +13,12 @@ class TelnyxClient {
         return;
       }
 
+      if (_isAirplaneModeEnabled(connectivityResult)) {
+        _logger.i('Airplane mode enabled');
+        _handleNetworkLost(reason: NetworkReason.airplaneMode);
+        return;
+      }
+
       if (connectivityResult.contains(ConnectivityResult.mobile) ||
           connectivityResult.contains(ConnectivityResult.wifi)) {
         _logger.i('Network available: ${connectivityResult.join(", ")}');
@@ -21,9 +27,17 @@ class TelnyxClient {
     });
   }
 
-  void _handleNetworkLost() {
+  bool _isAirplaneModeEnabled(List<ConnectivityResult> results) {
+    return results.contains(ConnectivityResult.none) &&
+           !results.contains(ConnectivityResult.mobile) &&
+           !results.contains(ConnectivityResult.wifi);
+  }
+
+  void _handleNetworkLost({NetworkReason reason = NetworkReason.networkLost}) {
     for (var call in activeCalls()) {
-      call.updateState(CallState.dropped.withReason(NetworkReason.networkLost));
+      if (!call.state.isDropped) {
+        call.updateState(CallState.dropped.withReason(reason));
+      }
     }
   }
 
