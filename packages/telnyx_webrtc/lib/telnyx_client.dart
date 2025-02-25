@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/config.dart';
+import 'package:telnyx_webrtc/model/network_reason.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
     if (dart.library.html) 'package:telnyx_webrtc/peer/web/peer.dart';
@@ -70,7 +71,7 @@ class TelnyxClient {
       );
     };
 
-    checkReconnection();
+    _checkReconnection();
   }
 
   TxSocket txSocket = TxSocket(
@@ -95,6 +96,8 @@ class TelnyxClient {
   String gatewayState = GatewayState.idle;
   Map<String, Call> calls = {};
 
+  /// The current active calls being handled by the TelnyxClient instance
+  /// The Map key is the callId [String] and the value is the [Call] instance
   Map<String, Call> activeCalls() {
     return Map.fromEntries(
       calls.entries.where((entry) => entry.value.callState == CallState.active),
@@ -118,44 +121,39 @@ class TelnyxClient {
     return gatewayState;
   }
 
-  void checkReconnection() {
-    // Remember to cancel the subscription when it's no longer needed
-    Connectivity()
-        .onConnectivityChanged
-        .listen((List<ConnectivityResult> connectivityResult) {
-      if (connectivityResult.contains(ConnectivityResult.mobile)) {
-        _logger.i('Mobile network available.');
-        if (activeCalls().isNotEmpty && !_isAttaching) {
-          _reconnectToSocket();
-        } // Mobile network available.
-      } else if (connectivityResult.contains(ConnectivityResult.wifi)) {
-        _logger.i('Wi-fi is available.');
-        if (activeCalls().isNotEmpty && !_isAttaching) {
-          _reconnectToSocket();
-        }
-        // Wi-fi is available.
-        // Note for Android:
-        // When both mobile and Wi-Fi are turned on system will return Wi-Fi only as active network type
-      } else if (connectivityResult.contains(ConnectivityResult.ethernet)) {
-        _logger.i('Ethernet connection available.');
-        // Ethernet connection available.
-      } else if (connectivityResult.contains(ConnectivityResult.vpn)) {
-        // Vpn connection active.
-        // Note for iOS and macOS:
-        _logger.i('Vpn connection active.');
-      } else if (connectivityResult.contains(ConnectivityResult.bluetooth)) {
-        _logger.i('Bluetooth connection available.');
-        // Bluetooth connection available.
-      } else if (connectivityResult.contains(ConnectivityResult.other)) {
-        _logger.i(
-          'Connected to a network which is not in the above mentioned networks.',
-        );
-        // Connected to a network which is not in the above mentioned networks.
-      } else if (connectivityResult.contains(ConnectivityResult.none)) {
+  void _checkReconnection() {
+    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> connectivityResult) {
+      if (activeCalls().isEmpty || _isAttaching) return;
+
+      if (connectivityResult.contains(ConnectivityResult.none)) {
         _logger.i('No available network types');
-        // No available network types
+        _handleNetworkLost();
+        return;
+      }
+
+      if (connectivityResult.contains(ConnectivityResult.mobile) ||
+          connectivityResult.contains(ConnectivityResult.wifi)) {
+        _logger.i('Network available: ${connectivityResult.join(", ")}');
+        if (activeCalls().isNotEmpty && !_isAttaching) {
+          _handleNetworkReconnection(NetworkReason.networkSwitch);
+        }
       }
     });
+  }
+
+  void _handleNetworkLost() {
+    for (var call in activeCalls().values) {
+      call.callHandler.onCallStateChanged.call(CallState.dropped.withReason(NetworkReason.networkLost));
+    }
+  }
+
+  void _handleNetworkReconnection(NetworkReason reason) {
+    _reconnectToSocket();
+    for (var call in activeCalls().values) {
+      if (call.callState.isDropped) {
+        call.callHandler.onCallStateChanged.call(CallState.reconnecting.withReason(reason));
+      }
+    }
   }
 
   /// Handles the push notification received from the backend
@@ -413,19 +411,30 @@ class TelnyxClient {
   /// perform common call related functions such as ending the call or placing
   /// yourself on hold/mute.
   Call _createCall() {
-    // Set global call parameter
+    // Create a placeholder for the CallHandler
+    late CallHandler callHandler;
+
+    // Create the Call object
     _call = Call(
       txSocket,
       this,
       sessid,
       ringtonePath,
       ringBackpath,
-      CallHandler((state) {
-        _logger.i('Call state not overridden :Call State Changed to $state');
-      }),
+      callHandler = CallHandler(
+        (state) {
+          _logger.i('Call state not overridden :Call State Changed to $state');
+        },
+        null,
+      ),
+      // Pass null initially
       _callEnded,
       _debug,
     );
+
+    // Set the call property of CallHandler
+    callHandler.call = _call!;
+
     return _call!;
   }
 
@@ -601,7 +610,7 @@ class TelnyxClient {
 
     //play ringback tone
     inviteCall.playAudio(ringBackpath);
-    inviteCall.callHandler.changeState(CallState.newCall, inviteCall);
+    inviteCall.callHandler.changeState(CallState.newCall);
     return inviteCall;
   }
 
@@ -636,7 +645,7 @@ class TelnyxClient {
       customHeaders,
       isAttach,
     );
-    answerCall.callHandler.changeState(CallState.connecting, answerCall);
+    answerCall.callHandler.changeState(CallState.connecting);
     answerCall.stopAudio();
     if (answerCall.callId != null) {
       updateCall(answerCall);
@@ -935,11 +944,10 @@ class TelnyxClient {
 
                 onSocketMessageReceived.call(message);
 
-                offerCall.callHandler.changeState(CallState.ringing, offerCall);
+                offerCall.callHandler.changeState(CallState.ringing);
                 if (!_pendingAnswerFromPush) {
                   offerCall.playRingtone(ringtonePath);
-                  offerCall.callHandler
-                      .changeState(CallState.ringing, offerCall);
+                  offerCall.callHandler.changeState(CallState.ringing);
                 } else {
                   offerCall.acceptCall(
                     invite.inviteParams!,
@@ -948,12 +956,11 @@ class TelnyxClient {
                     'State',
                   );
                   _pendingAnswerFromPush = false;
-                  offerCall.callHandler
-                      .changeState(CallState.connecting, offerCall);
+                  offerCall.callHandler.changeState(CallState.connecting);
                 }
                 if (_pendingDeclineFromPush) {
                   offerCall.endCall();
-                  offerCall.callHandler.changeState(CallState.done, offerCall);
+                  offerCall.callHandler.changeState(CallState.done);
                   _pendingDeclineFromPush = false;
                 }
                 break;
