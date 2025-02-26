@@ -151,7 +151,9 @@ class TelnyxClient {
   }
 
   void _checkReconnection() {
-    Connectivity().onConnectivityChanged.listen((List<ConnectivityResult> connectivityResult) {
+    Connectivity()
+        .onConnectivityChanged
+        .listen((List<ConnectivityResult> connectivityResult) {
       if (activeCalls().isEmpty || _isAttaching) return;
 
       if (connectivityResult.contains(ConnectivityResult.none)) {
@@ -184,10 +186,10 @@ class TelnyxClient {
   /// Get the custom logger for the SDK
   CustomLogger get logger => _logger;
 
-
   void _handleNetworkLost() {
     for (var call in activeCalls().values) {
-      call.callHandler.onCallStateChanged.call(CallState.dropped.withReason(NetworkReason.networkLost));
+      call.callHandler.onCallStateChanged
+          .call(CallState.dropped.withReason(NetworkReason.networkLost));
     }
   }
 
@@ -195,7 +197,8 @@ class TelnyxClient {
     _reconnectToSocket();
     for (var call in activeCalls().values) {
       if (call.callState.isDropped) {
-        call.callHandler.onCallStateChanged.call(CallState.reconnecting.withReason(reason));
+        call.callHandler.onCallStateChanged
+            .call(CallState.reconnecting.withReason(reason));
       }
     }
   }
@@ -487,11 +490,12 @@ class TelnyxClient {
       txSocket,
       this,
       sessid,
-      ringtonePath,
-      ringBackpath,
+      _ringtonePath,
+      _ringBackpath,
       callHandler = CallHandler(
         (state) {
-          GlobalLogger().i('Call state not overridden :Call State Changed to $state');
+          GlobalLogger()
+              .i('Call state not overridden :Call State Changed to $state');
         },
         null,
       ),
@@ -678,7 +682,7 @@ class TelnyxClient {
     );
 
     //play ringback tone
-    inviteCall.playAudio(ringBackpath);
+    inviteCall.playAudio(_ringBackpath);
     inviteCall.callHandler.changeState(CallState.newCall);
     return inviteCall;
   }
@@ -1026,7 +1030,7 @@ class TelnyxClient {
 
                 offerCall.callHandler.changeState(CallState.ringing);
                 if (!_pendingAnswerFromPush) {
-                  offerCall.playRingtone(ringtonePath);
+                  offerCall.playRingtone(_ringtonePath);
                   offerCall.callHandler.changeState(CallState.ringing);
                 } else {
                   offerCall.acceptCall(

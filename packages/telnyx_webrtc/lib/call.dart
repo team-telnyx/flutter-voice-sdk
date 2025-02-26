@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 
@@ -15,6 +14,7 @@ import 'package:telnyx_webrtc/peer/peer.dart'
     if (dart.library.html) 'package:telnyx_webrtc/peer/web/peer.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -71,7 +71,6 @@ class Call {
   String sessionDestinationNumber = '';
   String sessionClientState = '';
   Map<String, String> customHeaders = {};
-  final _logger = Logger();
 
 
   /// Creates an invitation to send to a [destinationNumber] or SIP Destination
@@ -142,18 +141,18 @@ class Call {
     final String jsonByeMessage = jsonEncode(byeMessage);
 
     if (_txClient.gatewayState != GatewayState.reged) {
-      _logger
+      GlobalLogger()
           .d('Session end gateway not  registered ${_txClient.gatewayState}');
       return;
     } else {
-      _logger.d('Session end peer connection null');
+      GlobalLogger().d('Session end peer connection null');
     }
 
     txSocket.send(jsonByeMessage);
     if (peerConnection != null) {
       peerConnection?.closeSession();
     } else {
-      _logger.d('Session end peer connection null');
+      GlobalLogger().d('Session end peer connection null');
     }
     stopAudio();
     callHandler.changeState(CallState.done);
