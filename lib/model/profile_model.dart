@@ -5,7 +5,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
+import 'package:telnyx_flutter_webrtc/utils/custom_sdk_logger.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 class Profile {
   final bool isTokenLogin;
@@ -79,6 +81,8 @@ class Profile {
         sipCallerIDNumber: sipCallerIDNumber,
         notificationToken: await getNotificationTokenForPlatform() ?? '',
         debug: false,
+        logLevel: LogLevel.debug,
+        customLogger: CustomSDKLogger()
       );
     } else {
       return CredentialConfig(
@@ -88,6 +92,8 @@ class Profile {
         sipCallerIDNumber: sipCallerIDNumber,
         notificationToken: await getNotificationTokenForPlatform() ?? '',
         debug: false,
+        logLevel: LogLevel.debug,
+        customLogger: CustomSDKLogger(),
       );
     }
   }

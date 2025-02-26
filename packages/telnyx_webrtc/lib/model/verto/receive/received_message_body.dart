@@ -1,7 +1,7 @@
-import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/verto/receive/receive_bye_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 
 class ReceivedMessage {
   String? jsonrpc;
@@ -47,7 +47,7 @@ class ReceivedMessage {
     }
     if (json['voice_sdk_id'] != null) {
       voiceSdkId = json['voice_sdk_id'];
-      Logger().i('Voice SDK ID: $voiceSdkId');
+      GlobalLogger().i('Voice SDK ID: $voiceSdkId');
     }
   }
 

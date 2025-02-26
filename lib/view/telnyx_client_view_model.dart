@@ -9,6 +9,7 @@ import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
+import 'package:telnyx_flutter_webrtc/utils/custom_sdk_logger.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
@@ -19,6 +20,7 @@ import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
+import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 enum CallStateStatus {
   disconnected,
@@ -401,6 +403,8 @@ class TelnyxClientViewModel with ChangeNotifier {
         sipPassword: sipPassword,
         notificationToken: notificationToken,
         debug: true,
+        logLevel: LogLevel.debug,
+        customLogger: CustomSDKLogger(),
       );
     } else {
       return null;
@@ -420,6 +424,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         sipToken: token,
         notificationToken: notificationToken,
         debug: true,
+        logLevel: LogLevel.debug,
       );
     } else {
       return null;
