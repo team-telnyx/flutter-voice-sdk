@@ -6,6 +6,7 @@ import 'package:mockito/mockito.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 import 'telnyx_client_test.mocks.dart';
 
@@ -66,6 +67,7 @@ void main() {
       sipCallerIDNumber: 'test',
       notificationToken: 'test',
       autoReconnect: false,
+      logLevel: LogLevel.info,
       debug: false,
     );
     // Give time to connect, verify isConnected() adjusts
@@ -85,6 +87,7 @@ void main() {
       sipCallerIDNumber: 'test',
       notificationToken: 'test',
       autoReconnect: false,
+      logLevel: LogLevel.info,
       debug: false,
     );
     // Give time to connect, verify isConnected() adjusts

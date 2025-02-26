@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 
@@ -15,6 +14,7 @@ import 'package:telnyx_webrtc/peer/peer.dart'
     if (dart.library.html) 'package:telnyx_webrtc/peer/web/peer.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:uuid/uuid.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -22,13 +22,21 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 
+/// Callback function to notify the user of the call state change
 typedef CallStateCallback = void Function(CallState state);
 
+/// The CallHandler class is used to handle the call state changes and notify
+/// the user of the changes via the [onCallStateChanged] callback.
 class CallHandler {
+  /// Callback function to notify the user of the call state change
   late CallStateCallback onCallStateChanged;
 
+  /// Default constructor that initializes the [onCallStateChanged] callback
   CallHandler(this.onCallStateChanged);
 
+  /// Changes the call state to the specified [state] and invokes the
+  /// [onCallStateChanged] callback to notify the user of the change
+  /// along with the [call] object that the state change is associated with.
   void changeState(CallState state, Call call) {
     // You can add any additional logic here before invoking the callback
     call.callState = state;
@@ -39,6 +47,7 @@ class CallHandler {
 /// The Call class which is used for call related methods such as hold/mute or
 /// creating invitations, declining calls, etc.
 class Call {
+  /// Default constructor that initializes the call with the provided parameters
   Call(
     this.txSocket,
     this._txClient,
@@ -50,10 +59,14 @@ class Call {
     this.debug,
   );
 
+  /// Initializes the call with the provided parameters
   late CallHandler callHandler;
+
+  /// The current state of the call
   late CallState callState;
 
-  final audioService = AudioService();
+  /// The audio service used to play audio files
+  final _audioService = AudioService();
 
   final bool debug;
   final Function callEnded;
@@ -71,7 +84,6 @@ class Call {
   String sessionDestinationNumber = '';
   String sessionClientState = '';
   Map<String, String> customHeaders = {};
-  final _logger = Logger();
 
   /// Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
@@ -91,6 +103,8 @@ class Call {
     );
   }
 
+  /// Receives a remote session with the provided [sdp] and sets the remote
+  /// session on the peer connection
   void onRemoteSessionReceived(String? sdp) {
     if (sdp != null) {
       peerConnection?.remoteSessionReceived(sdp);
@@ -141,18 +155,18 @@ class Call {
     final String jsonByeMessage = jsonEncode(byeMessage);
 
     if (_txClient.gatewayState != GatewayState.reged) {
-      _logger
-          .d('Session end gateway not  registered ${_txClient.gatewayState}');
+      GlobalLogger()
+          .d('Session end :: gateway not registered ${_txClient.gatewayState}');
       return;
     } else {
-      _logger.d('Session end peer connection null');
+      GlobalLogger().d('Session end :: peer connection null');
     }
 
     txSocket.send(jsonByeMessage);
     if (peerConnection != null) {
       peerConnection?.closeSession();
     } else {
-      _logger.d('Session end peer connection null');
+      GlobalLogger().d('Session end :: peer connection null');
     }
     stopAudio();
     callHandler.changeState(CallState.done, this);
@@ -203,6 +217,7 @@ class Call {
     peerConnection?.muteUnmuteMic();
   }
 
+  /// Either enables or disables the speaker phone based on the current state
   void enableSpeakerPhone(bool enable) {
     peerConnection?.enableSpeakerPhone(enable);
   }
@@ -255,29 +270,34 @@ class Call {
     txSocket.send(jsonModifyMessage);
   }
 
-  // Example file path for 'web/assets/audio/sound.wav'
+  /// Plays the ringtone audio file
+  /// Example file path for 'web/assets/audio/sound.wav'
   void playAudio(String filePath) {
     if (filePath.isNotEmpty) {
-      audioService.playLocalFile(filePath);
+      _audioService.playLocalFile(filePath);
     }
   }
 
-  // Play ringtone for only web, iOS and Android will use native audio player
+  /// Plays the specified ringtone file
+  /// Play ringtone for only web, iOS and Android will use native audio player
   void playRingtone(String filePath) {
     if (kIsWeb && filePath.isNotEmpty) {
-      audioService.playLocalFile(filePath);
+      _audioService.playLocalFile(filePath);
       return;
     }
   }
 
+  /// Stops the audio file from playing
   void stopAudio() {
-    audioService.stopAudio();
+    _audioService.stopAudio();
   }
 }
 
+/// The AudioService class is used to play audio files
 class AudioService {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
+  /// Plays the audio file specified by the [filePath]
   Future<void> playLocalFile(String filePath) async {
     // Ensure the file path is correct and accessible from the web directory
     await _audioPlayer.setAsset(filePath);
@@ -285,6 +305,7 @@ class AudioService {
     await _audioPlayer.play();
   }
 
+  /// Stops the audio file from playing
   Future<void> stopAudio() async {
     // Ensure the file path is correct and accessible from the web directory
     await _audioPlayer.stop();

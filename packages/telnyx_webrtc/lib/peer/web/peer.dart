@@ -3,7 +3,6 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
@@ -15,6 +14,7 @@ import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:uuid/uuid.dart';
@@ -22,7 +22,6 @@ import 'package:uuid/uuid.dart';
 class Peer {
   Peer(this._socket, this._debug, this._txClient);
 
-  final Logger _logger = Logger();
   final TxSocket _socket;
   final TelnyxClient _txClient;
   final bool _debug;
@@ -89,10 +88,10 @@ class Peer {
   void closeSession() {
     final session = _sessions[_selfId];
     if (session != null) {
-      _logger.d('Session end success');
+      GlobalLogger().d('Session end success');
       _closeSession(session);
     } else {
-      _logger.d('Session end failed');
+      GlobalLogger().d('Session end failed');
     }
   }
 
@@ -101,14 +100,14 @@ class Peer {
       final bool enabled = _localStream!.getAudioTracks()[0].enabled;
       _localStream!.getAudioTracks()[0].enabled = !enabled;
     } else {
-      _logger.d('Peer :: No local stream :: Unable to Mute / Unmute');
+      GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
     }
   }
 
   void enableSpeakerPhone(bool enable) {
     if (kIsWeb) {
       // On web, .enableSpeakerphone(...) is still available on recent flutter_webrtc
-      _logger.d('Peer :: Speaker Enabled :: $enable');
+      GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
       if (_localStream != null) {
         _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
       }
@@ -117,9 +116,9 @@ class Peer {
 
     if (_localStream != null) {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
-      _logger.d('Peer :: Speaker Enabled :: $enable');
+      GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
     } else {
-      _logger.d('Peer :: No local stream :: Unable to toggle speaker mode');
+      GlobalLogger().d('Peer :: No local stream :: Unable to toggle speaker mode');
     }
   }
 
@@ -179,7 +178,7 @@ class Peer {
       if (session.remoteCandidates.isNotEmpty) {
         for (var candidate in session.remoteCandidates) {
           if (candidate.candidate != null) {
-            _logger.i('adding remote candidate: $candidate');
+            GlobalLogger().i('adding remote candidate: $candidate');
             await session.peerConnection?.addCandidate(candidate);
           }
         }
@@ -231,7 +230,7 @@ class Peer {
         _send(jsonInviteMessage);
       });
     } catch (e) {
-      _logger.e('Peer :: _createOffer error: $e');
+      GlobalLogger().e('Peer :: _createOffer error: $e');
     }
   }
 
@@ -307,14 +306,13 @@ class Peer {
         if (candidate.candidate != null) {
           if (!candidate.candidate!.contains('127.0.0.1') ||
               currentCall?.callState != CallState.active) {
-            _logger.i('Peer :: Add Ice Candidate => ${candidate.candidate}');
+            GlobalLogger().i('Peer :: Add Ice Candidate => ${candidate.candidate}');
             await session.peerConnection?.addCandidate(candidate);
           } else {
-            _logger
-                .i('Peer :: Local candidate skipped: ${candidate.candidate}');
+            GlobalLogger().i('Peer :: Local candidate skipped: ${candidate.candidate}');
           }
         } else {
-          _logger.i('Peer :: onIceCandidate: complete');
+          GlobalLogger().i('Peer :: onIceCandidate: complete');
         }
       };
 
@@ -368,12 +366,12 @@ class Peer {
         _send(jsonAnswerMessage);
       });
     } catch (e) {
-      _logger.e('Peer :: _createAnswer error: $e');
+      GlobalLogger().e('Peer :: _createAnswer error: $e');
     }
   }
 
   Future<MediaStream> createStream(String media) async {
-    _logger.i('Peer :: Creating stream');
+    GlobalLogger().i('Peer :: Creating stream');
     final Map<String, dynamic> mediaConstraints = {
       'audio': true,
       'video': false,
@@ -397,7 +395,7 @@ class Peer {
     required String callId,
     required String media,
   }) async {
-    _logger.i('Web Peer :: _createSession => sid=$sessionId, callId=$callId');
+    GlobalLogger().i('Web Peer :: _createSession => sid=$sessionId, callId=$callId');
 
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') {
@@ -422,7 +420,7 @@ class Peer {
         case 'plan-b':
           // Plan B
           pc.onAddStream = (MediaStream stream) {
-            _logger.i('Peer :: onAddStream => plan-b');
+            GlobalLogger().i('Peer :: onAddStream => plan-b');
             onAddRemoteStream?.call(newSession, stream);
             _remoteStreams.add(stream);
             _remoteRenderer.srcObject = stream;
@@ -434,7 +432,7 @@ class Peer {
         default:
           // Unified Plan
           pc.onTrack = (event) {
-            _logger.i(
+            GlobalLogger().i(
               'Peer :: onTrack => kind=${event.track.kind}, streams=${event.streams.length}',
             );
             if (event.streams.isNotEmpty) {
@@ -458,18 +456,17 @@ class Peer {
           // Example skipping local candidate if call is active and it's 127.0.0.1
           if (!candidate.candidate!.contains('127.0.0.1') ||
               currentCall?.callState != CallState.active) {
-            _logger.i('Peer :: Adding ICE candidate => ${candidate.candidate}');
+            GlobalLogger().i('Peer :: Adding ICE candidate => ${candidate.candidate}');
             await pc.addCandidate(candidate);
           } else {
-            _logger
-                .i('Peer :: Local candidate skipped => ${candidate.candidate}');
+            GlobalLogger().i('Peer :: Local candidate skipped => ${candidate.candidate}');
           }
         } else {
-          _logger.i('Peer :: onIceCandidate: complete');
+          GlobalLogger().i('Peer :: onIceCandidate: complete');
         }
       }
       ..onIceConnectionState = (state) {
-        _logger.i('Peer :: ICE Connection State => $state');
+        GlobalLogger().i('Peer :: ICE Connection State => $state');
         switch (state) {
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
             pc.restartIce();
@@ -483,7 +480,7 @@ class Peer {
         }
       }
       ..onRemoveStream = (stream) {
-        _logger.i('Peer :: onRemoveStream => ${stream.id}');
+        GlobalLogger().i('Peer :: onRemoveStream => ${stream.id}');
         onRemoveRemoteStream?.call(newSession, stream);
         _remoteStreams.removeWhere((it) => it.id == stream.id);
       }
@@ -502,7 +499,7 @@ class Peer {
   void _addDataChannel(Session session, RTCDataChannel channel) {
     channel
       ..onDataChannelState = (state) {
-        _logger.i('Peer :: DataChannel State => $state');
+        GlobalLogger().i('Peer :: DataChannel State => $state');
       }
       ..onMessage = (RTCDataChannelMessage data) {
         onDataChannelMessage?.call(session, channel, data);
@@ -517,20 +514,19 @@ class Peer {
     RTCPeerConnection pc,
   ) async {
     if (!_debug) {
-      _logger
-          .d('Peer :: Stats manager will NOT start; debug mode not enabled.');
+      GlobalLogger().d('Peer :: Stats manager will NOT start; debug mode not enabled.');
       return false;
     }
     _statsManager = WebRTCStatsReporter(_socket, pc, callId, peerId);
     await _statsManager?.startStatsReporting();
-    _logger.d('Peer :: Stats Manager started for callId=$callId');
+    GlobalLogger().d('Peer :: Stats Manager started for callId=$callId');
     return true;
   }
 
   void stopStats(String callId) {
     if (!_debug) return;
     _statsManager?.stopStatsReporting();
-    _logger.d('Peer :: Stats Manager stopped for $callId');
+    GlobalLogger().d('Peer :: Stats Manager stopped for $callId');
   }
 
   Future<void> _cleanSessions() async {

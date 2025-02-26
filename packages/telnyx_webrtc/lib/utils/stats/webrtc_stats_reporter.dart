@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:logger/logger.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_parsing_helpers.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
@@ -11,7 +11,14 @@ import 'package:telnyx_webrtc/utils/stats/webrtc_stats_event.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_tag.dart';
 import 'package:uuid/uuid.dart';
 
+/// Class to handle the reporting of WebRTC stats to the server
+/// via the provided [socket] and [peerConnection].
+/// The [callId] and [peerId] are used to identify the call and peer respectively.
+/// The stats are collected every 3 seconds and sent to the server.
+/// The stats reporting can be started and stopped using the [startStatsReporting] and [stopStatsReporting] methods.
+/// The collected stats are available in the Telnyx Portal for debugging purposes.
 class WebRTCStatsReporter {
+  /// Default constructor that initializes the WebRTCStatsReporter with the provided parameters
   WebRTCStatsReporter(
     this.socket,
     this.peerConnection,
@@ -19,7 +26,6 @@ class WebRTCStatsReporter {
     this.peerId,
   );
 
-  final Logger _logger = Logger();
   final Queue<String> _messageQueue = Queue<String>();
 
   //File? _logFile;
@@ -138,7 +144,7 @@ class WebRTCStatsReporter {
           localSdp = await peerConnection.getLocalDescription();
           remoteSdp = await peerConnection.getRemoteDescription();
         } catch (e) {
-          _logger.e('Error retrieving descriptions for Signaling State Stats: $e');
+          GlobalLogger().e('Error retrieving descriptions for Signaling State Stats: $e');
         }
 
         // If both are null, just skip
@@ -324,7 +330,7 @@ class WebRTCStatsReporter {
 
           statsObject[report.id] = candidatePair;
         } else {
-          _logger.w(
+          GlobalLogger().w(
             'Failed to resolve local or remote candidate for candidate-pair ${report.id}',
           );
         }
@@ -356,7 +362,7 @@ class WebRTCStatsReporter {
 
       _enqueueMessage(jsonEncode(message.toJson()));
     } catch (e) {
-      _logger.e('Error collecting stats: $e');
+      GlobalLogger().e('Error collecting stats: $e');
     }
   }
 
