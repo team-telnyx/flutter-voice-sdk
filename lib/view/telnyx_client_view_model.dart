@@ -150,10 +150,15 @@ class TelnyxClientViewModel with ChangeNotifier {
           if (!kIsWeb) {
             FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
           }
-          // TODO: Handle this case.
           break;
         case CallState.error:
           logger.i('error');
+          break;
+        case CallState.reconnecting:
+          logger.i('reconnecting - ${state.reason}');
+          break;
+        case CallState.dropped:
+          logger.i('dropped - ${state.reason}');
           break;
       }
     };

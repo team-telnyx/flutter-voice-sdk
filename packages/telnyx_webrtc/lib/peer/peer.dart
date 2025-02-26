@@ -402,7 +402,7 @@ class Peer {
       switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateConnected:
           final Call? currentCall = _txClient.calls[callId];
-          currentCall?.callHandler.changeState(CallState.active, currentCall);
+          currentCall?.callHandler.changeState(CallState.active);
           onCallStateChange?.call(newSession, CallState.active);
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
           peerConnection?.restartIce();
