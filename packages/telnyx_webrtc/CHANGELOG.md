@@ -1,3 +1,11 @@
+## [1.1.0](https://pub.dev/packages/telnyx_webrtc/versions/1.1.0) (2025-02-26)
+
+### Enhancement
+
+- Added method to disable push notifications on the SDK via `disablePushNotifications` method.
+- Added a new parameter to the login configuration that allows users to provide their own `CustomLogger` to the SDK. This is useful for users that want to log the SDK's output in their own way or redirect logs to a server.
+- Added a new CallStates 'dropped' and 'reconnecting' to the `CallState` enum. This will allow users to know when a call has been dropped or is in the process of reconnecting. There will be a `NetworkReason` provided for both of these states to give more context on why the call was dropped or is reconnecting.
+
 ## [1.0.2](https://pub.dev/packages/telnyx_webrtc/versions/1.0.2) (2025-02-14)
 
 ### Bug Fixing
