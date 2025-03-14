@@ -57,6 +57,9 @@ class TelnyxClient {
   PushMetaData? _pushMetaData;
   bool _isAttaching = false;
   bool _debug = false;
+  
+  // Map to track reconnection timers for each call
+  final Map<String?, Timer> _reconnectionTimers = {};
 
   /// Default constructor for the TelnyxClient
   TelnyxClient() {
@@ -123,6 +126,15 @@ class TelnyxClient {
     return Map.fromEntries(
       calls.entries.where((entry) => entry.value.callState == CallState.active),
     );
+  }
+  
+  /// Called when a call state changes to active
+  /// This will cancel any reconnection timer for the call
+  void onCallStateChangedToActive(String? callId) {
+    if (callId != null) {
+      GlobalLogger().i('Call $callId state changed to ACTIVE, cancelling reconnection timer');
+      _cancelReconnectionTimer(callId);
+    }
   }
 
   // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
@@ -199,7 +211,51 @@ class TelnyxClient {
       if (call.callState.isDropped) {
         call.callHandler.onCallStateChanged
             .call(CallState.reconnecting.withReason(reason));
+        
+        // Start a reconnection timeout timer for this call
+        _startReconnectionTimer(call);
       }
+    }
+  }
+  
+  /// Starts a reconnection timer for a call
+  /// If the call is still in RECONNECTING state after the timeout,
+  /// it will be marked as DROPPED
+  void _startReconnectionTimer(Call call) {
+    // Cancel any existing timer for this call
+    _cancelReconnectionTimer(call.callId);
+    
+    GlobalLogger().i('Starting reconnection timer for call ${call.callId}');
+    
+    // Create a new timer
+    _reconnectionTimers[call.callId] = Timer(
+      Duration(milliseconds: Constants.reconnectionTimeout),
+      () {
+        // Check if the call is still in the reconnecting state
+        if (calls.containsKey(call.callId) && 
+            calls[call.callId]?.callState == CallState.reconnecting) {
+          GlobalLogger().i('Reconnection timeout for call ${call.callId}');
+          
+          // Change the call state to dropped
+          call.callHandler.onCallStateChanged
+              .call(CallState.dropped.withReason(NetworkReason.networkLost));
+          
+          // End the call
+          call.endCall();
+        }
+        
+        // Remove the timer from the map
+        _reconnectionTimers.remove(call.callId);
+      },
+    );
+  }
+  
+  /// Cancels the reconnection timer for a call
+  void _cancelReconnectionTimer(String? callId) {
+    if (callId != null && _reconnectionTimers.containsKey(callId)) {
+      _reconnectionTimers[callId]?.cancel();
+      _reconnectionTimers.remove(callId);
+      GlobalLogger().i('Cancelled reconnection timer for call $callId');
     }
   }
 

@@ -18,6 +18,8 @@ enum CallState {
   held,
 
   /// [reconnecting] The call is reconnecting - for this state a [NetworkReason] is provided.
+  /// A call will remain in this state for a maximum of 45 seconds before automatically
+  /// transitioning to [dropped] if the reconnection is not successful.
   reconnecting,
 
   /// [dropped] The call has been dropped - for this state a [NetworkReason] is provided.
