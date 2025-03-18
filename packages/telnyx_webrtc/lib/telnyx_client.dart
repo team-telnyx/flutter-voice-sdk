@@ -250,12 +250,7 @@ class TelnyxClient {
 
           // End the call
           call.endCall();
-        } else {
-          GlobalLogger().i(
-            'Reconnection timer for call ${call.callId} was cancelled',
-          );
         }
-
         // Remove the timer from the map
         _reconnectionTimers.remove(call.callId);
       },
