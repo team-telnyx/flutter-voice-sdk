@@ -76,14 +76,13 @@ class Profile {
   Future<Config> toTelnyxConfig() async {
     if (isTokenLogin) {
       return TokenConfig(
-        sipToken: token,
-        sipCallerIDName: sipCallerIDName,
-        sipCallerIDNumber: sipCallerIDNumber,
-        notificationToken: await getNotificationTokenForPlatform() ?? '',
-        debug: false,
-        logLevel: LogLevel.debug,
-        customLogger: CustomSDKLogger()
-      );
+          sipToken: token,
+          sipCallerIDName: sipCallerIDName,
+          sipCallerIDNumber: sipCallerIDNumber,
+          notificationToken: await getNotificationTokenForPlatform() ?? '',
+          debug: false,
+          logLevel: LogLevel.debug,
+          customLogger: CustomSDKLogger());
     } else {
       return CredentialConfig(
         sipUser: sipUser,

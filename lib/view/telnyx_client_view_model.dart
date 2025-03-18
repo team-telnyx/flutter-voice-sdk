@@ -405,6 +405,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         debug: true,
         logLevel: LogLevel.debug,
         customLogger: CustomSDKLogger(),
+        reconnectionTimeout: 30000,
       );
     } else {
       return null;
