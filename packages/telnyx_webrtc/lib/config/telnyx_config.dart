@@ -1,4 +1,3 @@
-
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 
@@ -46,7 +45,7 @@ class Config {
   final String? ringbackPath;
 
   /// reconnectionTimeout in milliseconds (Default 60 seconds)
-  // This is the maximum time allowed for a call to be in the RECONNECTING or Dropped state
+  // This is the maximum time allowed for a call to be in the RECONNECTING or DROPPED state
   int? reconnectionTimeout = 60000;
 }
 
