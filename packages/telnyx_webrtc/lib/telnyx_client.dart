@@ -127,7 +127,7 @@ class TelnyxClient {
       calls.entries.where((entry) =>
           entry.value.callState == CallState.active ||
           entry.value.callState == CallState.dropped ||
-          entry.value.callState == CallState.reconnecting),
+          entry.value.callState == CallState.reconnecting,),
     );
   }
 
@@ -136,7 +136,7 @@ class TelnyxClient {
   void onCallStateChangedToActive(String? callId) {
     if (callId != null) {
       GlobalLogger().i(
-          'Call $callId state changed to ACTIVE, cancelling reconnection timer');
+          'Call $callId state changed to ACTIVE, cancelling reconnection timer',);
       _cancelReconnectionTimer(callId);
     }
   }
@@ -238,7 +238,7 @@ class TelnyxClient {
       Duration(
           milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
               _storedTokenConfig?.reconnectionTimeout ??
-              Constants.reconnectionTimeout),
+              Constants.reconnectionTimeout,),
       () {
         // Check if the call is still in the reconnecting state
         if (calls.containsKey(call.callId)) {

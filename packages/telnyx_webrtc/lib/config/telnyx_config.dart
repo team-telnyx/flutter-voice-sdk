@@ -1,4 +1,3 @@
-import 'dart:ffi';
 
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';

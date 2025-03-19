@@ -82,7 +82,7 @@ class Profile {
           notificationToken: await getNotificationTokenForPlatform() ?? '',
           debug: false,
           logLevel: LogLevel.debug,
-          customLogger: CustomSDKLogger());
+          customLogger: CustomSDKLogger(),);
     } else {
       return CredentialConfig(
         sipUser: sipUser,
