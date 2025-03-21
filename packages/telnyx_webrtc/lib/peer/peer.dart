@@ -404,6 +404,9 @@ class Peer {
           final Call? currentCall = _txClient.calls[callId];
           currentCall?.callHandler.changeState(CallState.active);
           onCallStateChange?.call(newSession, CallState.active);
+          
+          // Cancel any reconnection timer for this call
+          _txClient.onCallStateChangedToActive(callId);
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
           peerConnection?.restartIce();
           return;

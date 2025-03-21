@@ -18,6 +18,8 @@ enum CallState {
   held,
 
   /// [reconnecting] The call is reconnecting - for this state a [NetworkReason] is provided.
+  ///A call will remain in this state for the time specified within the configuration used to log in. The default value is 60 seconds'
+  /// transitioning to [dropped] if the reconnection is not successful.
   reconnecting,
 
   /// [dropped] The call has been dropped - for this state a [NetworkReason] is provided.
@@ -37,7 +39,8 @@ enum CallState {
   /// Set the reason for the call state - only valid for [reconnecting] and [dropped] states.
   CallState withReason(NetworkReason reason) {
     if (this != reconnecting && this != dropped) {
-      throw StateError('Reason can only be set for reconnecting or dropped states');
+      throw StateError(
+          'Reason can only be set for reconnecting or dropped states');
     }
     _reasons[this] = reason;
     return this;

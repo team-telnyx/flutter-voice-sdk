@@ -157,6 +157,10 @@ class Call {
     stopAudio();
     callHandler.changeState(CallState.done);
     callEnded();
+    
+    // Cancel any reconnection timer for this call
+    _txClient.onCallStateChangedToActive(callId);
+    
     _txClient.calls.remove(callId);
     final message = TelnyxMessage(
       socketMethod: SocketMethod.bye,

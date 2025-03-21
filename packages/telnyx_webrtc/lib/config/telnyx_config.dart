@@ -14,6 +14,7 @@ class Config {
     this.customLogger,
     this.ringTonePath,
     this.ringbackPath,
+    this.reconnectionTimeout,
   });
 
   /// Name associated with the SIP account
@@ -42,6 +43,10 @@ class Config {
 
   /// Path to the ringback file (audio to play when calling)
   final String? ringbackPath;
+
+  /// reconnectionTimeout in milliseconds (Default 60 seconds)
+  // This is the maximum time allowed for a call to be in the RECONNECTING or DROPPED state
+  int? reconnectionTimeout = 60000;
 }
 
 /// Creates an instance of CredentialConfig which can be used to log in
@@ -81,6 +86,7 @@ class CredentialConfig extends Config {
     super.ringTonePath,
     super.ringbackPath,
     super.customLogger,
+    super.reconnectionTimeout,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -126,6 +132,7 @@ class TokenConfig extends Config {
     super.ringTonePath,
     super.ringbackPath,
     super.customLogger,
+    super.reconnectionTimeout,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API
