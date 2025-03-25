@@ -1,3 +1,9 @@
+## [1.1.1](https://pub.dev/packages/telnyx_webrtc/versions/1.1.1) (2025-03-25)
+
+### Enhancement
+
+- Added timout for reconnection logic.
+
 ## [1.1.0](https://pub.dev/packages/telnyx_webrtc/versions/1.1.0) (2025-02-26)
 
 ### Enhancement
