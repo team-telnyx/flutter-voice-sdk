@@ -17,10 +17,13 @@ import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
-
+  
+/// Represents a peer in the WebRTC communication.
 class Peer {
+  /// The peer connection instance.
   RTCPeerConnection? peerConnection;
 
+  /// The constructor for the Peer class.
   Peer(this._socket, this._debug, this._txClient);
 
   final String _selfId = randomNumeric(6);
@@ -29,6 +32,12 @@ class Peer {
   final TelnyxClient _txClient;
   final bool _debug;
   WebRTCStatsReporter? _statsManager;
+
+  // Add negotiation timer fields
+  Timer? _negotiationTimer;
+  DateTime? _lastCandidateTime;
+  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
+  Function()? _onNegotiationComplete;
 
   final Map<String, Session> _sessions = {};
   MediaStream? _localStream;
@@ -260,6 +269,8 @@ class Peer {
           GlobalLogger().i('Peer :: Add Ice Candidate!');
           if (candidate.candidate != null) {
             await session.peerConnection?.addCandidate(candidate);
+            // Update last candidate time when a new candidate is received
+            _lastCandidateTime = DateTime.now();
           }
         } else {
           session.remoteCandidates.add(candidate);
@@ -270,14 +281,14 @@ class Peer {
           await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Start ICE candidate gathering and wait for negotiation to complete
+      _lastCandidateTime = DateTime.now();
+      _setOnNegotiationComplete(() async {
+        String? sdpUsed = '';
+        await session.peerConnection
+            ?.getLocalDescription()
+            .then((value) => sdpUsed = value?.sdp.toString());
 
-      String? sdpUsed = '';
-      await session.peerConnection
-          ?.getLocalDescription()
-          .then((value) => sdpUsed = value?.sdp.toString());
-
-      Timer(const Duration(milliseconds: 500), () {
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -514,5 +525,45 @@ class Peer {
     await session.peerConnection?.dispose();
     await session.dc?.close();
     stopStats(session.sid);
+  }
+
+  /// Sets a callback to be invoked when ICE negotiation is complete
+  void _setOnNegotiationComplete(Function() callback) {
+    _onNegotiationComplete = callback;
+    _startNegotiationTimer();
+  }
+
+  /// Starts the negotiation timer that checks for ICE candidate timeout
+  void _startNegotiationTimer() {
+    _negotiationTimer?.cancel();
+    _negotiationTimer = Timer.periodic(
+      const Duration(milliseconds: _negotiationTimeout),
+      (timer) {
+        if (_lastCandidateTime == null) return;
+
+        final timeSinceLastCandidate = DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
+        GlobalLogger().d('Time since last candidate: ${timeSinceLastCandidate}ms');
+
+        if (timeSinceLastCandidate >= _negotiationTimeout) {
+          GlobalLogger().d('Negotiation timeout reached');
+          _onNegotiationComplete?.call();
+          _stopNegotiationTimer();
+        }
+      },
+    );
+  }
+
+  /// Stops and cleans up the negotiation timer
+  void _stopNegotiationTimer() {
+    _negotiationTimer?.cancel();
+    _negotiationTimer = null;
+  }
+
+  /// Cleans up resources when the peer is no longer needed
+  void _release() {
+    _stopNegotiationTimer();
+    if (peerConnection != null) {
+      _cleanSessions();
+    }
   }
 }

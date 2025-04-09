@@ -29,6 +29,12 @@ class Peer {
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
 
+  /// Add negotiation timer fields
+  Timer? _negotiationTimer;
+  DateTime? _lastCandidateTime;
+  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
+  Function()? _onNegotiationComplete;
+
   /// Sessions by session-id.
   final Map<String, Session> _sessions = {};
 
@@ -308,6 +314,8 @@ class Peer {
               currentCall?.callState != CallState.active) {
             GlobalLogger().i('Peer :: Add Ice Candidate => ${candidate.candidate}');
             await session.peerConnection?.addCandidate(candidate);
+            // Update last candidate time when a new candidate is received
+            _lastCandidateTime = DateTime.now();
           } else {
             GlobalLogger().i('Peer :: Local candidate skipped: ${candidate.candidate}');
           }
@@ -321,17 +329,15 @@ class Peer {
           await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(description);
 
-      // Give localDescription a moment to be set
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Start ICE candidate gathering and wait for negotiation to complete
+      _lastCandidateTime = DateTime.now();
+      _setOnNegotiationComplete(() async {
+        String? sdpUsed = '';
+        final localDesc = await session.peerConnection?.getLocalDescription();
+        if (localDesc != null) {
+          sdpUsed = localDesc.sdp;
+        }
 
-      String? sdpUsed = '';
-      final localDesc = await session.peerConnection?.getLocalDescription();
-      if (localDesc != null) {
-        sdpUsed = localDesc.sdp;
-      }
-
-      // Send ANSWER or ATTACH
-      Timer(const Duration(milliseconds: 500), () {
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -351,7 +357,7 @@ class Peer {
         final inviteParams = InviteParams(
           dialogParams: dialogParams,
           sdp: sdpUsed,
-          sessid: session.sid, // We use the session’s sid
+          sessid: session.sid, // We use the session's sid
           userAgent: 'Flutter-1.0',
         );
 
@@ -568,5 +574,45 @@ class Peer {
 
   void _send(dynamic event) {
     _socket.send(event);
+  }
+
+  /// Sets a callback to be invoked when ICE negotiation is complete
+  void _setOnNegotiationComplete(Function() callback) {
+    _onNegotiationComplete = callback;
+    _startNegotiationTimer();
+  }
+
+  /// Starts the negotiation timer that checks for ICE candidate timeout
+  void _startNegotiationTimer() {
+    _negotiationTimer?.cancel();
+    _negotiationTimer = Timer.periodic(
+      const Duration(milliseconds: _negotiationTimeout),
+      (timer) {
+        if (_lastCandidateTime == null) return;
+
+        final timeSinceLastCandidate = DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
+        GlobalLogger().d('Time since last candidate: ${timeSinceLastCandidate}ms');
+
+        if (timeSinceLastCandidate >= _negotiationTimeout) {
+          GlobalLogger().d('Negotiation timeout reached');
+          _onNegotiationComplete?.call();
+          _stopNegotiationTimer();
+        }
+      },
+    );
+  }
+
+  /// Stops and cleans up the negotiation timer
+  void _stopNegotiationTimer() {
+    _negotiationTimer?.cancel();
+    _negotiationTimer = null;
+  }
+
+  /// Cleans up resources when the peer is no longer needed
+  void _release() {
+    _stopNegotiationTimer();
+    if (_sessions.isNotEmpty) {
+      _cleanSessions();
+    }
   }
 }
