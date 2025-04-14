@@ -279,24 +279,37 @@ class TelnyxClientViewModel with ChangeNotifier {
           textColor: Colors.white,
         );
         switch (error.errorCode) {
+          //ToDo Error handling here depends on the requirement of the SDK implementor and the use case
           case -32000:
             {
-              //Todo handle token error
+              //Todo handle token error (try again, sign user out and move to login screen, etc)
+              logger.i('${error.errorMessage} :: The token is invalid or expired');
+              _loggingIn = false;
               break;
             }
           case -32001:
             {
+              //Todo handle credential error (try again, sign user out and move to login screen, etc)
               _loggingIn = false;
+              logger.i('${error.errorMessage} :: The Credential is invalid');
+              break;
+            }
+          case -32002:
+            {
+              //Todo handle codec error (end call and show error message, call back, etc)
+              logger.i('${error.errorMessage} :: There was an issue with the SDP Handshake, likely due to invalid ICE Candidates');
               break;
             }
           case -32003:
             {
-              //Todo handle gateway timeout error
+              //Todo handle gateway timeout error (try again, check network connection, etc)
+              logger.i('${error.errorMessage} :: It is taking too long to register with the gateway');
               break;
             }
           case -32004:
             {
-              //ToDo hande gateway failure error
+              //ToDo hande gateway failure error (try again, check network connection, etc)
+              logger.i('${error.errorMessage} :: Registration with the gateway has failed');
               break;
             }
         }

@@ -1,8 +1,15 @@
+## [1.1.2](https://pub.dev/packages/telnyx_webrtc/versions/1.1.2) (2025-04-09)
+
+### Bug Fixing
+
+- CodecError fix. Enhanced Ice Candidate Collection when answering calls to ensure more suitable candidates are used in the SDP.
+
+
 ## [1.1.1](https://pub.dev/packages/telnyx_webrtc/versions/1.1.1) (2025-03-25)
 
 ### Enhancement
 
-- Added timout for reconnection logic.
+- Added timemout for reconnection logic.
 
 ## [1.1.0](https://pub.dev/packages/telnyx_webrtc/versions/1.1.0) (2025-02-26)
 

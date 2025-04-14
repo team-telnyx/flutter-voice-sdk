@@ -29,6 +29,12 @@ class Peer {
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
 
+  /// Add negotiation timer fields
+  Timer? _negotiationTimer;
+  DateTime? _lastCandidateTime;
+  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
+  Function()? _onNegotiationComplete;
+
   /// Sessions by session-id.
   final Map<String, Session> _sessions = {};
 
@@ -300,19 +306,22 @@ class Peer {
     try {
       // ICE candidate callback (with optional skipping logic)
       session.peerConnection?.onIceCandidate = (candidate) async {
-        final currentCall = _txClient.calls[callId];
-
-        // Example skipping logic from mobile:
+        GlobalLogger().i('Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
         if (candidate.candidate != null) {
-          if (!candidate.candidate!.contains('127.0.0.1') ||
-              currentCall?.callState != CallState.active) {
-            GlobalLogger().i('Peer :: Add Ice Candidate => ${candidate.candidate}');
+          final candidateString = candidate.candidate.toString();
+          final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
+                                  candidateString.contains('turn.telnyx.com');
+
+          if (isValidCandidate) {
+            GlobalLogger().i('Web Peer :: Valid ICE candidate: $candidateString');
+            // Only add valid candidates and reset timer
             await session.peerConnection?.addCandidate(candidate);
+            _lastCandidateTime = DateTime.now();
           } else {
-            GlobalLogger().i('Peer :: Local candidate skipped: ${candidate.candidate}');
+            GlobalLogger().i('Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
           }
         } else {
-          GlobalLogger().i('Peer :: onIceCandidate: complete');
+          GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
       };
 
@@ -321,17 +330,15 @@ class Peer {
           await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(description);
 
-      // Give localDescription a moment to be set
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Start ICE candidate gathering and wait for negotiation to complete
+      _lastCandidateTime = DateTime.now();
+      _setOnNegotiationComplete(() async {
+        String? sdpUsed = '';
+        final localDesc = await session.peerConnection?.getLocalDescription();
+        if (localDesc != null) {
+          sdpUsed = localDesc.sdp;
+        }
 
-      String? sdpUsed = '';
-      final localDesc = await session.peerConnection?.getLocalDescription();
-      if (localDesc != null) {
-        sdpUsed = localDesc.sdp;
-      }
-
-      // Send ANSWER or ATTACH
-      Timer(const Duration(milliseconds: 500), () {
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -351,7 +358,7 @@ class Peer {
         final inviteParams = InviteParams(
           dialogParams: dialogParams,
           sdp: sdpUsed,
-          sessid: session.sid, // We use the session’s sid
+          sessid: session.sid, // We use the session's sid
           userAgent: 'Flutter-1.0',
         );
 
@@ -451,18 +458,21 @@ class Peer {
     // ICE callbacks
     pc
       ..onIceCandidate = (candidate) async {
-        final currentCall = _txClient.calls[callId];
+        GlobalLogger().i('Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
         if (candidate.candidate != null) {
-          // Example skipping local candidate if call is active and it's 127.0.0.1
-          if (!candidate.candidate!.contains('127.0.0.1') ||
-              currentCall?.callState != CallState.active) {
-            GlobalLogger().i('Peer :: Adding ICE candidate => ${candidate.candidate}');
+          final candidateString = candidate.candidate.toString();
+          final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
+                                  candidateString.contains('turn.telnyx.com');
+
+          if (isValidCandidate) {
+            GlobalLogger().i('Web Peer :: Valid ICE candidate: $candidateString');
+            // Add valid candidates
             await pc.addCandidate(candidate);
           } else {
-            GlobalLogger().i('Peer :: Local candidate skipped => ${candidate.candidate}');
+            GlobalLogger().i('Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
           }
         } else {
-          GlobalLogger().i('Peer :: onIceCandidate: complete');
+          GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
       }
       ..onIceConnectionState = (state) {
@@ -568,5 +578,45 @@ class Peer {
 
   void _send(dynamic event) {
     _socket.send(event);
+  }
+
+  /// Sets a callback to be invoked when ICE negotiation is complete
+  void _setOnNegotiationComplete(Function() callback) {
+    _onNegotiationComplete = callback;
+    _startNegotiationTimer();
+  }
+
+  /// Starts the negotiation timer that checks for ICE candidate timeout
+  void _startNegotiationTimer() {
+    _negotiationTimer?.cancel();
+    _negotiationTimer = Timer.periodic(
+      const Duration(milliseconds: _negotiationTimeout),
+      (timer) {
+        if (_lastCandidateTime == null) return;
+
+        final timeSinceLastCandidate = DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
+        GlobalLogger().d('Time since last candidate: ${timeSinceLastCandidate}ms');
+
+        if (timeSinceLastCandidate >= _negotiationTimeout) {
+          GlobalLogger().d('Negotiation timeout reached');
+          _onNegotiationComplete?.call();
+          _stopNegotiationTimer();
+        }
+      },
+    );
+  }
+
+  /// Stops and cleans up the negotiation timer
+  void _stopNegotiationTimer() {
+    _negotiationTimer?.cancel();
+    _negotiationTimer = null;
+  }
+
+  /// Cleans up resources when the peer is no longer needed
+  void _release() {
+    _stopNegotiationTimer();
+    if (_sessions.isNotEmpty) {
+      _cleanSessions();
+    }
   }
 }
