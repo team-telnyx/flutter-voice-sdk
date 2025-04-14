@@ -306,21 +306,22 @@ class Peer {
     try {
       // ICE candidate callback (with optional skipping logic)
       session.peerConnection?.onIceCandidate = (candidate) async {
-        final currentCall = _txClient.calls[callId];
-
-        // Example skipping logic from mobile:
+        GlobalLogger().i('Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
         if (candidate.candidate != null) {
-          if (!candidate.candidate!.contains('127.0.0.1') ||
-              currentCall?.callState != CallState.active) {
-            GlobalLogger().i('Peer :: Add Ice Candidate => ${candidate.candidate}');
+          final candidateString = candidate.candidate.toString();
+          final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
+                                  candidateString.contains('turn.telnyx.com');
+
+          if (isValidCandidate) {
+            GlobalLogger().i('Web Peer :: Valid ICE candidate: $candidateString');
+            // Only add valid candidates and reset timer
             await session.peerConnection?.addCandidate(candidate);
-            // Update last candidate time when a new candidate is received
             _lastCandidateTime = DateTime.now();
           } else {
-            GlobalLogger().i('Peer :: Local candidate skipped: ${candidate.candidate}');
+            GlobalLogger().i('Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
           }
         } else {
-          GlobalLogger().i('Peer :: onIceCandidate: complete');
+          GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
       };
 
@@ -457,18 +458,21 @@ class Peer {
     // ICE callbacks
     pc
       ..onIceCandidate = (candidate) async {
-        final currentCall = _txClient.calls[callId];
+        GlobalLogger().i('Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
         if (candidate.candidate != null) {
-          // Example skipping local candidate if call is active and it's 127.0.0.1
-          if (!candidate.candidate!.contains('127.0.0.1') ||
-              currentCall?.callState != CallState.active) {
-            GlobalLogger().i('Peer :: Adding ICE candidate => ${candidate.candidate}');
+          final candidateString = candidate.candidate.toString();
+          final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
+                                  candidateString.contains('turn.telnyx.com');
+
+          if (isValidCandidate) {
+            GlobalLogger().i('Web Peer :: Valid ICE candidate: $candidateString');
+            // Add valid candidates
             await pc.addCandidate(candidate);
           } else {
-            GlobalLogger().i('Peer :: Local candidate skipped => ${candidate.candidate}');
+            GlobalLogger().i('Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
           }
         } else {
-          GlobalLogger().i('Peer :: onIceCandidate: complete');
+          GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
       }
       ..onIceConnectionState = (state) {

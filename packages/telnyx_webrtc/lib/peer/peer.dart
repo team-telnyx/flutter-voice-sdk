@@ -266,13 +266,23 @@ class Peer {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
-          GlobalLogger().i('Peer :: Add Ice Candidate!');
+          GlobalLogger().i('Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
           if (candidate.candidate != null) {
-            await session.peerConnection?.addCandidate(candidate);
-            // Update last candidate time when a new candidate is received
-            _lastCandidateTime = DateTime.now();
+            final candidateString = candidate.candidate.toString();
+            final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
+                                    candidateString.contains('turn.telnyx.com');
+
+            if (isValidCandidate) {
+              GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
+              // Only add valid candidates and reset timer
+              await session.peerConnection?.addCandidate(candidate);
+              _lastCandidateTime = DateTime.now();
+            } else {
+              GlobalLogger().i('Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+            }
           }
         } else {
+          // Still collect candidates if peerConnection is not ready yet
           session.remoteCandidates.add(candidate);
         }
       };
@@ -393,18 +403,21 @@ class Peer {
     }
 
     peerConnection?.onIceCandidate = (candidate) async {
-      final Call? currentCall = _txClient.calls[callId];
+      GlobalLogger().i('Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
+      if (candidate.candidate != null) {
+        final candidateString = candidate.candidate.toString();
+        final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
+                                candidateString.contains('turn.telnyx.com');
 
-      if (!candidate.candidate.toString().contains('127.0.0.1') ||
-          currentCall?.callState != CallState.active) {
-        GlobalLogger().i('Peer :: Adding ICE candidate :: ${candidate.toString()}');
-        await peerConnection?.addCandidate(candidate);
+        if (isValidCandidate) {
+          GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
+          // Add valid candidates
+          await peerConnection?.addCandidate(candidate);
+        } else {
+          GlobalLogger().i('Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+        }
       } else {
-        GlobalLogger().i('Peer :: Local candidate skipped!');
-      }
-      if (candidate.candidate == null) {
         GlobalLogger().i('Peer :: onIceCandidate: complete!');
-        return;
       }
     };
 
