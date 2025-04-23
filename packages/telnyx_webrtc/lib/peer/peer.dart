@@ -36,7 +36,7 @@ class Peer {
   // Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
+  static const int _negotiationTimeout = 500; // 500ms timeout for negotiation
   Function()? _onNegotiationComplete;
 
   final Map<String, Session> _sessions = {};

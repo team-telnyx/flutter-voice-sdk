@@ -416,7 +416,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         sipPassword: sipPassword,
         notificationToken: notificationToken,
         debug: true,
-        logLevel: LogLevel.debug,
+        logLevel: LogLevel.all,
         customLogger: CustomSDKLogger(),
         reconnectionTimeout: 30000,
       );
@@ -438,7 +438,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         sipToken: token,
         notificationToken: notificationToken,
         debug: true,
-        logLevel: LogLevel.debug,
+        logLevel: LogLevel.all,
       );
     } else {
       return null;
@@ -498,10 +498,13 @@ class TelnyxClientViewModel with ChangeNotifier {
     notifyListeners();
   }
 
+
+
   Future<void> showNotification(IncomingInviteParams message) async {
     if (kIsWeb) {
       return;
     }
+
     // Temporarily ignore lifecycle events during notification to avoid actions being done while app is in background and notification in foreground.
     BackgroundDetector.ignore = true;
     final CallKitParams callKitParams = CallKitParams(
@@ -521,6 +524,8 @@ class TelnyxClientViewModel with ChangeNotifier {
       extra: {},
       headers: <String, dynamic>{'platform': 'flutter'},
     );
+
+    await FlutterCallkitIncoming.setCallConnected(message.callID!);
 
     await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
   }

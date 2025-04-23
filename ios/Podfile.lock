@@ -42,14 +42,11 @@ PODS:
   - flutter_callkit_incoming (0.0.1):
     - CryptoSwift
     - Flutter
-  - flutter_fgbg (0.0.1):
-    - Flutter
   - flutter_webrtc (0.12.6):
     - Flutter
     - WebRTC-SDK (= 125.6422.06)
   - fluttertoast (0.0.2):
     - Flutter
-    - Toast
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
     - PromisesObjC (~> 2.4)
@@ -99,7 +96,6 @@ PODS:
   - shared_preferences_foundation (0.0.1):
     - Flutter
     - FlutterMacOS
-  - Toast (4.1.1)
   - WebRTC-SDK (125.6422.06)
 
 DEPENDENCIES:
@@ -109,7 +105,6 @@ DEPENDENCIES:
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
   - flutter_callkit_incoming (from `.symlinks/plugins/flutter_callkit_incoming/ios`)
-  - flutter_fgbg (from `.symlinks/plugins/flutter_fgbg/ios`)
   - flutter_webrtc (from `.symlinks/plugins/flutter_webrtc/ios`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - integration_test (from `.symlinks/plugins/integration_test/ios`)
@@ -132,7 +127,6 @@ SPEC REPOS:
     - GoogleUtilities
     - nanopb
     - PromisesObjC
-    - Toast
     - WebRTC-SDK
 
 EXTERNAL SOURCES:
@@ -148,8 +142,6 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_callkit_incoming:
     :path: ".symlinks/plugins/flutter_callkit_incoming/ios"
-  flutter_fgbg:
-    :path: ".symlinks/plugins/flutter_fgbg/ios"
   flutter_webrtc:
     :path: ".symlinks/plugins/flutter_webrtc/ios"
   fluttertoast:
@@ -181,9 +173,8 @@ SPEC CHECKSUMS:
   FirebaseMessaging: e1aca1fcc23e8b9eddb0e33f375ff90944623021
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_callkit_incoming: 417dd1b46541cdd5d855ad795ccbe97d1c18155e
-  flutter_fgbg: 31c0d1140a131daea2d342121808f6aa0dcd879d
   flutter_webrtc: 90260f83024b1b96d239a575ea4e3708e79344d1
-  fluttertoast: e9a18c7be5413da53898f660530c56f35edfba9c
+  fluttertoast: 21eecd6935e7064cc1fcb733a4c5a428f3f24f0f
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
   GoogleUtilities: 26a3abef001b6533cf678d3eb38fd3f614b7872d
   integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
@@ -194,9 +185,8 @@ SPEC CHECKSUMS:
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
   shared_preferences_foundation: fcdcbc04712aee1108ac7fda236f363274528f78
-  Toast: 1f5ea13423a1e6674c4abdac5be53587ae481c4e
   WebRTC-SDK: 79942c006ea64f6fb48d7da8a4786dfc820bc1db
 
-PODFILE CHECKSUM: cc1f88378b4bfcf93a6ce00d2c587857c6008d3b
+PODFILE CHECKSUM: 69cacdd436cfbdd67408e8c4756cb2fc64006c6b
 
 COCOAPODS: 1.16.2

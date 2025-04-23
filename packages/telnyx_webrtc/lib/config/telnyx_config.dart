@@ -9,7 +9,7 @@ class Config {
     required this.sipCallerIDNumber,
     this.notificationToken,
     this.autoReconnect,
-    this.logLevel = LogLevel.info,
+    this.logLevel = LogLevel.all,
     required this.debug,
     this.customLogger,
     this.ringTonePath,
