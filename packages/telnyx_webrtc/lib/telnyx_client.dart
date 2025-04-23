@@ -320,6 +320,11 @@ class TelnyxClient {
     return await PreferencesStorage.getMetaData();
   }
 
+  /// Clears the push metadata for the client
+  static void clearPushMetaData() {
+    PreferencesStorage.saveMetadata('');
+  }
+
   /// Create a socket connection for
   /// communication with the Telnyx backend
   void _connectWithCallBack(
@@ -786,6 +791,7 @@ class TelnyxClient {
     if (answerCall.callId != null) {
       updateCall(answerCall);
     }
+    clearPushMetaData();
     return answerCall;
   }
 
@@ -812,6 +818,7 @@ class TelnyxClient {
   void disconnectWithCallBack(OnCloseCallback? closeCallback) {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
+    clearPushMetaData();
     GlobalLogger().i('disconnect()');
     if (_closed) {
       GlobalLogger().i('WebSocket is already closed');
@@ -836,6 +843,7 @@ class TelnyxClient {
   void disconnect() {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
+    clearPushMetaData();
     GlobalLogger().i('disconnect()');
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
@@ -944,6 +952,8 @@ class TelnyxClient {
                         );
                         txSocket.send(jsonEncode(attachCallMessage));
                         _isCallFromPush = false;
+                        _pushMetaData = null;
+                        clearPushMetaData();
                       }
                       _registered = true;
                     }
