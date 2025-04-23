@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
+import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -446,7 +447,11 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   Future<void> accept({bool acceptFromNotification = false}) async {
-    if (callState == CallStateStatus.ongoingCall) {
+    await FlutterCallkitIncoming.activeCalls().then((value) {
+      logger.i('${value.length} Active Calls before accept $value');
+    });
+
+    if (callState == CallStateStatus.ongoingCall || callState == CallStateStatus.connectingToCall) {
       return;
     }
 
@@ -523,9 +528,23 @@ class TelnyxClientViewModel with ChangeNotifier {
       duration: 30000,
       extra: {},
       headers: <String, dynamic>{'platform': 'flutter'},
+      ios: const IOSParams(
+        iconName: 'CallKitLogo',
+        handleType: 'generic',
+        supportsVideo: false,
+        maximumCallGroups: 2,
+        maximumCallsPerCallGroup: 1,
+        audioSessionMode: 'default',
+        audioSessionActive: true,
+        audioSessionPreferredSampleRate: 44100.0,
+        audioSessionPreferredIOBufferDuration: 0.005,
+        supportsDTMF: true,
+        supportsHolding: true,
+        supportsGrouping: false,
+        supportsUngrouping: false,
+        ringtonePath: 'system_ringtone_default',
+      ),
     );
-
-    await FlutterCallkitIncoming.setCallConnected(message.callID!);
 
     await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
   }
