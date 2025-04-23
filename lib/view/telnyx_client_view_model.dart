@@ -110,7 +110,13 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void updateCallFromPush(bool value) {
-    callState = CallStateStatus.connectingToCall;
+    if (value) {
+      logger.i('Setting call from Push');
+      callState = CallStateStatus.connectingToCall;
+    } else {
+      logger.i('Finishing call from Push');
+      callState = CallStateStatus.idle;
+    }
     callFromPush = value;
     notifyListeners();
   }
@@ -469,7 +475,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
     if (callState == CallStateStatus.ongoingCall ||
         callState == CallStateStatus.connectingToCall) {
-      logger.i('Already in a call');
+      logger.i('Already in a call :: $callState');
       return;
     }
 
