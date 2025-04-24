@@ -1,3 +1,11 @@
+## [1.1.3](https://pub.dev/packages/telnyx_webrtc/versions/1.1.2) (2025-04-24)
+
+### Bug Fixing
+
+- Clear Push Metadata in more places to prevent issue where a call is attempting to be attached based on previously stored push metadata. You can also now manually clear the push metadata by calling `clearPushMetadata` method on the `TelnyxViewModel` class.
+- Bump negotiation timeout to from 300ms to 500ms (per ice candidate)
+
+
 ## [1.1.2](https://pub.dev/packages/telnyx_webrtc/versions/1.1.2) (2025-04-09)
 
 ### Bug Fixing
