@@ -70,11 +70,12 @@ class AppInitializer {
               break;
             case Event.actionCallAccept:
               if (txClientViewModel.incomingInvitation != null) {
+                logger.i('Accepted Call Directly because of incomingInvitation');
                 await txClientViewModel.accept();
               } else {
                 final metadata = event.body['extra']['metadata'];
                 if (metadata == null || fromBackground) {
-                  logger.i('Accepted Call Directly');
+                  logger.i('Accepted Call Directly because of no metadata or it is from background');
                   await txClientViewModel.accept();
 
                   /// Reset the incomingPushCall flag and fromBackground flag

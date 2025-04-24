@@ -56,7 +56,7 @@ class NotificationService {
       ios: const IOSParams(
         iconName: 'CallKitLogo',
         handleType: 'generic',
-        supportsVideo: true,
+        supportsVideo: false,
         maximumCallGroups: 2,
         maximumCallsPerCallGroup: 1,
         audioSessionMode: 'default',
@@ -110,7 +110,7 @@ class NotificationService {
       ios: const IOSParams(
         iconName: 'CallKitLogo',
         handleType: 'generic',
-        supportsVideo: true,
+        supportsVideo: false,
         maximumCallGroups: 2,
         maximumCallsPerCallGroup: 1,
         audioSessionMode: 'default',

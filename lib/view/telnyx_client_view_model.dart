@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
+import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -43,6 +44,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _hold = false;
 
   CredentialConfig? _credentialConfig;
+  TokenConfig? _tokenConfig;
   IncomingInviteParams? _incomingInvite;
 
   String _localName = '';
@@ -108,7 +110,13 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void updateCallFromPush(bool value) {
-    callState = CallStateStatus.connectingToCall;
+    if (value) {
+      logger.i('Setting call from Push');
+      callState = CallStateStatus.connectingToCall;
+    } else {
+      logger.i('Finishing call from Push');
+      callState = CallStateStatus.idle;
+    }
     callFromPush = value;
     notifyListeners();
   }
@@ -165,25 +173,31 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   Future<void> _saveCredentialsForAutoLogin(
-    CredentialConfig credentialConfig,
+    Config config,
   ) async {
+    await _clearConfigForAutoLogin();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('sipUser', credentialConfig.sipUser);
-    await prefs.setString('sipPassword', credentialConfig.sipPassword);
-    await prefs.setString('sipName', credentialConfig.sipCallerIDName);
-    await prefs.setString('sipNumber', credentialConfig.sipCallerIDNumber);
-    if (credentialConfig.notificationToken != null) {
+    if (config is TokenConfig) {
+      await prefs.setString('token', config.sipToken);
+    } else if (config is CredentialConfig) {
+      await prefs.setString('sipUser', config.sipUser);
+      await prefs.setString('sipPassword', config.sipPassword);
+    }
+    await prefs.setString('sipName', config.sipCallerIDName);
+    await prefs.setString('sipNumber', config.sipCallerIDNumber);
+    if (config.notificationToken != null) {
       await prefs.setString(
         'notificationToken',
-        credentialConfig.notificationToken!,
+        config.notificationToken!,
       );
     }
   }
 
-  Future<void> _clearCredentialsForAutoLogin() async {
+  Future<void> _clearConfigForAutoLogin() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('sipUser');
     await prefs.remove('sipPassword');
+    await prefs.remove('token');
     await prefs.remove('sipName');
     await prefs.remove('sipNumber');
     await prefs.remove('notificationToken');
@@ -201,7 +215,10 @@ class TelnyxClientViewModel with ChangeNotifier {
             {
               if (_credentialConfig != null) {
                 await _saveCredentialsForAutoLogin(_credentialConfig!);
+              } else if (_tokenConfig != null) {
+                await _saveCredentialsForAutoLogin(_tokenConfig!);
               }
+
               _registered = true;
               logger.i(
                 'TxClientViewModel :: observeResponses : Registered :: $_registered',
@@ -246,7 +263,7 @@ class TelnyxClientViewModel with ChangeNotifier {
           case SocketMethod.bye:
             {
               callState = CallStateStatus.idle;
-
+              resetCallInfo();
               if (!kIsWeb && Platform.isIOS) {
                 if (callFromPush) {
                   _endCallFromPush(true);
@@ -283,7 +300,8 @@ class TelnyxClientViewModel with ChangeNotifier {
           case -32000:
             {
               //Todo handle token error (try again, sign user out and move to login screen, etc)
-              logger.i('${error.errorMessage} :: The token is invalid or expired');
+              logger.i(
+                  '${error.errorMessage} :: The token is invalid or expired');
               _loggingIn = false;
               break;
             }
@@ -297,19 +315,22 @@ class TelnyxClientViewModel with ChangeNotifier {
           case -32002:
             {
               //Todo handle codec error (end call and show error message, call back, etc)
-              logger.i('${error.errorMessage} :: There was an issue with the SDP Handshake, likely due to invalid ICE Candidates');
+              logger.i(
+                  '${error.errorMessage} :: There was an issue with the SDP Handshake, likely due to invalid ICE Candidates');
               break;
             }
           case -32003:
             {
               //Todo handle gateway timeout error (try again, check network connection, etc)
-              logger.i('${error.errorMessage} :: It is taking too long to register with the gateway');
+              logger.i(
+                  '${error.errorMessage} :: It is taking too long to register with the gateway');
               break;
             }
           case -32004:
             {
               //ToDo hande gateway failure error (try again, check network connection, etc)
-              logger.i('${error.errorMessage} :: Registration with the gateway has failed');
+              logger.i(
+                  '${error.errorMessage} :: Registration with the gateway has failed');
               break;
             }
         }
@@ -348,6 +369,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void disconnect() {
+    TelnyxClient.clearPushMetaData();
     _telnyxClient.disconnect();
     callState = CallStateStatus.disconnected;
     _loggingIn = false;
@@ -372,6 +394,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
     _localName = tokenConfig.sipCallerIDName;
     _localNumber = tokenConfig.sipCallerIDNumber;
+    _tokenConfig = tokenConfig;
     _telnyxClient.connectWithToken(tokenConfig);
     observeResponses();
   }
@@ -415,8 +438,8 @@ class TelnyxClientViewModel with ChangeNotifier {
         sipUser: sipUser,
         sipPassword: sipPassword,
         notificationToken: notificationToken,
-        debug: true,
-        logLevel: LogLevel.debug,
+        debug: false,
+        logLevel: LogLevel.all,
         customLogger: CustomSDKLogger(),
         reconnectionTimeout: 30000,
       );
@@ -437,8 +460,8 @@ class TelnyxClientViewModel with ChangeNotifier {
         sipCallerIDNumber: sipNumber,
         sipToken: token,
         notificationToken: notificationToken,
-        debug: true,
-        logLevel: LogLevel.debug,
+        debug: false,
+        logLevel: LogLevel.all,
       );
     } else {
       return null;
@@ -446,7 +469,13 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   Future<void> accept({bool acceptFromNotification = false}) async {
-    if (callState == CallStateStatus.ongoingCall) {
+    await FlutterCallkitIncoming.activeCalls().then((value) {
+      logger.i('${value.length} Active Calls before accept $value');
+    });
+
+    if (callState == CallStateStatus.ongoingCall ||
+        callState == CallStateStatus.connectingToCall) {
+      logger.i('Already in a call :: $callState');
       return;
     }
 
@@ -502,6 +531,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     if (kIsWeb) {
       return;
     }
+
     // Temporarily ignore lifecycle events during notification to avoid actions being done while app is in background and notification in foreground.
     BackgroundDetector.ignore = true;
     final CallKitParams callKitParams = CallKitParams(
@@ -520,6 +550,22 @@ class TelnyxClientViewModel with ChangeNotifier {
       duration: 30000,
       extra: {},
       headers: <String, dynamic>{'platform': 'flutter'},
+      ios: const IOSParams(
+        iconName: 'CallKitLogo',
+        handleType: 'generic',
+        supportsVideo: false,
+        maximumCallGroups: 2,
+        maximumCallsPerCallGroup: 1,
+        audioSessionMode: 'default',
+        audioSessionActive: true,
+        audioSessionPreferredSampleRate: 44100.0,
+        audioSessionPreferredIOBufferDuration: 0.005,
+        supportsDTMF: true,
+        supportsHolding: true,
+        supportsGrouping: false,
+        supportsUngrouping: false,
+        ringtonePath: 'system_ringtone_default',
+      ),
     );
 
     await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);

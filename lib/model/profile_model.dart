@@ -81,7 +81,7 @@ class Profile {
           sipCallerIDNumber: sipCallerIDNumber,
           notificationToken: await getNotificationTokenForPlatform() ?? '',
           debug: false,
-          logLevel: LogLevel.debug,
+          logLevel: LogLevel.all,
           customLogger: CustomSDKLogger(),);
     } else {
       return CredentialConfig(
@@ -91,7 +91,7 @@ class Profile {
         sipCallerIDNumber: sipCallerIDNumber,
         notificationToken: await getNotificationTokenForPlatform() ?? '',
         debug: false,
-        logLevel: LogLevel.debug,
+        logLevel: LogLevel.all,
         customLogger: CustomSDKLogger(),
       );
     }
