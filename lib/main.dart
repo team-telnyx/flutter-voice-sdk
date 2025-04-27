@@ -74,19 +74,20 @@ class AppInitializer {
                 await txClientViewModel.accept();
               } else {
                 final metadata = event.body['extra']['metadata'];
-                if (metadata == null || fromBackground) {
-                  logger.i('Accepted Call Directly because of no metadata or it is from background');
-                  await txClientViewModel.accept();
-
-                  /// Reset the incomingPushCall flag and fromBackground flag
-                  fromBackground = false;
+                // Refined check: If metadata exists, treat it as push-related accept.
+                if (metadata == null) {
+                   // This case should ideally not happen if CallKit sends metadata on accept.
+                  logger.i('Accepted Call Directly - Metadata missing in actionCallAccept event.');
+                  await txClientViewModel.accept(); // Accept without push context
                 } else {
                   logger.i(
                     'Received push Call with metadata on Accept, handle push here $metadata',
                   );
-                  final data = metadata as Map<dynamic, dynamic>;
+                  // Pass the acceptance intent and data to the ViewModel
+                  final Map<dynamic, dynamic> data = Map<dynamic, dynamic>.from(metadata as Map);
                   data['isAnswer'] = true;
-                  await handlePush(data);
+                  // Call ViewModel's accept with push context
+                  await txClientViewModel.accept(acceptFromPush: true, pushData: data);
                 }
               }
               break;
@@ -304,7 +305,7 @@ Future<void> main() async {
                   {
                     txClientViewModel.loginWithToken(config),
                   },
-              },
+              }
           }
         else if (state == AppLifecycleState.paused)
           {

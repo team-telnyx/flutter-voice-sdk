@@ -227,21 +227,30 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 'TxClientViewModel :: observeResponses : Registered :: $_registered',
               );
-              _callState = CallStateStatus.idle;
+              if (callState != CallStateStatus.connectingToCall) {
+                callState = CallStateStatus.idle;
+              }
               break;
             }
           case SocketMethod.invite:
             {
+              logger.i('ObserveResponses :: Received INVITE. callFromPush: $callFromPush, waitingForInvite: $waitingForInvite');
               callState = CallStateStatus.ongoingInvitation;
               _incomingInvite = message.message.inviteParams;
               observeCurrentCall();
+
               if (!callFromPush) {
+                logger.i('ObserveResponses :: Invite - Not from push, showing notification.');
                 await showNotification(_incomingInvite!);
               } else {
-                // For early accept of call
                 if (waitingForInvite) {
+                  logger.i('ObserveResponses :: Invite received while waiting, calling accept().');
                   await accept();
-                  waitingForInvite = false;
+                } else {
+                  logger.i('ObserveResponses :: Invite received, was from push but NOT waiting for invite flag.');
+                  if (_currentCall == null || (_currentCall?.callState != CallState.connecting && _currentCall?.callState != CallState.active)) {
+                    logger.w('ObserveResponses :: Invite from push, but not waiting and call not established. Manual accept might be needed.');
+                  }
                 }
               }
 
@@ -480,63 +489,83 @@ class TelnyxClientViewModel with ChangeNotifier {
     }
   }
 
-  Future<void> accept({bool acceptFromNotification = false}) async {
+  Future<void> accept({bool acceptFromPush = false, Map<dynamic, dynamic>? pushData, bool acceptFromNotification = false}) async {
+    // Log entry point
+    logger.i('Accept method called. acceptFromPush: $acceptFromPush, _incomingInvite exists: ${_incomingInvite != null}, callState: $callState');
+
     await FlutterCallkitIncoming.activeCalls().then((value) {
       logger.i('${value.length} Active Calls before accept $value');
     });
 
-    if (callState == CallStateStatus.ongoingCall ||
-        callState == CallStateStatus.connectingToCall) {
-      logger.i('Already in a call :: $callState');
+    // Prevent double accept if already connecting/connected
+    if (_currentCall != null && (callState == CallStateStatus.ongoingCall || callState == CallStateStatus.connectingToCall)) {
+      logger.i('Accept :: Already connecting or in a call :: $callState');
       return;
     }
 
     if (_incomingInvite != null) {
+      // Scenario 1: Invite already exists when accept is called. Accept it now.
+      logger.i('Accept :: Invite found, accepting call ${_incomingInvite!.callID}');
       _currentCall = _telnyxClient.acceptCall(
         _incomingInvite!,
         _localName,
         _localNumber,
-        'State',
+        'State', // Provide actual state if needed
+        customHeaders: {}, // Add custom headers if needed
       );
+      observeCurrentCall(); // Re-observe in case it's a new call object
 
       if (!kIsWeb && Platform.isIOS) {
         // only for iOS
         await FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
       }
 
-      // Hide if not already hidden
-      if (!kIsWeb && Platform.isAndroid && !acceptFromNotification) {
-        final CallKitParams callKitParams = CallKitParams(
-          id: _incomingInvite!.callID,
-          nameCaller: _incomingInvite!.callerIdName,
-          appName: 'Telnyx Flutter Voice',
-          avatar: 'https://i.pravatar.cc/100',
-          handle: _incomingInvite!.callerIdNumber,
-          type: 0,
-          textAccept: 'Accept',
-          textDecline: 'Decline',
-          missedCallNotification: const NotificationParams(
-            showNotification: false,
-            isShowCallback: false,
-            subtitle: 'Missed call',
-          ),
-          duration: 30000,
-          extra: {},
-          headers: <String, dynamic>{'platform': 'flutter'},
-        );
-
-        _callState = CallStateStatus.connectingToCall;
-        notifyListeners();
-
-        // Hide notification when call is accepted
-        await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
+      // Hide notification UI if needed (mainly for Android)
+      // Note: Use the stored _incomingInvite details for hiding
+      if (!kIsWeb && Platform.isAndroid) {
+         final CallKitParams callKitParams = CallKitParams(
+            id: _incomingInvite!.callID,
+            nameCaller: _incomingInvite!.callerIdName, // Use stored invite data
+            appName: 'Telnyx Flutter Voice',
+            handle: _incomingInvite!.callerIdNumber, // Use stored invite data
+            type: 0,
+             // Other params might be needed if hideCallkitIncoming requires them
+          );
+        try {
+            await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
+             logger.i('Accept :: Hiding CallKit UI for Android');
+        } catch (e) {
+             logger.e('Accept :: Error hiding CallKit UI: $e');
+        }
       }
+
+      callState = CallStateStatus.connectingToCall;
+      waitingForInvite = false; // Ensure flag is reset now that we are accepting
       notifyListeners();
-    } else {
-      logger.i('Answered early, waiting for invite');
+
+    } else if (acceptFromPush && pushData != null) {
+      // Scenario 2: Accept called from Push event, but invite hasn't arrived yet.
+      logger.i('Accept :: Invite not present yet, setting waitingForInvite=true.');
       waitingForInvite = true;
+      callState = CallStateStatus.connectingToCall; // Indicate connecting state
+      notifyListeners(); // Update UI early to show connecting state
+
+      // DO NOT re-initiate connection here. The connection should already
+      // be in progress from the handlePush triggered by actionCallIncoming.
+
+    } else {
+      // Scenario 3: Accept called manually (e.g., UI button) without an invite
+      // Or Scenario 4: Accept called with acceptFromNotification=true (legacy path?)
+      logger.w('Accept :: Called without a waiting invite or without push context. acceptFromNotification: $acceptFromNotification');
+      if (waitingForInvite) {
+        logger.i('Accept :: Still waiting for invite from previous push accept.');
+        // Don't do anything here, wait for the invite handler to call accept again.
+      } else {
+        // This path might indicate a logic error elsewhere if _incomingInvite is null
+        // and it wasn't triggered by acceptFromPush.
+         logger.e('Accept :: Logic error? Accept called with no invite and no push context.');
+      }
     }
-    notifyListeners();
   }
 
   Future<void> showNotification(IncomingInviteParams message) async {
