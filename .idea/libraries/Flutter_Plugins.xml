@@ -26,7 +26,7 @@
       <root url="file://$USER_HOME$/Development/flutter/packages/integration_test" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/fluttertoast-8.2.11" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_webrtc-0.13.1+hotfix.1" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_callkit_incoming-2.5.2" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_callkit_incoming-2.0.4+2" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

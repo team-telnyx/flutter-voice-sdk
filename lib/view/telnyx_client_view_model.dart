@@ -156,7 +156,11 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.done:
           if (!kIsWeb) {
-            FlutterCallkitIncoming.endCall(currentCall?.callId ?? '');
+            if (currentCall?.callId != null || _incomingInvite != null) {
+              FlutterCallkitIncoming.endCall(
+                currentCall?.callId ?? _incomingInvite?.callID! ?? '',
+              );
+            }
           }
           break;
         case CallState.error:
@@ -268,9 +272,17 @@ class TelnyxClientViewModel with ChangeNotifier {
                 if (callFromPush) {
                   _endCallFromPush(true);
                 } else {
-                  await FlutterCallkitIncoming.endCall(
-                    currentCall?.callId ?? _incomingInvite!.callID!,
-                  );
+                  if (currentCall?.callId != null || _incomingInvite != null) {
+                    // end Call for Callkit on iOS
+                    await FlutterCallkitIncoming.endCall(
+                      currentCall?.callId ?? _incomingInvite?.callID! ?? '',
+                    );
+                  } else {
+                    final numCalls = await FlutterCallkitIncoming.activeCalls();
+                    if (numCalls.isNotEmpty) {
+                      await FlutterCallkitIncoming.endCall(numCalls.first.callID);
+                    }
+                  }
                   resetCallInfo();
                 }
               }
