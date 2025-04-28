@@ -1,5 +1,7 @@
+import 'dart:async'; // Required for runZonedGuarded
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui'; // Required for PlatformDispatcher
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -290,44 +292,57 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 @pragma('vm:entry-point')
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (!AppInitializer()._isInitialized) {
-    await AppInitializer().initialize();
-  }
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  final config = await txClientViewModel.getConfig();
-  runApp(
-    BackgroundDetector(
-      skipWeb: true,
-      onLifecycleEvent: (AppLifecycleState state) => {
-        if (state == AppLifecycleState.resumed)
-          {
-            logger.i('We are in the foreground, CONNECTING'),
-            // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
-            if (!txClientViewModel.callFromPush)
-              {
-                if (config != null && config is CredentialConfig)
-                  {
-                    txClientViewModel.login(config),
-                  }
-                else if (config != null && config is TokenConfig)
-                  {
-                    txClientViewModel.loginWithToken(config),
-                  },
-              }
-          }
-        else if (state == AppLifecycleState.paused)
-          {
-            logger.i(
-              'We are in the background setting fromBackground == true, DISCONNECTING',
-            ),
-            fromBackground = true,
-            txClientViewModel.disconnect(),
-          },
-      },
-      child: const MyApp(),
-    ),
-  );
+    // Catch Flutter framework errors
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      logger.e('Caught Flutter error: ${details.exception}', stackTrace: details.stack);
+      TelnyxClient.clearPushMetaData();
+    };
+
+    // Catch other platform errors (e.g., Dart errors outside Flutter)
+    PlatformDispatcher.instance.onError = (error, stack) {
+      logger.e('Caught Platform error: $error', stackTrace: stack);
+      TelnyxClient.clearPushMetaData();
+      return true; 
+    };
+
+    if (!AppInitializer()._isInitialized) {
+      await AppInitializer().initialize();
+    }
+
+    final config = await txClientViewModel.getConfig();
+    runApp(
+      BackgroundDetector(
+         skipWeb: true,
+         onLifecycleEvent: (AppLifecycleState state) {
+           if (state == AppLifecycleState.resumed) {
+             logger.i('We are in the foreground, CONNECTING');
+             // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
+             if (!txClientViewModel.callFromPush) {
+               if (config != null && config is CredentialConfig) {
+                 txClientViewModel.login(config);
+               } else if (config != null && config is TokenConfig) {
+                 txClientViewModel.loginWithToken(config);
+               }
+             }
+           } else if (state == AppLifecycleState.paused) {
+             logger.i(
+               'We are in the background setting fromBackground == true, DISCONNECTING',
+             );
+             fromBackground = true;
+             txClientViewModel.disconnect();
+           }
+         },
+         child: const MyApp(),
+      ),
+    );
+  }, (error, stack) {
+    logger.e('Caught Zoned error: $error', stackTrace: stack);
+    TelnyxClient.clearPushMetaData();
+  });
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
