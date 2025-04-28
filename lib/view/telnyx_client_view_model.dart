@@ -105,19 +105,19 @@ class TelnyxClientViewModel with ChangeNotifier {
     _mute = false;
     _hold = false;
     callState = CallStateStatus.idle;
-    updateCallFromPush(false);
+    setPushCallStatus(false);
     notifyListeners();
   }
 
-  void updateCallFromPush(bool value) {
-    if (value) {
-      logger.i('Setting call from Push');
-      callState = CallStateStatus.connectingToCall;
+  void setPushCallStatus(bool isFromPush) {
+    callFromPush = isFromPush;
+
+    if (isFromPush) {
+      logger.i('Entering push call context.');
     } else {
-      logger.i('Finishing call from Push');
+      logger.i('Exiting push call context / Resetting state.');
       callState = CallStateStatus.idle;
     }
-    callFromPush = value;
     notifyListeners();
   }
 
@@ -234,31 +234,40 @@ class TelnyxClientViewModel with ChangeNotifier {
             }
           case SocketMethod.invite:
             {
-              logger.i('ObserveResponses :: Received INVITE. callFromPush: $callFromPush, waitingForInvite: $waitingForInvite');
-              callState = CallStateStatus.ongoingInvitation;
+              logger.i(
+                'ObserveResponses :: Received INVITE. callFromPush: $callFromPush, waitingForInvite: $waitingForInvite',
+              );
               _incomingInvite = message.message.inviteParams;
-              observeCurrentCall();
 
-              if (!callFromPush) {
-                logger.i('ObserveResponses :: Invite - Not from push, showing notification.');
+              if (waitingForInvite) {
+                logger.i(
+                  'ObserveResponses :: Invite received while waiting, calling _performAccept.',
+                );
+                await _performAccept(_incomingInvite!);
+              } else if (!callFromPush) {
+                logger.i(
+                  'ObserveResponses :: Invite - Not from push, showing notification.',
+                );
+                callState = CallStateStatus
+                    .ongoingInvitation;
+                observeCurrentCall();
                 await showNotification(_incomingInvite!);
+                notifyListeners();
               } else {
-                if (waitingForInvite) {
-                  logger.i('ObserveResponses :: Invite received while waiting, calling accept().');
-                  await accept();
-                } else {
-                  logger.i('ObserveResponses :: Invite received, was from push but NOT waiting for invite flag.');
-                  if (_currentCall == null || (_currentCall?.callState != CallState.connecting && _currentCall?.callState != CallState.active)) {
-                    logger.w('ObserveResponses :: Invite from push, but not waiting and call not established. Manual accept might be needed.');
-                  }
-                }
+                // Invite received, was from push, but we weren't explicitly waiting.
+                // Monitor state, but don't auto-accept here unless the SDK failed.
+                logger.i(
+                  'ObserveResponses :: Invite received, was from push but NOT waiting. Monitoring state.',
+                );
+                callState = CallStateStatus
+                    .ongoingInvitation;
+                observeCurrentCall();
+                notifyListeners();
               }
 
               logger.i(
                 'customheaders :: ${message.message.dialogParams?.customHeaders}',
               );
-
-              notifyListeners();
               break;
             }
           case SocketMethod.answer:
@@ -289,7 +298,12 @@ class TelnyxClientViewModel with ChangeNotifier {
                   } else {
                     final numCalls = await FlutterCallkitIncoming.activeCalls();
                     if (numCalls.isNotEmpty) {
-                      await FlutterCallkitIncoming.endCall(numCalls.first.callID);
+                      final String? callKitId = numCalls.first['id'] as String?;
+                      if (callKitId != null && callKitId.isNotEmpty) {
+                         await FlutterCallkitIncoming.endCall(callKitId);
+                      } else {
+                         logger.w('Could not find call ID in active CallKit calls map.');
+                      }
                     }
                   }
                   resetCallInfo();
@@ -322,7 +336,8 @@ class TelnyxClientViewModel with ChangeNotifier {
             {
               //Todo handle token error (try again, sign user out and move to login screen, etc)
               logger.i(
-                  '${error.errorMessage} :: The token is invalid or expired');
+                '${error.errorMessage} :: The token is invalid or expired',
+              );
               _loggingIn = false;
               break;
             }
@@ -337,21 +352,24 @@ class TelnyxClientViewModel with ChangeNotifier {
             {
               //Todo handle codec error (end call and show error message, call back, etc)
               logger.i(
-                  '${error.errorMessage} :: There was an issue with the SDP Handshake, likely due to invalid ICE Candidates');
+                '${error.errorMessage} :: There was an issue with the SDP Handshake, likely due to invalid ICE Candidates',
+              );
               break;
             }
           case -32003:
             {
               //Todo handle gateway timeout error (try again, check network connection, etc)
               logger.i(
-                  '${error.errorMessage} :: It is taking too long to register with the gateway');
+                '${error.errorMessage} :: It is taking too long to register with the gateway',
+              );
               break;
             }
           case -32004:
             {
               //ToDo hande gateway failure error (try again, check network connection, etc)
               logger.i(
-                  '${error.errorMessage} :: Registration with the gateway has failed');
+                '${error.errorMessage} :: Registration with the gateway has failed',
+              );
               break;
             }
         }
@@ -369,7 +387,6 @@ class TelnyxClientViewModel with ChangeNotifier {
         _telnyxClient.calls.values.firstOrNull?.endCall();
       }
       // Attempt to end the call if still present and disconnect from the socket to logout - this enables us to receive further push notifications after
-
       if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
         _telnyxClient.disconnect();
       }
@@ -489,82 +506,94 @@ class TelnyxClientViewModel with ChangeNotifier {
     }
   }
 
-  Future<void> accept({bool acceptFromPush = false, Map<dynamic, dynamic>? pushData, bool acceptFromNotification = false}) async {
-    // Log entry point
-    logger.i('Accept method called. acceptFromPush: $acceptFromPush, _incomingInvite exists: ${_incomingInvite != null}, callState: $callState');
-
+  Future<void> accept({
+    bool acceptFromPush = false,
+    Map<dynamic, dynamic>? pushData,
+  }) async {
+    logger.i(
+      'Accept called. acceptFromPush: $acceptFromPush, _incomingInvite exists: ${_incomingInvite != null}, callState: $callState',
+    );
     await FlutterCallkitIncoming.activeCalls().then((value) {
       logger.i('${value.length} Active Calls before accept $value');
     });
 
-    // Prevent double accept if already connecting/connected
-    if (_currentCall != null && (callState == CallStateStatus.ongoingCall || callState == CallStateStatus.connectingToCall)) {
-      logger.i('Accept :: Already connecting or in a call :: $callState');
+    // Prevent processing if already connecting or ongoing
+    // Note: connectingToCall check is important to prevent re-entry
+    if (callState == CallStateStatus.connectingToCall ||
+        callState == CallStateStatus.ongoingCall) {
+      logger.i(
+        'Accept :: Already connecting or in a call, ignoring request :: $callState',
+      );
       return;
     }
 
+    // --- Main Acceptance Logic ---
     if (_incomingInvite != null) {
-      // Scenario 1: Invite already exists when accept is called. Accept it now.
-      logger.i('Accept :: Invite found, accepting call ${_incomingInvite!.callID}');
+      // Invite is ready NOW. Perform the acceptance actions.
+      await _performAccept(_incomingInvite!);
+    } else if (acceptFromPush) {
+      // Accept intent came from push, but invite hasn't arrived. Set up waiting state.
+      logger.i(
+        'Accept :: Invite not present yet (from push), setting waiting state.',
+      );
+      waitingForInvite = true;
+      callState = CallStateStatus.connectingToCall;
+      notifyListeners();
+    } else {
+      // Accept was called unexpectedly without an invite and not from a push trigger.
+      logger.w(
+        'Accept :: Called without an incoming invite and not from push context. State: $callState',
+      );
+    }
+  }
+
+  // Private helper to contain the actual acceptance steps
+  Future<void> _performAccept(IncomingInviteParams invite) async {
+    logger.i('Performing accept actions for call ${invite.callID}');
+    // Set state definitively before async gaps
+    callState = CallStateStatus.connectingToCall;
+    waitingForInvite = false; // Ensure this is reset
+    notifyListeners();
+
+    try {
       _currentCall = _telnyxClient.acceptCall(
-        _incomingInvite!,
+        invite,
         _localName,
         _localNumber,
-        'State', // Provide actual state if needed
-        customHeaders: {}, // Add custom headers if needed
+        'State',
+        customHeaders: {},
       );
-      observeCurrentCall(); // Re-observe in case it's a new call object
+      observeCurrentCall(); // Observe the newly created/accepted call
 
-      if (!kIsWeb && Platform.isIOS) {
-        // only for iOS
-        await FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
-      }
-
-      // Hide notification UI if needed (mainly for Android)
-      // Note: Use the stored _incomingInvite details for hiding
-      if (!kIsWeb && Platform.isAndroid) {
-         final CallKitParams callKitParams = CallKitParams(
-            id: _incomingInvite!.callID,
-            nameCaller: _incomingInvite!.callerIdName, // Use stored invite data
+      // Platform specific actions after initiating accept
+      if (!kIsWeb) {
+        if (Platform.isIOS) {
+          await FlutterCallkitIncoming.setCallConnected(invite.callID!);
+          logger
+              .i('Accept :: iOS CallKit setCallConnected for ${invite.callID}');
+        } else if (Platform.isAndroid) {
+          final CallKitParams callKitParams = CallKitParams(
+            id: invite.callID,
+            nameCaller: invite.callerIdName,
+            handle: invite.callerIdNumber,
             appName: 'Telnyx Flutter Voice',
-            handle: _incomingInvite!.callerIdNumber, // Use stored invite data
             type: 0,
-             // Other params might be needed if hideCallkitIncoming requires them
           );
-        try {
+          try {
             await FlutterCallkitIncoming.hideCallkitIncoming(callKitParams);
-             logger.i('Accept :: Hiding CallKit UI for Android');
-        } catch (e) {
-             logger.e('Accept :: Error hiding CallKit UI: $e');
+            logger.i(
+              'Accept :: Android hideCallkitIncoming for ${invite.callID}',
+            );
+          } catch (e) {
+            logger.e('Accept :: Error hiding CallKit UI: $e');
+          }
         }
       }
-
-      callState = CallStateStatus.connectingToCall;
-      waitingForInvite = false; // Ensure flag is reset now that we are accepting
+    } catch (e) {
+      logger.e('Error during _performAccept: $e');
+      callState = CallStateStatus.idle;
+      waitingForInvite = false;
       notifyListeners();
-
-    } else if (acceptFromPush && pushData != null) {
-      // Scenario 2: Accept called from Push event, but invite hasn't arrived yet.
-      logger.i('Accept :: Invite not present yet, setting waitingForInvite=true.');
-      waitingForInvite = true;
-      callState = CallStateStatus.connectingToCall; // Indicate connecting state
-      notifyListeners(); // Update UI early to show connecting state
-
-      // DO NOT re-initiate connection here. The connection should already
-      // be in progress from the handlePush triggered by actionCallIncoming.
-
-    } else {
-      // Scenario 3: Accept called manually (e.g., UI button) without an invite
-      // Or Scenario 4: Accept called with acceptFromNotification=true (legacy path?)
-      logger.w('Accept :: Called without a waiting invite or without push context. acceptFromNotification: $acceptFromNotification');
-      if (waitingForInvite) {
-        logger.i('Accept :: Still waiting for invite from previous push accept.');
-        // Don't do anything here, wait for the invite handler to call accept again.
-      } else {
-        // This path might indicate a logic error elsewhere if _incomingInvite is null
-        // and it wasn't triggered by acceptFromPush.
-         logger.e('Accept :: Logic error? Accept called with no invite and no push context.');
-      }
     }
   }
 
@@ -626,9 +655,9 @@ class TelnyxClientViewModel with ChangeNotifier {
       if (endfromCallScreen && callFromPush) {
         // end Call for Callkit on iOS
         _endCallFromPush(false);
-        logger.i('end Call: CallfromPush $callFromPush');
+        logger.i('end Call: Call from Push $callFromPush');
       } else {
-        logger.i('end Call: CallfromCallScreen $callFromPush');
+        logger.i('end Call: Call from CallScreen $callFromPush');
         // end Call normally on iOS
         currentCall?.endCall();
       }

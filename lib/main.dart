@@ -74,7 +74,6 @@ class AppInitializer {
                 await txClientViewModel.accept();
               } else {
                 final metadata = event.body['extra']['metadata'];
-                // Refined check: If metadata exists, treat it as push-related accept.
                 if (metadata == null) {
                    // This case should ideally not happen if CallKit sends metadata on accept.
                   logger.i('Accepted Call Directly - Metadata missing in actionCallAccept event.');
@@ -83,8 +82,18 @@ class AppInitializer {
                   logger.i(
                     'Received push Call with metadata on Accept, handle push here $metadata',
                   );
+                  // Ensure metadata is a Map before proceeding
+                  var decodedMetadata = metadata;
+                  if (metadata is String) {
+                    try {
+                      decodedMetadata = jsonDecode(metadata);
+                    } catch (e) {
+                      logger.e('Error decoding metadata JSON in actionCallAccept :: accepting directly: $e');
+                      await txClientViewModel.accept();
+                    }
+                  }
                   // Pass the acceptance intent and data to the ViewModel
-                  final Map<dynamic, dynamic> data = Map<dynamic, dynamic>.from(metadata as Map);
+                  final Map<dynamic, dynamic> data = Map<dynamic, dynamic>.from(decodedMetadata as Map);
                   data['isAnswer'] = true;
                   // Call ViewModel's accept with push context
                   await txClientViewModel.accept(acceptFromPush: true, pushData: data);
@@ -276,7 +285,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         break;
     }
   });
-  txClientViewModel.updateCallFromPush(true);
+  txClientViewModel.setPushCallStatus(true);
 }
 
 @pragma('vm:entry-point')
@@ -322,7 +331,7 @@ Future<void> main() async {
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
-  txClientViewModel.updateCallFromPush(true);
+  txClientViewModel.setPushCallStatus(true);
 
   logger.i('Handle Push Init');
   String? token;
@@ -379,7 +388,7 @@ class _MyAppState extends State<MyApp> {
         logger.i('OnMessage Time :: Notification Message: ${message.sentTime}');
         TelnyxClient.setPushMetaData(message.data);
         NotificationService.showNotification(message);
-        txClientViewModel.updateCallFromPush(true);
+        txClientViewModel.setPushCallStatus(true);
       });
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         logger.i('onMessageOpenedApp :: Notification Message: ${message.data}');
