@@ -1,5 +1,7 @@
+import 'dart:async'; // Required for runZonedGuarded
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui'; // Required for PlatformDispatcher
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -74,19 +76,29 @@ class AppInitializer {
                 await txClientViewModel.accept();
               } else {
                 final metadata = event.body['extra']['metadata'];
-                if (metadata == null || fromBackground) {
-                  logger.i('Accepted Call Directly because of no metadata or it is from background');
-                  await txClientViewModel.accept();
-
-                  /// Reset the incomingPushCall flag and fromBackground flag
-                  fromBackground = false;
+                if (metadata == null) {
+                   // This case should ideally not happen if CallKit sends metadata on accept.
+                  logger.i('Accepted Call Directly - Metadata missing in actionCallAccept event.');
+                  await txClientViewModel.accept(); // Accept without push context
                 } else {
                   logger.i(
                     'Received push Call with metadata on Accept, handle push here $metadata',
                   );
-                  final data = metadata as Map<dynamic, dynamic>;
+                  // Ensure metadata is a Map before proceeding
+                  var decodedMetadata = metadata;
+                  if (metadata is String) {
+                    try {
+                      decodedMetadata = jsonDecode(metadata);
+                    } catch (e) {
+                      logger.e('Error decoding metadata JSON in actionCallAccept :: accepting directly: $e');
+                      await txClientViewModel.accept();
+                    }
+                  }
+                  // Pass the acceptance intent and data to the ViewModel
+                  final Map<dynamic, dynamic> data = Map<dynamic, dynamic>.from(decodedMetadata as Map);
                   data['isAnswer'] = true;
-                  await handlePush(data);
+                  // Call ViewModel's accept with push context
+                  await txClientViewModel.accept(acceptFromPush: true, pushData: data);
                 }
               }
               break;
@@ -275,53 +287,66 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         break;
     }
   });
-  txClientViewModel.updateCallFromPush(true);
+  txClientViewModel.setPushCallStatus(true);
 }
 
 @pragma('vm:entry-point')
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  if (!AppInitializer()._isInitialized) {
-    await AppInitializer().initialize();
-  }
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  final config = await txClientViewModel.getConfig();
-  runApp(
-    BackgroundDetector(
-      skipWeb: true,
-      onLifecycleEvent: (AppLifecycleState state) => {
-        if (state == AppLifecycleState.resumed)
-          {
-            logger.i('We are in the foreground, CONNECTING'),
-            // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
-            if (!txClientViewModel.callFromPush)
-              {
-                if (config != null && config is CredentialConfig)
-                  {
-                    txClientViewModel.login(config),
-                  }
-                else if (config != null && config is TokenConfig)
-                  {
-                    txClientViewModel.loginWithToken(config),
-                  },
-              },
-          }
-        else if (state == AppLifecycleState.paused)
-          {
-            logger.i(
-              'We are in the background setting fromBackground == true, DISCONNECTING',
-            ),
-            fromBackground = true,
-            txClientViewModel.disconnect(),
-          },
-      },
-      child: const MyApp(),
-    ),
-  );
+    // Catch Flutter framework errors
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      logger.e('Caught Flutter error: ${details.exception}', stackTrace: details.stack);
+      TelnyxClient.clearPushMetaData();
+    };
+
+    // Catch other platform errors (e.g., Dart errors outside Flutter)
+    PlatformDispatcher.instance.onError = (error, stack) {
+      logger.e('Caught Platform error: $error', stackTrace: stack);
+      TelnyxClient.clearPushMetaData();
+      return true; 
+    };
+
+    if (!AppInitializer()._isInitialized) {
+      await AppInitializer().initialize();
+    }
+
+    final config = await txClientViewModel.getConfig();
+    runApp(
+      BackgroundDetector(
+         skipWeb: true,
+         onLifecycleEvent: (AppLifecycleState state) {
+           if (state == AppLifecycleState.resumed) {
+             logger.i('We are in the foreground, CONNECTING');
+             // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
+             if (!txClientViewModel.callFromPush) {
+               if (config != null && config is CredentialConfig) {
+                 txClientViewModel.login(config);
+               } else if (config != null && config is TokenConfig) {
+                 txClientViewModel.loginWithToken(config);
+               }
+             }
+           } else if (state == AppLifecycleState.paused) {
+             logger.i(
+               'We are in the background setting fromBackground == true, DISCONNECTING',
+             );
+             fromBackground = true;
+             txClientViewModel.disconnect();
+           }
+         },
+         child: const MyApp(),
+      ),
+    );
+  }, (error, stack) {
+    logger.e('Caught Zoned error: $error', stackTrace: stack);
+    TelnyxClient.clearPushMetaData();
+  });
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
-  txClientViewModel.updateCallFromPush(true);
+  txClientViewModel.setPushCallStatus(true);
 
   logger.i('Handle Push Init');
   String? token;
@@ -378,7 +403,7 @@ class _MyAppState extends State<MyApp> {
         logger.i('OnMessage Time :: Notification Message: ${message.sentTime}');
         TelnyxClient.setPushMetaData(message.data);
         NotificationService.showNotification(message);
-        txClientViewModel.updateCallFromPush(true);
+        txClientViewModel.setPushCallStatus(true);
       });
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         logger.i('onMessageOpenedApp :: Notification Message: ${message.data}');
