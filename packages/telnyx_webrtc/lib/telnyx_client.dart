@@ -727,6 +727,7 @@ class TelnyxClient {
     String destinationNumber,
     String clientState, {
     Map<String, String> customHeaders = const {},
+    bool debug = false,
   }) {
     final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
@@ -738,7 +739,8 @@ class TelnyxClient {
     final base64State = base64.encode(utf8.encode(clientState));
     updateCall(inviteCall);
 
-    inviteCall.peerConnection = Peer(inviteCall.txSocket, _debug, this);
+    // Create the peer connection with debug enabled if requested
+    inviteCall.peerConnection = Peer(inviteCall.txSocket, debug || _debug, this);
     inviteCall.peerConnection?.invite(
       callerName,
       callerNumber,
@@ -764,6 +766,7 @@ class TelnyxClient {
     String clientState, {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
+    bool debug = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -775,7 +778,10 @@ class TelnyxClient {
 
     final destinationNum = invite.callerIdNumber;
 
-    answerCall.peerConnection = Peer(txSocket, _debug, this);
+    // Create the peer connection
+    answerCall.peerConnection = Peer(txSocket, debug || _debug, this);
+    
+    // Set up the session with the callback if debug is enabled
     answerCall.peerConnection?.accept(
       callerName,
       callerNumber,

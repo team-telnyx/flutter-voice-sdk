@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 
@@ -15,6 +16,7 @@ import 'package:telnyx_webrtc/peer/peer.dart'
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -22,7 +24,11 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 
+/// Callback for call state changes
 typedef CallStateCallback = void Function(CallState state);
+
+/// Callback for call quality metrics updates
+typedef CallQualityChangeCallback = void Function(CallQualityMetrics metrics);
 
 class CallHandler {
   late CallStateCallback onCallStateChanged;
@@ -71,17 +77,54 @@ class Call {
   String sessionDestinationNumber = '';
   String sessionClientState = '';
   Map<String, String> customHeaders = {};
+  
+  /// Callback for call quality metrics updates.
+  /// This will be called periodically with updated metrics when debug mode is enabled.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// call.onCallQualityChange = (metrics) {
+  ///   print('Call quality: ${metrics.quality}');
+  ///   print('MOS: ${metrics.mos}');
+  ///   print('Jitter: ${metrics.jitter * 1000} ms');
+  ///   print('RTT: ${metrics.rtt * 1000} ms');
+  /// };
+  /// ```
+  CallQualityChangeCallback? onCallQualityChange;
 
 
   /// Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
+  ///
+  /// @param callerName The name of the caller
+  /// @param callerNumber The number of the caller
+  /// @param destinationNumber The number to call
+  /// @param clientState Custom client state to pass with the call
+  /// @param customHeaders Optional custom SIP headers
+  /// @param debug Whether to enable call quality metrics (default: false)
   void newInvite(
     String callerName,
     String callerNumber,
     String destinationNumber,
     String clientState, {
     Map<String, String> customHeaders = const {},
+    bool debug = false,
   }) {
+    // Store the session information for later use
+    sessionCallerName = callerName;
+    sessionCallerNumber = callerNumber;
+    sessionDestinationNumber = destinationNumber;
+    sessionClientState = clientState;
+    this.customHeaders = Map.from(customHeaders);
+    
+    // If debug is true, set up the callback in the peer connection
+    if (peerConnection != null && debug) {
+      final session = peerConnection!._sessions[peerConnection!._selfId];
+      if (session != null) {
+        session.onCallQualityChange = onCallQualityChange;
+      }
+    }
+    
     _txClient.newInvite(
       callerName,
       callerNumber,
@@ -101,6 +144,14 @@ class Call {
 
   /// Accepts the incoming call specified via the [invite] parameter, sending
   /// your local specified [callerName], [callerNumber] and [clientState]
+  ///
+  /// @param invite The incoming invite parameters
+  /// @param callerName The name of the caller
+  /// @param callerNumber The number of the caller
+  /// @param clientState Custom client state to pass with the call
+  /// @param isAttach Whether this is an attach operation
+  /// @param customHeaders Optional custom SIP headers
+  /// @param debug Whether to enable call quality metrics (default: false)
   Call acceptCall(
     IncomingInviteParams invite,
     String callerName,
@@ -108,7 +159,23 @@ class Call {
     String clientState, {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
+    bool debug = false,
   }) {
+    // Store the session information for later use
+    sessionCallerName = callerName;
+    sessionCallerNumber = callerNumber;
+    sessionDestinationNumber = invite.callerIdNumber ?? '';
+    sessionClientState = clientState;
+    this.customHeaders = Map.from(customHeaders);
+    
+    // If debug is true, set up the callback in the peer connection
+    if (peerConnection != null && debug) {
+      final session = peerConnection!._sessions[peerConnection!._selfId];
+      if (session != null) {
+        session.onCallQualityChange = onCallQualityChange;
+      }
+    }
+    
     return _txClient.acceptCall(
       invite,
       callerName,
@@ -116,6 +183,7 @@ class Call {
       clientState,
       customHeaders: customHeaders,
       isAttach: isAttach,
+      debug: debug,
     );
   }
 

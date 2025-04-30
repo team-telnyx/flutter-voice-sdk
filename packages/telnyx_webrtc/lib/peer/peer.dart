@@ -375,7 +375,11 @@ class Peer {
       _dcConstraints,
     );
 
-    await startStats(callId, peerId);
+    await startStats(
+      callId, 
+      peerId,
+      onCallQualityChange: newSession.onCallQualityChange,
+    );
 
     if (media != 'data') {
       switch (sdpSemantics) {
@@ -467,7 +471,11 @@ class Peer {
     onDataChannel?.call(session, channel);
   }
 
-  Future<bool> startStats(String callId, String peerId) async {
+  Future<bool> startStats(
+    String callId, 
+    String peerId, {
+    CallQualityCallback? onCallQualityChange,
+  }) async {
     if (_debug == false) {
       GlobalLogger().d(
         'Peer :: Stats manager will not start. Debug mode not enabled on config',
@@ -480,8 +488,13 @@ class Peer {
       return false;
     }
 
-    _statsManager =
-        WebRTCStatsReporter(_socket, peerConnection!, callId, peerId);
+    _statsManager = WebRTCStatsReporter(
+      _socket, 
+      peerConnection!, 
+      callId, 
+      peerId,
+      onCallQualityChange: onCallQualityChange,
+    );
     await _statsManager?.startStatsReporting();
 
     return true;
