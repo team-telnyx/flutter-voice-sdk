@@ -9,19 +9,16 @@ class Session {
 
   /// The peer ID for this session.
   String pid;
-  
+
   /// The session ID for this session.
   String sid;
-  
+
   /// The peer connection for this session.
   RTCPeerConnection? peerConnection;
-  
+
   /// The data channel for this session.
   RTCDataChannel? dc;
-  
+
   /// List of remote ICE candidates.
   List<RTCIceCandidate> remoteCandidates = [];
-  
-  /// Callback for call quality metrics updates.
-  CallQualityCallback? onCallQualityChange;
 }

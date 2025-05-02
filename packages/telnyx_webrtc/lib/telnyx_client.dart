@@ -124,10 +124,12 @@ class TelnyxClient {
   /// The Map key is the callId [String] and the value is the [Call] instance
   Map<String, Call> activeCalls() {
     return Map.fromEntries(
-      calls.entries.where((entry) =>
-          entry.value.callState == CallState.active ||
-          entry.value.callState == CallState.dropped ||
-          entry.value.callState == CallState.reconnecting,),
+      calls.entries.where(
+        (entry) =>
+            entry.value.callState == CallState.active ||
+            entry.value.callState == CallState.dropped ||
+            entry.value.callState == CallState.reconnecting,
+      ),
     );
   }
 
@@ -136,7 +138,8 @@ class TelnyxClient {
   void onCallStateChangedToActive(String? callId) {
     if (callId != null) {
       GlobalLogger().i(
-          'Call $callId state changed to ACTIVE, cancelling reconnection timer',);
+        'Call $callId state changed to ACTIVE, cancelling reconnection timer',
+      );
       _cancelReconnectionTimer(callId);
     }
   }
@@ -159,6 +162,11 @@ class TelnyxClient {
   /// Returns whether or not the client is connected to the socket connection
   bool isConnected() {
     return _connected;
+  }
+
+  /// Returns whether or not debug is enabled for the client
+  bool isDebug() {
+    return _debug;
   }
 
   /// Returns the current Gateway state for the socket connection
@@ -236,9 +244,10 @@ class TelnyxClient {
     // Create a new timer
     _reconnectionTimers[call.callId] = Timer(
       Duration(
-          milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
-              _storedTokenConfig?.reconnectionTimeout ??
-              Constants.reconnectionTimeout,),
+        milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
+            _storedTokenConfig?.reconnectionTimeout ??
+            Constants.reconnectionTimeout,
+      ),
       () {
         // Check if the call is still in the reconnecting state
         if (calls.containsKey(call.callId)) {
@@ -727,7 +736,7 @@ class TelnyxClient {
     String destinationNumber,
     String clientState, {
     Map<String, String> customHeaders = const {},
-    bool debug = false,
+    bool debug = true,
   }) {
     final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
@@ -740,7 +749,8 @@ class TelnyxClient {
     updateCall(inviteCall);
 
     // Create the peer connection with debug enabled if requested
-    inviteCall.peerConnection = Peer(inviteCall.txSocket, debug || _debug, this);
+    inviteCall.peerConnection =
+        Peer(inviteCall.txSocket, debug || _debug, this);
     inviteCall.peerConnection?.invite(
       callerName,
       callerNumber,
@@ -751,7 +761,9 @@ class TelnyxClient {
       customHeaders,
     );
 
-    //play ringback tone
+    if (debug) {
+      inviteCall.initCallMetrics();
+    } //play ringback tone
     inviteCall.playAudio(_ringBackpath);
     inviteCall.callHandler.changeState(CallState.newCall);
     return inviteCall;
@@ -780,7 +792,7 @@ class TelnyxClient {
 
     // Create the peer connection
     answerCall.peerConnection = Peer(txSocket, debug || _debug, this);
-    
+
     // Set up the session with the callback if debug is enabled
     answerCall.peerConnection?.accept(
       callerName,
@@ -793,6 +805,9 @@ class TelnyxClient {
       isAttach,
     );
     answerCall.callHandler.changeState(CallState.connecting);
+    if (debug) {
+      answerCall.initCallMetrics();
+    }
     answerCall.stopAudio();
     if (answerCall.callId != null) {
       updateCall(answerCall);

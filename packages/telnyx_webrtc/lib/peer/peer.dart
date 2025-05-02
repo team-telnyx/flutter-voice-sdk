@@ -17,7 +17,7 @@ import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
-  
+
 /// Represents a peer in the WebRTC communication.
 class Peer {
   /// The peer connection instance.
@@ -52,6 +52,9 @@ class Peer {
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
       onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
+
+  /// Callback for call quality metrics updates.
+  CallQualityCallback? onCallQualityChange;
 
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
@@ -98,7 +101,8 @@ class Peer {
     if (_localStream != null) {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
     } else {
-      GlobalLogger().d('Peer :: No local stream :: Unable to toggle speaker mode');
+      GlobalLogger()
+          .d('Peer :: No local stream :: Unable to toggle speaker mode');
     }
   }
 
@@ -266,11 +270,13 @@ class Peer {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
-          GlobalLogger().i('Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
+          GlobalLogger().i(
+              'Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
           if (candidate.candidate != null) {
             final candidateString = candidate.candidate.toString();
-            final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
-                                    candidateString.contains('turn.telnyx.com');
+            final isValidCandidate =
+                candidateString.contains('stun.telnyx.com') ||
+                    candidateString.contains('turn.telnyx.com');
 
             if (isValidCandidate) {
               GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
@@ -278,7 +284,8 @@ class Peer {
               await session.peerConnection?.addCandidate(candidate);
               _lastCandidateTime = DateTime.now();
             } else {
-              GlobalLogger().i('Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+              GlobalLogger().i(
+                  'Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
             }
           }
         } else {
@@ -376,9 +383,9 @@ class Peer {
     );
 
     await startStats(
-      callId, 
+      callId,
       peerId,
-      onCallQualityChange: newSession.onCallQualityChange,
+      onCallQualityChange: onCallQualityChange,
     );
 
     if (media != 'data') {
@@ -407,18 +414,20 @@ class Peer {
     }
 
     peerConnection?.onIceCandidate = (candidate) async {
-      GlobalLogger().i('Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
+      GlobalLogger().i(
+          'Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
       if (candidate.candidate != null) {
         final candidateString = candidate.candidate.toString();
         final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
-                                candidateString.contains('turn.telnyx.com');
+            candidateString.contains('turn.telnyx.com');
 
         if (isValidCandidate) {
           GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
           // Add valid candidates
           await peerConnection?.addCandidate(candidate);
         } else {
-          GlobalLogger().i('Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+          GlobalLogger()
+              .i('Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
         }
       } else {
         GlobalLogger().i('Peer :: onIceCandidate: complete!');
@@ -432,7 +441,7 @@ class Peer {
           final Call? currentCall = _txClient.calls[callId];
           currentCall?.callHandler.changeState(CallState.active);
           onCallStateChange?.call(newSession, CallState.active);
-          
+
           // Cancel any reconnection timer for this call
           _txClient.onCallStateChangedToActive(callId);
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
@@ -472,7 +481,7 @@ class Peer {
   }
 
   Future<bool> startStats(
-    String callId, 
+    String callId,
     String peerId, {
     CallQualityCallback? onCallQualityChange,
   }) async {
@@ -489,10 +498,11 @@ class Peer {
     }
 
     _statsManager = WebRTCStatsReporter(
-      _socket, 
-      peerConnection!, 
-      callId, 
+      _socket,
+      peerConnection!,
+      callId,
       peerId,
+      _txClient.isDebug(),
       onCallQualityChange: onCallQualityChange,
     );
     await _statsManager?.startStatsReporting();
@@ -567,8 +577,10 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
-        GlobalLogger().d('Time since last candidate: ${timeSinceLastCandidate}ms');
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
+        GlobalLogger()
+            .d('Time since last candidate: ${timeSinceLastCandidate}ms');
 
         if (timeSinceLastCandidate >= _negotiationTimeout) {
           GlobalLogger().d('Negotiation timeout reached');

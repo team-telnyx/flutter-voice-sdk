@@ -77,7 +77,7 @@ class Call {
   String sessionDestinationNumber = '';
   String sessionClientState = '';
   Map<String, String> customHeaders = {};
-  
+
   /// Callback for call quality metrics updates.
   /// This will be called periodically with updated metrics when debug mode is enabled.
   ///
@@ -91,7 +91,6 @@ class Call {
   /// };
   /// ```
   CallQualityChangeCallback? onCallQualityChange;
-
 
   /// Creates an invitation to send to a [destinationNumber] or SIP Destination
   /// using the provided [callerName], [callerNumber] and a [clientState]
@@ -116,15 +115,7 @@ class Call {
     sessionDestinationNumber = destinationNumber;
     sessionClientState = clientState;
     this.customHeaders = Map.from(customHeaders);
-    
-    // If debug is true, set up the callback in the peer connection
-    if (peerConnection != null && debug) {
-      final session = peerConnection!._sessions[peerConnection!._selfId];
-      if (session != null) {
-        session.onCallQualityChange = onCallQualityChange;
-      }
-    }
-    
+
     _txClient.newInvite(
       callerName,
       callerNumber,
@@ -167,15 +158,7 @@ class Call {
     sessionDestinationNumber = invite.callerIdNumber ?? '';
     sessionClientState = clientState;
     this.customHeaders = Map.from(customHeaders);
-    
-    // If debug is true, set up the callback in the peer connection
-    if (peerConnection != null && debug) {
-      final session = peerConnection!._sessions[peerConnection!._selfId];
-      if (session != null) {
-        session.onCallQualityChange = onCallQualityChange;
-      }
-    }
-    
+
     return _txClient.acceptCall(
       invite,
       callerName,
@@ -225,10 +208,10 @@ class Call {
     stopAudio();
     callHandler.changeState(CallState.done);
     callEnded();
-    
+
     // Cancel any reconnection timer for this call
     _txClient.onCallStateChangedToActive(callId);
-    
+
     _txClient.calls.remove(callId);
     final message = TelnyxMessage(
       socketMethod: SocketMethod.bye,
@@ -291,6 +274,14 @@ class Call {
       onHold = true;
       callHandler.changeState(CallState.held);
     }
+  }
+
+  void callQualityMetricsHandler(CallQualityMetrics metrics) {
+    onCallQualityChange?.call(metrics);
+  }
+
+  void initCallMetrics() {
+    peerConnection?.onCallQualityChange = callQualityMetricsHandler;
   }
 
   void _sendHoldModifier(String action) {

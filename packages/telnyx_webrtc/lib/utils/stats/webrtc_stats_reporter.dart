@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:ffi';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/model/call_quality.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
@@ -29,7 +30,8 @@ class WebRTCStatsReporter {
     this.socket,
     this.peerConnection,
     this.callId,
-    this.peerId, {
+    this.peerId,
+    this.sendStats, {
     this.onCallQualityChange,
   });
 
@@ -46,7 +48,8 @@ class WebRTCStatsReporter {
   final RTCPeerConnection peerConnection;
   final String callId;
   final String peerId;
-  
+  final bool sendStats;
+
   /// Callback for call quality metrics updates
   final CallQualityCallback? onCallQualityChange;
 
@@ -63,6 +66,11 @@ class WebRTCStatsReporter {
   }*/
 
   void _enqueueMessage(String message) {
+    if (!sendStats) {
+      GlobalLogger()
+          .d('Stats reporting is disabled. Not sending message: $message');
+      return;
+    }
     _messageQueue.add(message);
     _processMessageQueue();
   }
@@ -154,7 +162,8 @@ class WebRTCStatsReporter {
           localSdp = await peerConnection.getLocalDescription();
           remoteSdp = await peerConnection.getRemoteDescription();
         } catch (e) {
-          GlobalLogger().e('Error retrieving descriptions for Signaling State Stats: $e');
+          GlobalLogger()
+              .e('Error retrieving descriptions for Signaling State Stats: $e');
         }
 
         // If both are null, just skip
@@ -220,7 +229,7 @@ class WebRTCStatsReporter {
       final Map<String, dynamic> localCandidates = {};
       final Map<String, dynamic> remoteCandidates = {};
       final List<Map<String, dynamic>> unresolvedCandidatePairs = [];
-      
+
       // Variables for call quality metrics
       double jitter = 0;
       double rtt = 0;
@@ -232,25 +241,29 @@ class WebRTCStatsReporter {
         switch (report.type) {
           case 'inbound-rtp':
             final inboundValues = report.values.cast<String, dynamic>();
-            
+
             // Extract jitter from inbound-rtp
-            if (inboundValues.containsKey('jitter') && 
+            if (inboundValues.containsKey('jitter') &&
                 inboundValues['kind'] == 'audio') {
               jitter = (inboundValues['jitter'] as num?)?.toDouble() ?? 0;
-              
+
               // Extract packet loss if available
-              if (inboundValues.containsKey('packetsLost') && 
+              if (inboundValues.containsKey('packetsLost') &&
                   inboundValues.containsKey('totalPacketsReceived')) {
-                final packetsLost = (inboundValues['packetsLost'] as num?)?.toDouble() ?? 0;
-                final totalPackets = (inboundValues['totalPacketsReceived'] as num?)?.toDouble() ?? 1;
+                final packetsLost =
+                    (inboundValues['packetsLost'] as num?)?.toDouble() ?? 0;
+                final totalPackets =
+                    (inboundValues['totalPacketsReceived'] as num?)
+                            ?.toDouble() ??
+                        1;
                 if (totalPackets > 0) {
                   packetLoss = packetsLost / (totalPackets + packetsLost);
                 }
               }
-              
+
               inboundAudioStats = Map<String, dynamic>.from(inboundValues);
             }
-            
+
             audioInboundStats.add({
               ...inboundValues,
               'timestamp': timestamp,
@@ -265,11 +278,11 @@ class WebRTCStatsReporter {
             break;
           case 'outbound-rtp':
             final outboundValues = report.values.cast<String, dynamic>();
-            
+
             if (outboundValues['kind'] == 'audio') {
               outboundAudioStats = Map<String, dynamic>.from(outboundValues);
             }
-            
+
             audioOutboundStats.add({
               ...outboundValues,
               'timestamp': timestamp,
@@ -288,11 +301,13 @@ class WebRTCStatsReporter {
           case 'remote-inbound-rtp':
             // Extract RTT from remote-inbound-rtp
             final remoteInboundValues = report.values.cast<String, dynamic>();
-            if (remoteInboundValues.containsKey('roundTripTime') && 
+            if (remoteInboundValues.containsKey('roundTripTime') &&
                 remoteInboundValues['kind'] == 'audio') {
-              rtt = (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ?? 0;
+              rtt =
+                  (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ??
+                      0;
             }
-            
+
             statsObject[report.id] = {
               ...remoteInboundValues,
               'id': report.id,
@@ -345,8 +360,11 @@ class WebRTCStatsReporter {
               succeededConnection = candidatePair.cast<String, dynamic>();
 
               // Extract RTT from candidate pair if not found in remote-inbound-rtp
-              if (rtt == 0 && candidatePairValues.containsKey('currentRoundTripTime')) {
-                rtt = (candidatePairValues['currentRoundTripTime'] as num?)?.toDouble() ?? 0;
+              if (rtt == 0 &&
+                  candidatePairValues.containsKey('currentRoundTripTime')) {
+                rtt = (candidatePairValues['currentRoundTripTime'] as num?)
+                        ?.toDouble() ??
+                    0;
               }
 
               statsObject[report.id] = candidatePair;
@@ -409,10 +427,10 @@ class WebRTCStatsReporter {
           jitter: jitter,
           packetLoss: packetLoss,
         );
-        
+
         // Determine call quality based on MOS
         final quality = CallQuality.fromMos(mos);
-        
+
         // Create call quality metrics object
         final metrics = CallQualityMetrics(
           jitter: jitter,
@@ -422,10 +440,10 @@ class WebRTCStatsReporter {
           inboundAudio: inboundAudioStats,
           outboundAudio: outboundAudioStats,
         );
-        
+
         // Notify via callback
         onCallQualityChange!(metrics);
-        
+
         // Log metrics (debug level to avoid excessive logging)
         GlobalLogger().d('Call quality metrics: $metrics');
       }

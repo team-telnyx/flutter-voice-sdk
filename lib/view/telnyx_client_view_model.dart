@@ -150,6 +150,11 @@ class TelnyxClientViewModel with ChangeNotifier {
             FlutterCallkitIncoming.setCallConnected(_incomingInvite!.callID!);
           }
 
+          currentCall?.onCallQualityChange = (metrics) {
+            // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
+            print("Call quality: ${metrics}");
+          };
+
           break;
         case CallState.held:
           logger.i('Held');
@@ -248,8 +253,7 @@ class TelnyxClientViewModel with ChangeNotifier {
                 logger.i(
                   'ObserveResponses :: Invite - Not from push, showing notification.',
                 );
-                callState = CallStateStatus
-                    .ongoingInvitation;
+                callState = CallStateStatus.ongoingInvitation;
                 observeCurrentCall();
                 await showNotification(_incomingInvite!);
                 notifyListeners();
@@ -259,8 +263,7 @@ class TelnyxClientViewModel with ChangeNotifier {
                 logger.i(
                   'ObserveResponses :: Invite received, was from push but NOT waiting. Monitoring state.',
                 );
-                callState = CallStateStatus
-                    .ongoingInvitation;
+                callState = CallStateStatus.ongoingInvitation;
                 observeCurrentCall();
                 notifyListeners();
               }
@@ -300,9 +303,10 @@ class TelnyxClientViewModel with ChangeNotifier {
                     if (numCalls.isNotEmpty) {
                       final String? callKitId = numCalls.first['id'] as String?;
                       if (callKitId != null && callKitId.isNotEmpty) {
-                         await FlutterCallkitIncoming.endCall(callKitId);
+                        await FlutterCallkitIncoming.endCall(callKitId);
                       } else {
-                         logger.w('Could not find call ID in active CallKit calls map.');
+                        logger.w(
+                            'Could not find call ID in active CallKit calls map.');
                       }
                     }
                   }

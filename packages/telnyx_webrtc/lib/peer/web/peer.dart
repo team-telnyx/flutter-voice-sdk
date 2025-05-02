@@ -124,7 +124,8 @@ class Peer {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
       GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
     } else {
-      GlobalLogger().d('Peer :: No local stream :: Unable to toggle speaker mode');
+      GlobalLogger()
+          .d('Peer :: No local stream :: Unable to toggle speaker mode');
     }
   }
 
@@ -306,19 +307,23 @@ class Peer {
     try {
       // ICE candidate callback (with optional skipping logic)
       session.peerConnection?.onIceCandidate = (candidate) async {
-        GlobalLogger().i('Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
+        GlobalLogger().i(
+            'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
-          final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
-                                  candidateString.contains('turn.telnyx.com');
+          final isValidCandidate =
+              candidateString.contains('stun.telnyx.com') ||
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
-            GlobalLogger().i('Web Peer :: Valid ICE candidate: $candidateString');
+            GlobalLogger()
+                .i('Web Peer :: Valid ICE candidate: $candidateString');
             // Only add valid candidates and reset timer
             await session.peerConnection?.addCandidate(candidate);
             _lastCandidateTime = DateTime.now();
           } else {
-            GlobalLogger().i('Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+            GlobalLogger().i(
+                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
@@ -402,7 +407,8 @@ class Peer {
     required String callId,
     required String media,
   }) async {
-    GlobalLogger().i('Web Peer :: _createSession => sid=$sessionId, callId=$callId');
+    GlobalLogger()
+        .i('Web Peer :: _createSession => sid=$sessionId, callId=$callId');
 
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') {
@@ -458,18 +464,22 @@ class Peer {
     // ICE callbacks
     pc
       ..onIceCandidate = (candidate) async {
-        GlobalLogger().i('Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
+        GlobalLogger().i(
+            'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
-          final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
-                                  candidateString.contains('turn.telnyx.com');
+          final isValidCandidate =
+              candidateString.contains('stun.telnyx.com') ||
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
-            GlobalLogger().i('Web Peer :: Valid ICE candidate: $candidateString');
+            GlobalLogger()
+                .i('Web Peer :: Valid ICE candidate: $candidateString');
             // Add valid candidates
             await pc.addCandidate(candidate);
           } else {
-            GlobalLogger().i('Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+            GlobalLogger().i(
+                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
@@ -524,10 +534,12 @@ class Peer {
     RTCPeerConnection pc,
   ) async {
     if (!_debug) {
-      GlobalLogger().d('Peer :: Stats manager will NOT start; debug mode not enabled.');
+      GlobalLogger()
+          .d('Peer :: Stats manager will NOT start; debug mode not enabled.');
       return false;
     }
-    _statsManager = WebRTCStatsReporter(_socket, pc, callId, peerId);
+    _statsManager =
+        WebRTCStatsReporter(_socket, pc, callId, peerId, _txClient.isDebug());
     await _statsManager?.startStatsReporting();
     GlobalLogger().d('Peer :: Stats Manager started for callId=$callId');
     return true;
@@ -594,8 +606,10 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
-        GlobalLogger().d('Time since last candidate: ${timeSinceLastCandidate}ms');
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
+        GlobalLogger()
+            .d('Time since last candidate: ${timeSinceLastCandidate}ms');
 
         if (timeSinceLastCandidate >= _negotiationTimeout) {
           GlobalLogger().d('Negotiation timeout reached');
