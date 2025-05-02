@@ -91,7 +91,7 @@ class Profile {
         sipCallerIDName: sipCallerIDName,
         sipCallerIDNumber: sipCallerIDNumber,
         notificationToken: await getNotificationTokenForPlatform() ?? '',
-        debug: true,
+        debug: false,
         logLevel: LogLevel.all,
         customLogger: CustomSDKLogger(),
       );

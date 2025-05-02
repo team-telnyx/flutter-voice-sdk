@@ -736,7 +736,7 @@ class TelnyxClient {
     String destinationNumber,
     String clientState, {
     Map<String, String> customHeaders = const {},
-    bool debug = true,
+    bool debug = false,
   }) {
     final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
