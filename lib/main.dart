@@ -22,6 +22,7 @@ import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
@@ -47,7 +48,6 @@ class AppInitializer {
     if (!_isInitialized) {
       _isInitialized = true;
       if (!kIsWeb) {
-        // generate random number as string
         logger.i('FlutterCallkitIncoming :: Initializing listening for events');
         FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
           logger.i('onEvent :: ${event?.event} :: ${event?.body}');
@@ -59,19 +59,19 @@ class AppInitializer {
                 return;
               }
               logger.i(
-                "received push Call for iOS ${event.body['extra']['metadata']}",
+                "ZZZ received push Call for iOS (actionCallIncoming): ${event.body['extra']['metadata']}",
               );
-              var metadata = event.body['extra']['metadata'];
-              if (metadata is String) {
-                metadata = jsonDecode(metadata);
-              }
-              await handlePush(metadata);
+              // No connection or handlePush call here.
+              // CallKit's native UI is already shown by this point.
+              // We wait for user action (Accept/Decline).
               break;
             case Event.actionCallStart:
               logger.i('actionCallStart :: call start');
               break;
             case Event.actionCallAccept:
+              logger.i('[iOS_PUSH_DEBUG] Event.actionCallAccept received. Metadata: ${event.body?['extra']?['metadata']}');
               if (txClientViewModel.incomingInvitation != null) {
+                logger.i('[iOS_PUSH_DEBUG] Event.actionCallAccept: ViewModel has existing incomingInvitation.');
                 logger.i('Accepted Call Directly because of incomingInvitation');
                 await txClientViewModel.accept();
               } else {
@@ -82,36 +82,94 @@ class AppInitializer {
                   await txClientViewModel.accept(); // Accept without push context
                 } else {
                   logger.i(
-                    'Received push Call with metadata on Accept, handle push here $metadata',
+                    '[iOS_PUSH_DEBUG] Event.actionCallAccept: Metadata present. Preparing to call global handlePush. Metadata: $metadata',
                   );
-                  // Ensure metadata is a Map before proceeding
                   var decodedMetadata = metadata;
                   if (metadata is String) {
                     try {
                       decodedMetadata = jsonDecode(metadata);
                     } catch (e) {
-                      logger.e('Error decoding metadata JSON in actionCallAccept :: accepting directly: $e');
-                      await txClientViewModel.accept();
+                      logger.e('Error decoding metadata JSON in actionCallAccept: $e. Attempting direct accept.');
+                      await txClientViewModel.accept(); // Fallback
+                      return;
                     }
                   }
-                  // Pass the acceptance intent and data to the ViewModel
+                  // Pass the acceptance intent and data to the global handlePush
                   final Map<dynamic, dynamic> data = Map<dynamic, dynamic>.from(decodedMetadata as Map);
                   data['isAnswer'] = true;
-                  // Call ViewModel's accept with push context
-                  await txClientViewModel.accept(acceptFromPush: true, pushData: data);
+                  logger.i('[iOS_PUSH_DEBUG] Event.actionCallAccept: Calling global handlePush with augmented data: $data');
+                  await handlePush(data);
                 }
               }
               break;
             case Event.actionCallDecline:
               final metadata = event.body['extra']['metadata'];
-              if (metadata == null) {
-                logger.i('Decline Call Directly');
+              if (txClientViewModel.incomingInvitation != null || txClientViewModel.currentCall != null) {
+                // If the main client already has an active call or invite, let it handle the decline.
+                // This could happen if the app was already open and connected when CallKit decline comes.
+                logger.i('Main client has existing call/invite. Using txClientViewModel.endCall() for decline.');
                 txClientViewModel.endCall();
+              } else if (metadata == null) {
+                logger.i('Decline Call Directly (no metadata from CallKit event and no active call/invite in ViewModel).');
+                // Potentially a no-op if there's nothing to decline, or CallKit might handle UI.
+                // Consider if ending all CallKit calls is appropriate if no specific ID is known:
+                // FlutterCallkitIncoming.endAllCalls(); 
               } else {
-                logger.i('Received push Call for iOS $metadata');
-                final data = metadata as Map<dynamic, dynamic>;
-                data['isDecline'] = true;
-                await handlePush(data);
+                // This is a decline from a CallKit push, and the main ViewModel doesn't have an active session for it.
+                // Use a temporary client to handle this decline.
+                logger.i(
+                  'Received CallKit decline event with metadata: $metadata. Using temporary client for decline.',
+                );
+                var decodedMetadata = metadata;
+                if (metadata is String) {
+                  try {
+                    decodedMetadata = jsonDecode(metadata);
+                  } catch (e) {
+                    logger.e('Error decoding metadata JSON in actionCallDecline: $e. Cannot proceed with temporary client decline.');
+                    return;
+                  }
+                }
+
+                final Map<dynamic, dynamic> eventData = Map<dynamic, dynamic>.from(decodedMetadata as Map);
+                eventData['isDecline'] = true; // Ensure decline intent
+
+                final PushMetaData pushMetaData;
+                try {
+                  pushMetaData = PushMetaData.fromJson(eventData);
+                } catch (e) {
+                    logger.e('Error creating PushMetaData from eventData for temporary client decline: $e');
+                    return;
+                }
+
+                final tempDeclineClient = TelnyxClient();
+
+                tempDeclineClient..onSocketMessageReceived = (TelnyxMessage message) {
+                  switch (message.socketMethod) {
+                    case SocketMethod.bye:
+                      logger.i('Temporary client (iOS decline) received BYE, disconnecting.');
+                      tempDeclineClient.disconnect();
+                      break;
+                    default:
+                      logger.i('Temporary client (iOS decline) received message: ${message.socketMethod}');
+                  }
+                }
+
+                ..onSocketErrorReceived = (TelnyxSocketError error) {
+                    logger.e('Temporary client (iOS decline) received error: ${error.errorCode} :: ${error.errorMessage}');
+                    tempDeclineClient.disconnect(); // Attempt to cleanup on error too
+                };
+
+                // getConfig() might rely on txClientViewModel, or it might be static/retrievable independently.
+                // For this example, assuming it can be fetched.
+                // If getConfig is problematic here, the credentials/token would need to be passed differently or stored accessibly.
+                final config = await txClientViewModel.getConfig();
+
+                logger.i('Temporary client (iOS decline) attempting to handlePushNotification. Config :: $config');
+                tempDeclineClient.handlePushNotification(
+                  pushMetaData,
+                  config is CredentialConfig ? config : null,
+                  config is TokenConfig ? config : null,
+                );
               }
               break;
             case Event.actionCallEnded:
@@ -195,7 +253,6 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
             .i('actionCallIncoming :: Received Incoming Call! from background');
         break;
       case Event.actionCallStart:
-        // TODO: Handle this case.
         break;
       case Event.actionCallAccept:
         logger.i(
@@ -238,16 +295,7 @@ Future _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
             PushMetaData.fromJson(jsonDecode(message.data['metadata']!));
         // Set the pushMetaData to decline
         pushMetaData.isDecline = true;
-
-        if (defaultTargetPlatform == TargetPlatform.android) {
-          token = (await FirebaseMessaging.instance.getToken())!;
-
-          logger.i('Android notification token :: $token');
-        } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-          token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
-
-          logger.i('iOS notification token :: $token');
-        }
+        token = (await FirebaseMessaging.instance.getToken())!;
         final config = await txClientViewModel.getConfig();
         telnyxClient.handlePushNotification(
           pushMetaData,
@@ -346,22 +394,18 @@ Future<void> main() async {
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
+  logger.i('[iOS_PUSH_DEBUG] handlePush: Started. Raw data: $data');
   txClientViewModel.setPushCallStatus(true);
-
-  logger.i('Handle Push Init');
-  String? token;
-
   PushMetaData? pushMetaData;
   if (defaultTargetPlatform == TargetPlatform.android) {
-    token = (await FirebaseMessaging.instance.getToken())!;
     pushMetaData = PushMetaData.fromJson(data);
-    logger.i('Android notification token :: $token');
   } else if (Platform.isIOS) {
-    token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
     pushMetaData = PushMetaData.fromJson(data);
-    logger.i('iOS notification token :: $token');
   }
+  logger.i('[iOS_PUSH_DEBUG] handlePush: Before txClientViewModel.getConfig()');
   final config = await txClientViewModel.getConfig();
+  logger.i('[iOS_PUSH_DEBUG] handlePush: After txClientViewModel.getConfig(). Config: $config');
+  logger.i('[iOS_PUSH_DEBUG] handlePush: Created PushMetaData: ${pushMetaData?.toJson()}');
   txClientViewModel
     ..handlePushNotification(
       pushMetaData!,

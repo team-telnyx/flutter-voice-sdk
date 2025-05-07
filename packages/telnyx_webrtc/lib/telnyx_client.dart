@@ -278,18 +278,21 @@ class TelnyxClient {
     CredentialConfig? credentialConfig,
     TokenConfig? tokenConfig,
   ) {
-    GlobalLogger().i(jsonEncode(pushMetaData));
+    GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}');
     _isCallFromPush = true;
 
     if (pushMetaData.isAnswer == true) {
-      GlobalLogger().i('_pendingAnswerFromPush true');
+      GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true');
       _pendingAnswerFromPush = true;
     } else {
-      GlobalLogger().i('_pendingAnswerFromPush false');
+      GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false');
     }
 
     if (pushMetaData.isDecline == true) {
+      GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.handlePushNotification: _pendingDeclineFromPush will be set to true');
       _pendingDeclineFromPush = true;
+    } else {
+      GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.handlePushNotification: _pendingDeclineFromPush remains false');
     }
 
     _connectWithCallBack(pushMetaData, () {
@@ -331,7 +334,7 @@ class TelnyxClient {
     PushMetaData? pushMetaData,
     OnOpenCallback openCallback,
   ) {
-    GlobalLogger().i('connect() ${pushMetaData?.toJson()}');
+    GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient._connectWithCallBack: Called. PushMetaData: ${pushMetaData?.toJson()}');
     if (pushMetaData != null) {
       _pushMetaData = pushMetaData;
     }
@@ -344,14 +347,14 @@ class TelnyxClient {
         );
       } else {
         txSocket.hostAddress = _storedHostAddress;
-        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
+        GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient._connectWithCallBack: connecting to WebSocket $_storedHostAddress');
       }
       txSocket
         ..connect()
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('Web Socket is now connected');
+          GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient._connectWithCallBack (via _onOpen): Web Socket is now connected');
           _onOpen();
           openCallback.call();
         }
@@ -375,6 +378,7 @@ class TelnyxClient {
     // First check if there is a custom logger set within the config - if so, we set it here
     _logger = tokenConfig.customLogger ?? DefaultLogger();
     GlobalLogger.logger = _logger;
+    GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.connectWithToken: Attempting to connect.');
 
     // Now that a logger is set, we can set the log level
     _logger
@@ -396,7 +400,7 @@ class TelnyxClient {
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('Web Socket is now connected');
+          GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected');
           _onOpen();
           tokenLogin(tokenConfig);
         }
@@ -422,6 +426,7 @@ class TelnyxClient {
     // Use custom logger if provided or fallback to default.
     _logger = credentialConfig.customLogger ?? DefaultLogger();
     GlobalLogger.logger = _logger;
+    GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.connectWithCredential: Attempting to connect.');
 
     // Now that a logger is set, we can set the log level
     _logger
@@ -442,7 +447,7 @@ class TelnyxClient {
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('Web Socket is now connected');
+          GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected');
           _onOpen();
           credentialLogin(credentialConfig);
         }
@@ -860,7 +865,7 @@ class TelnyxClient {
 
   /// WebSocket Event Handlers
   void _onOpen() {
-    GlobalLogger().i('WebSocket connected');
+    GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient._onOpen: WebSocket connected event triggered.');
   }
 
   void _onClose(bool wasClean, int code, String reason) {
@@ -871,7 +876,7 @@ class TelnyxClient {
   }
 
   void _onMessage(dynamic data) async {
-    GlobalLogger().i('DEBUG MESSAGE: ${data.toString().trim()}');
+    GlobalLogger().i('[iOS_PUSH_DEBUG] TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString()?.trim()}');
 
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {

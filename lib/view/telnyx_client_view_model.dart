@@ -399,6 +399,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     CredentialConfig? credentialConfig,
     TokenConfig? tokenConfig,
   ) {
+    logger.i('[iOS_PUSH_DEBUG] TelnyxClientViewModel.handlePushNotification: Called with PushMetaData: ${pushMetaData.toJson()}');
     _telnyxClient.handlePushNotification(
       pushMetaData,
       credentialConfig,
@@ -511,10 +512,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     Map<dynamic, dynamic>? pushData,
   }) async {
     logger.i(
-      'Accept called. acceptFromPush: $acceptFromPush, _incomingInvite exists: ${_incomingInvite != null}, callState: $callState',
+      '[iOS_PUSH_DEBUG] TelnyxClientViewModel.accept: Called. acceptFromPush: $acceptFromPush, _incomingInvite exists: ${_incomingInvite != null}, callState: $callState. pushData: $pushData',
     );
     await FlutterCallkitIncoming.activeCalls().then((value) {
-      logger.i('${value.length} Active Calls before accept $value');
+      logger.i('[iOS_PUSH_DEBUG] TelnyxClientViewModel.accept: ${value.length} Active CallKit calls before accept $value');
     });
 
     // Prevent processing if already connecting or ongoing
@@ -549,7 +550,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   // Private helper to contain the actual acceptance steps
   Future<void> _performAccept(IncomingInviteParams invite) async {
-    logger.i('Performing accept actions for call ${invite.callID}');
+    logger.i('[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}');
     // Set state definitively before async gaps
     callState = CallStateStatus.connectingToCall;
     waitingForInvite = false; // Ensure this is reset
