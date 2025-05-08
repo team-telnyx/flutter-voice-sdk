@@ -14,6 +14,7 @@ import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 
 /// iOS specific implementation of [PushNotificationHandler].
 class IOSPushNotificationHandler implements PushNotificationHandler {
@@ -22,8 +23,13 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
   @override
   Future<void> initialize() async {
     _logger.i('[PushNotificationHandler-iOS] Initialize');
-    // Native AppDelegate.swift handles showing CallKit UI initially.
-    // This listener handles events coming from CallKit interactions.
+    // Set up the listener for events coming from CallKit interactions.
+    _setupCallKitListener();
+    _logger.i('[PushNotificationHandler-iOS] Initialize complete.');
+  }
+
+  void _setupCallKitListener() {
+    _logger.i('[PushNotificationHandler-iOS] Setting up CallKit event listener...');
     FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
       _logger.i('[PushNotificationHandler-iOS] onEvent: ${event?.event} :: ${event?.body}');
       switch (event!.event) {
@@ -73,6 +79,12 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
             txClientViewModel.endCall();
           } else if (metadata == null) {
             _logger.i('[PushNotificationHandler-iOS] actionCallDecline: No metadata and no active call/invite in ViewModel.');
+            // If an ID is reliably available in event.body['id'], use it to end the specific CallKit call.
+            if(event.body?['id'] != null && event.body['id'].toString().isNotEmpty){
+              await FlutterCallkitIncoming.endCall(event.body['id']);
+            } else {
+               _logger.w('[PushNotificationHandler-iOS] actionCallDecline: Could not end CallKit call without ID.');
+            }
           } else {
             _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Metadata present. Using temporary client for decline. Metadata: $metadata');
             var decodedMetadata = metadata;
@@ -98,13 +110,17 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
                 _logger.e('[PushNotificationHandler-iOS] actionCallDecline: Temp client error: ${error.errorMessage}');
                 tempDeclineClient.disconnect();
             };
-            final config = await txClientViewModel.getConfig();
+            final config = await ConfigHelper.getTelnyxConfigFromPrefs();
             _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Temp client attempting to handlePushNotification. Config :: $config');
-            tempDeclineClient.handlePushNotification(
-              pushMetaData,
-              config is CredentialConfig ? config : null,
-              config is TokenConfig ? config : null,
-            );
+            if (config != null) {
+              tempDeclineClient.handlePushNotification(
+                pushMetaData,
+                config is CredentialConfig ? config : null,
+                config is TokenConfig ? config : null,
+              );
+            } else {
+               _logger.e('[PushNotificationHandler-iOS] actionCallDecline: Could not get config for temp client.');
+            }
           }
           break;
 

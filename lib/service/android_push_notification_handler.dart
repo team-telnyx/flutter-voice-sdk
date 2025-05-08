@@ -115,19 +115,25 @@ Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
 
 /// Android specific implementation of [PushNotificationHandler].
 class AndroidPushNotificationHandler implements PushNotificationHandler {
-  // Use a logger instance for the class methods (foreground)
   final _logger = Logger();
 
   @override
   Future<void> initialize() async {
     _logger.i('[PushNotificationHandler-Android] Initialize');
+    await _createNotificationChannel();
+    _setupFCMListeners();
+    await _configureFCMForegroundHandling(); 
+    _setupCallKitListener();
+    _logger.i('[PushNotificationHandler-Android] Initialize complete.');
+  }
 
-    // Create high importance channel using flutter_local_notifications
+  Future<void> _createNotificationChannel() async {
+    _logger.i('[PushNotificationHandler-Android] Creating notification channel...');
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'telnyx_call_channel', // id
       'Incoming Calls', // name
       description: 'Notifications for incoming Telnyx calls.',
-      importance: Importance.max, // Crucial for heads-up display
+      importance: Importance.max,
       playSound: true,
       audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
     );
@@ -140,55 +146,66 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
-      _logger.i(
-        '[PushNotificationHandler-Android] High importance notification channel created/updated.',
-      );
+      _logger.i('[PushNotificationHandler-Android] High importance notification channel created/updated.');
     } catch (e) {
-      _logger.e(
-        '[PushNotificationHandler-Android] Failed to create notification channel: $e',
-      );
+      _logger.e('[PushNotificationHandler-Android] Failed to create notification channel: $e');
     }
+  }
 
+  void _setupFCMListeners() {
+     _logger.i('[PushNotificationHandler-Android] Setting up FCM listeners (onMessage, onMessageOpenedApp)...');
     // Setup foreground message listener
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _logger.i(
-        '[PushNotificationHandler-Android] onMessage: Received foreground message: ${message.data}',
-      );
+      _logger.i('[PushNotificationHandler-Android] onMessage: Received foreground message: ${message.data}');
       if (message.data['message'] != null &&
           message.data['message'].toString().toLowerCase() == 'missed call!') {
-        _logger.i(
-          '[PushNotificationHandler-Android] onMessage: Missed call notification',
-        );
+        _logger.i('[PushNotificationHandler-Android] onMessage: Missed call notification');
         NotificationService.showMissedCallNotification(message);
         return;
       }
+      // Show foreground notification using the service (which uses CallKitIncoming)
       NotificationService.showNotification(message);
-      TelnyxClient.setPushMetaData(
-        message.data,
-      ); // Sets it for later retrieval if needed
+      // Store metadata in case the app goes to background before user interaction
+      TelnyxClient.setPushMetaData(message.data);
     });
 
     // Setup message opened app listener
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _logger.i(
-        '[PushNotificationHandler-Android] onMessageOpenedApp: Message data: ${message.data}',
-      );
+      _logger.i('[PushNotificationHandler-Android] onMessageOpenedApp: Message data: ${message.data}');
     });
+  }
 
-    // Set foreground presentation options
-    await FirebaseMessaging.instance
-        .setForegroundNotificationPresentationOptions(
+  Future<void> _configureFCMForegroundHandling() async {
+    _logger.i('[PushNotificationHandler-Android] Configuring FCM foreground presentation and requesting permissions...');
+    final FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+    // 1. Set presentation options for foreground
+    await messaging.setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
       sound: true,
     );
+    _logger.i('[PushNotificationHandler-Android] Foreground presentation options set.');
 
-    // This catches events from notifications created by NotificationService
-    _logger.i(
-      '[PushNotificationHandler-Android] Setting up CallKit event listener...',
+    // 2. Request user permission (Required for Android 13+)
+    final NotificationSettings settings = await messaging.requestPermission(
+      alert: true,
+      announcement: true,
+      badge: true,
+      carPlay: true,
+      criticalAlert: true,
+      provisional: true,
+      sound: true,
     );
+    _logger.i('[PushNotificationHandler-Android] Notification permission requested. Status: ${settings.authorizationStatus}');
+  }
+
+  void _setupCallKitListener() {
+    _logger.i('[PushNotificationHandler-Android] Setting up CallKit event listener...');
+    // Add CallKit listener for Android foreground/active state interactions
+    // This catches events from notifications created by NotificationService
     FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
-      _logger.i(
+       _logger.i(
         '[PushNotificationHandler-Android] onEvent: ${event?.event} :: ${event?.body}',
       );
       switch (event!.event) {
@@ -232,7 +249,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
             }
           }
           break;
-
+  
         case Event.actionCallDecline:
           _logger.i(
             '[PushNotificationHandler-Android] actionCallDecline: Received. Metadata: ${event.body?['extra']?['metadata']}',
@@ -248,7 +265,12 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
             _logger.i(
               '[PushNotificationHandler-Android] actionCallDecline: No metadata and no active call/invite in ViewModel.',
             );
-            await FlutterCallkitIncoming.endCall(event.body['id']);
+            // If an ID is reliably available in event.body['id'], use it to end the specific CallKit call.
+            if(event.body?['id'] != null && event.body['id'].toString().isNotEmpty){
+              await FlutterCallkitIncoming.endCall(event.body['id']);
+            } else {
+               _logger.w('[PushNotificationHandler-Android] actionCallDecline: Could not end CallKit call without ID.');
+            }
           } else {
             _logger.i(
               '[PushNotificationHandler-Android] actionCallDecline: Metadata present. Using temporary client for decline. Metadata: $metadata',
@@ -303,7 +325,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
             }
           }
           break;
-
+  
         // Handle other events like ended, timeout if needed from foreground CallKit interactions
         case Event.actionCallEnded:
           _logger.i(
@@ -315,9 +337,9 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
           _logger.i(
             '[PushNotificationHandler-Android] actionCallTimeout: Call timeout event from CallKit.',
           );
-          txClientViewModel.endCall();
+          txClientViewModel.endCall(); 
           break;
-
+  
         default:
           _logger.i(
             '[PushNotificationHandler-Android] Unhandled CallKit event in foreground: ${event.event}',

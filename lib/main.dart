@@ -7,7 +7,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
-import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
@@ -17,7 +16,8 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/service/platform_push_service.dart';
-import 'package:telnyx_flutter_webrtc/service/android_push_notification_handler.dart' show androidBackgroundMessageHandler;
+import 'package:telnyx_flutter_webrtc/service/android_push_notification_handler.dart'
+    show androidBackgroundMessageHandler;
 
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
@@ -50,22 +50,6 @@ class AppInitializer {
           options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
         );
         logger.i('[AppInitializer] Firebase Core Initialized successfully.');
-
-        // Testing:
-        final FirebaseMessaging messaging = FirebaseMessaging.instance;
-
-        final NotificationSettings settings = await messaging.requestPermission(
-          alert: true,
-          announcement: true,
-          badge: true,
-          carPlay: true,
-          criticalAlert: true,
-          provisional: true,
-          sound: true,
-        );
-
-        logger.i('User granted permission: ${settings.authorizationStatus}');
-
       } catch (e) {
         logger.e('[AppInitializer] Firebase Core Initialization failed: $e');
       }
@@ -79,13 +63,13 @@ class AppInitializer {
   }
 }
 
-
 // Android Only - Push Notifications
 // This global function remains as an entry point for Firebase background messages on Android.
 // It will now delegate to the annotated top-level function in android_push_notification_handler.dart.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  logger.i('[Background Notification]. Received background message: ${message.data}');
+  logger.i(
+      '[Background Notification]. Received background message: ${message.data}');
   await androidBackgroundMessageHandler(message);
 }
 
@@ -97,7 +81,8 @@ Future<void> main() async {
     // Catch Flutter framework errors
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);
-      logger.e('Caught Flutter error: ${details.exception}', stackTrace: details.stack);
+      logger.e('Caught Flutter error: ${details.exception}',
+          stackTrace: details.stack);
       PlatformPushService.handler.clearPushData();
     };
 
@@ -105,7 +90,7 @@ Future<void> main() async {
     PlatformDispatcher.instance.onError = (error, stack) {
       logger.e('Caught Platform error: $error', stackTrace: stack);
       PlatformPushService.handler.clearPushData();
-      return true; 
+      return true;
     };
 
     if (!AppInitializer()._isInitialized) {
@@ -116,26 +101,27 @@ Future<void> main() async {
     final config = await txClientViewModel.getConfig();
     runApp(
       BackgroundDetector(
-         skipWeb: true,
-         onLifecycleEvent: (AppLifecycleState state) {
-           if (state == AppLifecycleState.resumed) {
-             logger.i('[BackgroundDetector] We are in the foreground, CONNECTING');
-             // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
-             if (!txClientViewModel.callFromPush) {
-               if (config != null && config is CredentialConfig) {
-                 txClientViewModel.login(config);
-               } else if (config != null && config is TokenConfig) {
-                 txClientViewModel.loginWithToken(config);
-               }
-             }
-           } else if (state == AppLifecycleState.paused) {
-             logger.i(
-               '[BackgroundDetector] We are in the background, DISCONNECTING',
-             );
-             txClientViewModel.disconnect();
-           }
-         },
-         child: const MyApp(),
+        skipWeb: true,
+        onLifecycleEvent: (AppLifecycleState state) {
+          if (state == AppLifecycleState.resumed) {
+            logger
+                .i('[BackgroundDetector] We are in the foreground, CONNECTING');
+            // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
+            if (!txClientViewModel.callFromPush) {
+              if (config != null && config is CredentialConfig) {
+                txClientViewModel.login(config);
+              } else if (config != null && config is TokenConfig) {
+                txClientViewModel.loginWithToken(config);
+              }
+            }
+          } else if (state == AppLifecycleState.paused) {
+            logger.i(
+              '[BackgroundDetector] We are in the background, DISCONNECTING',
+            );
+            txClientViewModel.disconnect();
+          }
+        },
+        child: const MyApp(),
       ),
     );
   }, (error, stack) {
@@ -155,7 +141,8 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
   }
   logger.i('[iOS_PUSH_DEBUG] handlePush: Before txClientViewModel.getConfig()');
   final config = await txClientViewModel.getConfig();
-  logger.i('[iOS_PUSH_DEBUG] handlePush: Created PushMetaData: ${pushMetaData?.toJson()}');
+  logger.i(
+      '[iOS_PUSH_DEBUG] handlePush: Created PushMetaData: ${pushMetaData?.toJson()}');
   txClientViewModel
     ..handlePushNotification(
       pushMetaData!,
@@ -182,15 +169,18 @@ class _MyAppState extends State<MyApp> {
     // Platform-specific logic for handling initial push data when app starts.
     // For Android, this checks if the app was launched from a terminated state by a notification.
     // For iOS, this is less critical as CallKit events usually drive the flow after launch.
-      PlatformPushService.handler.getInitialPushData().then((data) {
-        if (data != null) {
-          PlatformPushService.handler.processIncomingCallAction(data, isAnswer: false /* Or true if applicable */);
-        } else {
-          logger.i('[_MyAppState] Android: No initial push data found.');
-        }
-      }).catchError((e) {
-        logger.e('[_MyAppState] Android: Error fetching initial push data: $e');
-      });
+    PlatformPushService.handler.getInitialPushData().then((data) {
+      if (data != null) {
+        final Map<dynamic, dynamic> mutablePayload = Map.from(data);
+        final answer = mutablePayload['isAnswer'] = true;
+        PlatformPushService.handler.processIncomingCallAction(data,
+            isAnswer: answer, isDecline: !answer);
+      } else {
+        logger.i('[_MyAppState] Android: No initial push data found.');
+      }
+    }).catchError((e) {
+      logger.e('[_MyAppState] Android: Error fetching initial push data: $e');
+    });
   }
 
   @override
