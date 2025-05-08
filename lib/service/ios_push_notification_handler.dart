@@ -137,7 +137,6 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
   @override
   Future<void> displayIncomingCallUi(Map<dynamic, dynamic> payload) async {
     _logger.i('[PushNotificationHandler-iOS] displayIncomingCallUi: Primarily handled by native AppDelegate.swift. Payload: $payload');
-    // Native AppDelegate.swift calls SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming
   }
 
   @override
@@ -175,15 +174,8 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
     // Firebase might be used for other purposes, but from this handler's perspective for push,
     // it doesn't manage Firebase initialization itself in the same way Android FCM flow does.
     // If Firebase is initialized globally (e.g. for Analytics), checking Firebase.apps.isNotEmpty could be valid.
-    // For this refactor, returning true to prevent re-init by AppInitializer if global init is done.
-    // Or false if this handler should not imply anything about Firebase state.
-    // Let's assume for now that if AppInitializer calls Firebase.initializeApp for iOS (e.g. for other services),
-    // then this handler doesn't need to prompt another one. This is a bit of a nuanced point depending on overall Firebase usage.
-    // If Firebase is NOT used at all on iOS by the app, this should be false.
-    // Given DefaultFirebaseOptions are present, it might be used.
-    bool initialized = Firebase.apps.isNotEmpty; // Check if any app is initialized
+    final bool initialized = Firebase.apps.isNotEmpty; // Check if any app is initialized
     _logger.i('[PushNotificationHandler-iOS] isFirebaseInitialized: Returning $initialized');
     return initialized;
-    // return true; // Simpler: if iOS uses Firebase for anything, assume it's handled by general App Init.
   }
 } 

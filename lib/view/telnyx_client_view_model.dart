@@ -22,6 +22,7 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
+import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 
 enum CallStateStatus {
   disconnected,
@@ -457,60 +458,11 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool waitingForInvite = false;
 
-  Future<Config?> getConfig() async {
-    final config = await _getCredentialConfig();
-    if (config != null) {
-      return config;
-    } else {
-      return await _getTokenConfig();
-    }
-  }
-
-  Future<CredentialConfig?> _getCredentialConfig() async {
-    final prefs = await SharedPreferences.getInstance();
-    final sipUser = prefs.getString('sipUser');
-    final sipPassword = prefs.getString('sipPassword');
-    final sipName = prefs.getString('sipName');
-    final sipNumber = prefs.getString('sipNumber');
-    final notificationToken = prefs.getString('notificationToken');
-    if (sipUser != null &&
-        sipPassword != null &&
-        sipName != null &&
-        sipNumber != null) {
-      return CredentialConfig(
-        sipCallerIDName: sipName,
-        sipCallerIDNumber: sipNumber,
-        sipUser: sipUser,
-        sipPassword: sipPassword,
-        notificationToken: notificationToken,
-        debug: false,
-        logLevel: LogLevel.all,
-        customLogger: CustomSDKLogger(),
-        reconnectionTimeout: 30000,
-      );
-    } else {
-      return null;
-    }
-  }
-
-  Future<TokenConfig?> _getTokenConfig() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-    final sipName = prefs.getString('sipName');
-    final sipNumber = prefs.getString('sipNumber');
-    final notificationToken = prefs.getString('notificationToken');
-    if (token != null && sipName != null && sipNumber != null) {
-      return TokenConfig(
-        sipCallerIDName: sipName,
-        sipCallerIDNumber: sipNumber,
-        sipToken: token,
-        notificationToken: notificationToken,
-        debug: false,
-        logLevel: LogLevel.all,
-      );
-    } else {
-      return null;
-    }
+  /// Returns the stored CredentialConfig or TokenConfig, preferring Credential.
+  /// Uses [ConfigHelper] for retrieval.
+  Future<Object?> getConfig() async {
+    logger.i('[TelnyxClientViewModel] getConfig: Using ConfigHelper...');
+    return ConfigHelper.getTelnyxConfigFromPrefs();
   }
 
   Future<void> accept({
