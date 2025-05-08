@@ -1,4 +1,3 @@
-
 This guide helps you troubleshoot common issues that prevent push notifications from being delivered in the Telnyx WebRTC Flutter SDK.
 
 ## Introduction
@@ -53,7 +52,42 @@ If your push credential contains incorrect information, push notifications will 
 - Update your push credential in the Telnyx Portal with the new key
 - Test push notifications after updating the credential
 
-### 4. Additional Android Troubleshooting Steps
+### 4. Delayed or Batched Notifications (Android 8+)
+
+**Symptom:**
+Notifications (especially for incoming calls) are not arriving immediately when the app is in the background or terminated. They might arrive in batches after some delay.
+
+**Cause:**
+Android includes power-saving features like Doze mode and App Standby that can defer background network access and job execution for apps using `normal` priority Firebase Cloud Messages (FCM).
+
+**Solutions:**
+
+1. **Create High-Importance Notification Channel (Client-Side - For Display):**
+    *   While server-side priority affects *delivery speed*, a client-side Notification Channel with `Importance.max` is crucial for ensuring the notification is *displayed* promptly as a heads-up notification once delivered (on Android 8.0+).
+    *   Make sure you have created this channel using `flutter_local_notifications` during your app initialization, as described in the [App Setup Guide](app-setup.md).
+    *   **Verification Code Snippet:**
+        ```dart
+        // Example (should be in your initialization code)
+        import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+        const AndroidNotificationChannel channel = AndroidNotificationChannel(
+          'telnyx_call_channel', 
+          'Incoming Calls', 
+          description: 'Notifications for incoming Telnyx calls.',
+          importance: Importance.max,
+          playSound: true,
+          audioAttributesUsage: AudioAttributesUsage.notificationRingtone,
+        );
+        final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+        await flutterLocalNotificationsPlugin
+            .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+            ?.createNotificationChannel(channel);
+        ```
+
+2. **Check `AndroidManifest.xml`:**
+    *   Ensure you have added the `<meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="your_channel_id" />` tag inside your `<application>` tag, where `your_channel_id` matches the ID used when creating the channel (e.g., `telnyx_call_channel`). This helps Firebase use the correct channel if it ever displays a notification directly.
+
+### 5. Additional Android Troubleshooting Steps
 
 1. **Check Firebase Console Logs**
    - Go to the Firebase Console > Your Project > Engage > Messaging

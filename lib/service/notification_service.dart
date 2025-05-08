@@ -107,7 +107,7 @@ class NotificationService {
       await FlutterCallkitIncoming.endCall(telnyxCallId); 
       logger.i('NotificationService.showMissedCallNotification: endCall sent for ID: $telnyxCallId');
 
-      // Now, show the specific missed call notification (e.g., for system logs/recents)
+      // Now, show the specific missed call notification (e.g., for system logs / recents)
       final String missedCallEntryUuid = const Uuid().v4(); 
       logger.i('NotificationService.showMissedCallNotification: Showing missed call notification entry with UUID: $missedCallEntryUuid for original call ID: $telnyxCallId');
 
