@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
@@ -18,7 +17,6 @@ import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/service/platform_push_service.dart';
 import 'package:telnyx_flutter_webrtc/service/android_push_notification_handler.dart' show androidBackgroundMessageHandler;
-import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
@@ -46,7 +44,6 @@ class AppInitializer {
       logger.i('[AppInitializer] Initializing...');
 
       // Initialize Firebase first, ensuring it's ready before platform handlers use it.
-      logger.i('[AppInitializer] Initializing Firebase Core...');
       try {
         await Firebase.initializeApp(
           options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
@@ -54,16 +51,11 @@ class AppInitializer {
         logger.i('[AppInitializer] Firebase Core Initialized successfully.');
       } catch (e) {
         logger.e('[AppInitializer] Firebase Core Initialization failed: $e');
-        // Decide how to handle failure - maybe rethrow or prevent handler init?
       }
-      
+
       // Delegate to platform-specific push handler for initialization
       // This will set up FCM listeners, CallKit listeners, etc.
-      logger.i('[AppInitializer] Initializing Platform Push Service Handler...');
       await PlatformPushService.handler.initialize();
-      logger.i('[AppInitializer] Platform Push Service Handler Initialized.');
-
-      logger.i('[AppInitializer] Initialization complete.');
     } else {
       logger.i('[AppInitializer] Already initialized.');
     }
@@ -76,7 +68,6 @@ class AppInitializer {
 // It will now delegate to the annotated top-level function in android_push_notification_handler.dart.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Delegate to the new top-level annotated function
   await androidBackgroundMessageHandler(message);
 }
 
@@ -109,7 +100,7 @@ Future<void> main() async {
          skipWeb: true,
          onLifecycleEvent: (AppLifecycleState state) {
            if (state == AppLifecycleState.resumed) {
-             logger.i('We are in the foreground, CONNECTING');
+             logger.i('[BackgroundDetector] We are in the foreground, CONNECTING');
              // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
              if (!txClientViewModel.callFromPush) {
                if (config != null && config is CredentialConfig) {
@@ -120,7 +111,7 @@ Future<void> main() async {
              }
            } else if (state == AppLifecycleState.paused) {
              logger.i(
-               'We are in the background setting fromBackground == true, DISCONNECTING',
+               '[BackgroundDetector] We are in the background, DISCONNECTING',
              );
              txClientViewModel.disconnect();
            }
@@ -172,15 +163,8 @@ class _MyAppState extends State<MyApp> {
     // Platform-specific logic for handling initial push data when app starts.
     // For Android, this checks if the app was launched from a terminated state by a notification.
     // For iOS, this is less critical as CallKit events usually drive the flow after launch.
-    if (!kIsWeb && Platform.isAndroid) {
       PlatformPushService.handler.getInitialPushData().then((data) {
         if (data != null) {
-          logger.i('[_MyAppState] Android: Found initial push data: $data. Processing...');
-          // Determine if this initial push should be treated as an "answer" implicitly.
-          // This depends on how Android notifications are structured and if they imply an accept.
-          // For now, let's assume it should be processed as an incoming call that might need answering.
-          // The `isAnswer` flag would typically come from a user action on the notification if it has action buttons.
-          // If just tapping the notification body, `isAnswer` is likely false initially.
           PlatformPushService.handler.processIncomingCallAction(data, isAnswer: false /* Or true if applicable */);
         } else {
           logger.i('[_MyAppState] Android: No initial push data found.');
@@ -188,22 +172,6 @@ class _MyAppState extends State<MyApp> {
       }).catchError((e) {
         logger.e('[_MyAppState] Android: Error fetching initial push data: $e');
       });
-    }
-
-    // Foreground FCM message listening for Android is now handled by AndroidPushNotificationHandler.initialize().
-    // iOS CallKit event listening is handled by IOSPushNotificationHandler.initialize().
-
-    // Original connection logic if not from push (now part of BackgroundDetector or specific user actions)
-    // This part needs careful review. The original code had: 
-    // } else if (!kIsWeb && Platform.isIOS && !txClientViewModel.callFromPush) {
-    //   logger.i('iOS :: connect');
-    // } else {
-    //   logger.i('Web :: connect');
-    // }
-    // This suggests a default connection attempt. This might now be better handled
-    // by the BackgroundDetector's onAppResumed, or a manual login button if no auto-login is desired.
-    // For now, removing this explicit connect from here as push/resume flows should cover it.
-    logger.i('[_MyAppState] initState completed.');
   }
 
   @override

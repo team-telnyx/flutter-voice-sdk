@@ -156,7 +156,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
     // Setup foreground message listener
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _logger.i('[PushNotificationHandler-Android] onMessage: Received foreground message: ${message.data}');
-      if (message.notification?.title != null && message.notification!.title!.contains('Missed')) {
+      if (message.data['message'] != null && message.data['message'].toString().toLowerCase() == 'missed call!') {
         _logger.i('[PushNotificationHandler-Android] onMessage: Missed call notification');
         NotificationService.showMissedCallNotification(message);
         return;
@@ -180,6 +180,107 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
       badge: true,
       sound: true,
     );
+
+    // Add CallKit listener for Android foreground/active state interactions
+    // This catches events from notifications created by NotificationService
+    _logger.i('[PushNotificationHandler-Android] Setting up CallKit event listener...');
+    FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
+      _logger.i('[PushNotificationHandler-Android] onEvent: ${event?.event} :: ${event?.body}');
+      // Use similar logic as iOS handler for Accept/Decline actions from CallKit UI
+      switch (event!.event) {
+        case Event.actionCallAccept:
+          _logger.i('[PushNotificationHandler-Android] actionCallAccept: Received. Metadata: ${event.body?['extra']?['metadata']}');
+          if (txClientViewModel.incomingInvitation != null) {
+            _logger.i('[PushNotificationHandler-Android] actionCallAccept: ViewModel has existing incomingInvitation. Accepting directly.');
+            await txClientViewModel.accept();
+          } else {
+            final metadata = event.body['extra']?['metadata'];
+            if (metadata == null) {
+              _logger.i('[PushNotificationHandler-Android] actionCallAccept: Metadata missing. Accepting without push context.');
+              await txClientViewModel.accept();
+            } else {
+              _logger.i('[PushNotificationHandler-Android] actionCallAccept: Metadata present. Calling processIncomingCallAction. Metadata: $metadata');
+              var decodedMetadata = metadata;
+              if (metadata is String) {
+                try {
+                  decodedMetadata = jsonDecode(metadata);
+                } catch (e) {
+                  _logger.e('[PushNotificationHandler-Android] actionCallAccept: Error decoding metadata JSON: $e. Attempting direct accept.');
+                  await txClientViewModel.accept(); // Fallback
+                  return;
+                }
+              }
+              // Call the handler's method to process the action, which will augment and call handlePush
+              await processIncomingCallAction(decodedMetadata as Map<dynamic, dynamic>, isAnswer: true);
+            }
+          }
+          break;
+
+        case Event.actionCallDecline:
+          _logger.i('[PushNotificationHandler-Android] actionCallDecline: Received. Metadata: ${event.body?['extra']?['metadata']}');
+          final metadata = event.body['extra']?['metadata'];
+          if (txClientViewModel.incomingInvitation != null || txClientViewModel.currentCall != null) {
+             _logger.i('[PushNotificationHandler-Android] actionCallDecline: Main client has existing call/invite. Using txClientViewModel.endCall().');
+            txClientViewModel.endCall();
+          } else if (metadata == null) {
+             _logger.i('[PushNotificationHandler-Android] actionCallDecline: No metadata and no active call/invite in ViewModel.');
+             // Maybe end the callkit call? 
+             // FlutterCallkitIncoming.endCall(event.body['id']); // Requires getting ID from event
+          } else {
+             _logger.i('[PushNotificationHandler-Android] actionCallDecline: Metadata present. Using temporary client for decline. Metadata: $metadata');
+             // Use temporary client logic (same as iOS)
+            var decodedMetadata = metadata;
+             if (metadata is String) {
+               try {
+                 decodedMetadata = jsonDecode(metadata);
+               } catch (e) {
+                 _logger.e('[PushNotificationHandler-Android] actionCallDecline: Error decoding metadata JSON: $e.');
+                 return;
+               }
+             }
+             final Map<dynamic, dynamic> eventData = Map<dynamic, dynamic>.from(decodedMetadata as Map);
+             final PushMetaData pushMetaData = PushMetaData.fromJson(eventData)..isDecline = true;
+             final tempDeclineClient = TelnyxClient();
+             tempDeclineClient
+              ..onSocketMessageReceived = (TelnyxMessage msg) {
+                 if (msg.socketMethod == SocketMethod.bye) {
+                   _logger.i('[PushNotificationHandler-Android] actionCallDecline: Temp client received BYE, disconnecting.');
+                   tempDeclineClient.disconnect();
+                 }
+               }
+              ..onSocketErrorReceived = (TelnyxSocketError error) {
+                 _logger.e('[PushNotificationHandler-Android] actionCallDecline: Temp client error: ${error.errorMessage}');
+                 tempDeclineClient.disconnect();
+             };
+             final config = await _getBackgroundTelnyxConfig(); // Use background config getter
+             _logger.i('[PushNotificationHandler-Android] actionCallDecline: Temp client attempting handlePushNotification.');
+             if (config != null) {
+               tempDeclineClient.handlePushNotification(
+                 pushMetaData,
+                 config is CredentialConfig ? config : null,
+                 config is TokenConfig ? config : null,
+               );
+             } else {
+               _logger.e('[PushNotificationHandler-Android] actionCallDecline: Could not get config for temp client.');
+             }
+          }
+          break;
+
+        // Handle other events like ended, timeout if needed from foreground CallKit interactions
+         case Event.actionCallEnded:
+           _logger.i('[PushNotificationHandler-Android] actionCallEnded: Call ended event from CallKit.');
+           txClientViewModel.endCall();
+           break;
+         case Event.actionCallTimeout:
+           _logger.i('[PushNotificationHandler-Android] actionCallTimeout: Call timeout event from CallKit.');
+           txClientViewModel.endCall(); 
+           break;
+
+        default:
+          _logger.i('[PushNotificationHandler-Android] Unhandled CallKit event in foreground: ${event.event}');
+          break;
+      }
+    });
   }
 
   @override
@@ -220,7 +321,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
     final RemoteMessage? initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       _logger.i('[PushNotificationHandler-Android] getInitialPushData: Found initial message: ${initialMessage.data}');
-      // TelnyxClient.setPushMetaData(initialMessage.data); // Ensure this is set before processIncomingCallAction
+      //await processIncomingCallAction(initialMessage.data, isAnswer: false, isDecline: false);
       return initialMessage.data;
     }
     // Fallback to getPushData from TelnyxClient for consistency with old flow, though getInitialMessage is preferred for FCM.
