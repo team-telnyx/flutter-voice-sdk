@@ -23,8 +23,6 @@ import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
 final logger = Logger();
 final txClientViewModel = TelnyxClientViewModel();
-const MOCK_USER = '<MOCK_USER>';
-const MOCK_PASSWORD = '<MOCK_PASSWORD>';
 const CALL_MISSED_TIMEOUT = 30;
 
 class AppInitializer {
@@ -131,7 +129,7 @@ Future<void> main() async {
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
-  logger.i('[iOS_PUSH_DEBUG] handlePush: Started. Raw data: $data');
+  logger.i('[handlePush] Started. Raw data: $data');
   txClientViewModel.setPushCallStatus(true);
   PushMetaData? pushMetaData;
   if (defaultTargetPlatform == TargetPlatform.android) {
@@ -139,10 +137,10 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
   } else if (Platform.isIOS) {
     pushMetaData = PushMetaData.fromJson(data);
   }
-  logger.i('[iOS_PUSH_DEBUG] handlePush: Before txClientViewModel.getConfig()');
+  logger.i('[handlePush] Before txClientViewModel.getConfig()');
   final config = await txClientViewModel.getConfig();
   logger.i(
-      '[iOS_PUSH_DEBUG] handlePush: Created PushMetaData: ${pushMetaData?.toJson()}');
+      '[handlePush] Created PushMetaData: ${pushMetaData?.toJson()}');
   txClientViewModel
     ..handlePushNotification(
       pushMetaData!,
@@ -150,7 +148,7 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
       config is TokenConfig ? config : null,
     )
     ..observeResponses();
-  logger.i('actionCallIncoming :: Received Incoming Call! Handle Push');
+  logger.i('[handlePush] Processing complete. Call state should update soon.');
 }
 
 class MyApp extends StatefulWidget {

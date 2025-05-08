@@ -37,6 +37,16 @@ Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
     return;
   }
 
+  // Check if the message is a missed call notification
+  if (message.data['message'] != null &&
+      message.data['message'].toString().toLowerCase() == 'missed call!') {
+    _backgroundLogger.i(
+      '[AndroidBackgroundHandler] Missed call notification, not showing CallKit.',
+    );
+    await NotificationService.showMissedCallNotification(message);
+    return;
+  }
+
   // Show the notification first
   await NotificationService.showNotification(message);
 
