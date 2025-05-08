@@ -23,7 +23,6 @@ import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
 final logger = Logger();
 final txClientViewModel = TelnyxClientViewModel();
-const CALL_MISSED_TIMEOUT = 30;
 
 class AppInitializer {
   static final AppInitializer _instance = AppInitializer._internal();

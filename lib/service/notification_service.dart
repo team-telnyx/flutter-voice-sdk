@@ -11,6 +11,8 @@ import 'package:logger/logger.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 
+const int _CALL_MISSED_TIMEOUT_SECONDS = 30;
+
 class NotificationService {
   static Future showNotification(RemoteMessage message) async {
     final logger = Logger()
@@ -26,15 +28,29 @@ class NotificationService {
       // Check for the actual call ID from Telnyx metadata (using camelCase)
       final String? telnyxCallId = metadata.callId;
 
+      // Check for incorrect notification type, ie missed call message
+      if (message.data.containsKey('message') && message.data['message'] == 'Missed call!') {
+        logger.i('NotificationService.showNotification: Received a message flagged as "Missed call!", aborting showing incoming UI.');
+        return;
+      }
+
+      // Check for Stale Notification
+      if (message.sentTime != null) {
+        final DateTime nowTime = DateTime.now();
+        final Duration difference = nowTime.difference(message.sentTime!); 
+        logger.i('NotificationService.showNotification: Time difference since sent: ${difference.inSeconds} seconds.');
+        if (difference.inSeconds > _CALL_MISSED_TIMEOUT_SECONDS) {
+          logger.w('NotificationService.showNotification: Notification is stale (>${_CALL_MISSED_TIMEOUT_SECONDS}s). Showing missed call instead. ID: $telnyxCallId');
+          await showMissedCallNotification(message);
+          return;
+        }
+      } else {
+         logger.w('NotificationService.showNotification: message.sentTime is null, cannot check for staleness.');
+      }
+
       if (telnyxCallId == null || telnyxCallId.isEmpty) {
         logger.e('NotificationService.showNotification: Missing or empty callId in metadata. Cannot show CallKit notification.'); // Corrected log
         return; // Cannot proceed without a valid ID
-      }
-
-      // Optional: Check for missed call message early (though usually handled by caller)
-      if (message.data.containsKey('message') && message.data['message'] == 'Missed call!') {
-         logger.i('NotificationService.showNotification: Received a message flagged as "Missed call!", aborting showing incoming UI.');
-         return;
       }
 
       logger.i('NotificationService.showNotification: Showing CallKit incoming UI for call ID: $telnyxCallId');
