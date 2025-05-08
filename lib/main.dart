@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
+import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
@@ -49,6 +50,22 @@ class AppInitializer {
           options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
         );
         logger.i('[AppInitializer] Firebase Core Initialized successfully.');
+
+        // Testing:
+        final FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+        final NotificationSettings settings = await messaging.requestPermission(
+          alert: true,
+          announcement: true,
+          badge: true,
+          carPlay: true,
+          criticalAlert: true,
+          provisional: true,
+          sound: true,
+        );
+
+        logger.i('User granted permission: ${settings.authorizationStatus}');
+
       } catch (e) {
         logger.e('[AppInitializer] Firebase Core Initialization failed: $e');
       }
@@ -68,6 +85,7 @@ class AppInitializer {
 // It will now delegate to the annotated top-level function in android_push_notification_handler.dart.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  logger.i('[Background Notification]. Received background message: ${message.data}');
   await androidBackgroundMessageHandler(message);
 }
 
@@ -94,6 +112,7 @@ Future<void> main() async {
       await AppInitializer().initialize();
     }
 
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     final config = await txClientViewModel.getConfig();
     runApp(
       BackgroundDetector(

@@ -19,6 +19,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_flutter_webrtc/utils/custom_sdk_logger.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 
 // Define logger at the top level for access by the background handler function
@@ -83,10 +84,16 @@ Future<Object?> _getBackgroundTelnyxConfig() async {
 // This function MUST be annotated with @pragma('vm:entry-point')
 @pragma('vm:entry-point')
 Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
-  // Ensure Firebase is initialized for this isolate
-  await Firebase.initializeApp();
   _backgroundLogger.i('[AndroidBackgroundHandler] Received background message: ${message.data}');
-  
+
+  // Ensure Firebase is initialized for this isolate
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    _backgroundLogger.e('[AndroidBackgroundHandler] Firebase initialization failed: $e');
+    return;
+  }
+
   // Show the notification first
   await NotificationService.showNotification(message);
 
@@ -153,6 +160,29 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
   @override
   Future<void> initialize() async {
     _logger.i('[PushNotificationHandler-Android] Initialize');
+
+    // Create high importance channel using flutter_local_notifications
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'telnyx_call_channel', // id
+      'Incoming Calls', // name
+      description: 'Notifications for incoming Telnyx calls.',
+      importance: Importance.max, // Crucial for heads-up display
+      playSound: true, // Ensure sound plays (adjust as needed)
+      // Add other properties like sound, vibration pattern if desired
+    );
+
+    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+        FlutterLocalNotificationsPlugin();
+
+    try {
+       await flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+       _logger.i('[PushNotificationHandler-Android] High importance notification channel created/updated.');
+    } catch (e) {
+       _logger.e('[PushNotificationHandler-Android] Failed to create notification channel: $e');
+    }
+
     // Setup foreground message listener
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _logger.i('[PushNotificationHandler-Android] onMessage: Received foreground message: ${message.data}');
@@ -169,10 +199,6 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       _logger.i('[PushNotificationHandler-Android] onMessageOpenedApp: Message data: ${message.data}');
     });
-
-    // Set background message handler in main isolate initialization
-    // This points to the new top-level annotated function
-    FirebaseMessaging.onBackgroundMessage(androidBackgroundMessageHandler);
 
     // Set foreground presentation options
     await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
