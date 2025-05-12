@@ -6,7 +6,7 @@ It is important to understand how push notifications work in general in relation
 
 To address this limitation, the Telnyx Voice SDK uses push notifications to inform the device of incoming calls. When you log in to the TelnyxClient and provide an APNS or FCM token, the SDK sends a push notification to your device whenever an incoming call is received. Note that this notification only indicates that an invitation is on the way.
 
-Once you respond to a push notification—for example, by tapping “Accept”—you must handle the logic to launch and reconnect to the TelnyxClient. After reconnection, the socket connection is re-established, and the backend will send the actual invitation to your device. In this scenario, it may be helpful to store the fact that the push notification was accepted so that when the invitation arrives (as soon as the socket is connected), you can automatically accept the call.
+Once you respond to a push notification—for example, by tapping "Accept"—you must handle the logic to launch and reconnect to the TelnyxClient. After reconnection, the socket connection is re-established, and the backend will send the actual invitation to your device. In this scenario, it may be helpful to store the fact that the push notification was accepted so that when the invitation arrives (as soon as the socket is connected), you can automatically accept the call.
 
 The following sections provide more detail on how to implement these steps.
 
@@ -84,7 +84,110 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 ```
 
-4. Use the `TelnyxClient.getPushMetaData()` method to retrieve the metadata when the app comes to the foreground. This data is only available on 1st access and becomes `null` afterward.
+4. **Create a High-Importance Notification Channel (Android 8.0+)**
+
+   For Android 8.0 (API level 26) and higher, notifications must be assigned to a channel. To ensure incoming call notifications are treated with high priority (e.g., shown as heads-up notifications), you need to create a dedicated channel with maximum importance.
+
+   First, add the `flutter_local_notifications` package to your `pubspec.yaml`:
+   ```yaml
+   dependencies:
+     flutter_local_notifications: ^<latest_version>
+   ```
+
+   **Gradle Setup (for Android):**
+   The `flutter_local_notifications` plugin may require Java 8+ features. To enable support for these, you need to configure Core Library Desugaring in your Android project.
+
+   In your `android/app/build.gradle` file, ensure the following configurations are present:
+
+   ```groovy
+   // android/app/build.gradle (Groovy DSL)
+   android {
+       // ... other settings
+
+       compileOptions {
+           coreLibraryDesugaringEnabled true
+           sourceCompatibility JavaVersion.VERSION_1_8 
+           targetCompatibility JavaVersion.VERSION_1_8
+       }
+
+       kotlinOptions {
+           jvmTarget = "1.8"
+       }
+   }
+
+   dependencies {
+       coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+   }
+   ```
+
+   For projects using **Kotlin DSL (`build.gradle.kts`):**
+   ```kotlin
+   // android/app/build.gradle.kts (Kotlin DSL)
+   android {
+       // ... other settings
+       defaultConfig {
+           // multiDexEnabled = true // Only if you explicitly need multidex for other reasons
+       }
+
+       compileOptions {
+           isCoreLibraryDesugaringEnabled = true
+           sourceCompatibility = JavaVersion.VERSION_1_8 // Or JavaVersion.VERSION_11
+           targetCompatibility = JavaVersion.VERSION_1_8 // Or JavaVersion.VERSION_11
+       }
+
+       kotlinOptions {
+           jvmTarget = JavaVersion.VERSION_1_8.toString() // Or JavaVersion.VERSION_11.toString()
+       }
+       // ... other settings
+   }
+
+   dependencies {
+       // ... other dependencies
+       coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4") // Or a newer version like 2.1.4 for Java 11
+   }
+   ```
+   *(Note: Adjust Java versions and `desugar_jdk_libs` version as needed. While `flutter_local_notifications` might show Java 11, Java 8 with `desugar_jdk_libs:2.0.4` is often sufficient. For Java 11, use `desugar_jdk_libs:2.1.4` or newer.)*
+
+   Then, create the channel, typically during your app's initialization (e.g., in your `AndroidPushNotificationHandler.initialize` method):
+
+   ```dart
+   import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+   // Create high importance channel
+   const AndroidNotificationChannel channel = AndroidNotificationChannel(
+     'telnyx_call_channel', // Unique ID for the channel
+     'Incoming Calls', // User-visible name 
+     description: 'Notifications for incoming Telnyx calls.', // User-visible description
+     importance: Importance.max, // Crucial for heads-up display
+     playSound: true,
+     audioAttributesUsage: AudioAttributesUsage.notificationRingtone, // Use ringtone audio attributes
+     // Add other properties like vibration pattern if desired
+   );
+
+   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+       FlutterLocalNotificationsPlugin();
+
+   try {
+      await flutterLocalNotificationsPlugin
+       .resolvePlatformSpecificImplementation<
+           AndroidFlutterLocalNotificationsPlugin>()
+       ?.createNotificationChannel(channel);
+      print('High importance notification channel created/updated.');
+   } catch (e) {
+      print('Failed to create notification channel: $e');
+   }
+   ```
+
+   Finally, tell the Firebase SDK to use this channel by default for incoming FCM notifications by adding the following meta-data inside the `<application>` tag in your `android/app/src/main/AndroidManifest.xml`:
+
+   ```xml
+   <meta-data
+       android:name="com.google.firebase.messaging.default_notification_channel_id"
+       android:value="telnyx_call_channel" /> 
+   ```
+   *(Note: The ID 'telnyx_call_channel' must match the ID used in the Dart code.)*
+
+5. Use the `TelnyxClient.getPushMetaData()` method to retrieve the metadata when the app comes to the foreground. This data is only available on 1st access and becomes `null` afterward.
 ```dart
     Future<void> _handlePushNotification() async {
        final  data = await TelnyxClient.getPushMetaData();
@@ -95,7 +198,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     }
 ```
 
-5. To Handle push calls on foreground, Listen for Call Events and invoke the `handlePushNotification` method
+6. To Handle push calls on foreground, Listen for Call Events and invoke the `handlePushNotification` method
 ```dart
 FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
    switch (event!.event) {
