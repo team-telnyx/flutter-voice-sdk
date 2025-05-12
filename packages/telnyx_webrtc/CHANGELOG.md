@@ -1,4 +1,12 @@
-## [1.1.3](https://pub.dev/packages/telnyx_webrtc/versions/1.1.2) (2025-04-24)
+## [1.2.0](https://pub.dev/packages/telnyx_webrtc/versions/1.2.0) (2025-05-12)
+
+### Enhancement
+
+- Added WebRTC Call Quality Metrics for each initiated call (enabled via debug bool on invite or accept)
+- Adjusted logging to be more clear for connection process and websocket messages
+
+
+## [1.1.3](https://pub.dev/packages/telnyx_webrtc/versions/1.1.3) (2025-04-24)
 
 ### Bug Fixing
 
