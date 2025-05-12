@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:ffi';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:telnyx_webrtc/model/call_quality.dart';
+import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+import 'package:telnyx_webrtc/utils/stats/mos_calculator.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_parsing_helpers.dart';
 import 'package:telnyx_webrtc/utils/stats/stats_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
@@ -10,6 +14,9 @@ import 'package:telnyx_webrtc/tx_socket.dart'
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_event.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_tag.dart';
 import 'package:uuid/uuid.dart';
+
+/// Callback for receiving call quality metrics updates
+typedef CallQualityCallback = void Function(CallQualityMetrics metrics);
 
 /// Class to handle the reporting of WebRTC stats to the server
 /// via the provided [socket] and [peerConnection].
@@ -24,7 +31,9 @@ class WebRTCStatsReporter {
     this.peerConnection,
     this.callId,
     this.peerId,
-  );
+    this.sendStats, {
+    this.onCallQualityChange,
+  });
 
   final Queue<String> _messageQueue = Queue<String>();
 
@@ -39,6 +48,10 @@ class WebRTCStatsReporter {
   final RTCPeerConnection peerConnection;
   final String callId;
   final String peerId;
+  final bool sendStats;
+
+  /// Callback for call quality metrics updates
+  final CallQualityCallback? onCallQualityChange;
 
   /*Future<void> _initializeLogFile() async {
     try {
@@ -53,6 +66,11 @@ class WebRTCStatsReporter {
   }*/
 
   void _enqueueMessage(String message) {
+    if (!sendStats) {
+      GlobalLogger()
+          .d('Stats reporting is disabled. Not sending message: $message');
+      return;
+    }
     _messageQueue.add(message);
     _processMessageQueue();
   }
@@ -144,7 +162,8 @@ class WebRTCStatsReporter {
           localSdp = await peerConnection.getLocalDescription();
           remoteSdp = await peerConnection.getRemoteDescription();
         } catch (e) {
-          GlobalLogger().e('Error retrieving descriptions for Signaling State Stats: $e');
+          GlobalLogger()
+              .e('Error retrieving descriptions for Signaling State Stats: $e');
         }
 
         // If both are null, just skip
@@ -211,32 +230,86 @@ class WebRTCStatsReporter {
       final Map<String, dynamic> remoteCandidates = {};
       final List<Map<String, dynamic>> unresolvedCandidatePairs = [];
 
+      // Variables for call quality metrics
+      double jitter = 0;
+      double rtt = 0;
+      double packetLoss = 0;
+      Map<String, dynamic>? inboundAudioStats;
+      Map<String, dynamic>? outboundAudioStats;
+
       for (var report in stats) {
         switch (report.type) {
           case 'inbound-rtp':
+            final inboundValues = report.values.cast<String, dynamic>();
+
+            // Extract jitter from inbound-rtp
+            if (inboundValues.containsKey('jitter') &&
+                inboundValues['kind'] == 'audio') {
+              jitter = (inboundValues['jitter'] as num?)?.toDouble() ?? 0;
+
+              // Extract packet loss if available
+              if (inboundValues.containsKey('packetsLost') &&
+                  inboundValues.containsKey('totalPacketsReceived')) {
+                final packetsLost =
+                    (inboundValues['packetsLost'] as num?)?.toDouble() ?? 0;
+                final totalPackets =
+                    (inboundValues['totalPacketsReceived'] as num?)
+                            ?.toDouble() ??
+                        1;
+                if (totalPackets > 0) {
+                  packetLoss = packetsLost / (totalPackets + packetsLost);
+                }
+              }
+
+              inboundAudioStats = Map<String, dynamic>.from(inboundValues);
+            }
+
             audioInboundStats.add({
-              ...report.values,
+              ...inboundValues,
               'timestamp': timestamp,
               'track': {},
             });
             statsObject[report.id] = {
-              ...report.values,
+              ...inboundValues,
               'id': report.id,
               'type': report.type,
               'timestamp': timestamp,
             };
             break;
           case 'outbound-rtp':
+            final outboundValues = report.values.cast<String, dynamic>();
+
+            if (outboundValues['kind'] == 'audio') {
+              outboundAudioStats = Map<String, dynamic>.from(outboundValues);
+            }
+
             audioOutboundStats.add({
-              ...report.values,
+              ...outboundValues,
               'timestamp': timestamp,
               'track': _constructTrack(
-                report.values.cast<String, dynamic>(),
+                outboundValues,
                 timestamp,
               ),
             });
             statsObject[report.id] = {
-              ...report.values,
+              ...outboundValues,
+              'id': report.id,
+              'type': report.type,
+              'timestamp': timestamp,
+            };
+            break;
+          case 'remote-inbound-rtp':
+            // Extract RTT from remote-inbound-rtp
+            final remoteInboundValues = report.values.cast<String, dynamic>();
+            if (remoteInboundValues.containsKey('roundTripTime') &&
+                remoteInboundValues['kind'] == 'audio') {
+              rtt =
+                  (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ??
+                      0;
+            }
+
+            statsObject[report.id] = {
+              ...remoteInboundValues,
               'id': report.id,
               'type': report.type,
               'timestamp': timestamp,
@@ -263,15 +336,16 @@ class WebRTCStatsReporter {
             statsObject[report.id] = remoteCandidate;
             break;
           case 'candidate-pair':
-            final localCandidateId = report.values['localCandidateId'];
-            final remoteCandidateId = report.values['remoteCandidateId'];
+            final candidatePairValues = report.values.cast<String, dynamic>();
+            final localCandidateId = candidatePairValues['localCandidateId'];
+            final remoteCandidateId = candidatePairValues['remoteCandidateId'];
 
             final localCandidate = localCandidates[localCandidateId];
             final remoteCandidate = remoteCandidates[remoteCandidateId];
 
             final candidatePair = {
               'id': report.id,
-              ...report.values,
+              ...candidatePairValues,
               'timestamp': timestamp,
               'type': 'candidate-pair',
             };
@@ -284,6 +358,14 @@ class WebRTCStatsReporter {
 
               // Always set the succeededConnection to the most recent candidatePair
               succeededConnection = candidatePair.cast<String, dynamic>();
+
+              // Extract RTT from candidate pair if not found in remote-inbound-rtp
+              if (rtt == 0 &&
+                  candidatePairValues.containsKey('currentRoundTripTime')) {
+                rtt = (candidatePairValues['currentRoundTripTime'] as num?)
+                        ?.toDouble() ??
+                    0;
+              }
 
               statsObject[report.id] = candidatePair;
             } else {
@@ -306,15 +388,16 @@ class WebRTCStatsReporter {
       // Process unresolved candidate-pairs
       for (final unresolved in unresolvedCandidatePairs) {
         final report = unresolved['report'];
-        final localCandidateId = report.values['localCandidateId'];
-        final remoteCandidateId = report.values['remoteCandidateId'];
+        final reportValues = report.values.cast<String, dynamic>();
+        final localCandidateId = reportValues['localCandidateId'];
+        final remoteCandidateId = reportValues['remoteCandidateId'];
 
         final localCandidate = localCandidates[localCandidateId];
         final remoteCandidate = remoteCandidates[remoteCandidateId];
 
         final candidatePair = {
           'id': report.id,
-          ...report.values,
+          ...reportValues,
           'timestamp': unresolved['timestamp'],
           'type': 'candidate-pair',
         };
@@ -334,6 +417,35 @@ class WebRTCStatsReporter {
             'Failed to resolve local or remote candidate for candidate-pair ${report.id}',
           );
         }
+      }
+
+      // Calculate MOS and call quality metrics if we have valid data
+      if (onCallQualityChange != null && (jitter > 0 || rtt > 0)) {
+        // Calculate MOS using the E-model
+        final mos = MosCalculator.calculateMos(
+          rtt: rtt,
+          jitter: jitter,
+          packetLoss: packetLoss,
+        );
+
+        // Determine call quality based on MOS
+        final quality = CallQuality.fromMos(mos);
+
+        // Create call quality metrics object
+        final metrics = CallQualityMetrics(
+          jitter: jitter,
+          rtt: rtt,
+          mos: mos,
+          quality: quality,
+          inboundAudio: inboundAudioStats,
+          outboundAudio: outboundAudioStats,
+        );
+
+        // Notify via callback
+        onCallQualityChange!(metrics);
+
+        // Log metrics (debug level to avoid excessive logging)
+        GlobalLogger().d('Call quality metrics: $metrics');
       }
 
       // Format the data

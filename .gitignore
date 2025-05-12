@@ -64,4 +64,6 @@ ios/Pods/
 ios/Runner/GoogleService-Info.plist
 lib/firebase_options.dart
 firebase.json
+android/.idea/caches/deviceStreaming.xml
+android/.idea/material_theme_project_new.xml
 /android/app/.cxx

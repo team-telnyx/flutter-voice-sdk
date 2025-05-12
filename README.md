@@ -10,6 +10,7 @@ Enable Telnyx real-time communication services on Flutter applications (Android 
 - [x] Hold calls
 - [x] Mute calls
 - [x] Dual Tone Multi Frequency
+- [x] Call quality metrics monitoring
 
 ## Usage
 
@@ -43,6 +44,67 @@ on the iOS platform, you need to add the microphone permission to your Info.plis
     <key>NSMicrophoneUsageDescription</key>
     <string>$(PRODUCT_NAME) Microphone Usage!</string>
 ```
+
+## Call Quality Metrics
+
+The SDK provides real-time call quality metrics through the `onCallQualityChange` callback on the `Call` object. This allows you to monitor call quality in real-time and provide feedback to users.
+
+### Enabling Call Quality Metrics
+
+To enable call quality metrics, set the `debug` parameter to `true` when creating or answering a call:
+
+```dart
+// When making a call
+call.newInvite(
+    callerName: "John Doe",
+    callerNumber: "+1234567890",
+    destinationNumber: "+1987654321",
+    clientState: "some-state",
+    debug: true
+);
+
+// When answering a call
+call.acceptCall(
+    callId: callId,
+    destinationNumber: "destination",
+    debug: true
+);
+
+// Listen for call quality metrics
+call.onCallQualityChange = (metrics) {
+    // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
+    print("Call quality: ${metrics.quality}");
+    print("MOS score: ${metrics.mos}");
+    print("Jitter: ${metrics.jitter * 1000} ms");
+    print("Round-trip time: ${metrics.rtt * 1000} ms");
+};
+```
+
+### CallQualityMetrics Properties
+
+The `CallQualityMetrics` object provides the following properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `jitter` | double | Jitter in seconds (multiply by 1000 for milliseconds) |
+| `rtt` | double | Round-trip time in seconds (multiply by 1000 for milliseconds) |
+| `mos` | double | Mean Opinion Score (1.0-5.0) |
+| `quality` | CallQuality | Call quality rating based on MOS |
+| `inboundAudio` | Map<String, dynamic>? | Inbound audio statistics |
+| `outboundAudio` | Map<String, dynamic>? | Outbound audio statistics |
+
+### CallQuality Enum
+
+The `CallQuality` enum provides the following values:
+
+| Value | MOS Range | Description |
+|-------|-----------|-------------|
+| `excellent` | MOS > 4.2 | Excellent call quality |
+| `good` | 4.1 <= MOS <= 4.2 | Good call quality |
+| `fair` | 3.7 <= MOS <= 4.0 | Fair call quality |
+| `poor` | 3.1 <= MOS <= 3.6 | Poor call quality |
+| `bad` | MOS <= 3.0 | Bad call quality |
+| `unknown` | N/A | Unable to calculate quality |
 
 ## Basic Usage
 

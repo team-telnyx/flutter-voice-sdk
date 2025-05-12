@@ -22,6 +22,7 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
+import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 
 enum CallStateStatus {
@@ -47,6 +48,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
   IncomingInviteParams? _incomingInvite;
+  CallQualityMetrics? _callQualityMetrics;
 
   String _localName = '';
   String _localNumber = '';
@@ -61,6 +63,10 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool get speakerPhoneState {
     return _speakerPhone;
+  }
+
+  CallQualityMetrics? get callQualityMetrics {
+    return _callQualityMetrics;
   }
 
   bool get muteState {
@@ -103,6 +109,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     _mute = false;
     _hold = false;
     callState = CallStateStatus.idle;
+    _callQualityMetrics = null;
     setPushCallStatus(false);
     notifyListeners();
   }
@@ -155,6 +162,13 @@ class TelnyxClientViewModel with ChangeNotifier {
                   '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Could not determine CallKit UUID to setCallConnected.');
             }
           }
+         currentCall?.onCallQualityChange = (metrics) {
+            // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
+            print("Call quality: ${metrics}");
+            _callQualityMetrics = metrics;
+            notifyListeners();
+          };
+
           _callState = CallStateStatus.ongoingCall;
           notifyListeners();
           break;
@@ -305,7 +319,7 @@ class TelnyxClientViewModel with ChangeNotifier {
                     if (numCalls.isNotEmpty) {
                       final String? callKitId = numCalls.first['id'] as String?;
                       if (callKitId != null && callKitId.isNotEmpty) {
-                         await FlutterCallkitIncoming.endCall(callKitId);
+                        await FlutterCallkitIncoming.endCall(callKitId);
                       } else {
                         logger.w(
                             'Could not find call ID in active CallKit calls map.');
