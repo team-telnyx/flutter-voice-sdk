@@ -9,7 +9,7 @@ import WebRTC
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
-        print("onRunner ::  Accept")
+        print("[iOS_PUSH_DEBUG] AppDelegate - onAccept called by CallKit for call ID: \\(call.uuid)")
         action.fulfill()
         
     }
@@ -99,8 +99,7 @@ import WebRTC
         
         // Handle incoming pushes
         func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
-            print("didReceiveIncomingPushWith")
-            print("Payload \(payload.dictionaryPayload)")
+            print("[iOS_PUSH_DEBUG] AppDelegate - didReceiveIncomingPushWith payload: \\(payload.dictionaryPayload)")
             guard type == .voIP else { return }
             
             if let metadata = payload.dictionaryPayload["metadata"] as? [String: Any] {
@@ -128,9 +127,11 @@ import WebRTC
                 //data.iconName = ...
                 data.uuid = uuid!.uuidString
                 data.nameCaller = caller
+                print("[iOS_PUSH_DEBUG] AppDelegate - Before SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming. Data: \\(data)")
                 SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                   print("[iOS_PUSH_DEBUG] AppDelegate - Calling completion() for didReceiveIncomingPushWith")
                    completion()
                 }
             }
