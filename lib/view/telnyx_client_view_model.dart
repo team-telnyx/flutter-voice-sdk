@@ -305,7 +305,7 @@ class TelnyxClientViewModel with ChangeNotifier {
                     if (numCalls.isNotEmpty) {
                       final String? callKitId = numCalls.first['id'] as String?;
                       if (callKitId != null && callKitId.isNotEmpty) {
-                        await FlutterCallkitIncoming.endCall(callKitId);
+                         await FlutterCallkitIncoming.endCall(callKitId);
                       } else {
                         logger.w(
                             'Could not find call ID in active CallKit calls map.');

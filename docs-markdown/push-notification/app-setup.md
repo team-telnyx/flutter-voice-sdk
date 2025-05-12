@@ -94,6 +94,60 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
      flutter_local_notifications: ^<latest_version>
    ```
 
+   **Gradle Setup (for Android):**
+   The `flutter_local_notifications` plugin may require Java 8+ features. To enable support for these, you need to configure Core Library Desugaring in your Android project.
+
+   In your `android/app/build.gradle` file, ensure the following configurations are present:
+
+   ```groovy
+   // android/app/build.gradle (Groovy DSL)
+   android {
+       // ... other settings
+
+       compileOptions {
+           coreLibraryDesugaringEnabled true
+           sourceCompatibility JavaVersion.VERSION_1_8 
+           targetCompatibility JavaVersion.VERSION_1_8
+       }
+
+       kotlinOptions {
+           jvmTarget = "1.8"
+       }
+   }
+
+   dependencies {
+       coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+   }
+   ```
+
+   For projects using **Kotlin DSL (`build.gradle.kts`):**
+   ```kotlin
+   // android/app/build.gradle.kts (Kotlin DSL)
+   android {
+       // ... other settings
+       defaultConfig {
+           // multiDexEnabled = true // Only if you explicitly need multidex for other reasons
+       }
+
+       compileOptions {
+           isCoreLibraryDesugaringEnabled = true
+           sourceCompatibility = JavaVersion.VERSION_1_8 // Or JavaVersion.VERSION_11
+           targetCompatibility = JavaVersion.VERSION_1_8 // Or JavaVersion.VERSION_11
+       }
+
+       kotlinOptions {
+           jvmTarget = JavaVersion.VERSION_1_8.toString() // Or JavaVersion.VERSION_11.toString()
+       }
+       // ... other settings
+   }
+
+   dependencies {
+       // ... other dependencies
+       coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4") // Or a newer version like 2.1.4 for Java 11
+   }
+   ```
+   *(Note: Adjust Java versions and `desugar_jdk_libs` version as needed. While `flutter_local_notifications` might show Java 11, Java 8 with `desugar_jdk_libs:2.0.4` is often sufficient. For Java 11, use `desugar_jdk_libs:2.1.4` or newer.)*
+
    Then, create the channel, typically during your app's initialization (e.g., in your `AndroidPushNotificationHandler.initialize` method):
 
    ```dart
