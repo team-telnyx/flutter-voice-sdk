@@ -1,10 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
-import 'package:flutter_callkit_incoming/entities/ios_params.dart';
-import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
@@ -129,7 +126,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   void observeCurrentCall() {
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i(
-          '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Call State changed to :: $state for callId: ${currentCall?.callId}');
+        '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Call State changed to :: $state for callId: ${currentCall?.callId}',
+      );
       switch (state) {
         case CallState.newCall:
           logger.i('New Call');
@@ -149,22 +147,25 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.active:
           logger.i(
-              '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Current call is Active. Call ID: ${currentCall?.callId}');
+            '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Current call is Active. Call ID: ${currentCall?.callId}',
+          );
           if (!kIsWeb && Platform.isIOS) {
             final String? callKitKnownUuid =
                 _incomingInvite?.callID ?? currentCall?.callId;
             if (callKitKnownUuid != null && callKitKnownUuid.isNotEmpty) {
               logger.i(
-                  '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Calling FlutterCallkitIncoming.setCallConnected for UUID: $callKitKnownUuid');
+                '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Calling FlutterCallkitIncoming.setCallConnected for UUID: $callKitKnownUuid',
+              );
               FlutterCallkitIncoming.setCallConnected(callKitKnownUuid);
             } else {
               logger.w(
-                  '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Could not determine CallKit UUID to setCallConnected.');
+                '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Could not determine CallKit UUID to setCallConnected.',
+              );
             }
           }
-         currentCall?.onCallQualityChange = (metrics) {
+          currentCall?.onCallQualityChange = (metrics) {
             // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
-           logger.i('Call quality: ${metrics}');
+            logger.i('Call quality: ${metrics}');
             _callQualityMetrics = metrics;
             notifyListeners();
           };
@@ -274,7 +275,8 @@ class TelnyxClientViewModel with ChangeNotifier {
                 await NotificationService.showIncomingCallUi(
                   callId: _incomingInvite!.callID!,
                   callerName: _incomingInvite!.callerIdName ?? 'Unknown Caller',
-                  callerNumber: _incomingInvite!.callerIdNumber ?? 'Unknown Number',
+                  callerNumber:
+                      _incomingInvite!.callerIdNumber ?? 'Unknown Number',
                 );
                 notifyListeners();
               } else {
@@ -326,7 +328,8 @@ class TelnyxClientViewModel with ChangeNotifier {
                         await FlutterCallkitIncoming.endCall(callKitId);
                       } else {
                         logger.w(
-                            'Could not find call ID in active CallKit calls map.');
+                          'Could not find call ID in active CallKit calls map.',
+                        );
                       }
                     }
                   }
@@ -424,7 +427,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     TokenConfig? tokenConfig,
   ) {
     logger.i(
-        '[iOS_PUSH_DEBUG] TelnyxClientViewModel.handlePushNotification: Called with PushMetaData: ${pushMetaData.toJson()}');
+      '[iOS_PUSH_DEBUG] TelnyxClientViewModel.handlePushNotification: Called with PushMetaData: ${pushMetaData.toJson()}',
+    );
     _telnyxClient.handlePushNotification(
       pushMetaData,
       credentialConfig,
@@ -481,7 +485,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       NotificationService.startOutgoingCallNotification(
         callId: _currentCall!.callId!,
         callerName: _localName, // Or however the caller should be represented
-        handle: destination, 
+        handle: destination,
         // extra: {} // Optionally pass any extra data if needed
       );
     }
@@ -507,7 +511,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     );
     await FlutterCallkitIncoming.activeCalls().then((value) {
       logger.i(
-          '[iOS_PUSH_DEBUG] TelnyxClientViewModel.accept: ${value.length} Active CallKit calls before accept $value');
+        '[iOS_PUSH_DEBUG] TelnyxClientViewModel.accept: ${value.length} Active CallKit calls before accept $value',
+      );
     });
 
     // Prevent processing if already connecting or ongoing
@@ -543,7 +548,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   // Private helper to contain the actual acceptance steps
   Future<void> _performAccept(IncomingInviteParams invite) async {
     logger.i(
-        '[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}');
+      '[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}',
+    );
     // Set state definitively before async gaps
     callState = CallStateStatus.connectingToCall;
     waitingForInvite = false; // Ensure this is reset
@@ -562,7 +568,8 @@ class TelnyxClientViewModel with ChangeNotifier {
       if (!kIsWeb) {
         if (Platform.isIOS) {
           logger.i(
-              '[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Call acceptance initiated with SDK. Waiting for CallState.active to confirm connection with CallKit.');
+            '[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Call acceptance initiated with SDK. Waiting for CallState.active to confirm connection with CallKit.',
+          );
         } else if (Platform.isAndroid) {
           final CallKitParams callKitParams = CallKitParams(
             id: invite.callID,
