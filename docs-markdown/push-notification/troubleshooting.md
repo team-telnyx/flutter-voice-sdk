@@ -64,7 +64,7 @@ Android includes power-saving features like Doze mode and App Standby that can d
 
 1. **Create High-Importance Notification Channel (Client-Side - For Display):**
     *   While server-side priority affects *delivery speed*, a client-side Notification Channel with `Importance.max` is crucial for ensuring the notification is *displayed* promptly as a heads-up notification once delivered (on Android 8.0+).
-    *   Make sure you have created this channel using `flutter_local_notifications` during your app initialization, as described in the [App Setup Guide](app-setup.md).
+    *   Make sure you have created this channel using `flutter_local_notifications` during your app initialization, as described in the [App Setup Guide](https://developers.telnyx.com/docs/voice/webrtc/flutter-sdk/push-notification/app-setup).
     *   **Verification Code Snippet:**
         ```dart
         // Example (should be in your initialization code)
