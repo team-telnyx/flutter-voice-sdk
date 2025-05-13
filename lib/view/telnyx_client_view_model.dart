@@ -23,6 +23,7 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
+import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 
 enum CallStateStatus {
   disconnected,
@@ -270,7 +271,11 @@ class TelnyxClientViewModel with ChangeNotifier {
                 );
                 callState = CallStateStatus.ongoingInvitation;
                 observeCurrentCall();
-                await showNotification(_incomingInvite!);
+                await NotificationService.showIncomingCallUi(
+                  callId: _incomingInvite!.callID!,
+                  callerName: _incomingInvite!.callerIdName ?? 'Unknown Caller',
+                  callerNumber: _incomingInvite!.callerIdNumber ?? 'Unknown Number',
+                );
                 notifyListeners();
               } else {
                 // Invite received, was from push, but we weren't explicitly waiting.
@@ -471,45 +476,16 @@ class TelnyxClientViewModel with ChangeNotifier {
       '[iOS_PUSH_DEBUG] TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}',
     );
 
-    final params = CallKitParams(
-      id: _currentCall?.callId ?? '',
-      nameCaller: _localName,
-      appName: 'Telnyx Flutter Voice',
-      handle: destination,
-      type: 0, // 0 for audio call, 1 for video call
-      textAccept: 'Accept',
-      textDecline: 'Decline',
-      duration: 30000,
-      headers: <String, dynamic>{'platform': 'flutter'},
-      android: const AndroidParams(
-        isCustomNotification: true,
-        isShowLogo: false,
-        ringtonePath: 'system_ringtone_default',
-        backgroundColor: '#0955fa',
-        actionColor: '#4CAF50',
-        textColor: '#ffffff',
-        incomingCallNotificationChannelName: 'Incoming Call',
-        missedCallNotificationChannelName: 'Missed Call',
-      ),
-      ios: const IOSParams(
-        iconName: 'CallKitLogo',
-        handleType: 'generic',
-        supportsVideo: false,
-        maximumCallGroups: 2,
-        maximumCallsPerCallGroup: 1,
-        audioSessionMode: 'default',
-        audioSessionActive: true,
-        audioSessionPreferredSampleRate: 44100.0,
-        audioSessionPreferredIOBufferDuration: 0.005,
-        supportsDTMF: true,
-        supportsHolding: true,
-        supportsGrouping: false,
-        supportsUngrouping: false,
-        ringtonePath: 'system_ringtone_default',
-      ),
-    );
+    // Call NotificationService to handle the CallKit UI for outgoing call
+    if (_currentCall?.callId != null) {
+      NotificationService.startOutgoingCallNotification(
+        callId: _currentCall!.callId!,
+        callerName: _localName, // Or however the caller should be represented
+        handle: destination, 
+        // extra: {} // Optionally pass any extra data if needed
+      );
+    }
 
-    FlutterCallkitIncoming.startCall(params);
     observeCurrentCall();
   }
 
@@ -611,50 +587,6 @@ class TelnyxClientViewModel with ChangeNotifier {
       waitingForInvite = false;
       notifyListeners();
     }
-  }
-
-  Future<void> showNotification(IncomingInviteParams message) async {
-    if (kIsWeb) {
-      return;
-    }
-
-    // Temporarily ignore lifecycle events during notification to avoid actions being done while app is in background and notification in foreground.
-    BackgroundDetector.ignore = true;
-    final CallKitParams callKitParams = CallKitParams(
-      id: message.callID,
-      nameCaller: message.callerIdName,
-      appName: 'Telnyx Flutter Voice',
-      handle: message.callerIdNumber,
-      type: 0,
-      textAccept: 'Accept',
-      textDecline: 'Decline',
-      missedCallNotification: const NotificationParams(
-        showNotification: false,
-        isShowCallback: false,
-        subtitle: 'Missed call',
-      ),
-      duration: 30000,
-      extra: {},
-      headers: <String, dynamic>{'platform': 'flutter'},
-      ios: const IOSParams(
-        iconName: 'CallKitLogo',
-        handleType: 'generic',
-        supportsVideo: false,
-        maximumCallGroups: 2,
-        maximumCallsPerCallGroup: 1,
-        audioSessionMode: 'default',
-        audioSessionActive: true,
-        audioSessionPreferredSampleRate: 44100.0,
-        audioSessionPreferredIOBufferDuration: 0.005,
-        supportsDTMF: true,
-        supportsHolding: true,
-        supportsGrouping: false,
-        supportsUngrouping: false,
-        ringtonePath: 'system_ringtone_default',
-      ),
-    );
-
-    await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
   }
 
   void endCall({bool endfromCallScreen = false}) {
