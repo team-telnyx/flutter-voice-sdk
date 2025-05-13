@@ -271,7 +271,7 @@ class Peer {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
           GlobalLogger().i(
-              'Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
+              'Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',);
           if (candidate.candidate != null) {
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
@@ -285,7 +285,7 @@ class Peer {
               _lastCandidateTime = DateTime.now();
             } else {
               GlobalLogger().i(
-                  'Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+                  'Peer :: Ignoring non-STUN/TURN candidate: $candidateString',);
             }
           }
         } else {
@@ -415,7 +415,7 @@ class Peer {
 
     peerConnection?.onIceCandidate = (candidate) async {
       GlobalLogger().i(
-          'Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
+          'Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',);
       if (candidate.candidate != null) {
         final candidateString = candidate.candidate.toString();
         final isValidCandidate = candidateString.contains('stun.telnyx.com') ||

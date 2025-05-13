@@ -2,15 +2,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
-import 'package:flutter_callkit_incoming/entities/ios_params.dart';
-import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
-import 'package:telnyx_flutter_webrtc/utils/custom_sdk_logger.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
@@ -21,9 +18,9 @@ import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
-import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
+import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 
 enum CallStateStatus {
   disconnected,
@@ -129,7 +126,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   void observeCurrentCall() {
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i(
-          '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Call State changed to :: $state for callId: ${currentCall?.callId}');
+        '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Call State changed to :: $state for callId: ${currentCall?.callId}',
+      );
       switch (state) {
         case CallState.newCall:
           logger.i('New Call');
@@ -149,22 +147,25 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.active:
           logger.i(
-              '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Current call is Active. Call ID: ${currentCall?.callId}');
+            '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Current call is Active. Call ID: ${currentCall?.callId}',
+          );
           if (!kIsWeb && Platform.isIOS) {
             final String? callKitKnownUuid =
                 _incomingInvite?.callID ?? currentCall?.callId;
             if (callKitKnownUuid != null && callKitKnownUuid.isNotEmpty) {
               logger.i(
-                  '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Calling FlutterCallkitIncoming.setCallConnected for UUID: $callKitKnownUuid');
+                '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Calling FlutterCallkitIncoming.setCallConnected for UUID: $callKitKnownUuid',
+              );
               FlutterCallkitIncoming.setCallConnected(callKitKnownUuid);
             } else {
               logger.w(
-                  '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Could not determine CallKit UUID to setCallConnected.');
+                '[iOS_PUSH_DEBUG] TelnyxClientViewModel.observeCurrentCall: Could not determine CallKit UUID to setCallConnected.',
+              );
             }
           }
-         currentCall?.onCallQualityChange = (metrics) {
+          currentCall?.onCallQualityChange = (metrics) {
             // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
-            print("Call quality: ${metrics}");
+            logger.i('Call quality: ${metrics}');
             _callQualityMetrics = metrics;
             notifyListeners();
           };
@@ -271,7 +272,12 @@ class TelnyxClientViewModel with ChangeNotifier {
                 );
                 callState = CallStateStatus.ongoingInvitation;
                 observeCurrentCall();
-                await showNotification(_incomingInvite!);
+                await NotificationService.showIncomingCallUi(
+                  callId: _incomingInvite!.callID!,
+                  callerName: _incomingInvite!.callerIdName ?? 'Unknown Caller',
+                  callerNumber:
+                      _incomingInvite!.callerIdNumber ?? 'Unknown Number',
+                );
                 notifyListeners();
               } else {
                 // Invite received, was from push, but we weren't explicitly waiting.
@@ -322,7 +328,8 @@ class TelnyxClientViewModel with ChangeNotifier {
                         await FlutterCallkitIncoming.endCall(callKitId);
                       } else {
                         logger.w(
-                            'Could not find call ID in active CallKit calls map.');
+                          'Could not find call ID in active CallKit calls map.',
+                        );
                       }
                     }
                   }
@@ -420,7 +427,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     TokenConfig? tokenConfig,
   ) {
     logger.i(
-        '[iOS_PUSH_DEBUG] TelnyxClientViewModel.handlePushNotification: Called with PushMetaData: ${pushMetaData.toJson()}');
+      '[iOS_PUSH_DEBUG] TelnyxClientViewModel.handlePushNotification: Called with PushMetaData: ${pushMetaData.toJson()}',
+    );
     _telnyxClient.handlePushNotification(
       pushMetaData,
       credentialConfig,
@@ -467,6 +475,21 @@ class TelnyxClientViewModel with ChangeNotifier {
       'Fake State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
+
+    logger.i(
+      '[iOS_PUSH_DEBUG] TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}',
+    );
+
+    // Call NotificationService to handle the CallKit UI for outgoing call
+    if (_currentCall?.callId != null) {
+      NotificationService.startOutgoingCallNotification(
+        callId: _currentCall!.callId!,
+        callerName: _localName, // Or however the caller should be represented
+        handle: destination,
+        // extra: {} // Optionally pass any extra data if needed
+      );
+    }
+
     observeCurrentCall();
   }
 
@@ -488,7 +511,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     );
     await FlutterCallkitIncoming.activeCalls().then((value) {
       logger.i(
-          '[iOS_PUSH_DEBUG] TelnyxClientViewModel.accept: ${value.length} Active CallKit calls before accept $value');
+        '[iOS_PUSH_DEBUG] TelnyxClientViewModel.accept: ${value.length} Active CallKit calls before accept $value',
+      );
     });
 
     // Prevent processing if already connecting or ongoing
@@ -524,7 +548,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   // Private helper to contain the actual acceptance steps
   Future<void> _performAccept(IncomingInviteParams invite) async {
     logger.i(
-        '[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}');
+      '[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}',
+    );
     // Set state definitively before async gaps
     callState = CallStateStatus.connectingToCall;
     waitingForInvite = false; // Ensure this is reset
@@ -543,7 +568,8 @@ class TelnyxClientViewModel with ChangeNotifier {
       if (!kIsWeb) {
         if (Platform.isIOS) {
           logger.i(
-              '[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Call acceptance initiated with SDK. Waiting for CallState.active to confirm connection with CallKit.');
+            '[iOS_PUSH_DEBUG] TelnyxClientViewModel._performAccept: Call acceptance initiated with SDK. Waiting for CallState.active to confirm connection with CallKit.',
+          );
         } else if (Platform.isAndroid) {
           final CallKitParams callKitParams = CallKitParams(
             id: invite.callID,
@@ -568,50 +594,6 @@ class TelnyxClientViewModel with ChangeNotifier {
       waitingForInvite = false;
       notifyListeners();
     }
-  }
-
-  Future<void> showNotification(IncomingInviteParams message) async {
-    if (kIsWeb) {
-      return;
-    }
-
-    // Temporarily ignore lifecycle events during notification to avoid actions being done while app is in background and notification in foreground.
-    BackgroundDetector.ignore = true;
-    final CallKitParams callKitParams = CallKitParams(
-      id: message.callID,
-      nameCaller: message.callerIdName,
-      appName: 'Telnyx Flutter Voice',
-      handle: message.callerIdNumber,
-      type: 0,
-      textAccept: 'Accept',
-      textDecline: 'Decline',
-      missedCallNotification: const NotificationParams(
-        showNotification: false,
-        isShowCallback: false,
-        subtitle: 'Missed call',
-      ),
-      duration: 30000,
-      extra: {},
-      headers: <String, dynamic>{'platform': 'flutter'},
-      ios: const IOSParams(
-        iconName: 'CallKitLogo',
-        handleType: 'generic',
-        supportsVideo: false,
-        maximumCallGroups: 2,
-        maximumCallsPerCallGroup: 1,
-        audioSessionMode: 'default',
-        audioSessionActive: true,
-        audioSessionPreferredSampleRate: 44100.0,
-        audioSessionPreferredIOBufferDuration: 0.005,
-        supportsDTMF: true,
-        supportsHolding: true,
-        supportsGrouping: false,
-        supportsUngrouping: false,
-        ringtonePath: 'system_ringtone_default',
-      ),
-    );
-
-    await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
   }
 
   void endCall({bool endfromCallScreen = false}) {

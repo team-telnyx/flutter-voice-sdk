@@ -13,6 +13,58 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 
 const int _CALL_MISSED_TIMEOUT_SECONDS = 30;
 
+// Helper method to create standard CallKitParams for incoming/outgoing calls
+CallKitParams _getStandardCallKitParams({
+  required String id,
+  required String nameCaller,
+  required String handle,
+  required Map<String, dynamic> extra,
+  int duration = 30000,
+  String textAccept = 'Accept',
+  String textDecline = 'Decline',
+  String appName = 'Telnyx Flutter Voice',
+  int type = 0, // 0 for audio call
+}) {
+  return CallKitParams(
+    id: id,
+    nameCaller: nameCaller,
+    appName: appName,
+    handle: handle,
+    type: type,
+    textAccept: textAccept,
+    textDecline: textDecline,
+    duration: duration,
+    extra: extra,
+    headers: <String, dynamic>{'platform': 'flutter'},
+    android: const AndroidParams(
+      isCustomNotification: true,
+      isShowLogo: false,
+      ringtonePath: 'system_ringtone_default',
+      backgroundColor: '#0955fa',
+      actionColor: '#4CAF50',
+      textColor: '#ffffff',
+      incomingCallNotificationChannelName: 'Incoming Call',
+      missedCallNotificationChannelName: 'Missed Call',
+    ),
+    ios: const IOSParams(
+      iconName: 'CallKitLogo',
+      handleType: 'generic',
+      supportsVideo: false,
+      maximumCallGroups: 2,
+      maximumCallsPerCallGroup: 1,
+      audioSessionMode: 'default',
+      audioSessionActive: true,
+      audioSessionPreferredSampleRate: 44100.0,
+      audioSessionPreferredIOBufferDuration: 0.005,
+      supportsDTMF: true,
+      supportsHolding: true,
+      supportsGrouping: false,
+      supportsUngrouping: false,
+      ringtonePath: 'system_ringtone_default',
+    ),
+  );
+}
+
 class NotificationService {
   static Future showNotification(RemoteMessage message) async {
     final logger = Logger()
@@ -55,43 +107,12 @@ class NotificationService {
 
       logger.i('NotificationService.showNotification: Showing CallKit incoming UI for call ID: $telnyxCallId');
       BackgroundDetector.ignore = true;
-      final CallKitParams callKitParams = CallKitParams(
+      final CallKitParams callKitParams = _getStandardCallKitParams(
         id: telnyxCallId,
-        nameCaller: metadata.callerName,
-        appName: 'Telnyx Flutter Voice',
-        handle: metadata.callerNumber,
-        type: 0, // 0 for audio call, 1 for video call
-        textAccept: 'Accept',
-        textDecline: 'Decline',
-        duration: 30000,
+        nameCaller: metadata.callerName ?? 'Unknown Caller',
+        handle: metadata.callerNumber ?? 'Unknown Number',
         extra: message.data,
-        headers: <String, dynamic>{'platform': 'flutter'},
-        android: const AndroidParams(
-          isCustomNotification: true,
-          isShowLogo: false,
-          ringtonePath: 'system_ringtone_default',
-          backgroundColor: '#0955fa',
-          actionColor: '#4CAF50',
-          textColor: '#ffffff',
-          incomingCallNotificationChannelName: 'Incoming Call',
-          missedCallNotificationChannelName: 'Missed Call',
-        ),
-        ios: const IOSParams(
-          iconName: 'CallKitLogo',
-          handleType: 'generic',
-          supportsVideo: false,
-          maximumCallGroups: 2,
-          maximumCallsPerCallGroup: 1,
-          audioSessionMode: 'default',
-          audioSessionActive: true,
-          audioSessionPreferredSampleRate: 44100.0,
-          audioSessionPreferredIOBufferDuration: 0.005,
-          supportsDTMF: true,
-          supportsHolding: true,
-          supportsGrouping: false,
-          supportsUngrouping: false,
-          ringtonePath: 'system_ringtone_default',
-        ),
+        // Default values for duration, textAccept, textDecline, appName, type are used from helper
       );
 
       await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
@@ -100,6 +121,30 @@ class NotificationService {
     } catch (e) {
       logger.e('NotificationService.showNotification: Error processing notification: $e');
       TelnyxClient.clearPushMetaData();
+    }
+  }
+
+  static Future startOutgoingCallNotification({
+    required String callId,
+    required String callerName,
+    required String handle, // This is the destination number for an outgoing call
+    Map<String, dynamic> extra = const {}, // Optional extra data
+  }) async {
+    final logger = Logger()
+    ..i('NotificationService.startOutgoingCallNotification: Displaying CallKit UI for outgoing call ID: $callId');
+    try {
+      final CallKitParams callKitParams = _getStandardCallKitParams(
+        id: callId,
+        nameCaller: callerName, // For outgoing, this is often the local user's name or number
+        handle: handle,      // For outgoing, this is the number/ID being called
+        extra: extra,
+        // textAccept and textDecline are not typically shown for outgoing calls initiated by startCall,
+        // but CallKitParams requires them. Defaults from helper are fine.
+      );
+      await FlutterCallkitIncoming.startCall(callKitParams);
+      logger.i('NotificationService.startOutgoingCallNotification: CallKit UI displayed for outgoing call ID: $callId.');
+    } catch (e) {
+      logger.e('NotificationService.startOutgoingCallNotification: Error displaying CallKit UI: $e');
     }
   }
 
@@ -163,6 +208,28 @@ class NotificationService {
 
     } catch (e) {
       logger.e('NotificationService.showMissedCallNotification: Error processing missed call notification: $e');
+    }
+  }
+
+  static Future showIncomingCallUi({
+    required String callId,
+    required String callerName,
+    required String callerNumber,
+    Map<String, dynamic> extra = const {},
+  }) async {
+    final logger = Logger()..i('NotificationService.showIncomingCallUi: Displaying CallKit UI for incoming call ID: $callId');
+    try {
+      BackgroundDetector.ignore = true;
+      final CallKitParams callKitParams = _getStandardCallKitParams(
+        id: callId,
+        nameCaller: callerName,
+        handle: callerNumber,
+        extra: extra,
+      );
+      await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
+      logger.i('NotificationService.showIncomingCallUi: CallKit UI displayed for incoming call ID: $callId.');
+    } catch (e) {
+      logger.e('NotificationService.showIncomingCallUi: Error displaying CallKit UI: $e');
     }
   }
 }

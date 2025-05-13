@@ -1,6 +1,4 @@
 import 'package:flutter_webrtc/flutter_webrtc.dart';
-import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
-import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 
 /// Represents a WebRTC session.
 class Session {
