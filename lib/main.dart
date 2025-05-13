@@ -72,8 +72,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 @pragma('vm:entry-point')
 Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
 
     // Catch Flutter framework errors
     FlutterError.onError = (FlutterErrorDetails details) {
