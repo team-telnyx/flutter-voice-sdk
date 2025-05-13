@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
@@ -10,7 +11,6 @@ import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
-import 'package:telnyx_flutter_webrtc/utils/custom_sdk_logger.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
@@ -21,7 +21,6 @@ import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
-import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 
@@ -164,7 +163,7 @@ class TelnyxClientViewModel with ChangeNotifier {
           }
          currentCall?.onCallQualityChange = (metrics) {
             // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
-            print("Call quality: ${metrics}");
+           logger.i('Call quality: ${metrics}');
             _callQualityMetrics = metrics;
             notifyListeners();
           };
@@ -467,6 +466,50 @@ class TelnyxClientViewModel with ChangeNotifier {
       'Fake State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
     );
+
+    logger.i(
+      '[iOS_PUSH_DEBUG] TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}',
+    );
+
+    final params = CallKitParams(
+      id: _currentCall?.callId ?? '',
+      nameCaller: _localName,
+      appName: 'Telnyx Flutter Voice',
+      handle: destination,
+      type: 0, // 0 for audio call, 1 for video call
+      textAccept: 'Accept',
+      textDecline: 'Decline',
+      duration: 30000,
+      headers: <String, dynamic>{'platform': 'flutter'},
+      android: const AndroidParams(
+        isCustomNotification: true,
+        isShowLogo: false,
+        ringtonePath: 'system_ringtone_default',
+        backgroundColor: '#0955fa',
+        actionColor: '#4CAF50',
+        textColor: '#ffffff',
+        incomingCallNotificationChannelName: 'Incoming Call',
+        missedCallNotificationChannelName: 'Missed Call',
+      ),
+      ios: const IOSParams(
+        iconName: 'CallKitLogo',
+        handleType: 'generic',
+        supportsVideo: false,
+        maximumCallGroups: 2,
+        maximumCallsPerCallGroup: 1,
+        audioSessionMode: 'default',
+        audioSessionActive: true,
+        audioSessionPreferredSampleRate: 44100.0,
+        audioSessionPreferredIOBufferDuration: 0.005,
+        supportsDTMF: true,
+        supportsHolding: true,
+        supportsGrouping: false,
+        supportsUngrouping: false,
+        ringtonePath: 'system_ringtone_default',
+      ),
+    );
+
+    FlutterCallkitIncoming.startCall(params);
     observeCurrentCall();
   }
 
