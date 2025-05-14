@@ -16,7 +16,6 @@ import 'package:telnyx_webrtc/peer/peer.dart'
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
-import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:just_audio/just_audio.dart';
 

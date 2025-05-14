@@ -59,6 +59,8 @@ class Peer {
       onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
+  /// Gets the SDP semantics based on the platform.
+  /// Returns 'plan-b' for Windows and 'unified-plan' for other platforms.
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
@@ -85,6 +87,7 @@ class Peer {
     ],
   };
 
+  /// Closes all peer connections, local streams, and the socket connection.
   Future<void> close() async {
     await _cleanSessions();
     _socket.close();
@@ -101,6 +104,7 @@ class Peer {
     }
   }
 
+  /// Mutes or unmutes the microphone.
   void muteUnmuteMic() {
     if (_localStream != null) {
       final bool enabled = _localStream!.getAudioTracks()[0].enabled;
@@ -110,6 +114,8 @@ class Peer {
     }
   }
 
+  /// Enables or disables the speakerphone.
+  /// [enable] True to enable speakerphone, false to disable.
   void enableSpeakerPhone(bool enable) {
     if (kIsWeb) {
       // On web, .enableSpeakerphone(...) is still available on recent flutter_webrtc
@@ -129,6 +135,15 @@ class Peer {
     }
   }
 
+  /// Initiates a new call.
+  ///
+  /// [callerName] The name of the caller.
+  /// [callerNumber] The number of the caller.
+  /// [destinationNumber] The number to call.
+  /// [clientState] The client state information.
+  /// [callId] The unique ID for this call.
+  /// [telnyxSessionId] The Telnyx session ID.
+  /// [customHeaders] Custom headers to include in the invite.
   Future<void> invite(
     String callerName,
     String callerNumber,
@@ -243,14 +258,26 @@ class Peer {
 
   /// Called if you receive an "answer" sdp from the server
   /// (e.g., bridging a call scenario).
+  /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     final session = _sessions[_selfId];
     if (session != null) {
       await session.peerConnection
           ?.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
+      onCallStateChange?.call(session, CallState.active);
     }
   }
 
+  /// Accepts an incoming call.
+  ///
+  /// [callerName] The name of the caller.
+  /// [callerNumber] The number of the caller.
+  /// [destinationNumber] The destination number (usually the current user's number).
+  /// [clientState] The client state information.
+  /// [callId] The unique ID for this call.
+  /// [invite] The incoming invite parameters containing the SDP offer.
+  /// [customHeaders] Custom headers to include in the answer.
+  /// [isAttach] Whether this is an attach call.
   Future<void> accept(
     String callerName,
     String callerNumber,
@@ -308,7 +335,7 @@ class Peer {
       // ICE candidate callback (with optional skipping logic)
       session.peerConnection?.onIceCandidate = (candidate) async {
         GlobalLogger().i(
-            'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}');
+            'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',);
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
@@ -323,7 +350,7 @@ class Peer {
             _lastCandidateTime = DateTime.now();
           } else {
             GlobalLogger().i(
-                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',);
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
@@ -382,6 +409,10 @@ class Peer {
     }
   }
 
+  /// Creates a local media stream (audio only for web).
+  ///
+  /// [media] The type of media to create (currently ignored, defaults to audio).
+  /// Returns a [Future] that completes with the [MediaStream].
   Future<MediaStream> createStream(String media) async {
     GlobalLogger().i('Peer :: Creating stream');
     final Map<String, dynamic> mediaConstraints = {
@@ -395,6 +426,7 @@ class Peer {
     return stream;
   }
 
+  /// Initializes the local and remote video renderers.
   Future<void> initRenderers() async {
     await _localRenderer.initialize();
     await _remoteRenderer.initialize();
@@ -465,7 +497,7 @@ class Peer {
     pc
       ..onIceCandidate = (candidate) async {
         GlobalLogger().i(
-            'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}');
+            'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',);
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
@@ -479,7 +511,7 @@ class Peer {
             await pc.addCandidate(candidate);
           } else {
             GlobalLogger().i(
-                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',);
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
@@ -528,6 +560,13 @@ class Peer {
     onDataChannel?.call(session, channel);
   }
 
+  /// Starts WebRTC statistics reporting for the given call and peer connection.
+  ///
+  /// This only starts if debug mode is enabled.
+  /// [callId] The ID of the call.
+  /// [peerId] The ID of the peer.
+  /// [pc] The [RTCPeerConnection] to monitor.
+  /// Returns a [Future] that completes with true if stats reporting started, false otherwise.
   Future<bool> startStats(
     String callId,
     String peerId,
@@ -545,6 +584,9 @@ class Peer {
     return true;
   }
 
+  /// Stops WebRTC statistics reporting for the given call ID.
+  /// This only acts if debug mode is enabled.
+  /// [callId] The ID of the call for which to stop stats.
   void stopStats(String callId) {
     if (!_debug) return;
     _statsManager?.stopStatsReporting();

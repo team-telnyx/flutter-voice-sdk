@@ -897,7 +897,7 @@ class TelnyxClient {
   }
 
   void _onMessage(dynamic data) async {
-    GlobalLogger().i('TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString()?.trim()}');
+    GlobalLogger().i('TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString().trim()}');
 
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {

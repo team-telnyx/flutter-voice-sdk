@@ -66,7 +66,8 @@ class AppInitializer {
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   logger.i(
-      '[Background Notification]. Received background message: ${message.data}');
+    '[Background Notification]. Received background message: ${message.data}',
+  );
   await androidBackgroundMessageHandler(message);
 }
 
@@ -78,8 +79,10 @@ Future<void> main() async {
     // Catch Flutter framework errors
     FlutterError.onError = (FlutterErrorDetails details) {
       FlutterError.presentError(details);
-      logger.e('Caught Flutter error: ${details.exception}',
-          stackTrace: details.stack);
+      logger.e(
+        'Caught Flutter error: ${details.exception}',
+        stackTrace: details.stack,
+      );
       PlatformPushService.handler.clearPushData();
     };
 
@@ -139,7 +142,8 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
   logger.i('[handlePush] Before txClientViewModel.getConfig()');
   final config = await txClientViewModel.getConfig();
   logger.i(
-      '[handlePush] Created PushMetaData: ${pushMetaData?.toJson()}');
+    '[handlePush] Created PushMetaData: ${pushMetaData?.toJson()}',
+  );
   txClientViewModel
     ..handlePushNotification(
       pushMetaData!,
@@ -170,8 +174,11 @@ class _MyAppState extends State<MyApp> {
       if (data != null) {
         final Map<dynamic, dynamic> mutablePayload = Map.from(data);
         final answer = mutablePayload['isAnswer'] = true;
-        PlatformPushService.handler.processIncomingCallAction(data,
-            isAnswer: answer, isDecline: !answer);
+        PlatformPushService.handler.processIncomingCallAction(
+          data,
+          isAnswer: answer,
+          isDecline: !answer,
+        );
       } else {
         logger.i('[_MyAppState] Android: No initial push data found.');
       }
