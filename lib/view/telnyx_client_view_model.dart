@@ -311,31 +311,34 @@ class TelnyxClientViewModel with ChangeNotifier {
             {
               callState = CallStateStatus.idle;
               resetCallInfo();
+
+              // End Call via CallKit on iOS
               if (!kIsWeb && Platform.isIOS) {
                 if (callFromPush) {
                   _endCallFromPush(true);
-                } else {
-                  if (currentCall?.callId != null || _incomingInvite != null) {
-                    // end Call for Callkit on iOS
-                    await FlutterCallkitIncoming.endCall(
-                      currentCall?.callId ?? _incomingInvite?.callID! ?? '',
-                    );
-                  } else {
-                    final numCalls = await FlutterCallkitIncoming.activeCalls();
-                    if (numCalls.isNotEmpty) {
-                      final String? callKitId = numCalls.first['id'] as String?;
-                      if (callKitId != null && callKitId.isNotEmpty) {
-                        await FlutterCallkitIncoming.endCall(callKitId);
-                      } else {
-                        logger.w(
-                          'Could not find call ID in active CallKit calls map.',
-                        );
-                      }
-                    }
-                  }
-                  resetCallInfo();
                 }
               }
+
+              // End Call via Flutter Callkit Incoming regardless of Platform:
+              if (currentCall?.callId != null || _incomingInvite != null) {
+                // end Call for Callkit on iOS
+                await FlutterCallkitIncoming.endCall(
+                  currentCall?.callId ?? _incomingInvite?.callID! ?? '',
+                );
+              } else {
+                final numCalls = await FlutterCallkitIncoming.activeCalls();
+                if (numCalls.isNotEmpty) {
+                  final String? callKitId = numCalls.first['id'] as String?;
+                  if (callKitId != null && callKitId.isNotEmpty) {
+                    await FlutterCallkitIncoming.endCall(callKitId);
+                  } else {
+                    logger.w(
+                      'Could not find call ID in active CallKit calls map.',
+                    );
+                  }
+                }
+              }
+              resetCallInfo();
               break;
             }
         }
