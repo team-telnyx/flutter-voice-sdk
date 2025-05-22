@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:telnyx_webrtc/config.dart';
+import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -11,6 +12,7 @@ import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
+import 'package:telnyx_webrtc/model/verto/receive/receive_bye_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
@@ -126,9 +128,9 @@ class TelnyxClient {
     return Map.fromEntries(
       calls.entries.where(
         (entry) =>
-            entry.value.callState == CallState.active ||
-            entry.value.callState == CallState.dropped ||
-            entry.value.callState == CallState.reconnecting,
+            entry.value.callState.isActive ||
+            entry.value.callState.isDropped ||
+            entry.value.callState.isReconnecting,
       ),
     );
   }
@@ -213,7 +215,7 @@ class TelnyxClient {
   void _handleNetworkLost() {
     for (var call in activeCalls().values) {
       call.callHandler.onCallStateChanged
-          .call(CallState.dropped.withReason(NetworkReason.networkLost));
+          .call(CallState.dropped(NetworkReason.networkLost));
       // Start a reconnection timeout timer for this call
       _startReconnectionTimer(call);
     }
@@ -224,7 +226,7 @@ class TelnyxClient {
     for (var call in activeCalls().values) {
       if (call.callState.isDropped) {
         call.callHandler.onCallStateChanged
-            .call(CallState.reconnecting.withReason(reason));
+            .call(CallState.reconnecting(reason));
 
         // Start a reconnection timeout timer for this call
         _startReconnectionTimer(call);
@@ -255,7 +257,7 @@ class TelnyxClient {
 
           // Change the call state to dropped
           call.callHandler.onCallStateChanged
-              .call(CallState.dropped.withReason(NetworkReason.networkLost));
+              .call(CallState.dropped(NetworkReason.networkLost));
 
           // End the call
           call.endCall();
@@ -910,9 +912,25 @@ class TelnyxClient {
             'Received WebSocket message - Contains Error :: $errorJson',
           );
           try {
-            final ReceivedResult errorResult =
-                ReceivedResult.fromJson(jsonDecode(data.toString()));
-            onSocketErrorReceived.call(errorResult.error!);
+            final Map<String, dynamic> jsonData = jsonDecode(data.toString());
+            
+            // Extract error code if available
+            int? errorCode;
+            if (jsonData.containsKey('error') && 
+                jsonData['error'] is Map<String, dynamic> && 
+                jsonData['error'].containsKey('code')) {
+              errorCode = jsonData['error']['code'] as int?;
+            }
+            
+            final ReceivedResult errorResult = ReceivedResult.fromJson(jsonData);
+            
+            // Create error with code if available
+            final TelnyxSocketError error = TelnyxSocketError(
+              errorCode: errorCode ?? 0,
+              errorMessage: errorResult.error?.errorMessage ?? 'Unknown error',
+            );
+            
+            onSocketErrorReceived.call(error);
           } on Exception catch (e) {
             GlobalLogger().e('Error parsing JSON: $e');
           }
@@ -1235,20 +1253,52 @@ class TelnyxClient {
             case SocketMethod.bye:
               {
                 GlobalLogger().i('BYE RECEIVED :: $messageJson');
-                final ReceivedMessage bye =
-                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                final Call? byeCall = calls[bye.inviteParams?.callID];
+                
+                // Parse the bye message to extract termination details
+                final Map<String, dynamic> jsonData = jsonDecode(data.toString());
+                
+                // Try to parse as ReceiveByeMessage first to get detailed termination info
+                ReceiveByeMessage? byeMessage;
+                CallTerminationReason? terminationReason;
+                
+                try {
+                  byeMessage = ReceiveByeMessage.fromJson(jsonData);
+                  
+                  // Extract termination details if available
+                  if (byeMessage.params != null) {
+                    terminationReason = CallTerminationReason(
+                      cause: byeMessage.params?.cause,
+                      causeCode: byeMessage.params?.causeCode,
+                      sipCode: byeMessage.params?.sipCode,
+                      sipReason: byeMessage.params?.sipReason,
+                    );
+                    
+                    GlobalLogger().d('Call termination reason: $terminationReason');
+                  }
+                } catch (e) {
+                  GlobalLogger().e('Error parsing bye message: $e');
+                }
+                
+                // Fall back to ReceivedMessage if ReceiveByeMessage parsing failed
+                final ReceivedMessage bye = ReceivedMessage.fromJson(jsonData);
+                final String? callId = byeMessage?.params?.callID ?? bye.inviteParams?.callID;
+                
+                final Call? byeCall = calls[callId];
                 if (byeCall == null) {
-                  GlobalLogger().d('Error : Call  is null from Bye Message');
+                  GlobalLogger().d('Error: Call is null from Bye Message');
                   _sendNoCallError();
                   return;
                 }
-                final message =
-                    TelnyxMessage(socketMethod: SocketMethod.bye, message: bye);
+                
+                final message = TelnyxMessage(socketMethod: SocketMethod.bye, message: bye);
                 onSocketMessageReceived(message);
+                
                 byeCall.stopAudio();
                 byeCall.peerConnection?.closeSession();
-                byeCall.stopAudio();
+                
+                // Update call state with termination reason
+                byeCall.callHandler.changeState(CallState.done(terminationReason));
+                
                 calls.remove(byeCall.callId);
                 break;
               }

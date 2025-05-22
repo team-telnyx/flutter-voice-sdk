@@ -205,7 +205,7 @@ class Call {
       GlobalLogger().d('Session end peer connection null');
     }
     stopAudio();
-    callHandler.changeState(CallState.done);
+    callHandler.changeState(CallState.done());
     callEnded();
 
     // Cancel any reconnection timer for this call
@@ -267,11 +267,11 @@ class Call {
     if (onHold) {
       _sendHoldModifier('unhold');
       onHold = false;
-      callHandler.changeState(CallState.active);
+      callHandler.changeState(CallState.active());
     } else {
       _sendHoldModifier('hold');
       onHold = true;
-      callHandler.changeState(CallState.held);
+      callHandler.changeState(CallState.held());
     }
   }
 

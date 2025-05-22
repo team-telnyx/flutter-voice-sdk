@@ -33,6 +33,7 @@ class ReceiveByeParams {
   int? sipCode;
   int? causeCode;
   String? cause;
+  String? sipReason;
 
   ReceiveByeParams({
     this.callID,
@@ -40,6 +41,7 @@ class ReceiveByeParams {
     this.sipCode,
     this.causeCode,
     this.cause,
+    this.sipReason,
   });
 
   ReceiveByeParams.fromJson(Map<String, dynamic> json) {
@@ -48,6 +50,7 @@ class ReceiveByeParams {
     sipCode = json['sipCode'];
     causeCode = json['causeCode'];
     cause = json['cause'];
+    sipReason = json['sipReason'];
   }
 
   Map<String, dynamic> toJson() {
@@ -57,6 +60,7 @@ class ReceiveByeParams {
     data['sipCode'] = sipCode;
     data['causeCode'] = causeCode;
     data['cause'] = cause;
+    data['sipReason'] = sipReason;
     return data;
   }
 }
