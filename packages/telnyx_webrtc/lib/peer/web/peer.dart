@@ -177,7 +177,7 @@ class Peer {
     );
 
     // Indicate a new outbound call is created
-    onCallStateChange?.call(session, CallState.newCall);
+    onCallStateChange?.call(session, CallState.newCall());
   }
 
   Future<void> _createOffer(
@@ -264,7 +264,7 @@ class Peer {
     if (session != null) {
       await session.peerConnection
           ?.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
-      onCallStateChange?.call(session, CallState.active);
+      onCallStateChange?.call(session, CallState.active());
     }
   }
 
@@ -317,7 +317,7 @@ class Peer {
     );
 
     // Indicate the call is now active (in mobile code, we do this after answer).
-    onCallStateChange?.call(session, CallState.active);
+    onCallStateChange?.call(session, CallState.active());
   }
 
   Future<void> _createAnswer(
@@ -335,7 +335,8 @@ class Peer {
       // ICE candidate callback (with optional skipping logic)
       session.peerConnection?.onIceCandidate = (candidate) async {
         GlobalLogger().i(
-            'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',);
+          'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
+        );
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
@@ -350,7 +351,8 @@ class Peer {
             _lastCandidateTime = DateTime.now();
           } else {
             GlobalLogger().i(
-                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',);
+              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+            );
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
@@ -497,7 +499,8 @@ class Peer {
     pc
       ..onIceCandidate = (candidate) async {
         GlobalLogger().i(
-            'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',);
+          'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
+        );
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
@@ -511,7 +514,8 @@ class Peer {
             await pc.addCandidate(candidate);
           } else {
             GlobalLogger().i(
-                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',);
+              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+            );
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');

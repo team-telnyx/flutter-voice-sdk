@@ -189,10 +189,10 @@ class TelnyxClientViewModel with ChangeNotifier {
           logger.i('error');
           break;
         case CallState.reconnecting:
-          logger.i('reconnecting - ${state.reason}');
+          logger.i('reconnecting - ${state.networkReason?.message}');
           break;
         case CallState.dropped:
-          logger.i('dropped - ${state.reason}');
+          logger.i('dropped - ${state.networkReason?.message}');
           break;
       }
     };
