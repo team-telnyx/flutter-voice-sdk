@@ -169,7 +169,7 @@ class Peer {
       telnyxSessionId,
       customHeaders,
     );
-    onCallStateChange?.call(session, CallState.newCall());
+    onCallStateChange?.call(session, CallState.newCall);
   }
 
   Future<void> _createOffer(
@@ -297,7 +297,7 @@ class Peer {
       isAttach,
     );
 
-    onCallStateChange?.call(session, CallState.active());
+    onCallStateChange?.call(session, CallState.active);
   }
 
   Future<void> _createAnswer(
@@ -491,8 +491,8 @@ class Peer {
       switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateConnected:
           final Call? currentCall = _txClient.calls[callId];
-          currentCall?.callHandler.changeState(CallState.active());
-          onCallStateChange?.call(newSession, CallState.active());
+          currentCall?.callHandler.changeState(CallState.active);
+          onCallStateChange?.call(newSession, CallState.active);
 
           // Cancel any reconnection timer for this call
           _txClient.onCallStateChangedToActive(callId);

@@ -190,6 +190,7 @@ class TelnyxClientViewModel with ChangeNotifier {
           logger.i('Held');
           break;
         case CallState.done:
+          logger.i('Call done : ${state.terminationReason}');
           if (!kIsWeb) {
             if (currentCall?.callId != null || _incomingInvite != null) {
               FlutterCallkitIncoming.endCall(

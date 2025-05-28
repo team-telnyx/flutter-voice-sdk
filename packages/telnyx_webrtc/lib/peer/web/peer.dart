@@ -177,7 +177,7 @@ class Peer {
     );
 
     // Indicate a new outbound call is created
-    onCallStateChange?.call(session, CallState.newCall());
+    onCallStateChange?.call(session, CallState.newCall);
   }
 
   Future<void> _createOffer(
@@ -264,7 +264,7 @@ class Peer {
     if (session != null) {
       await session.peerConnection
           ?.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
-      onCallStateChange?.call(session, CallState.active());
+      onCallStateChange?.call(session, CallState.active);
     }
   }
 
@@ -317,7 +317,7 @@ class Peer {
     );
 
     // Indicate the call is now active (in mobile code, we do this after answer).
-    onCallStateChange?.call(session, CallState.active());
+    onCallStateChange?.call(session, CallState.active);
   }
 
   Future<void> _createAnswer(

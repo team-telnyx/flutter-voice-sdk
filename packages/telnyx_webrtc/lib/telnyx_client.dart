@@ -215,7 +215,7 @@ class TelnyxClient {
   void _handleNetworkLost() {
     for (var call in activeCalls().values) {
       call.callHandler.onCallStateChanged
-          .call(CallState.dropped(NetworkReason.networkLost));
+          .call(CallState.dropped.withNetworkReason(NetworkReason.networkLost));
       // Start a reconnection timeout timer for this call
       _startReconnectionTimer(call);
     }
@@ -226,7 +226,7 @@ class TelnyxClient {
     for (var call in activeCalls().values) {
       if (call.callState.isDropped) {
         call.callHandler.onCallStateChanged
-            .call(CallState.reconnecting(reason));
+            .call(CallState.reconnecting.withNetworkReason(reason));
 
         // Start a reconnection timeout timer for this call
         _startReconnectionTimer(call);
@@ -256,8 +256,8 @@ class TelnyxClient {
           GlobalLogger().i('Reconnection timeout for call ${call.callId}');
 
           // Change the call state to dropped
-          call.callHandler.onCallStateChanged
-              .call(CallState.dropped(NetworkReason.networkLost));
+          call.callHandler.onCallStateChanged.call(
+              CallState.dropped.withNetworkReason(NetworkReason.networkLost));
 
           // End the call
           call.endCall();
@@ -783,7 +783,7 @@ class TelnyxClient {
       inviteCall.initCallMetrics();
     } //play ringback tone
     inviteCall.playAudio(_ringBackpath);
-    inviteCall.callHandler.changeState(CallState.newCall());
+    inviteCall.callHandler.changeState(CallState.newCall);
     return inviteCall;
   }
 
@@ -802,7 +802,7 @@ class TelnyxClient {
       ..callId = invite.callID
       ..sessionCallerName = callerName
       ..sessionCallerNumber = callerNumber
-      ..callState = CallState.connecting()
+      ..callState = CallState.connecting
       ..sessionDestinationNumber = invite.callerIdNumber ?? '-1'
       ..sessionClientState = clientState;
 
@@ -822,7 +822,7 @@ class TelnyxClient {
       customHeaders,
       isAttach,
     );
-    answerCall.callHandler.changeState(CallState.connecting());
+    answerCall.callHandler.changeState(CallState.connecting);
     if (debug) {
       answerCall.initCallMetrics();
     }
@@ -1159,10 +1159,10 @@ class TelnyxClient {
 
                 onSocketMessageReceived.call(message);
 
-                offerCall.callHandler.changeState(CallState.ringing());
+                offerCall.callHandler.changeState(CallState.ringing);
                 if (!_pendingAnswerFromPush) {
                   offerCall.playRingtone(_ringtonePath);
-                  offerCall.callHandler.changeState(CallState.ringing());
+                  offerCall.callHandler.changeState(CallState.ringing);
                 } else {
                   offerCall.acceptCall(
                     invite.inviteParams!,
@@ -1171,11 +1171,11 @@ class TelnyxClient {
                     'State',
                   );
                   _pendingAnswerFromPush = false;
-                  offerCall.callHandler.changeState(CallState.connecting());
+                  offerCall.callHandler.changeState(CallState.connecting);
                 }
                 if (_pendingDeclineFromPush) {
                   offerCall.endCall();
-                  offerCall.callHandler.changeState(CallState.done());
+                  offerCall.callHandler.changeState(CallState.done);
                   _pendingDeclineFromPush = false;
                 }
                 break;
@@ -1244,7 +1244,7 @@ class TelnyxClient {
                   socketMethod: SocketMethod.answer,
                   message: inviteAnswer,
                 );
-                answerCall.callState = CallState.active();
+                answerCall.callState = CallState.active;
 
                 updateCall(answerCall);
 
@@ -1315,8 +1315,8 @@ class TelnyxClient {
                 byeCall.peerConnection?.closeSession();
 
                 // Update call state with termination reason
-                byeCall.callHandler
-                    .changeState(CallState.done(terminationReason));
+                byeCall.callHandler.changeState(
+                    CallState.done.withTerminationReason(terminationReason));
 
                 calls.remove(byeCall.callId);
                 break;
