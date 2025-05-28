@@ -65,28 +65,14 @@ Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
                 jsonDecode(message.data['metadata']);
             final PushMetaData pushMetaData = PushMetaData.fromJson(metadataMap)
               ..isDecline = true;
+            
+            // Use simplified decline logic with decline_push parameter
             final tempDeclineClient = TelnyxClient();
-            tempDeclineClient
-              ..onSocketMessageReceived = (TelnyxMessage msg) {
-                if (msg.socketMethod == SocketMethod.bye) {
-                  _backgroundLogger.i(
-                    '[AndroidBackgroundHandler] Temp client received BYE, disconnecting.',
-                  );
-                  tempDeclineClient.disconnect();
-                }
-              }
-              ..onSocketErrorReceived = (TelnyxSocketError error) {
-                _backgroundLogger.e(
-                  '[AndroidBackgroundHandler] Temp client error: ${error.errorMessage}',
-                );
-                tempDeclineClient.disconnect();
-              };
-
-            // Use the ConfigHelper to get the config
             final config = await ConfigHelper.getTelnyxConfigFromPrefs();
             if (config != null) {
-              _backgroundLogger
-                  .i('[AndroidBackgroundHandler] Found config for decline.');
+              _backgroundLogger.i(
+                '[AndroidBackgroundHandler] Using simplified decline logic with decline_push parameter.',
+              );
               tempDeclineClient.handlePushNotification(
                 pushMetaData,
                 config is CredentialConfig ? config : null,
@@ -283,56 +269,25 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
             }
           } else {
             _logger.i(
-              '[PushNotificationHandler-Android] actionCallDecline: Metadata present. Using temporary client for decline. Metadata: $metadata',
+              '[PushNotificationHandler-Android] actionCallDecline: Metadata present. Using simplified decline logic with decline_push parameter. Metadata: $metadata',
             );
-            // Use temporary client logic (same as iOS)
             var decodedMetadata = metadata;
             if (metadata is String) {
               try {
                 decodedMetadata = jsonDecode(metadata);
               } catch (e) {
                 _logger.e(
-                  '[PushNotificationHandler-Android] actionCallDecline: Error decoding metadata JSON: $e.',
+                  '[PushNotificationHandler-Android] actionCallDecline: Error decoding metadata JSON: $e. Unable to process decline.',
                 );
                 return;
               }
             }
-            final Map<dynamic, dynamic> eventData =
-                Map<dynamic, dynamic>.from(decodedMetadata as Map);
-            final PushMetaData pushMetaData = PushMetaData.fromJson(eventData)
-              ..isDecline = true;
-            final tempDeclineClient = TelnyxClient();
-            tempDeclineClient
-              ..onSocketMessageReceived = (TelnyxMessage msg) {
-                if (msg.socketMethod == SocketMethod.bye) {
-                  _logger.i(
-                    '[PushNotificationHandler-Android] actionCallDecline: Temp client received BYE, disconnecting.',
-                  );
-                  tempDeclineClient.disconnect();
-                }
-              }
-              ..onSocketErrorReceived = (TelnyxSocketError error) {
-                _logger.e(
-                  '[PushNotificationHandler-Android] actionCallDecline: Temp client error: ${error.errorMessage}',
-                );
-                tempDeclineClient.disconnect();
-              };
-            // Use the ConfigHelper to get the config
-            final config = await ConfigHelper.getTelnyxConfigFromPrefs();
-            _logger.i(
-              '[PushNotificationHandler-Android] actionCallDecline: Temp client attempting handlePushNotification.',
+            // Use the simplified processIncomingCallAction approach with isDecline=true
+            // This will trigger the new decline_push logic in TelnyxClient
+            await processIncomingCallAction(
+              decodedMetadata as Map<dynamic, dynamic>,
+              isDecline: true,
             );
-            if (config != null) {
-              tempDeclineClient.handlePushNotification(
-                pushMetaData,
-                config is CredentialConfig ? config : null,
-                config is TokenConfig ? config : null,
-              );
-            } else {
-              _logger.e(
-                '[PushNotificationHandler-Android] actionCallDecline: Could not get config for temp client.',
-              );
-            }
           }
           break;
   
