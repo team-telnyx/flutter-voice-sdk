@@ -3,7 +3,6 @@
 
 # Telnyx Flutter Voice SDK
 
-
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
 ## Features
@@ -11,6 +10,7 @@ Enable Telnyx real-time communication services on Flutter applications (Android 
 - [x] Hold calls
 - [x] Mute calls
 - [x] Dual Tone Multi Frequency
+- [x] Call quality metrics monitoring
 
 ## Usage
 
@@ -45,6 +45,69 @@ on the iOS platform, you need to add the microphone permission to your Info.plis
     <string>$(PRODUCT_NAME) Microphone Usage!</string>
 ```
 
+## Call Quality Metrics
+
+The SDK provides real-time call quality metrics through the `onCallQualityChange` callback on the `Call` object. This allows you to monitor call quality in real-time and provide feedback to users.
+
+### Enabling Call Quality Metrics
+
+To enable call quality metrics, set the `debug` parameter to `true` when creating or answering a call:
+
+```dart
+// When making a call
+call.newInvite(
+    callerName: "John Doe",
+    callerNumber: "+1234567890",
+    destinationNumber: "+1987654321",
+    clientState: "some-state",
+    debug: true
+);
+
+// When answering a call
+call.acceptCall(
+    callId: callId,
+    destinationNumber: "destination",
+    debug: true
+);
+
+// Listen for call quality metrics
+call.onCallQualityChange = (metrics) {
+    // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
+    print("Call quality: ${metrics.quality}");
+    print("MOS score: ${metrics.mos}");
+    print("Jitter: ${metrics.jitter * 1000} ms");
+    print("Round-trip time: ${metrics.rtt * 1000} ms");
+};
+```
+
+### CallQualityMetrics Properties
+
+The `CallQualityMetrics` object provides the following properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `jitter` | double | Jitter in seconds (multiply by 1000 for milliseconds) |
+| `rtt` | double | Round-trip time in seconds (multiply by 1000 for milliseconds) |
+| `mos` | double | Mean Opinion Score (1.0-5.0) |
+| `quality` | CallQuality | Call quality rating based on MOS |
+| `inboundAudio` | Map<String, dynamic>? | Inbound audio statistics |
+| `outboundAudio` | Map<String, dynamic>? | Outbound audio statistics |
+
+### CallQuality Enum
+
+The `CallQuality` enum provides the following values:
+
+| Value | MOS Range | Description |
+|-------|-----------|-------------|
+| `excellent` | MOS > 4.2 | Excellent call quality |
+| `good` | 4.1 <= MOS <= 4.2 | Good call quality |
+| `fair` | 3.7 <= MOS <= 4.0 | Fair call quality |
+| `poor` | 3.1 <= MOS <= 3.6 | Poor call quality |
+| `bad` | MOS <= 3.0 | Bad call quality |
+| `unknown` | N/A | Unable to calculate quality |
+
+## Basic Usage
+
 ### Telnyx Client
 TelnyxClient() is the core class of the SDK, and can be used to connect to our backend socket connection, create calls, check state and disconnect, etc.
 
@@ -52,6 +115,48 @@ Once an instance is created, you can call the .connect() method to connect to th
 
 ```dart
     TelnyxClient _telnyxClient = TelnyxClient();
+```
+
+### Logging Configuration
+The SDK provides a flexible logging system that allows you to control the verbosity of logs and even implement your own custom logging solution. There are two main aspects to configure:
+
+1. **Log Level**
+The `LogLevel` enum determines which types of logs are displayed:
+```dart
+enum LogLevel {
+  none,    // Disable all logs (default)
+  error,   // Print error logs only
+  warning, // Print warning logs only
+  debug,   // Print debug logs only
+  info,    // Print info logs only
+  verto,   // Print verto protocol messages
+  all      // Print all logs
+}
+```
+
+2. **Custom Logger**
+You can implement your own logging solution by extending the `CustomLogger` abstract class:
+```dart
+class MyCustomLogger extends CustomLogger {
+  @override
+  log(LogLevel level, String message) {
+    print('[$level] $message');
+    // Implement any extra logging logic you would like here (eg. Send to a server, write to a file, etc.)
+  }
+}
+```
+
+Both the log level and custom logger can be configured in the `Config` class:
+```dart
+var config = CredentialConfig(
+  sipUser: 'username',
+  sipPassword: 'password',
+  sipCallerIDName: 'Caller Name',
+  sipCallerIDNumber: '1234567890',
+  debug: true,  // Enable debug mode which allows you to track call metrics and download them from the portal - this is different to the log level and custom logger
+  logLevel: LogLevel.debug,  // Set log level
+  customLogger: MyCustomLogger(),  // Optional: provide custom logger
+);
 ```
 
 ### Logging into Telnyx Client
@@ -112,10 +217,112 @@ class TokenConfig extends Config {
    final String sipToken;
 }
  ```
- 
+
+### Creating a call invitation
+In order to make a call invitation, we first create an instance of the Call class with the .call instance. This creates a Call class which can be used to interact with calls (invite, accept, decline, etc).
+To then send an invite, we can use the .newInvite() method which requires you to provide your callerName, callerNumber, the destinationNumber (or SIP credential), and your clientState (any String value).
+
+```dart
+    _telnyxClient
+        .call
+        .newInvite("callerName", "000000000", destination, "State");
+```
+
+### Accepting a call
+In order to be able to accept a call, we first need to listen for invitations. We do this by getting the Telnyx Socket Response callbacks:
+
+```dart
+ // Observe Socket Messages Received
+_telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
+  switch (message.socketMethod) {
+        case SocketMethod.CLIENT_READY:
+        {
+           // Fires once client has correctly been setup and logged into, you can now make calls. 
+           break;
+        }
+        case SocketMethod.LOGIN:
+        {
+            // Handle a successful login - Update UI or Navigate to new screen, etc. 
+            break;
+        }
+        case SocketMethod.INVITE:
+        {
+            // Handle an invitation Update UI or Navigate to new screen, etc. 
+            // Then, through an answer button of some kind we can accept the call with:
+            // This will return an instance of the Call class which can be used to interact with the call or monitor it's state.
+            _incomingInvite = message.message.inviteParams;
+            _call = _telnyxClient.acceptCall(
+                _incomingInvite, "callerName", "000000000", "State");
+            break;
+        }
+        case SocketMethod.ANSWER:
+        {
+           // Handle a received call answer - Update UI or Navigate to new screen, etc.
+          break;
+        }
+        case SocketMethod.BYE:
+        {
+           // Handle a call rejection or ending - Update UI or Navigate to new screen, etc.
+           break;
+      }
+    }
+};
+```
+
+We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations. 
+
+### Decline / End Call
+
+In order to end a call, we can get a stored instance of Call and call the .endCall(callID) method. To decline an incoming call we first create the call with the .createCall() method and then call the .endCall(callID) method:
+
+```dart
+    if (_ongoingCall) {
+      _telnyxClient.call.endCall(_telnyxClient.call.callId);
+    } else {
+      _telnyxClient.createCall().endCall(_incomingInvite?.callID);
+    }
+```
+
+### DTMF (Dual Tone Multi Frequency)
+
+In order to send a DTMF message while on a call you can call the .dtmf(callID, tone), method where tone is a String value of the character you would like pressed:
+
+```dart
+    _telnyxClient.call.dtmf(_telnyxClient.call.callId, tone);
+```
+
+### Mute a call
+
+To mute a call, you can simply call the .onMuteUnmutePressed() method:
+
+```dart
+    _telnyxClient.call.onMuteUnmutePressed();
+```
+
+### Toggle loud speaker
+
+To toggle loud speaker, you can simply call .enableSpeakerPhone(bool):
+
+```dart
+    _telnyxClient.call.enableSpeakerPhone(true);
+```
+
+### Put a call on hold
+
+To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
+
+```dart
+    _telnyxClient.call.onHoldUnholdPressed();
+```
+
+## Advanced Usage - Push Notifications
+
 ###  Adding push notifications - Android platform
 The Android platform makes use of Firebase Cloud Messaging in order to deliver push notifications. To receive notifications when receiving calls on your Android mobile device you will have to enable Firebase Cloud Messaging within your application.
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?type=Android).
+
+Note: for flutter, an easy way to add the firebase configuration after setting up the firebase project is to simply run the `flutterfire configure` command in the terminal. For example, if your firebase project is called `myproject` you would run `flutterfire configure myproject`. This will generate all the required files and configurations for your project.
+
 The Demo app uses the [FlutterCallkitIncoming](https://pub.dev/packages/flutter_callkit_incoming) plugin to show incoming calls. To show a notification when receiving a call, you can follow the steps below:
 1. Listen for Background Push Notifications, Implement the `FirebaseMessaging.onBackgroundMessage` method in your `main` method
 ```dart
@@ -213,7 +420,7 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
    });
 ```
 
-#### Best Practices for Push Notifications on Android 
+#### Best Practices for Push Notifications on Android
 1. Request for Notification Permissions for android 13+ devices to show push notifications. More information can be found [here](https://developer.android.com/develop/ui/views/notifications/notification-permission)
 2. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode).
 3. On Foreground calls, you can use the `FirebaseMessaging.onMessage.listen` method to listen for incoming calls and show a notification.
@@ -234,7 +441,7 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
 
 
 6. Early Answer/Decline : Users may answer/decline the call too early before a socket connection is established. To handle this situation,
-assert if the `IncomingInviteParams` is not null and only accept/decline if this is availalble. 
+   assert if the `IncomingInviteParams` is not null and only accept/decline if this is availalble.
 ```dart
 bool waitingForInvite = false;
 
@@ -273,7 +480,7 @@ if (_incomingInvite != null) {
 ```
 
 
- 
+
 ### Adding push notifications - iOS platform
 The iOS Platform makes use of the Apple Push Notification Service (APNS) and Pushkit in order to deliver and receive push notifications
 For a detailed tutorial, please visit our official [Push Notification Docs](https://developers.telnyx.com/docs/v2/webrtc/push-notifications?lang=ios)
@@ -358,81 +565,9 @@ For a detailed tutorial, please visit our official [Push Notification Docs](http
    });
 ```
 
-
-
-#### Best Practices for Push Notifications on iOS
-1. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode). Make sure you are in `release` mode. Preferably test using Testfight or Appstore.
-To test if push notifications are working, disconnect the telnyx client (while app is in foreground) and make a call to the device. You should receive a push notification.
-
-
-### Creating a call invitation
-In order to make a call invitation, we first create an instance of the Call class with the .call instance. This creates a Call class which can be used to interact with calls (invite, accept, decline, etc).
-To then send an invite, we can use the .newInvite() method which requires you to provide your callerName, callerNumber, the destinationNumber (or SIP credential), and your clientState (any String value).
-
-```dart
-    _telnyxClient
-        .call
-        .newInvite("callerName", "000000000", destination, "State");
-```
-
-### Accepting a call
-In order to be able to accept a call, we first need to listen for invitations. We do this by getting the Telnyx Socket Response callbacks:
-
-```dart
- // Observe Socket Messages Received
-_telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
-  switch (message.socketMethod) {
-        case SocketMethod.CLIENT_READY:
-        {
-           // Fires once client has correctly been setup and logged into, you can now make calls. 
-           break;
-        }
-        case SocketMethod.LOGIN:
-        {
-            // Handle a successful login - Update UI or Navigate to new screen, etc. 
-            break;
-        }
-        case SocketMethod.INVITE:
-        {
-            // Handle an invitation Update UI or Navigate to new screen, etc. 
-            // Then, through an answer button of some kind we can accept the call with:
-            _incomingInvite = message.message.inviteParams;
-            _telnyxClient.createCall().acceptCall(
-                _incomingInvite, "callerName", "000000000", "State");
-            break;
-        }
-        case SocketMethod.ANSWER:
-        {
-           // Handle a received call answer - Update UI or Navigate to new screen, etc.
-          break;
-        }
-        case SocketMethod.BYE:
-        {
-           // Handle a call rejection or ending - Update UI or Navigate to new screen, etc.
-           break;
-      }
-    }
-    notifyListeners();
-};
-```
-
-We can then use this method to create a listener that listens for an invitation and, in this case, answers it straight away. A real implementation would be more suited to show some UI and allow manual accept / decline operations. 
-
-### Decline / End Call
-
-In order to end a call, we can get a stored instance of Call and call the .endCall(callID) method. To decline an incoming call we first create the call with the .createCall() method and then call the .endCall(callID) method:
-
-```dart
-    if (_ongoingCall) {
-      _telnyxClient.call.endCall(_telnyxClient.call.callId);
-    } else {
-      _telnyxClient.createCall().endCall(_incomingInvite?.callID);
-    }
-```
-
-### Handling Late Notifications 
-If notifcations arrive very late due to no internet connectivity, It is good to always flag it as a missed call. You can do that using the 
-code snippet below : 
+### Handling Late Notifications
+If notifications arrive very late due to no internet connectivity, It is good to always flag it as a missed call. You can do that using the
+code snippet below :
 
 ```dart
 const CALL_MISSED_TIMEOUT = 60;
@@ -446,44 +581,10 @@ const CALL_MISSED_TIMEOUT = 60;
 }
 ```
 
-
-### DTMF (Dual Tone Multi Frequency)
-
-In order to send a DTMF message while on a call you can call the .dtmf(callID, tone), method where tone is a String value of the character you would like pressed:
-
-```dart
-    _telnyxClient.call.dtmf(_telnyxClient.call.callId, tone);
-```
-
-### Mute a call
-
-To mute a call, you can simply call the .onMuteUnmutePressed() method:
-
-```dart
-    _telnyxClient.call.onMuteUnmutePressed();
-```
-
-### Toggle loud speaker
-
-To toggle loud speaker, you can simply call .enableSpeakerPhone(bool):
-
-```dart
-    _telnyxClient.call.enableSpeakerPhone(true);
-```
-
-### Put a call on hold
-
-To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
-
-```dart
-    _telnyxClient.call.onHoldUnholdPressed();
-```
-
-Questions? Comments? Building something rad? [Join our Slack channel](https://joinslack.telnyx.com/) and share.
-
 #### Best Practices for Push Notifications on iOS
 1. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode). Make sure you are in `release` mode. Preferably test using Testfight or Appstore.
    To test if push notifications are working, disconnect the telnyx client (while app is in foreground) and make a call to the device. You should receive a push notification.
+
 
 ## Additional Resources
 - [Official SDK Documentation](https://developers.telnyx.com/docs/voice/webrtc/flutter-sdk)
