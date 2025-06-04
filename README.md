@@ -585,7 +585,10 @@ const CALL_MISSED_TIMEOUT = 60;
 1. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode). Make sure you are in `release` mode. Preferably test using Testfight or Appstore.
    To test if push notifications are working, disconnect the telnyx client (while app is in foreground) and make a call to the device. You should receive a push notification.
 
-   
+
+## Additional Resources
+- [Official SDK Documentation](https://developers.telnyx.com/docs/voice/webrtc/flutter-sdk)
+  
 Questions? Comments? Building something rad? [Join our Slack channel](https://joinslack.telnyx.com/) and share.
 
 ## License
