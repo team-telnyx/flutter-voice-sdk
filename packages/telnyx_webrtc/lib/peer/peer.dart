@@ -45,19 +45,26 @@ class Peer {
 
   /// Callback for when the signaling state changes.
   Function(SignalingState state)? onSignalingStateChange;
+
   /// Callback for when the call state changes.
   Function(Session session, CallState state)? onCallStateChange;
+
   /// Callback for when the local media stream is available.
   Function(MediaStream stream)? onLocalStream;
+
   /// Callback for when a remote media stream is added.
   Function(Session session, MediaStream stream)? onAddRemoteStream;
+
   /// Callback for when a remote media stream is removed.
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
+
   /// Callback for when peer updates occur.
   Function(dynamic event)? onPeersUpdate;
+
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
       onDataChannelMessage;
+
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
@@ -308,7 +315,8 @@ class Peer {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
           GlobalLogger().i(
-              'Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',);
+            'Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
+          );
           if (candidate.candidate != null) {
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
@@ -322,7 +330,8 @@ class Peer {
               _lastCandidateTime = DateTime.now();
             } else {
               GlobalLogger().i(
-                  'Peer :: Ignoring non-STUN/TURN candidate: $candidateString',);
+                'Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+              );
             }
           }
         } else {
@@ -457,7 +466,8 @@ class Peer {
 
     peerConnection?.onIceCandidate = (candidate) async {
       GlobalLogger().i(
-          'Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',);
+        'Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
+      );
       if (candidate.candidate != null) {
         final candidateString = candidate.candidate.toString();
         final isValidCandidate = candidateString.contains('stun.telnyx.com') ||

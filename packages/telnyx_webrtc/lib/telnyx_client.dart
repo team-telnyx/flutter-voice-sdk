@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:telnyx_webrtc/config.dart';
+import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -11,6 +12,7 @@ import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
+import 'package:telnyx_webrtc/model/verto/receive/receive_bye_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
@@ -126,9 +128,9 @@ class TelnyxClient {
     return Map.fromEntries(
       calls.entries.where(
         (entry) =>
-            entry.value.callState == CallState.active ||
-            entry.value.callState == CallState.dropped ||
-            entry.value.callState == CallState.reconnecting,
+            entry.value.callState.isActive ||
+            entry.value.callState.isDropped ||
+            entry.value.callState.isReconnecting,
       ),
     );
   }
@@ -213,7 +215,7 @@ class TelnyxClient {
   void _handleNetworkLost() {
     for (var call in activeCalls().values) {
       call.callHandler.onCallStateChanged
-          .call(CallState.dropped.withReason(NetworkReason.networkLost));
+          .call(CallState.dropped.withNetworkReason(NetworkReason.networkLost));
       // Start a reconnection timeout timer for this call
       _startReconnectionTimer(call);
     }
@@ -224,7 +226,7 @@ class TelnyxClient {
     for (var call in activeCalls().values) {
       if (call.callState.isDropped) {
         call.callHandler.onCallStateChanged
-            .call(CallState.reconnecting.withReason(reason));
+            .call(CallState.reconnecting.withNetworkReason(reason));
 
         // Start a reconnection timeout timer for this call
         _startReconnectionTimer(call);
@@ -254,8 +256,8 @@ class TelnyxClient {
           GlobalLogger().i('Reconnection timeout for call ${call.callId}');
 
           // Change the call state to dropped
-          call.callHandler.onCallStateChanged
-              .call(CallState.dropped.withReason(NetworkReason.networkLost));
+          call.callHandler.onCallStateChanged.call(
+              CallState.dropped.withNetworkReason(NetworkReason.networkLost));
 
           // End the call
           call.endCall();
@@ -287,21 +289,26 @@ class TelnyxClient {
     CredentialConfig? credentialConfig,
     TokenConfig? tokenConfig,
   ) {
-    GlobalLogger().i('TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}');
+    GlobalLogger().i(
+        'TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}');
     _isCallFromPush = true;
 
     if (pushMetaData.isAnswer == true) {
-      GlobalLogger().i('TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true');
+      GlobalLogger().i(
+          'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true');
       _pendingAnswerFromPush = true;
     } else {
-      GlobalLogger().i('TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false');
+      GlobalLogger().i(
+          'TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false');
     }
 
     if (pushMetaData.isDecline == true) {
-      GlobalLogger().i('TelnyxClient.handlePushNotification: _pendingDeclineFromPush will be set to true');
+      GlobalLogger().i(
+          'TelnyxClient.handlePushNotification: _pendingDeclineFromPush will be set to true');
       _pendingDeclineFromPush = true;
     } else {
-      GlobalLogger().i('TelnyxClient.handlePushNotification: _pendingDeclineFromPush remains false');
+      GlobalLogger().i(
+          'TelnyxClient.handlePushNotification: _pendingDeclineFromPush remains false');
     }
 
     _connectWithCallBack(pushMetaData, () {
@@ -343,7 +350,8 @@ class TelnyxClient {
     PushMetaData? pushMetaData,
     OnOpenCallback openCallback,
   ) {
-    GlobalLogger().i('TelnyxClient._connectWithCallBack: Called. PushMetaData: ${pushMetaData?.toJson()}');
+    GlobalLogger().i(
+        'TelnyxClient._connectWithCallBack: Called. PushMetaData: ${pushMetaData?.toJson()}');
     if (pushMetaData != null) {
       _pushMetaData = pushMetaData;
     }
@@ -356,14 +364,16 @@ class TelnyxClient {
         );
       } else {
         txSocket.hostAddress = _storedHostAddress;
-        GlobalLogger().i('TelnyxClient._connectWithCallBack: connecting to WebSocket $_storedHostAddress');
+        GlobalLogger().i(
+            'TelnyxClient._connectWithCallBack: connecting to WebSocket $_storedHostAddress');
       }
       txSocket
         ..connect()
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('TelnyxClient._connectWithCallBack (via _onOpen): Web Socket is now connected');
+          GlobalLogger().i(
+              'TelnyxClient._connectWithCallBack (via _onOpen): Web Socket is now connected');
           _onOpen();
           openCallback.call();
         }
@@ -409,7 +419,8 @@ class TelnyxClient {
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected');
+          GlobalLogger().i(
+              'TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected');
           _onOpen();
           tokenLogin(tokenConfig);
         }
@@ -435,7 +446,8 @@ class TelnyxClient {
     // Use custom logger if provided or fallback to default.
     _logger = credentialConfig.customLogger ?? DefaultLogger();
     GlobalLogger.logger = _logger;
-    GlobalLogger().i('TelnyxClient.connectWithCredential: Attempting to connect.');
+    GlobalLogger()
+        .i('TelnyxClient.connectWithCredential: Attempting to connect.');
 
     // Now that a logger is set, we can set the log level
     _logger
@@ -456,7 +468,8 @@ class TelnyxClient {
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected');
+          GlobalLogger().i(
+              'TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected');
           _onOpen();
           credentialLogin(credentialConfig);
         }
@@ -886,7 +899,8 @@ class TelnyxClient {
 
   /// WebSocket Event Handlers
   void _onOpen() {
-    GlobalLogger().i('TelnyxClient._onOpen: WebSocket connected event triggered.');
+    GlobalLogger()
+        .i('TelnyxClient._onOpen: WebSocket connected event triggered.');
   }
 
   void _onClose(bool wasClean, int code, String reason) {
@@ -897,7 +911,8 @@ class TelnyxClient {
   }
 
   void _onMessage(dynamic data) async {
-    GlobalLogger().i('TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString().trim()}');
+    GlobalLogger().i(
+        'TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString().trim()}');
 
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
@@ -910,9 +925,26 @@ class TelnyxClient {
             'Received WebSocket message - Contains Error :: $errorJson',
           );
           try {
+            final Map<String, dynamic> jsonData = jsonDecode(data.toString());
+
+            // Extract error code if available
+            int? errorCode;
+            if (jsonData.containsKey('error') &&
+                jsonData['error'] is Map<String, dynamic> &&
+                jsonData['error'].containsKey('code')) {
+              errorCode = jsonData['error']['code'] as int?;
+            }
+
             final ReceivedResult errorResult =
-                ReceivedResult.fromJson(jsonDecode(data.toString()));
-            onSocketErrorReceived.call(errorResult.error!);
+                ReceivedResult.fromJson(jsonData);
+
+            // Create error with code if available
+            final TelnyxSocketError error = TelnyxSocketError(
+              errorCode: errorCode ?? 0,
+              errorMessage: errorResult.error?.errorMessage ?? 'Unknown error',
+            );
+
+            onSocketErrorReceived.call(error);
           } on Exception catch (e) {
             GlobalLogger().e('Error parsing JSON: $e');
           }
@@ -1235,20 +1267,57 @@ class TelnyxClient {
             case SocketMethod.bye:
               {
                 GlobalLogger().i('BYE RECEIVED :: $messageJson');
-                final ReceivedMessage bye =
-                    ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                final Call? byeCall = calls[bye.inviteParams?.callID];
+
+                // Parse the bye message to extract termination details
+                final Map<String, dynamic> jsonData =
+                    jsonDecode(data.toString());
+
+                // Try to parse as ReceiveByeMessage first to get detailed termination info
+                ReceiveByeMessage? byeMessage;
+                CallTerminationReason? terminationReason;
+
+                try {
+                  byeMessage = ReceiveByeMessage.fromJson(jsonData);
+
+                  // Extract termination details if available
+                  if (byeMessage.params != null) {
+                    terminationReason = CallTerminationReason(
+                      cause: byeMessage.params?.cause,
+                      causeCode: byeMessage.params?.causeCode,
+                      sipCode: byeMessage.params?.sipCode,
+                      sipReason: byeMessage.params?.sipReason,
+                    );
+
+                    GlobalLogger()
+                        .d('Call termination reason: $terminationReason');
+                  }
+                } catch (e) {
+                  GlobalLogger().e('Error parsing bye message: $e');
+                }
+
+                // Fall back to ReceivedMessage if ReceiveByeMessage parsing failed
+                final ReceivedMessage bye = ReceivedMessage.fromJson(jsonData);
+                final String? callId =
+                    byeMessage?.params?.callID ?? bye.inviteParams?.callID;
+
+                final Call? byeCall = calls[callId];
                 if (byeCall == null) {
-                  GlobalLogger().d('Error : Call  is null from Bye Message');
+                  GlobalLogger().d('Error: Call is null from Bye Message');
                   _sendNoCallError();
                   return;
                 }
+
                 final message =
                     TelnyxMessage(socketMethod: SocketMethod.bye, message: bye);
                 onSocketMessageReceived(message);
+
                 byeCall.stopAudio();
                 byeCall.peerConnection?.closeSession();
-                byeCall.stopAudio();
+
+                // Update call state with termination reason
+                byeCall.callHandler.changeState(
+                    CallState.done.withTerminationReason(terminationReason));
+
                 calls.remove(byeCall.callId);
                 break;
               }

@@ -44,7 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
       case 'Disable Push Notifications':
-        Provider.of<TelnyxClientViewModel>(context, listen: false).disablePushNotifications();
+        Provider.of<TelnyxClientViewModel>(context, listen: false)
+            .disablePushNotifications();
         break;
     }
   }
@@ -55,6 +56,31 @@ class _HomeScreenState extends State<HomeScreen> {
       (txClient) => txClient.callState,
     );
 
+    final errorMessage = context.select<TelnyxClientViewModel, String?>(
+      (viewModel) => viewModel.errorDialogMessage,
+    );
+
+    if (errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Error"),
+            content: Text(errorMessage),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  context.read<TelnyxClientViewModel>().clearErrorDialog();
+                  Navigator.of(context).pop();
+                },
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         actions: <Widget>[
@@ -63,7 +89,8 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Logout', 'Export Logs', 'Disable Push Notifications'}.map((String choice) {
+                return {'Logout', 'Export Logs', 'Disable Push Notifications'}
+                    .map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),

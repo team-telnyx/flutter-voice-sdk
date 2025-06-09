@@ -7,7 +7,10 @@ enum NetworkReason {
   networkLost('Network lost'),
 
   /// The network has adjusted due to Airplane mode.
-  airplaneMode('Airplane mode enabled');
+  airplaneMode('Airplane mode enabled'),
+  
+  /// A server error occurred.
+  serverError('Server error');
 
   /// The message associated with the network reason.
   final String message;
