@@ -54,7 +54,8 @@ class StatParsingHelpers {
     }
   }
 
-  String parseIceConnectionStateChange(RTCIceConnectionState iceConnectionState) {
+  String parseIceConnectionStateChange(
+      RTCIceConnectionState iceConnectionState) {
     switch (iceConnectionState) {
       case RTCIceConnectionState.RTCIceConnectionStateNew:
         return 'new';

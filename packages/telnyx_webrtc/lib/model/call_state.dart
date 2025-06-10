@@ -40,7 +40,8 @@ enum CallState {
   CallState withReason(NetworkReason reason) {
     if (this != reconnecting && this != dropped) {
       throw StateError(
-          'Reason can only be set for reconnecting or dropped states',);
+        'Reason can only be set for reconnecting or dropped states',
+      );
     }
     _reasons[this] = reason;
     return this;
