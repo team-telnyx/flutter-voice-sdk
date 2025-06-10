@@ -16,6 +16,8 @@ This is the Telnyx Flutter Voice SDK - a WebRTC-based voice calling solution for
 - Ensure that all new features and bug fixes are accompanied by appropriate unit tests in the `telnyx_webrtc` package.
 - If asked to make a pull request, ensure you use the format described at .github/PULL_REQUEST_TEMPLATE.md, including a clear description of the changes, any relevant issue numbers, and testing instructions.
 - Please run 'dart format .' before committing any changes to ensure code style consistency.
+- Please run 'dart analyze' to check for any static analysis issues before committing changes.
+- Please do not update pubspec.yaml files without confirming the changes with the team first, especially for the `telnyx_webrtc` package.
 
 ## Development Commands
 
