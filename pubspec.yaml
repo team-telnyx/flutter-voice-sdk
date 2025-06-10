@@ -43,6 +43,8 @@ flutter:
     - assets/launcher.png
     - assets/images/
     - assets/icons/
+    - pubspec.yaml
+    - packages/telnyx_webrtc/pubspec.yaml
 
 patrol:
   app_name: Telnyx Flutter WebRTC

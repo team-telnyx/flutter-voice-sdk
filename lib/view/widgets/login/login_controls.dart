@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
+import 'package:telnyx_flutter_webrtc/utils/version_utils.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/bottom_sheet/profile_switcher_bottom_sheet.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
@@ -14,6 +15,21 @@ class LoginControls extends StatefulWidget {
 }
 
 class _LoginControlsState extends State<LoginControls> {
+  String _versionString = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersionString();
+  }
+
+  Future<void> _loadVersionString() async {
+    final versionString = await VersionUtils.getVersionString();
+    setState(() {
+      _versionString = versionString;
+    });
+  }
+
   void _showProfileSwitcher() {
     showModalBottomSheet(
       context: context,
@@ -34,21 +50,37 @@ class _LoginControlsState extends State<LoginControls> {
     final selectedProfile = profileProvider.selectedProfile;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text('Profile', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: spacingXS),
-        Row(
+        // Profile section at the top
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(selectedProfile?.sipCallerIDName ?? 'No profile selected'),
-            SizedBox(width: spacingS),
-            TextButton(
-              onPressed: _showProfileSwitcher,
-              child: const Text('Switch Profile'),
+            Text('Profile', style: Theme.of(context).textTheme.labelMedium),
+            const SizedBox(height: spacingXS),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(selectedProfile?.sipCallerIDName ?? 'No profile selected'),
+                ),
+                const SizedBox(width: spacingS),
+                OutlinedButton(
+                  onPressed: _showProfileSwitcher,
+                  style: OutlinedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(spacingS),
+                    ),
+                  ),
+                  child: const Text('Switch Profile'),
+                ),
+              ],
             ),
           ],
         ),
-        const SizedBox(height: spacingS),
+        
+        // Spacer to push connect button and version to bottom
+        const Spacer(),
+        
+        // Connect button at the bottom
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -80,6 +112,17 @@ class _LoginControlsState extends State<LoginControls> {
               },
             ),
           ),
+        ),
+        
+        // Version information at the very bottom
+        const SizedBox(height: spacingS),
+        Text(
+          _versionString,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            fontSize: 10,
+            color: Colors.grey[600],
+          ),
+          textAlign: TextAlign.center,
         ),
       ],
     );

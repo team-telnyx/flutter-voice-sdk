@@ -73,19 +73,25 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(spacingXXL),
-          child: Column(
-            children: [
-              const ControlHeaders(),
-              const SizedBox(height: spacingS),
-              if (clientState == CallStateStatus.disconnected)
-                const LoginControls()
-              else
-                const CallControls(),
-            ],
-          ),
+      body: Padding(
+        padding: const EdgeInsets.all(spacingXXL),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    const ControlHeaders(),
+                    const SizedBox(height: spacingS),
+                    if (clientState == CallStateStatus.disconnected)
+                      const LoginControls()
+                    else
+                      const CallControls(),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

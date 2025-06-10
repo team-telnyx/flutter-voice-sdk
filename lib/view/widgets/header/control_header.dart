@@ -20,7 +20,7 @@ class _ControlHeadersState extends State<ControlHeaders> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: spacingXXXXXXL),
+              padding: const EdgeInsets.symmetric(vertical: spacingL),
               child: Center(
                 child: Image.asset(
                   logo_path,
