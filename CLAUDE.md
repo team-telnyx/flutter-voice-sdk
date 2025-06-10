@@ -6,6 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is the Telnyx Flutter Voice SDK - a WebRTC-based voice calling solution for Flutter applications supporting Android, iOS, and Web platforms. The project consists of a demo application and the core `telnyx_webrtc` package.
 
+## Code Style
+- Please reference the [Dart Style Guide](https://dart.dev/guides/language/effective-dart/style) for general Dart coding conventions.
+
 ## Workflow
 - Don't change the verto message json structure without confirming first.
 - When making changes to the SDK, ensure that you update the demo application accordingly to demonstrate the new functionality.
