@@ -12,7 +12,6 @@ typedef OnCloseCallback = void Function(int code, String reason);
 /// Open callback for when the connection is opened
 typedef OnOpenCallback = void Function();
 
-
 /// TxSocket class to handle the WebSocket connection
 class TxSocket {
   /// Default constructor that initializes the host address and logger
