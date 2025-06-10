@@ -45,7 +45,7 @@ flutter pub get
 flutter packages pub run build_runner build
 
 # Analyze code
-flutter analyze
+dart analyze
 
 # Format code
 dart format .
