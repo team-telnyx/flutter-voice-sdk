@@ -21,7 +21,6 @@ class DisablePushMessage {
   }
 }
 
-
 class DisablePushParams {
   DisablePushParams({
     this.user,

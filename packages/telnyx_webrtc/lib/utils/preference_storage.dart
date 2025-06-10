@@ -14,7 +14,8 @@ class PreferencesStorage {
   static Future<Map<String, dynamic>?> getMetaData() async {
     final String metaData = await getString(notificationKey);
     if (metaData.isEmpty) {
-      GlobalLogger().d('No PushMetaData found with notification key $notificationKey');
+      GlobalLogger()
+          .d('No PushMetaData found with notification key $notificationKey');
       return null;
     }
     saveMetadata('');

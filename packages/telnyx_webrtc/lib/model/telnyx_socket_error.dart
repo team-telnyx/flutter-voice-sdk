@@ -6,7 +6,7 @@ class TelnyxSocketError {
   /// The error message for the socket error.
   String errorMessage = 'Generic error. Source unknown.';
 
-  /// The constructor for the TelnyxSocketError.  
+  /// The constructor for the TelnyxSocketError.
   TelnyxSocketError({required this.errorCode, required this.errorMessage});
 
   /// The constructor for the TelnyxSocketError from a JSON object.
@@ -28,7 +28,7 @@ class TelnyxErrorConstants {
   static const credentialError = 'Credential registration error';
 
   /// The error code for credential registration errors.
-  static const credentialErrorCode = -32001;  
+  static const credentialErrorCode = -32001;
 
   /// The error message for codec errors.
   static const codecError = 'Codec error';
