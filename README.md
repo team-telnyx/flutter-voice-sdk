@@ -593,4 +593,4 @@ Questions? Comments? Building something rad? [Join our Slack channel](https://jo
 
 ## License
 
-[`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
+[`MIT Licence`](https://github.com/team-telnyx/flutter-voice-sdk/blob/main/LICENSE) © [Telnyx](https://github.com/team-telnyx)
