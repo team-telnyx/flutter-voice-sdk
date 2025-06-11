@@ -93,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: clientState == CallStateStatus.idle
           ? Padding(
               padding: const EdgeInsets.all(spacingXXL),
-              child: BottomActionWidget(
+              child: BottomConnectionActionWidget(
                 buttonTitle: 'Disconnect',
                 onPressed: () => {
                   context.read<TelnyxClientViewModel>().disconnect(),
@@ -108,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final selectedProfile = profileProvider.selectedProfile;
                     return Padding(
                       padding: const EdgeInsets.all(spacingXXL),
-                      child: BottomActionWidget(
+                      child: BottomConnectionActionWidget(
                         buttonTitle: 'Connect',
                         isLoading: viewModel.loggingIn,
                         onPressed: selectedProfile != null

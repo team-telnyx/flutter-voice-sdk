@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/utils/version_utils.dart';
 
-class BottomActionWidget extends StatefulWidget {
+class BottomConnectionActionWidget extends StatefulWidget {
   final String buttonTitle;
   final VoidCallback? onPressed;
   final bool isLoading;
 
-  const BottomActionWidget({
+  const BottomConnectionActionWidget({
     super.key,
     required this.buttonTitle,
     this.onPressed,
@@ -15,10 +15,10 @@ class BottomActionWidget extends StatefulWidget {
   });
 
   @override
-  State<BottomActionWidget> createState() => _BottomActionWidgetState();
+  State<BottomConnectionActionWidget> createState() => _BottomConnectionActionWidgetState();
 }
 
-class _BottomActionWidgetState extends State<BottomActionWidget> {
+class _BottomConnectionActionWidgetState extends State<BottomConnectionActionWidget> {
   String _versionString = '';
 
   @override
