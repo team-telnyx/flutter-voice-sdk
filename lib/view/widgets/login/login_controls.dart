@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
-import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
-import 'package:telnyx_flutter_webrtc/view/widgets/common/bottom_action_widget.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/bottom_sheet/profile_switcher_bottom_sheet.dart';
-import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class LoginControls extends StatefulWidget {
   const LoginControls({super.key});
@@ -47,8 +44,9 @@ class _LoginControlsState extends State<LoginControls> {
               const SizedBox(height: spacingXS),
               Row(
                 children: <Widget>[
-                  Text(selectedProfile?.sipCallerIDName ??
-                      'No profile selected'),
+                  Text(
+                    selectedProfile?.sipCallerIDName ?? 'No profile selected',
+                  ),
                   const SizedBox(width: spacingXXXXXL),
                   OutlinedButton(
                     onPressed: _showProfileSwitcher,
@@ -62,26 +60,6 @@ class _LoginControlsState extends State<LoginControls> {
                 ],
               ),
             ],
-          ),
-
-          // Bottom action widget positioned at the bottom
-          Consumer<TelnyxClientViewModel>(
-            builder: (context, viewModel, child) {
-              return BottomActionWidget(
-                buttonTitle: 'Connect',
-                isLoading: viewModel.loggingIn,
-                onPressed: selectedProfile != null
-                    ? () async {
-                        final config = await selectedProfile.toTelnyxConfig();
-                        if (config is TokenConfig) {
-                          viewModel.loginWithToken(config);
-                        } else if (config is CredentialConfig) {
-                          viewModel.login(config);
-                        }
-                      }
-                    : null,
-              );
-            },
           ),
         ],
       ),
