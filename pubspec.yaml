@@ -2,7 +2,7 @@ name: telnyx_flutter_webrtc
 description: Telnyx's Dart and Flutter based WebRTC solution
 
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0
 
 environment:
   sdk: ">=3.0.0 <3.22.3"
@@ -43,6 +43,8 @@ flutter:
     - assets/launcher.png
     - assets/images/
     - assets/icons/
+    - pubspec.yaml
+    - packages/telnyx_webrtc/pubspec.yaml
 
 patrol:
   app_name: Telnyx Flutter WebRTC

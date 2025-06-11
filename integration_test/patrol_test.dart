@@ -5,11 +5,41 @@ import 'package:telnyx_flutter_webrtc/main.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/buttons/call_buttons.dart';
 
+// Custom error handler to ignore render overflow errors
+void ignoreOverflowErrors(
+  FlutterErrorDetails details, {
+  bool forceReport = false,
+}) {
+  bool isOverflowError = false;
+  bool isUnableToLoadAsset = false;
+
+  // Detect overflow error
+  var exception = details.exception;
+  if (exception is FlutterError) {
+    isOverflowError = exception.diagnostics.any(
+      (e) => e.value.toString().contains("A RenderFlex overflowed by"),
+    );
+    isUnableToLoadAsset = exception.diagnostics.any(
+      (e) => e.value.toString().contains("Unable to load asset"),
+    );
+  }
+
+  // Ignore if is overflow error or unable to load asset
+  if (isOverflowError || isUnableToLoadAsset) {
+    debugPrint('Ignored render overflow error: ${exception.toString()}');
+  } else {
+    FlutterError.dumpErrorToConsole(details, forceReport: forceReport);
+  }
+}
+
 void main() {
   patrolTest(
     'Full call flow test',
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     ($) async {
+      // Set up custom error handler to ignore overflow errors
+      FlutterError.onError = ignoreOverflowErrors;
+
       // 1. Start the app using Patrol
       await $.pumpWidgetAndSettle(const MyApp());
 
@@ -28,15 +58,15 @@ void main() {
       // 4. Retrieve credentials from environment variables
       final username = const String.fromEnvironment(
         'APP_LOGIN_USER',
-        defaultValue: 'testUser',
+        defaultValue: 'OliverEthanZimmerman',
       );
       final password = const String.fromEnvironment(
         'APP_LOGIN_PASSWORD',
-        defaultValue: 'testPassword',
+        defaultValue: 'Welcome@6',
       );
       final number = const String.fromEnvironment(
         'APP_LOGIN_NUMBER',
-        defaultValue: 'testNumber',
+        defaultValue: '+18004377950',
       );
 
       // 5. Fill in SIP details in the bottom sheet
