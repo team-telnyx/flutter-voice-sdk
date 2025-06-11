@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/model/profile_model.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
+import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 
 class AddProfileForm extends StatefulWidget {
   final Profile? existingProfile;
@@ -17,6 +18,7 @@ class AddProfileForm extends StatefulWidget {
 
 class _AddProfileFormState extends State<AddProfileForm> {
   bool _isTokenLogin = false;
+  bool _isPasswordVisible = false;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _tokenController = TextEditingController();
@@ -60,6 +62,85 @@ class _AddProfileFormState extends State<AddProfileForm> {
     _isTokenLogin = false;
   }
 
+  Widget _buildFieldTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: spacingXS),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCredentialToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isTokenLogin = false;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
+                decoration: BoxDecoration(
+                  color: !_isTokenLogin ? active_text_field_color : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Credential Login',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: !_isTokenLogin ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _isTokenLogin = true;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
+                decoration: BoxDecoration(
+                  color: _isTokenLogin ? active_text_field_color : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Token Login',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _isTokenLogin ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -69,26 +150,13 @@ class _AddProfileFormState extends State<AddProfileForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: spacingM),
-          Row(
-            children: [
-              Switch(
-                value: _isTokenLogin,
-                onChanged: (value) {
-                  setState(() {
-                    _isTokenLogin = value;
-                  });
-                },
-              ),
-              const SizedBox(width: spacingS),
-              Text(_isTokenLogin ? 'Token Login' : 'Credential Login'),
-            ],
-          ),
-          const SizedBox(height: spacingM),
-          if (_isTokenLogin)
+          _buildCredentialToggle(),
+          const SizedBox(height: spacingL),
+          if (_isTokenLogin) ...[
+            _buildFieldTitle('Token'),
             TextFormField(
               controller: _tokenController,
               decoration: const InputDecoration(
-                labelText: 'Token',
                 hintText: 'Enter your token',
               ),
               validator: (value) {
@@ -97,45 +165,52 @@ class _AddProfileFormState extends State<AddProfileForm> {
                 }
                 return null;
               },
-            )
-          else
-            Column(
-              children: [
-                TextFormField(
-                  controller: _sipUserController,
-                  decoration: const InputDecoration(
-                    labelText: 'SIP Username',
-                    hintText: 'Enter your SIP username',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a SIP username';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: spacingS),
-                TextFormField(
-                  controller: _sipPasswordController,
-                  decoration: const InputDecoration(
-                    labelText: 'SIP Password',
-                    hintText: 'Enter your SIP password',
-                  ),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a SIP password';
-                    }
-                    return null;
-                  },
-                ),
-              ],
             ),
+          ] else ...[
+            _buildFieldTitle('SIP Username'),
+            TextFormField(
+              controller: _sipUserController,
+              decoration: const InputDecoration(
+                hintText: 'Enter your SIP username',
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a SIP username';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: spacingM),
+            _buildFieldTitle('SIP Password'),
+            TextFormField(
+              controller: _sipPasswordController,
+              decoration: InputDecoration(
+                hintText: 'Enter your SIP password',
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                ),
+              ),
+              obscureText: !_isPasswordVisible,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a SIP password';
+                }
+                return null;
+              },
+            ),
+          ],
           const SizedBox(height: spacingM),
+          _buildFieldTitle('Caller ID Name'),
           TextFormField(
             controller: _sipCallerIDNameController,
             decoration: const InputDecoration(
-              labelText: 'Caller ID Name',
               hintText: 'Enter your caller ID name',
             ),
             validator: (value) {
@@ -145,12 +220,12 @@ class _AddProfileFormState extends State<AddProfileForm> {
               return null;
             },
           ),
-          const SizedBox(height: spacingS),
+          const SizedBox(height: spacingM),
+          _buildFieldTitle('Caller ID Number'),
           TextFormField(
             controller: _sipCallerIDNumberController,
             keyboardType: TextInputType.phone,
             decoration: const InputDecoration(
-              labelText: 'Caller ID Number',
               hintText: 'Enter your caller ID number',
             ),
             validator: (value) {
@@ -162,7 +237,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
           ),
           const SizedBox(height: spacingL),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               TextButton(
                 onPressed: () {
