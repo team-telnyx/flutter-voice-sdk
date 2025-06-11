@@ -3,6 +3,162 @@ import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/model/profile_model.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
+import 'package:telnyx_flutter_webrtc/utils/theme.dart';
+
+class CustomFormField extends StatefulWidget {
+  final String title;
+  final TextEditingController controller;
+  final String hintText;
+  final String? Function(String?)? validator;
+  final bool isPassword;
+  final TextInputType? keyboardType;
+
+  const CustomFormField({
+    Key? key,
+    required this.title,
+    required this.controller,
+    required this.hintText,
+    this.validator,
+    this.isPassword = false,
+    this.keyboardType,
+  }) : super(key: key);
+
+  @override
+  State<CustomFormField> createState() => _CustomFormFieldState();
+}
+
+class _CustomFormFieldState extends State<CustomFormField> {
+  bool _isPasswordVisible = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: spacingXS),
+          child: Text(
+            widget.title,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        TextFormField(
+          controller: widget.controller,
+          keyboardType: widget.keyboardType,
+          obscureText: widget.isPassword && !_isPasswordVisible,
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            suffixIcon: widget.isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  )
+                : null,
+          ),
+          validator: widget.validator,
+        ),
+      ],
+    );
+  }
+}
+
+class FieldTitle extends StatelessWidget {
+  final String title;
+
+  const FieldTitle({Key? key, required this.title}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: spacingXS),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class CredentialToggle extends StatelessWidget {
+  final bool isTokenLogin;
+  final ValueChanged<bool> onToggleChanged;
+
+  const CredentialToggle({
+    Key? key,
+    required this.isTokenLogin,
+    required this.onToggleChanged,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onToggleChanged(false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
+                decoration: BoxDecoration(
+                  color: !isTokenLogin ? active_text_field_color : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Credential Login',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: !isTokenLogin ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onToggleChanged(true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
+                decoration: BoxDecoration(
+                  color: isTokenLogin ? active_text_field_color : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Token Login',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isTokenLogin ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class AddProfileForm extends StatefulWidget {
   final Profile? existingProfile;
@@ -69,75 +225,58 @@ class _AddProfileFormState extends State<AddProfileForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: spacingM),
-          Row(
-            children: [
-              Switch(
-                value: _isTokenLogin,
-                onChanged: (value) {
-                  setState(() {
-                    _isTokenLogin = value;
-                  });
-                },
-              ),
-              const SizedBox(width: spacingS),
-              Text(_isTokenLogin ? 'Token Login' : 'Credential Login'),
-            ],
+          CredentialToggle(
+            isTokenLogin: _isTokenLogin,
+            onToggleChanged: (value) {
+              setState(() {
+                _isTokenLogin = value;
+              });
+            },
           ),
-          const SizedBox(height: spacingM),
-          if (_isTokenLogin)
-            TextFormField(
+          const SizedBox(height: spacingL),
+          if (_isTokenLogin) ...[
+            CustomFormField(
+              title: 'Token',
               controller: _tokenController,
-              decoration: const InputDecoration(
-                labelText: 'Token',
-                hintText: 'Enter your token',
-              ),
+              hintText: 'Enter your token',
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter a token';
                 }
                 return null;
               },
-            )
-          else
-            Column(
-              children: [
-                TextFormField(
-                  controller: _sipUserController,
-                  decoration: const InputDecoration(
-                    labelText: 'SIP Username',
-                    hintText: 'Enter your SIP username',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a SIP username';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: spacingS),
-                TextFormField(
-                  controller: _sipPasswordController,
-                  decoration: const InputDecoration(
-                    labelText: 'SIP Password',
-                    hintText: 'Enter your SIP password',
-                  ),
-                  obscureText: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a SIP password';
-                    }
-                    return null;
-                  },
-                ),
-              ],
             ),
+          ] else ...[
+            CustomFormField(
+              title: 'SIP Username',
+              controller: _sipUserController,
+              hintText: 'Enter your SIP username',
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a SIP username';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: spacingM),
+            CustomFormField(
+              title: 'SIP Password',
+              controller: _sipPasswordController,
+              hintText: 'Enter your SIP password',
+              isPassword: true,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a SIP password';
+                }
+                return null;
+              },
+            ),
+          ],
           const SizedBox(height: spacingM),
-          TextFormField(
+          CustomFormField(
+            title: 'Caller ID Name',
             controller: _sipCallerIDNameController,
-            decoration: const InputDecoration(
-              labelText: 'Caller ID Name',
-              hintText: 'Enter your caller ID name',
-            ),
+            hintText: 'Enter your caller ID name',
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a caller ID name';
@@ -145,14 +284,12 @@ class _AddProfileFormState extends State<AddProfileForm> {
               return null;
             },
           ),
-          const SizedBox(height: spacingS),
-          TextFormField(
+          const SizedBox(height: spacingM),
+          CustomFormField(
+            title: 'Caller ID Number',
             controller: _sipCallerIDNumberController,
+            hintText: 'Enter your caller ID number',
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Caller ID Number',
-              hintText: 'Enter your caller ID number',
-            ),
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a caller ID number';
@@ -162,8 +299,9 @@ class _AddProfileFormState extends State<AddProfileForm> {
           ),
           const SizedBox(height: spacingL),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
+              const Spacer(),
               TextButton(
                 onPressed: () {
                   setState(() {
