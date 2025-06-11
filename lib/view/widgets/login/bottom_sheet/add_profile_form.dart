@@ -5,6 +5,96 @@ import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 
+class FieldTitle extends StatelessWidget {
+  final String title;
+
+  const FieldTitle({Key? key, required this.title}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: spacingXS),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class CredentialToggle extends StatelessWidget {
+  final bool isTokenLogin;
+  final ValueChanged<bool> onToggleChanged;
+
+  const CredentialToggle({
+    Key? key,
+    required this.isTokenLogin,
+    required this.onToggleChanged,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onToggleChanged(false),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
+                decoration: BoxDecoration(
+                  color: !isTokenLogin ? active_text_field_color : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Credential Login',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: !isTokenLogin ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onToggleChanged(true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
+                decoration: BoxDecoration(
+                  color: isTokenLogin ? active_text_field_color : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'Token Login',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: isTokenLogin ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class AddProfileForm extends StatefulWidget {
   final Profile? existingProfile;
   final VoidCallback onCancelPressed;
@@ -62,85 +152,6 @@ class _AddProfileFormState extends State<AddProfileForm> {
     _isTokenLogin = false;
   }
 
-  Widget _buildFieldTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: spacingXS),
-      child: Text(
-        title,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCredentialToggle() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isTokenLogin = false;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
-                decoration: BoxDecoration(
-                  color: !_isTokenLogin ? active_text_field_color : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(8),
-                    bottomLeft: Radius.circular(8),
-                  ),
-                ),
-                child: Text(
-                  'Credential Login',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: !_isTokenLogin ? Colors.white : Colors.black,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _isTokenLogin = true;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
-                decoration: BoxDecoration(
-                  color: _isTokenLogin ? active_text_field_color : Colors.transparent,
-                  borderRadius: const BorderRadius.only(
-                    topRight: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
-                  ),
-                ),
-                child: Text(
-                  'Token Login',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: _isTokenLogin ? Colors.white : Colors.black,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -150,10 +161,17 @@ class _AddProfileFormState extends State<AddProfileForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: spacingM),
-          _buildCredentialToggle(),
+          CredentialToggle(
+            isTokenLogin: _isTokenLogin,
+            onToggleChanged: (value) {
+              setState(() {
+                _isTokenLogin = value;
+              });
+            },
+          ),
           const SizedBox(height: spacingL),
           if (_isTokenLogin) ...[
-            _buildFieldTitle('Token'),
+            const FieldTitle(title: 'Token'),
             TextFormField(
               controller: _tokenController,
               decoration: const InputDecoration(
@@ -167,7 +185,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               },
             ),
           ] else ...[
-            _buildFieldTitle('SIP Username'),
+            const FieldTitle(title: 'SIP Username'),
             TextFormField(
               controller: _sipUserController,
               decoration: const InputDecoration(
@@ -181,7 +199,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               },
             ),
             const SizedBox(height: spacingM),
-            _buildFieldTitle('SIP Password'),
+            const FieldTitle(title: 'SIP Password'),
             TextFormField(
               controller: _sipPasswordController,
               decoration: InputDecoration(
@@ -207,7 +225,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
             ),
           ],
           const SizedBox(height: spacingM),
-          _buildFieldTitle('Caller ID Name'),
+          const FieldTitle(title: 'Caller ID Name'),
           TextFormField(
             controller: _sipCallerIDNameController,
             decoration: const InputDecoration(
@@ -221,7 +239,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
             },
           ),
           const SizedBox(height: spacingM),
-          _buildFieldTitle('Caller ID Number'),
+          const FieldTitle(title: 'Caller ID Number'),
           TextFormField(
             controller: _sipCallerIDNumberController,
             keyboardType: TextInputType.phone,
@@ -239,6 +257,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
+              const Spacer(),
               TextButton(
                 onPressed: () {
                   setState(() {
