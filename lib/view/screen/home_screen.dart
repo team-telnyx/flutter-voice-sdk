@@ -44,7 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
       case 'Disable Push Notifications':
-        Provider.of<TelnyxClientViewModel>(context, listen: false).disablePushNotifications();
+        Provider.of<TelnyxClientViewModel>(context, listen: false)
+            .disablePushNotifications();
         break;
     }
   }
@@ -63,7 +64,8 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Logout', 'Export Logs', 'Disable Push Notifications'}.map((String choice) {
+                return {'Logout', 'Export Logs', 'Disable Push Notifications'}
+                    .map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
@@ -73,25 +75,19 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(spacingXXL),
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    const ControlHeaders(),
-                    const SizedBox(height: spacingS),
-                    if (clientState == CallStateStatus.disconnected)
-                      const LoginControls()
-                    else
-                      const CallControls(),
-                  ],
-                ),
-              ),
-            ),
-          ],
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(spacingXXL),
+          child: Column(
+            children: [
+              const ControlHeaders(),
+              const SizedBox(height: spacingS),
+              if (clientState == CallStateStatus.disconnected)
+                const LoginControls()
+              else
+                const CallControls(),
+            ],
+          ),
         ),
       ),
     );
