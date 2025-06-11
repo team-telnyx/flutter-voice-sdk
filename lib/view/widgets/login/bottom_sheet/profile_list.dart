@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/model/profile_model.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
+import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
 
 class ProfileList extends StatelessWidget {
   final void Function(Profile) onProfileEditSelected;
@@ -44,12 +46,20 @@ class ProfileList extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.edit),
+                    icon: SvgPicture.asset(
+                      edit_icon,
+                      width: 16,
+                      height: 16,
+                    ),
                     onPressed: () =>
                       onProfileEditSelected(profile),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete),
+                    icon: SvgPicture.asset(
+                      delete_icon,
+                      width: 16,
+                      height: 16,
+                    ),
                     onPressed: () =>
                         provider.removeProfile(profile.sipCallerIDName),
                   ),
