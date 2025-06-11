@@ -138,8 +138,8 @@ class _CallControlsState extends State<CallControls> {
             decoration: InputDecoration(
               hintStyle: Theme.of(context).textTheme.labelSmall,
               hintText: _isPhoneNumber 
-                  ? '+E164 phone number (e.g., +35387718911)'
-                  : 'SIP address (e.g., squadwebrtc)',
+                  ? '+E164 phone number'
+                  : 'SIP address',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(spacingS),
               ),
