@@ -5,6 +5,71 @@ import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 
+class CustomFormField extends StatefulWidget {
+  final String title;
+  final TextEditingController controller;
+  final String hintText;
+  final String? Function(String?)? validator;
+  final bool isPassword;
+  final TextInputType? keyboardType;
+
+  const CustomFormField({
+    Key? key,
+    required this.title,
+    required this.controller,
+    required this.hintText,
+    this.validator,
+    this.isPassword = false,
+    this.keyboardType,
+  }) : super(key: key);
+
+  @override
+  State<CustomFormField> createState() => _CustomFormFieldState();
+}
+
+class _CustomFormFieldState extends State<CustomFormField> {
+  bool _isPasswordVisible = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: spacingXS),
+          child: Text(
+            widget.title,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        TextFormField(
+          controller: widget.controller,
+          keyboardType: widget.keyboardType,
+          obscureText: widget.isPassword && !_isPasswordVisible,
+          decoration: InputDecoration(
+            hintText: widget.hintText,
+            suffixIcon: widget.isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _isPasswordVisible = !_isPasswordVisible;
+                      });
+                    },
+                  )
+                : null,
+          ),
+          validator: widget.validator,
+        ),
+      ],
+    );
+  }
+}
+
 class FieldTitle extends StatelessWidget {
   final String title;
 
@@ -108,7 +173,6 @@ class AddProfileForm extends StatefulWidget {
 
 class _AddProfileFormState extends State<AddProfileForm> {
   bool _isTokenLogin = false;
-  bool _isPasswordVisible = false;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _tokenController = TextEditingController();
@@ -171,12 +235,10 @@ class _AddProfileFormState extends State<AddProfileForm> {
           ),
           const SizedBox(height: spacingL),
           if (_isTokenLogin) ...[
-            const FieldTitle(title: 'Token'),
-            TextFormField(
+            CustomFormField(
+              title: 'Token',
               controller: _tokenController,
-              decoration: const InputDecoration(
-                hintText: 'Enter your token',
-              ),
+              hintText: 'Enter your token',
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter a token';
@@ -185,12 +247,10 @@ class _AddProfileFormState extends State<AddProfileForm> {
               },
             ),
           ] else ...[
-            const FieldTitle(title: 'SIP Username'),
-            TextFormField(
+            CustomFormField(
+              title: 'SIP Username',
               controller: _sipUserController,
-              decoration: const InputDecoration(
-                hintText: 'Enter your SIP username',
-              ),
+              hintText: 'Enter your SIP username',
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter a SIP username';
@@ -199,23 +259,11 @@ class _AddProfileFormState extends State<AddProfileForm> {
               },
             ),
             const SizedBox(height: spacingM),
-            const FieldTitle(title: 'SIP Password'),
-            TextFormField(
+            CustomFormField(
+              title: 'SIP Password',
               controller: _sipPasswordController,
-              decoration: InputDecoration(
-                hintText: 'Enter your SIP password',
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isPasswordVisible = !_isPasswordVisible;
-                    });
-                  },
-                ),
-              ),
-              obscureText: !_isPasswordVisible,
+              hintText: 'Enter your SIP password',
+              isPassword: true,
               validator: (value) {
                 if (value == null || value.isEmpty) {
                   return 'Please enter a SIP password';
@@ -225,12 +273,10 @@ class _AddProfileFormState extends State<AddProfileForm> {
             ),
           ],
           const SizedBox(height: spacingM),
-          const FieldTitle(title: 'Caller ID Name'),
-          TextFormField(
+          CustomFormField(
+            title: 'Caller ID Name',
             controller: _sipCallerIDNameController,
-            decoration: const InputDecoration(
-              hintText: 'Enter your caller ID name',
-            ),
+            hintText: 'Enter your caller ID name',
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a caller ID name';
@@ -239,13 +285,11 @@ class _AddProfileFormState extends State<AddProfileForm> {
             },
           ),
           const SizedBox(height: spacingM),
-          const FieldTitle(title: 'Caller ID Number'),
-          TextFormField(
+          CustomFormField(
+            title: 'Caller ID Number',
             controller: _sipCallerIDNumberController,
+            hintText: 'Enter your caller ID number',
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              hintText: 'Enter your caller ID number',
-            ),
             validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter a caller ID number';
