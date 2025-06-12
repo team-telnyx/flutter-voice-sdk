@@ -289,10 +289,23 @@ class TelnyxClient {
     CredentialConfig? credentialConfig,
     TokenConfig? tokenConfig,
   ) {
-    GlobalLogger().i(
-        'TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}');
-    _isCallFromPush = true;
+    GlobalLogger().i('TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}');
 
+    if (pushMetaData.isDecline == true) {
+      GlobalLogger().i('TelnyxClient.handlePushNotification: Decline case - using simplified decline logic with decline_push parameter');
+      // For decline, we use a simplified approach: connect, login with decline_push=true, then disconnect
+      _connectWithCallBack(pushMetaData, () {
+        if (credentialConfig != null) {
+          _credentialLoginWithDecline(credentialConfig);
+        } else if (tokenConfig != null) {
+          _tokenLoginWithDecline(tokenConfig);
+        }
+      });
+      return;
+    }
+
+    // For accept and normal cases, use the existing logic
+    _isCallFromPush = true;
     if (pushMetaData.isAnswer == true) {
       GlobalLogger().i(
           'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true');
@@ -302,21 +315,90 @@ class TelnyxClient {
           'TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false');
     }
 
-    if (pushMetaData.isDecline == true) {
-      GlobalLogger().i(
-          'TelnyxClient.handlePushNotification: _pendingDeclineFromPush will be set to true');
-      _pendingDeclineFromPush = true;
-    } else {
-      GlobalLogger().i(
-          'TelnyxClient.handlePushNotification: _pendingDeclineFromPush remains false');
-    }
-
     _connectWithCallBack(pushMetaData, () {
       if (credentialConfig != null) {
         credentialLogin(credentialConfig);
       } else if (tokenConfig != null) {
         tokenLogin(tokenConfig);
       }
+    });
+  }
+
+  /// Internal method for credential login with decline_push parameter
+  void _credentialLoginWithDecline(CredentialConfig config) {
+    GlobalLogger().i('TelnyxClient._credentialLoginWithDecline: Sending login with decline_push=true');
+    final uuid = const Uuid().v4();
+    final user = config.sipUser;
+    final password = config.sipPassword;
+    final notificationToken = config.notificationToken;
+    UserVariables? notificationParams;
+
+    notificationParams = UserVariables(
+      pushDeviceToken: notificationToken,
+      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+    );
+  
+    final loginParams = LoginParams(
+      login: user,
+      passwd: password,
+      loginParams: {
+        'decline_push': 'true',
+      },
+      sessionId: sessid,
+      userVariables: notificationParams,
+    );
+    final loginMessage = LoginMessage(
+      id: uuid,
+      method: SocketMethod.login,
+      params: loginParams,
+      jsonrpc: JsonRPCConstant.jsonrpc,
+    );
+
+    final String jsonLoginMessage = jsonEncode(loginMessage);
+    txSocket.send(jsonLoginMessage);
+    
+    // Disconnect after sending the decline login message
+    Timer(const Duration(milliseconds: 1000), () {
+      GlobalLogger().i('TelnyxClient._credentialLoginWithDecline: Disconnecting after decline login');
+      disconnect();
+    });
+  }
+
+  /// Internal method for token login with decline_push parameter
+  void _tokenLoginWithDecline(TokenConfig config) {
+    GlobalLogger().i('TelnyxClient._tokenLoginWithDecline: Sending login with decline_push=true');
+    final uuid = const Uuid().v4();
+    final token = config.sipToken;
+    final notificationToken = config.notificationToken;
+    UserVariables? notificationParams;
+
+    notificationParams = UserVariables(
+      pushDeviceToken: notificationToken,
+      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+    );
+
+    final loginParams = LoginParams(
+      loginToken: token,
+      loginParams: {
+        'decline_push': 'true',
+      },
+      userVariables: notificationParams,
+      sessionId: sessid,
+    );
+    final loginMessage = LoginMessage(
+      id: uuid,
+      method: SocketMethod.login,
+      params: loginParams,
+      jsonrpc: JsonRPCConstant.jsonrpc,
+    );
+
+    final String jsonLoginMessage = jsonEncode(loginMessage);
+    txSocket.send(jsonLoginMessage);
+    
+    // Disconnect after sending the decline login message
+    Timer(const Duration(milliseconds: 1000), () {
+      GlobalLogger().i('TelnyxClient._tokenLoginWithDecline: Disconnecting after decline login');
+      disconnect();
     });
   }
 
@@ -637,10 +719,9 @@ class TelnyxClient {
     final loginParams = LoginParams(
       login: user,
       passwd: password,
-      loginParams: [],
+      loginParams: {'attach_call': 'true'},
       sessionId: sessid,
       userVariables: notificationParams,
-      attachCall: 'true',
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -689,10 +770,9 @@ class TelnyxClient {
 
     final loginParams = LoginParams(
       loginToken: token,
-      loginParams: [],
+      loginParams: {'attach_call': 'true'},
       userVariables: notificationParams,
       sessionId: sessid,
-      attachCall: 'true',
     );
     final loginMessage = LoginMessage(
       id: uuid,
