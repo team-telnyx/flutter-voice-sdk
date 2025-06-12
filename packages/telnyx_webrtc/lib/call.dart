@@ -190,8 +190,8 @@ class Call {
 
     final String jsonByeMessage = jsonEncode(byeMessage);
 
-    if (_txClient.gatewayState != GatewayState.reged ||
-        _txClient.gatewayState != GatewayState.idle ||
+    if (_txClient.gatewayState != GatewayState.reged &&
+        _txClient.gatewayState != GatewayState.idle &&
         _txClient.gatewayState != GatewayState.attached) {
       GlobalLogger()
           .d('Session end gateway not registered ${_txClient.gatewayState}');
