@@ -13,6 +13,7 @@
 enum LogLevel {
   /// Disable logs. SDK logs will not be printed.
   none(8),
+
   /// Print error logs only.
   error(6),
 

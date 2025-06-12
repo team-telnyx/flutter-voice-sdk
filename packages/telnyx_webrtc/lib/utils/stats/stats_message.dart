@@ -47,8 +47,8 @@ class DebugReportDataMessage extends StatsMessage {
     required super.reportId,
     required this.reportData,
   }) : super(
-    type: 'debug_report_data',
-  );
+          type: 'debug_report_data',
+        );
 
   @override
   Map<String, dynamic> toJson() {
@@ -57,4 +57,3 @@ class DebugReportDataMessage extends StatsMessage {
     return json;
   }
 }
-

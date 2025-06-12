@@ -304,12 +304,13 @@ class TelnyxClient {
 
     // For accept and normal cases, use the existing logic
     _isCallFromPush = true;
-
     if (pushMetaData.isAnswer == true) {
-      GlobalLogger().i('TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true');
+      GlobalLogger().i(
+          'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true');
       _pendingAnswerFromPush = true;
     } else {
-      GlobalLogger().i('TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false');
+      GlobalLogger().i(
+          'TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false');
     }
 
     _connectWithCallBack(pushMetaData, () {
@@ -429,7 +430,8 @@ class TelnyxClient {
     PushMetaData? pushMetaData,
     OnOpenCallback openCallback,
   ) {
-    GlobalLogger().i('TelnyxClient._connectWithCallBack: Called. PushMetaData: ${pushMetaData?.toJson()}');
+    GlobalLogger().i(
+        'TelnyxClient._connectWithCallBack: Called. PushMetaData: ${pushMetaData?.toJson()}');
     if (pushMetaData != null) {
       _pushMetaData = pushMetaData;
     }
@@ -442,14 +444,16 @@ class TelnyxClient {
         );
       } else {
         txSocket.hostAddress = _storedHostAddress;
-        GlobalLogger().i('TelnyxClient._connectWithCallBack: connecting to WebSocket $_storedHostAddress');
+        GlobalLogger().i(
+            'TelnyxClient._connectWithCallBack: connecting to WebSocket $_storedHostAddress');
       }
       txSocket
         ..connect()
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('TelnyxClient._connectWithCallBack (via _onOpen): Web Socket is now connected');
+          GlobalLogger().i(
+              'TelnyxClient._connectWithCallBack (via _onOpen): Web Socket is now connected');
           _onOpen();
           openCallback.call();
         }
@@ -495,7 +499,8 @@ class TelnyxClient {
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected');
+          GlobalLogger().i(
+              'TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected');
           _onOpen();
           tokenLogin(tokenConfig);
         }
@@ -521,7 +526,8 @@ class TelnyxClient {
     // Use custom logger if provided or fallback to default.
     _logger = credentialConfig.customLogger ?? DefaultLogger();
     GlobalLogger.logger = _logger;
-    GlobalLogger().i('TelnyxClient.connectWithCredential: Attempting to connect.');
+    GlobalLogger()
+        .i('TelnyxClient.connectWithCredential: Attempting to connect.');
 
     // Now that a logger is set, we can set the log level
     _logger
@@ -542,7 +548,8 @@ class TelnyxClient {
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          GlobalLogger().i('TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected');
+          GlobalLogger().i(
+              'TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected');
           _onOpen();
           credentialLogin(credentialConfig);
         }
@@ -970,7 +977,8 @@ class TelnyxClient {
 
   /// WebSocket Event Handlers
   void _onOpen() {
-    GlobalLogger().i('TelnyxClient._onOpen: WebSocket connected event triggered.');
+    GlobalLogger()
+        .i('TelnyxClient._onOpen: WebSocket connected event triggered.');
   }
 
   void _onClose(bool wasClean, int code, String reason) {
@@ -981,7 +989,8 @@ class TelnyxClient {
   }
 
   void _onMessage(dynamic data) async {
-    GlobalLogger().i('TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString().trim()}');
+    GlobalLogger().i(
+        'TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString().trim()}');
 
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
