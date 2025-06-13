@@ -86,13 +86,13 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
                _logger.w('[PushNotificationHandler-iOS] actionCallDecline: Could not end CallKit call without ID.');
             }
           } else {
-            _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Metadata present. Using temporary client for decline. Metadata: $metadata');
+            _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Metadata present. Using simplified decline logic with decline_push parameter. Metadata: $metadata');
             var decodedMetadata = metadata;
             if (metadata is String) {
               try {
                 decodedMetadata = jsonDecode(metadata);
               } catch (e) {
-                _logger.e('[PushNotificationHandler-iOS] actionCallDecline: Error decoding metadata JSON: $e.');
+                _logger.e('[PushNotificationHandler-iOS] actionCallDecline: Error decoding metadata JSON: $e. Unable to process decline.');
                 return;
               }
             }
@@ -100,16 +100,6 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
             final Map<dynamic, dynamic> eventData = Map<dynamic, dynamic>.from(decodedMetadata as Map);
             final PushMetaData pushMetaData = PushMetaData.fromJson(eventData)..isDecline = true;
             final tempDeclineClient = TelnyxClient();
-            tempDeclineClient..onSocketMessageReceived = (TelnyxMessage msg) {
-              if (msg.socketMethod == SocketMethod.bye) {
-                _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Temp client received BYE, disconnecting.');
-                tempDeclineClient.disconnect();
-              }
-            }
-            ..onSocketErrorReceived = (TelnyxSocketError error) {
-                _logger.e('[PushNotificationHandler-iOS] actionCallDecline: Temp client error: ${error.errorMessage}');
-                tempDeclineClient.disconnect();
-            };
             final config = await ConfigHelper.getTelnyxConfigFromPrefs();
             _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Temp client attempting to handlePushNotification. Config :: $config');
             if (config != null) {

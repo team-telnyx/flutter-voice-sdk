@@ -190,9 +190,11 @@ class Call {
 
     final String jsonByeMessage = jsonEncode(byeMessage);
 
-    if (_txClient.gatewayState != GatewayState.reged) {
+    if (_txClient.gatewayState != GatewayState.reged &&
+        _txClient.gatewayState != GatewayState.idle &&
+        _txClient.gatewayState != GatewayState.attached) {
       GlobalLogger()
-          .d('Session end gateway not  registered ${_txClient.gatewayState}');
+          .d('Session end gateway not registered ${_txClient.gatewayState}');
       return;
     } else {
       GlobalLogger().d('Session end peer connection null');

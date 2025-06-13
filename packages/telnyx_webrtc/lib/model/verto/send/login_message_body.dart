@@ -31,11 +31,11 @@ class LoginMessage {
 class LoginParams {
   String? login;
   String? loginToken;
-  List<String>? loginParams;
+  Map<String, String>? loginParams;
   String? passwd;
   UserVariables? userVariables;
   String? sessionId;
-  String? attachCall = 'true';
+  
   LoginParams({
     this.login,
     this.loginToken,
@@ -43,19 +43,16 @@ class LoginParams {
     this.passwd,
     this.userVariables,
     this.sessionId,
-    this.attachCall,
   });
 
   LoginParams.fromJson(Map<String, dynamic> json) {
     login = json['login'];
     loginToken = json['login_token'];
-    attachCall = 'true';
+    
     if (json['loginParams'] != null) {
-      loginParams = <String>[];
-      json['loginParams'].forEach((v) {
-        loginParams!.add((v));
-      });
+      loginParams = Map<String, String>.from(json['loginParams']);
     }
+    
     passwd = json['passwd'];
     sessionId = json['sessid'];
     userVariables = json['userVariables'] != null
@@ -70,11 +67,10 @@ class LoginParams {
       data['login_token'] = loginToken;
     }
     if (loginParams != null) {
-      data['loginParams'] = loginParams!.map((v) => v).toList();
+      data['loginParams'] = loginParams;
     }
     data['passwd'] = passwd;
     data['sessid'] = sessionId;
-    data['attachCall'] = attachCall;
     if (userVariables != null) {
       data['userVariables'] = userVariables!.toJson();
     }

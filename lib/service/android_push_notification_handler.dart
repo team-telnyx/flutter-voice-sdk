@@ -11,9 +11,6 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/call_event.dart';
-import 'package:telnyx_webrtc/model/socket_method.dart';
-import 'package:telnyx_webrtc/model/telnyx_message.dart';
-import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
@@ -65,28 +62,14 @@ Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
                 jsonDecode(message.data['metadata']);
             final PushMetaData pushMetaData = PushMetaData.fromJson(metadataMap)
               ..isDecline = true;
+            
+            // Use simplified decline logic with decline_push parameter
             final tempDeclineClient = TelnyxClient();
-            tempDeclineClient
-              ..onSocketMessageReceived = (TelnyxMessage msg) {
-                if (msg.socketMethod == SocketMethod.bye) {
-                  _backgroundLogger.i(
-                    '[AndroidBackgroundHandler] Temp client received BYE, disconnecting.',
-                  );
-                  tempDeclineClient.disconnect();
-                }
-              }
-              ..onSocketErrorReceived = (TelnyxSocketError error) {
-                _backgroundLogger.e(
-                  '[AndroidBackgroundHandler] Temp client error: ${error.errorMessage}',
-                );
-                tempDeclineClient.disconnect();
-              };
-
-            // Use the ConfigHelper to get the config
             final config = await ConfigHelper.getTelnyxConfigFromPrefs();
             if (config != null) {
-              _backgroundLogger
-                  .i('[AndroidBackgroundHandler] Found config for decline.');
+              _backgroundLogger.i(
+                '[AndroidBackgroundHandler] Using simplified decline logic with decline_push parameter.',
+              );
               tempDeclineClient.handlePushNotification(
                 pushMetaData,
                 config is CredentialConfig ? config : null,
@@ -132,13 +115,14 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
     _logger.i('[PushNotificationHandler-Android] Initialize');
     await _createNotificationChannel();
     _setupFCMListeners();
-    await _configureFCMForegroundHandling(); 
+    await _configureFCMForegroundHandling();
     _setupCallKitListener();
     _logger.i('[PushNotificationHandler-Android] Initialize complete.');
   }
 
   Future<void> _createNotificationChannel() async {
-    _logger.i('[PushNotificationHandler-Android] Creating notification channel...');
+    _logger.i(
+        '[PushNotificationHandler-Android] Creating notification channel...');
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'telnyx_call_channel', // id
       'Incoming Calls', // name
@@ -156,20 +140,25 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
-      _logger.i('[PushNotificationHandler-Android] High importance notification channel created/updated.');
+      _logger.i(
+          '[PushNotificationHandler-Android] High importance notification channel created/updated.');
     } catch (e) {
-      _logger.e('[PushNotificationHandler-Android] Failed to create notification channel: $e');
+      _logger.e(
+          '[PushNotificationHandler-Android] Failed to create notification channel: $e');
     }
   }
 
   void _setupFCMListeners() {
-     _logger.i('[PushNotificationHandler-Android] Setting up FCM listeners (onMessage, onMessageOpenedApp)...');
+    _logger.i(
+        '[PushNotificationHandler-Android] Setting up FCM listeners (onMessage, onMessageOpenedApp)...');
     // Setup foreground message listener
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      _logger.i('[PushNotificationHandler-Android] onMessage: Received foreground message: ${message.data}');
+      _logger.i(
+          '[PushNotificationHandler-Android] onMessage: Received foreground message: ${message.data}');
       if (message.data['message'] != null &&
           message.data['message'].toString().toLowerCase() == 'missed call!') {
-        _logger.i('[PushNotificationHandler-Android] onMessage: Missed call notification');
+        _logger.i(
+            '[PushNotificationHandler-Android] onMessage: Missed call notification');
         NotificationService.showMissedCallNotification(message);
         return;
       }
@@ -181,12 +170,14 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
 
     // Setup message opened app listener
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      _logger.i('[PushNotificationHandler-Android] onMessageOpenedApp: Message data: ${message.data}');
+      _logger.i(
+          '[PushNotificationHandler-Android] onMessageOpenedApp: Message data: ${message.data}');
     });
   }
 
   Future<void> _configureFCMForegroundHandling() async {
-    _logger.i('[PushNotificationHandler-Android] Configuring FCM foreground presentation and requesting permissions...');
+    _logger.i(
+        '[PushNotificationHandler-Android] Configuring FCM foreground presentation and requesting permissions...');
     final FirebaseMessaging messaging = FirebaseMessaging.instance;
 
     // 1. Set presentation options for foreground
@@ -195,7 +186,8 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
       badge: true,
       sound: true,
     );
-    _logger.i('[PushNotificationHandler-Android] Foreground presentation options set.');
+    _logger.i(
+        '[PushNotificationHandler-Android] Foreground presentation options set.');
 
     // 2. Request user permission (Required for Android 13+)
     final NotificationSettings settings = await messaging.requestPermission(
@@ -207,15 +199,17 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
       provisional: true,
       sound: true,
     );
-    _logger.i('[PushNotificationHandler-Android] Notification permission requested. Status: ${settings.authorizationStatus}');
+    _logger.i(
+        '[PushNotificationHandler-Android] Notification permission requested. Status: ${settings.authorizationStatus}');
   }
 
   void _setupCallKitListener() {
-    _logger.i('[PushNotificationHandler-Android] Setting up CallKit event listener...');
+    _logger.i(
+        '[PushNotificationHandler-Android] Setting up CallKit event listener...');
     // Add CallKit listener for Android foreground/active state interactions
     // This catches events from notifications created by NotificationService
     FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
-       _logger.i(
+      _logger.i(
         '[PushNotificationHandler-Android] onEvent: ${event?.event} :: ${event?.body}',
       );
       switch (event!.event) {
@@ -259,7 +253,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
             }
           }
           break;
-  
+
         case Event.actionCallDecline:
           _logger.i(
             '[PushNotificationHandler-Android] actionCallDecline: Received. Metadata: ${event.body?['extra']?['metadata']}',
@@ -276,66 +270,37 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
               '[PushNotificationHandler-Android] actionCallDecline: No metadata and no active call/invite in ViewModel.',
             );
             // If an ID is reliably available in event.body['id'], use it to end the specific CallKit call.
-            if(event.body?['id'] != null && event.body['id'].toString().isNotEmpty){
+            if (event.body?['id'] != null &&
+                event.body['id'].toString().isNotEmpty) {
               await FlutterCallkitIncoming.endCall(event.body['id']);
             } else {
-               _logger.w('[PushNotificationHandler-Android] actionCallDecline: Could not end CallKit call without ID.');
+              _logger.w(
+                  '[PushNotificationHandler-Android] actionCallDecline: Could not end CallKit call without ID.');
             }
           } else {
             _logger.i(
-              '[PushNotificationHandler-Android] actionCallDecline: Metadata present. Using temporary client for decline. Metadata: $metadata',
+              '[PushNotificationHandler-Android] actionCallDecline: Metadata present. Using simplified decline logic with decline_push parameter. Metadata: $metadata',
             );
-            // Use temporary client logic (same as iOS)
             var decodedMetadata = metadata;
             if (metadata is String) {
               try {
                 decodedMetadata = jsonDecode(metadata);
               } catch (e) {
                 _logger.e(
-                  '[PushNotificationHandler-Android] actionCallDecline: Error decoding metadata JSON: $e.',
+                  '[PushNotificationHandler-Android] actionCallDecline: Error decoding metadata JSON: $e. Unable to process decline.',
                 );
                 return;
               }
             }
-            final Map<dynamic, dynamic> eventData =
-                Map<dynamic, dynamic>.from(decodedMetadata as Map);
-            final PushMetaData pushMetaData = PushMetaData.fromJson(eventData)
-              ..isDecline = true;
-            final tempDeclineClient = TelnyxClient();
-            tempDeclineClient
-              ..onSocketMessageReceived = (TelnyxMessage msg) {
-                if (msg.socketMethod == SocketMethod.bye) {
-                  _logger.i(
-                    '[PushNotificationHandler-Android] actionCallDecline: Temp client received BYE, disconnecting.',
-                  );
-                  tempDeclineClient.disconnect();
-                }
-              }
-              ..onSocketErrorReceived = (TelnyxSocketError error) {
-                _logger.e(
-                  '[PushNotificationHandler-Android] actionCallDecline: Temp client error: ${error.errorMessage}',
-                );
-                tempDeclineClient.disconnect();
-              };
-            // Use the ConfigHelper to get the config
-            final config = await ConfigHelper.getTelnyxConfigFromPrefs();
-            _logger.i(
-              '[PushNotificationHandler-Android] actionCallDecline: Temp client attempting handlePushNotification.',
+            // Use the simplified processIncomingCallAction approach with isDecline=true
+            // This will trigger the new decline_push logic in TelnyxClient
+            await processIncomingCallAction(
+              decodedMetadata as Map<dynamic, dynamic>,
+              isDecline: true,
             );
-            if (config != null) {
-              tempDeclineClient.handlePushNotification(
-                pushMetaData,
-                config is CredentialConfig ? config : null,
-                config is TokenConfig ? config : null,
-              );
-            } else {
-              _logger.e(
-                '[PushNotificationHandler-Android] actionCallDecline: Could not get config for temp client.',
-              );
-            }
           }
           break;
-  
+
         // Handle other events like ended, timeout if needed from foreground CallKit interactions
         case Event.actionCallEnded:
           _logger.i(
@@ -347,9 +312,9 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
           _logger.i(
             '[PushNotificationHandler-Android] actionCallTimeout: Call timeout event from CallKit.',
           );
-          txClientViewModel.endCall(); 
+          txClientViewModel.endCall();
           break;
-  
+
         default:
           _logger.i(
             '[PushNotificationHandler-Android] Unhandled CallKit event in foreground: ${event.event}',

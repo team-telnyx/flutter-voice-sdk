@@ -1,3 +1,5 @@
+import 'package:telnyx_webrtc/model/verto/send/send_bye_message_body.dart';
+
 class ReceiveByeMessage {
   String? jsonrpc;
   int? id;
@@ -16,14 +18,12 @@ class ReceiveByeMessage {
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['jsonrpc'] = jsonrpc;
-    data['id'] = id;
-    data['method'] = method;
-    if (params != null) {
-      data['params'] = params!.toJson();
-    }
-    return data;
+    return {
+      'jsonrpc': jsonrpc,
+      'id': id,
+      'method': method,
+      'params': params?.toJson(),
+    };
   }
 }
 
@@ -33,6 +33,7 @@ class ReceiveByeParams {
   int? sipCode;
   int? causeCode;
   String? cause;
+  String? sipReason;
 
   ReceiveByeParams({
     this.callID,
@@ -40,6 +41,7 @@ class ReceiveByeParams {
     this.sipCode,
     this.causeCode,
     this.cause,
+    this.sipReason,
   });
 
   ReceiveByeParams.fromJson(Map<String, dynamic> json) {
@@ -47,16 +49,18 @@ class ReceiveByeParams {
     sipCallId = json['sip_call_id'];
     sipCode = json['sipCode'];
     causeCode = json['causeCode'];
-    cause = json['cause'];
+    cause = CauseCode.getCauseFromCode(causeCode);
+    sipReason = json['sipReason'];
   }
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = <String, dynamic>{};
-    data['callID'] = callID;
-    data['sip_call_id'] = sipCallId;
-    data['sipCode'] = sipCode;
-    data['causeCode'] = causeCode;
-    data['cause'] = cause;
-    return data;
+    return {
+      'callID': callID,
+      'sip_call_id': sipCallId,
+      'sipCode': sipCode,
+      'causeCode': causeCode,
+      'cause': cause ?? CauseCode.getCauseFromCode(causeCode),
+      'sipReason': sipReason,
+    };
   }
 }
