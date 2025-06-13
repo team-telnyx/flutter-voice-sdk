@@ -1,3 +1,11 @@
+## [2.0.0](https://pub.dev/packages/telnyx_webrtc/versions/1.2.0) (2025-06-13)
+
+### Enhancement
+
+- Enhanced call state reporting to include more detailed information about the call state changes.
+- Enhanced error reporting to provide more context on errors encountered during call handling.
+- Simplified push notification decline process. 
+
 ## [1.2.0](https://pub.dev/packages/telnyx_webrtc/versions/1.2.0) (2025-05-12)
 
 ### Enhancement
