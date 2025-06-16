@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
-import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/bottom_sheet/profile_switcher_bottom_sheet.dart';
-import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class LoginControls extends StatefulWidget {
   const LoginControls({super.key});
@@ -33,55 +31,38 @@ class _LoginControlsState extends State<LoginControls> {
     final profileProvider = context.watch<ProfileProvider>();
     final selectedProfile = profileProvider.selectedProfile;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        Text('Profile', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: spacingXS),
-        Row(
-          children: <Widget>[
-            Text(selectedProfile?.sipCallerIDName ?? 'No profile selected'),
-            SizedBox(width: spacingS),
-            TextButton(
-              onPressed: _showProfileSwitcher,
-              child: const Text('Switch Profile'),
-            ),
-          ],
-        ),
-        const SizedBox(height: spacingS),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: selectedProfile != null
-                ? () async {
-                    final viewModel = context.read<TelnyxClientViewModel>();
-                    final config = await selectedProfile.toTelnyxConfig();
-                    if (config is TokenConfig) {
-                      viewModel.loginWithToken(config);
-                    } else if (config is CredentialConfig) {
-                      viewModel.login(config);
-                    }
-                  }
-                : null,
-            child: Consumer<TelnyxClientViewModel>(
-              builder: (context, provider, child) {
-                if (provider.loggingIn) {
-                  return SizedBox(
-                    width: spacingXL,
-                    height: spacingXL,
-                    child: const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * 0.5,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          // Profile section at the top
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Profile', style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: spacingXS),
+              Row(
+                children: <Widget>[
+                  Text(
+                    selectedProfile?.sipCallerIDName ?? 'No profile selected',
+                  ),
+                  const SizedBox(width: spacingXXXXXL),
+                  OutlinedButton(
+                    onPressed: _showProfileSwitcher,
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(spacingM),
+                      ),
                     ),
-                  );
-                } else {
-                  return const Text('Connect');
-                }
-              },
-            ),
+                    child: const Text('Switch Profile'),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
