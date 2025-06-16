@@ -27,11 +27,11 @@ class _CallControlsState extends State<CallControls> {
   @override
   Widget build(BuildContext context) {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-      (txClient) => txClient.callState,
+          (txClient) => txClient.callState,
     );
 
     final metrics = context.select<TelnyxClientViewModel, CallQualityMetrics?>(
-      (txClient) => txClient.callQualityMetrics,
+          (txClient) => txClient.callQualityMetrics,
     );
 
     return Column(
@@ -79,24 +79,24 @@ class _CallControlsState extends State<CallControls> {
             ),
           )
         else if (clientState == CallStateStatus.ongoingInvitation)
-          Center(
-            child: CallInvitation(
-              onAccept: () {
-                context.read<TelnyxClientViewModel>().accept();
-              },
-              onDecline: () {
-                context.read<TelnyxClientViewModel>().endCall();
-              },
-            ),
-          )
-        else if (clientState == CallStateStatus.connectingToCall)
-          Center(
-            child: CircularProgressIndicator(),
-          )
-        else if (clientState == CallStateStatus.ongoingCall)
-          Center(
-            child: OnGoingCallControls(),
-          ),
+            Center(
+              child: CallInvitation(
+                onAccept: () {
+                  context.read<TelnyxClientViewModel>().accept();
+                },
+                onDecline: () {
+                  context.read<TelnyxClientViewModel>().endCall();
+                },
+              ),
+            )
+          else if (clientState == CallStateStatus.connectingToCall)
+              Center(
+                child: CircularProgressIndicator(),
+              )
+            else if (clientState == CallStateStatus.ongoingCall)
+                Center(
+                  child: OnGoingCallControls(),
+                ),
         _buildCallQualityMetrics(metrics),
       ],
     );
@@ -118,9 +118,9 @@ class _CallControlsState extends State<CallControls> {
           ),
           child: ExpansionTile(
             tilePadding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
             childrenPadding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             title: Text(
               'Call Quality Metrics',
               style: Theme.of(context).textTheme.titleSmall,

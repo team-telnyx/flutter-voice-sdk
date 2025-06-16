@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_controls.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/common/bottom_action_widget.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,9 +40,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void handleOptionClick(String value) {
     switch (value) {
-      case 'Logout':
-        Provider.of<TelnyxClientViewModel>(context, listen: false).disconnect();
-        break;
       case 'Export Logs':
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
@@ -89,7 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Logout', 'Export Logs', 'Disable Push Notifications'}
+                return {'Export Logs', 'Disable Push Notifications'}
                     .map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
@@ -115,6 +115,43 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      bottomNavigationBar: clientState == CallStateStatus.idle
+          ? Padding(
+              padding: const EdgeInsets.all(spacingXXL),
+              child: BottomConnectionActionWidget(
+                buttonTitle: 'Disconnect',
+                onPressed: () => {
+                  context.read<TelnyxClientViewModel>().disconnect(),
+                },
+              ),
+            )
+          : clientState == CallStateStatus.disconnected
+              ? // Connect Bottom Action widget positioned at the bottom
+              Consumer<TelnyxClientViewModel>(
+                  builder: (context, viewModel, child) {
+                    final profileProvider = context.watch<ProfileProvider>();
+                    final selectedProfile = profileProvider.selectedProfile;
+                    return Padding(
+                      padding: const EdgeInsets.all(spacingXXL),
+                      child: BottomConnectionActionWidget(
+                        buttonTitle: 'Connect',
+                        isLoading: viewModel.loggingIn,
+                        onPressed: selectedProfile != null
+                            ? () async {
+                                final config =
+                                    await selectedProfile.toTelnyxConfig();
+                                if (config is TokenConfig) {
+                                  viewModel.loginWithToken(config);
+                                } else if (config is CredentialConfig) {
+                                  viewModel.login(config);
+                                }
+                              }
+                            : null,
+                      ),
+                    );
+                  },
+                )
+              : null,
     );
   }
 }
