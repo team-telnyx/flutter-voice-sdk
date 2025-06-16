@@ -2,7 +2,10 @@ library;
 
 export './config/telnyx_config.dart';
 
+export './model/call_state.dart';
+export './model/call_termination_reason.dart';
 export './model/gateway_state.dart';
+export './model/network_reason.dart';
 export './model/socket_method.dart';
 export './model/telnyx_message.dart';
 export './model/telnyx_socket_error.dart';
