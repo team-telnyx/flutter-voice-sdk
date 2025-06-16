@@ -335,7 +335,8 @@ class Peer {
       // ICE candidate callback (with optional skipping logic)
       session.peerConnection?.onIceCandidate = (candidate) async {
         GlobalLogger().i(
-            'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',);
+          'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
+        );
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
@@ -350,7 +351,8 @@ class Peer {
             _lastCandidateTime = DateTime.now();
           } else {
             GlobalLogger().i(
-                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',);
+              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+            );
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
@@ -497,7 +499,8 @@ class Peer {
     pc
       ..onIceCandidate = (candidate) async {
         GlobalLogger().i(
-            'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',);
+          'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
+        );
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
@@ -511,7 +514,8 @@ class Peer {
             await pc.addCandidate(candidate);
           } else {
             GlobalLogger().i(
-                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',);
+              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+            );
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');

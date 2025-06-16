@@ -56,6 +56,31 @@ class _HomeScreenState extends State<HomeScreen> {
       (txClient) => txClient.callState,
     );
 
+    final errorMessage = context.select<TelnyxClientViewModel, String?>(
+      (viewModel) => viewModel.errorDialogMessage,
+    );
+
+    if (errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Error"),
+            content: Text(errorMessage),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  context.read<TelnyxClientViewModel>().clearErrorDialog();
+                  Navigator.of(context).pop();
+                },
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+      });
+    }
+
     return Scaffold(
       appBar: AppBar(
         actions: <Widget>[
