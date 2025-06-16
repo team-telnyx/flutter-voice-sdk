@@ -1,3 +1,14 @@
+## [2.0.0](https://pub.dev/packages/telnyx_webrtc/versions/1.2.0) (2025-06-13)
+
+### Enhancement
+
+- Enhanced call state reporting to include more detailed information about the call state changes.
+- Enhanced error reporting to provide more context on errors encountered during call handling.
+- Simplified push notification decline process. 
+
+### Bug Fixing
+- Fixed an issue where, on the Android and iOS clients, we weren't checking if the socket was open before sending messages. This could lead to 'StreamSink is closed' errors in niche edge cases. 
+
 ## [1.2.0](https://pub.dev/packages/telnyx_webrtc/versions/1.2.0) (2025-05-12)
 
 ### Enhancement
