@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/model/call_history_entry.dart';
 
@@ -35,7 +36,7 @@ class CallHistoryService {
       await prefs.setString(key, jsonEncode(jsonList));
     } catch (e) {
       // Non-blocking operation - log error but don't throw
-      print('Error adding call history entry: $e');
+      Logger().e('Error adding call history entry: $e');
     }
   }
 
@@ -56,7 +57,7 @@ class CallHistoryService {
           .toList();
     } catch (e) {
       // Non-blocking operation - log error and return empty list
-      print('Error getting call history: $e');
+      Logger().e('Error getting call history: $e');
       return [];
     }
   }
@@ -69,7 +70,8 @@ class CallHistoryService {
       await prefs.remove(key);
     } catch (e) {
       // Non-blocking operation - log error but don't throw
-      print('Error clearing call history: $e');
+      Logger().e('Error clearing call history: $e');
+
     }
   }
 
@@ -93,7 +95,7 @@ class CallHistoryService {
       await prefs.setString(key, jsonEncode(jsonList));
     } catch (e) {
       // Non-blocking operation - log error but don't throw
-      print('Error removing call history entry: $e');
+      Logger().e('Error removing call history entry: $e');
     }
   }
 }
