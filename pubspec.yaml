@@ -30,7 +30,7 @@ dev_dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
-  patrol: ^3.14.0
+  patrol: ^3.16.0
   telnyx_webrtc:
     path: ./packages/telnyx_webrtc
 
