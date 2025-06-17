@@ -16,13 +16,9 @@ class CallHistoryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
+    return OutlinedButton(
+      child: const Text('Call History'),
       onPressed: () => _showCallHistory(context),
-      icon: const Icon(
-        Icons.history,
-        size: 20,
-      ),
-      label: const Text('Call History'),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(
           horizontal: spacingL,
