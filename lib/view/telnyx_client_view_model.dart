@@ -7,6 +7,8 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
+import 'package:telnyx_flutter_webrtc/model/call_history_entry.dart';
+import 'package:telnyx_flutter_webrtc/service/call_history_service.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/call.dart';
@@ -49,6 +51,11 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   String _localName = '';
   String _localNumber = '';
+
+  // Call history tracking
+  String? _currentCallDestination;
+  CallDirection? _currentCallDirection;
+  DateTime? _currentCallStartTime;
 
   String? _errorDialogMessage;
   String? get errorDialogMessage => _errorDialogMessage;
@@ -121,7 +128,44 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.idle;
     _callQualityMetrics = null;
     setPushCallStatus(false);
+    
+    // Reset call history tracking
+    _currentCallDestination = null;
+    _currentCallDirection = null;
+    _currentCallStartTime = null;
+    
     notifyListeners();
+  }
+
+  String? _getCurrentProfileId() {
+    if (_credentialConfig != null) {
+      return 'sip_${_credentialConfig!.sipUser.hashCode}';
+    } else if (_tokenConfig != null) {
+      return 'token_${_tokenConfig!.sipToken.hashCode}';
+    }
+    return null;
+  }
+
+  Future<void> _addCallToHistory({
+    required String destination,
+    required CallDirection direction,
+    bool wasAnswered = false,
+  }) async {
+    final profileId = _getCurrentProfileId();
+    if (profileId == null) return;
+
+    final entry = CallHistoryEntry(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      destination: destination,
+      direction: direction,
+      timestamp: DateTime.now(),
+      wasAnswered: wasAnswered,
+    );
+
+    await CallHistoryService.addCallHistoryEntry(
+      profileId: profileId,
+      entry: entry,
+    );
   }
 
   void setPushCallStatus(bool isFromPush) {
@@ -191,6 +235,17 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.done:
           logger.i('Call done : ${state.terminationReason}');
+          
+          // Save call to history
+          if (_currentCallDestination != null && _currentCallDirection != null) {
+            final wasAnswered = _callState == CallStateStatus.ongoingCall;
+            _addCallToHistory(
+              destination: _currentCallDestination!,
+              direction: _currentCallDirection!,
+              wasAnswered: wasAnswered,
+            );
+          }
+          
           if (!kIsWeb) {
             if (currentCall?.callId != null || _incomingInvite != null) {
               FlutterCallkitIncoming.endCall(
@@ -278,6 +333,13 @@ class TelnyxClientViewModel with ChangeNotifier {
               );
               _incomingInvite = message.message.inviteParams;
 
+              // Track incoming call for history
+              if (_incomingInvite != null) {
+                _currentCallDestination = _incomingInvite!.callerIdNumber ?? 'Unknown';
+                _currentCallDirection = CallDirection.incoming;
+                _currentCallStartTime = DateTime.now();
+              }
+
               if (waitingForInvite) {
                 logger.i(
                   'ObserveResponses :: Invite received while waiting, calling _performAccept.',
@@ -326,6 +388,16 @@ class TelnyxClientViewModel with ChangeNotifier {
             }
           case SocketMethod.bye:
             {
+              // Save call to history before resetting call info
+              if (_currentCallDestination != null && _currentCallDirection != null) {
+                final wasAnswered = _callState == CallStateStatus.ongoingCall;
+                _addCallToHistory(
+                  destination: _currentCallDestination!,
+                  direction: _currentCallDirection!,
+                  wasAnswered: wasAnswered,
+                );
+              }
+              
               callState = CallStateStatus.idle;
               resetCallInfo();
 
@@ -514,6 +586,11 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i(
       'TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}',
     );
+
+    // Track outgoing call for history
+    _currentCallDestination = destination;
+    _currentCallDirection = CallDirection.outgoing;
+    _currentCallStartTime = DateTime.now();
 
     // Call NotificationService to handle the CallKit UI for outgoing call
     if (_currentCall?.callId != null) {
