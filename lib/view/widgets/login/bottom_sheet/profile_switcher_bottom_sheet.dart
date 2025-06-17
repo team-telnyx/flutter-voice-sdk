@@ -22,7 +22,7 @@ class _ProfileSwitcherBottomSheetState
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.80,
+      height: MediaQuery.of(context).size.height * 0.90,
       padding: const EdgeInsets.all(spacingL),
       child: Column(
         mainAxisSize: MainAxisSize.min,
