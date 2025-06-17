@@ -14,6 +14,7 @@ class OnGoingCallControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Row of action buttons on top
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -27,11 +28,6 @@ class OnGoingCallControls extends StatelessWidget {
                 context.read<TelnyxClientViewModel>().muteUnmute();
               },
             ),
-            DeclineButton(
-              onPressed: () {
-                context.read<TelnyxClientViewModel>().endCall();
-              },
-            ),
             CallControlButton(
               enabledIcon: Icons.volume_off,
               disabledIcon: Icons.volume_up,
@@ -42,12 +38,6 @@ class OnGoingCallControls extends StatelessWidget {
                 context.read<TelnyxClientViewModel>().toggleSpeakerPhone();
               },
             ),
-          ],
-        ),
-        SizedBox(height: spacingM),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
             CallControlButton(
               enabledIcon: Icons.pause,
               disabledIcon: Icons.play_arrow,
@@ -58,7 +48,6 @@ class OnGoingCallControls extends StatelessWidget {
                 context.read<TelnyxClientViewModel>().holdUnhold();
               },
             ),
-            SizedBox(width: iconSize),
             CallControlButton(
               enabledIcon: Icons.dialpad,
               disabledIcon: Icons.dialpad,
@@ -84,6 +73,13 @@ class OnGoingCallControls extends StatelessWidget {
               },
             ),
           ],
+        ),
+        SizedBox(height: spacingM),
+        // Decline/End call button underneath
+        DeclineButton(
+          onPressed: () {
+            context.read<TelnyxClientViewModel>().endCall();
+          },
         ),
       ],
     );
