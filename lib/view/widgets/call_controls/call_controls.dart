@@ -7,6 +7,7 @@ import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/buttons/call_buttons.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_invitation.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/ongoing_call_controls.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/call_history/call_history_button.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 
 class DestinationToggle extends StatelessWidget {
@@ -151,7 +152,7 @@ class _CallControlsState extends State<CallControls> {
           ),
         ),
         const SizedBox(height: spacingXXXXL),
-        if (clientState == CallStateStatus.idle)
+        if (clientState == CallStateStatus.idle) ...[
           Center(
             child: CallButton(
               onPressed: () {
@@ -161,7 +162,12 @@ class _CallControlsState extends State<CallControls> {
                 }
               },
             ),
-          )
+          ),
+          const SizedBox(height: spacingL),
+          const Center(
+            child: CallHistoryButton(),
+          ),
+        ]
         else if (clientState == CallStateStatus.ringing)
           Center(
             child: DeclineButton(

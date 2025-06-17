@@ -1,0 +1,38 @@
+import 'package:flutter/material.dart';
+import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/call_history/call_history_bottom_sheet.dart';
+
+class CallHistoryButton extends StatelessWidget {
+  const CallHistoryButton({super.key});
+
+  void _showCallHistory(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const CallHistoryBottomSheet(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      child: const Text('Call History'),
+      onPressed: () => _showCallHistory(context),
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(
+          horizontal: spacingL,
+          vertical: spacingM,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(spacingS),
+        ),
+        side: BorderSide(
+          color: Colors.grey.shade400,
+          width: 1.5,
+        ),
+        foregroundColor: Colors.grey.shade700,
+      ),
+    );
+  }
+}
