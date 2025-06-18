@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
-import 'package:logger/logger.dart';
 
 class AudioWaveform extends StatelessWidget {
   final String label;
@@ -10,8 +9,6 @@ class AudioWaveform extends StatelessWidget {
   final double height;
   final double minBarHeight;
   final double maxBarHeight;
-
-  static final Logger _logger = Logger();
 
   const AudioWaveform({
     super.key,
@@ -25,8 +22,6 @@ class AudioWaveform extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    _logger.d('[AudioLevels] AudioWaveform building - $label with ${audioLevels.length} levels, latest: ${audioLevels.isNotEmpty ? audioLevels.last : "none"}');
-    
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

@@ -16,7 +16,10 @@ class OnGoingCallControls extends StatelessWidget {
     return Column(
       children: [
         // Call quality indicator
-        const CallQualityIndicator(),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: const CallQualityIndicator(),
+        ),
         SizedBox(height: spacingM),
         // Row of action buttons on top
         Row(

@@ -18,7 +18,7 @@ class CallQualityIndicator extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.white.withOpacity(0.3),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -93,7 +93,7 @@ class QualityText extends StatelessWidget {
     return Text(
       _getQualityDisplayText(quality),
       style: const TextStyle(
-        color: Colors.white,
+        color: Colors.black,
         fontSize: 12,
         fontWeight: FontWeight.w500,
       ),
@@ -130,13 +130,13 @@ class DetailsButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.white.withOpacity(0.5)),
+          border: Border.all(color: Colors.black.withOpacity(0.5)),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Text(
           'Details',
           style: TextStyle(
-            color: Colors.white,
+            color: Colors.black,
             fontSize: 10,
             fontWeight: FontWeight.w400,
           ),

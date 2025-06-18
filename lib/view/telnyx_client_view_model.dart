@@ -142,7 +142,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     setPushCallStatus(false);
     
     // Clear audio level lists
-    logger.i('[AudioLevels] resetCallInfo called - clearing audio level lists');
     _inboundAudioLevels.clear();
     _outboundAudioLevels.clear();
     
@@ -198,16 +197,10 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void observeCurrentCall() {
-    logger.i('[AudioLevels] observeCurrentCall called for callId: ${currentCall?.callId}');
     logger.i('TelnyxClientViewModel.observeCurrentCall: Setting up call observation for callId: ${currentCall?.callId}');
     
     // Set up call quality callback to receive metrics every 100ms
     currentCall?.onCallQualityChange = (metrics) {
-      logger.i('Call quality metrics received: jitter=${metrics.jitter}, rtt=${metrics.rtt}, mos=${metrics.mos}, quality=${metrics.quality}');
-      logger.i('InboundAudio: ${metrics.inboundAudio}');
-      logger.i('OutboundAudio: ${metrics.outboundAudio}');
-      logger.i('[AudioLevels] CallQualityMetrics received - inboundLevel: ${metrics.inboundAudioLevel}, outboundLevel: ${metrics.outboundAudioLevel}');
-      
       _callQualityMetrics = metrics;
       
       // Update audio level lists directly from metrics (now coming every 100ms)
@@ -215,16 +208,13 @@ class TelnyxClientViewModel with ChangeNotifier {
       while (_inboundAudioLevels.length > maxAudioLevels) {
         _inboundAudioLevels.removeAt(0);
       }
-      logger.d('[AudioLevels] Inbound levels updated - count: ${_inboundAudioLevels.length}, latest: ${metrics.inboundAudioLevel}');
 
       _outboundAudioLevels.add(metrics.outboundAudioLevel);
       while (_outboundAudioLevels.length > maxAudioLevels) {
         _outboundAudioLevels.removeAt(0);
       }
-      logger.d('[AudioLevels] Outbound levels updated - count: ${_outboundAudioLevels.length}, latest: ${metrics.outboundAudioLevel}');
 
       notifyListeners();
-      logger.d('[AudioLevels] notifyListeners() called for UI update');
     };
     
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
