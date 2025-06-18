@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/audio_waveform.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 
 class CallQualityMetricsBottomSheet extends StatelessWidget {
-  final CallQualityMetrics? metrics;
-
   const CallQualityMetricsBottomSheet({
     super.key,
-    this.metrics,
   });
 
   @override
@@ -59,22 +58,28 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
             ),
           ),
           
-          // Content
+          // Content - Now using Consumer to get real-time updates
           Flexible(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                children: [
-                  // Audio Levels Section
-                  AudioLevelsSection(metrics: metrics),
+              child: Consumer<TelnyxClientViewModel>(
+                builder: (context, viewModel, child) {
+                  final metrics = viewModel.callQualityMetrics;
                   
-                  const SizedBox(height: 24),
-                  
-                  // Metrics Section
-                  MetricsSection(metrics: metrics),
-                  
-                  const SizedBox(height: 24),
-                ],
+                  return Column(
+                    children: [
+                      // Audio Levels Section
+                      AudioLevelsSection(metrics: metrics),
+                      
+                      const SizedBox(height: 24),
+                      
+                      // Metrics Section
+                      MetricsSection(metrics: metrics),
+                      
+                      const SizedBox(height: 24),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -91,35 +96,39 @@ class AudioLevelsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Audio Levels',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 16),
-        
-        // Inbound Audio Waveform
-        AudioWaveform(
-          label: 'Inbound Level',
-          audioStats: metrics?.inboundAudio,
-          color: Colors.green,
-        ),
-        
-        const SizedBox(height: 16),
-        
-        // Outbound Audio Waveform
-        AudioWaveform(
-          label: 'Outbound Level',
-          audioStats: metrics?.outboundAudio,
-          color: Colors.blue,
-        ),
-      ],
+    return Consumer<TelnyxClientViewModel>(
+      builder: (context, viewModel, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Audio Levels',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Inbound Audio Waveform
+            AudioWaveform(
+              label: 'Inbound Level',
+              audioLevels: viewModel.inboundAudioLevels,
+              color: Colors.green,
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Outbound Audio Waveform
+            AudioWaveform(
+              label: 'Outbound Level',
+              audioLevels: viewModel.outboundAudioLevels,
+              color: Colors.blue,
+            ),
+          ],
+        );
+      },
     );
   }
 }

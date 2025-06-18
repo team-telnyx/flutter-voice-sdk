@@ -43,7 +43,7 @@ class CallQualityIndicator extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => CallQualityMetricsBottomSheet(metrics: metrics),
+      builder: (context) => const CallQualityMetricsBottomSheet(),
     );
   }
 }

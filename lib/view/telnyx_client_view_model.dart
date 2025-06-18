@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
@@ -117,6 +118,17 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
+  /// State flow for inbound audio levels list
+  final List<double> _inboundAudioLevels = [];
+  List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
+
+  /// State flow for outbound audio levels list  
+  final List<double> _outboundAudioLevels = [];
+  List<double> get outboundAudioLevels => List.unmodifiable(_outboundAudioLevels);
+
+  /// Maximum number of audio levels to keep in memory
+  static const int maxAudioLevels = 100;
+
   void resetCallInfo() {
     logger.i('TxClientViewModel :: Reset Call Info');
     BackgroundDetector.ignore = false;
@@ -128,6 +140,11 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.idle;
     _callQualityMetrics = null;
     setPushCallStatus(false);
+    
+    // Clear audio level lists
+    logger.i('[AudioLevels] resetCallInfo called - clearing audio level lists');
+    _inboundAudioLevels.clear();
+    _outboundAudioLevels.clear();
     
     // Reset call history tracking
     _currentCallDestination = null;
@@ -181,6 +198,35 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void observeCurrentCall() {
+    logger.i('[AudioLevels] observeCurrentCall called for callId: ${currentCall?.callId}');
+    logger.i('TelnyxClientViewModel.observeCurrentCall: Setting up call observation for callId: ${currentCall?.callId}');
+    
+    // Set up call quality callback to receive metrics every 100ms
+    currentCall?.onCallQualityChange = (metrics) {
+      logger.i('Call quality metrics received: jitter=${metrics.jitter}, rtt=${metrics.rtt}, mos=${metrics.mos}, quality=${metrics.quality}');
+      logger.i('InboundAudio: ${metrics.inboundAudio}');
+      logger.i('OutboundAudio: ${metrics.outboundAudio}');
+      logger.i('[AudioLevels] CallQualityMetrics received - inboundLevel: ${metrics.inboundAudioLevel}, outboundLevel: ${metrics.outboundAudioLevel}');
+      
+      _callQualityMetrics = metrics;
+      
+      // Update audio level lists directly from metrics (now coming every 100ms)
+      _inboundAudioLevels.add(metrics.inboundAudioLevel);
+      while (_inboundAudioLevels.length > maxAudioLevels) {
+        _inboundAudioLevels.removeAt(0);
+      }
+      logger.d('[AudioLevels] Inbound levels updated - count: ${_inboundAudioLevels.length}, latest: ${metrics.inboundAudioLevel}');
+
+      _outboundAudioLevels.add(metrics.outboundAudioLevel);
+      while (_outboundAudioLevels.length > maxAudioLevels) {
+        _outboundAudioLevels.removeAt(0);
+      }
+      logger.d('[AudioLevels] Outbound levels updated - count: ${_outboundAudioLevels.length}, latest: ${metrics.outboundAudioLevel}');
+
+      notifyListeners();
+      logger.d('[AudioLevels] notifyListeners() called for UI update');
+    };
+    
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i(
         'TelnyxClientViewModel.observeCurrentCall: Call State changed to :: $state for callId: ${currentCall?.callId}',
@@ -220,12 +266,6 @@ class TelnyxClientViewModel with ChangeNotifier {
               );
             }
           }
-          currentCall?.onCallQualityChange = (metrics) {
-            // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
-            logger.i('Call quality: ${metrics}');
-            _callQualityMetrics = metrics;
-            notifyListeners();
-          };
 
           _callState = CallStateStatus.ongoingCall;
           notifyListeners();
@@ -581,6 +621,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       destination,
       'Fake State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
+      debug: true,
     );
 
     logger.i(
@@ -674,6 +715,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         _localNumber,
         'State',
         customHeaders: {},
+        debug: true,
       );
       observeCurrentCall();
 
