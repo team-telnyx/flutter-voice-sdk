@@ -1,0 +1,17 @@
+[meta]
+version=1.0
+format_rules=Simple guidelines, one instruction per line. Write in clear English.
+
+[ai_swe_agent]
+When opening a PR, add the Jira ticket ID.
+Follow this pattern: [JIRA TICKET] - Title.
+Always open PRs as drafts.
+Don't change the verto message json structure without confirming first.
+When making changes to the SDK, ensure that you update the demo application accordingly to demonstrate the new functionality.
+Follow the established architecture patterns for WebRTC, including peer connection management, ICE candidate handling, and call state management.
+Ensure that all new features and bug fixes are accompanied by appropriate unit tests in the telnyx_webrtc package.
+If asked to make a pull request, ensure you use the format described at .github/PULL_REQUEST_TEMPLATE.md, including a clear description of the changes, any relevant issue numbers, and testing instructions.
+Please run 'dart format .' before committing any changes to ensure code style consistency.
+Please run 'dart analyze' to check for any static analysis issues before committing changes.
+Please do not update pubspec.yaml files without confirming the changes with the team first, especially for the telnyx_webrtc package.
+Please do not write dart code functions that return flutter widgets as this is an antipattern.
