@@ -24,49 +24,44 @@ class CallQualityIndicator extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Quality indicator dot
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: _getQualityColor(quality),
-                  shape: BoxShape.circle,
-                ),
-              ),
+              QualityDot(quality: quality),
               const SizedBox(width: 8),
-              // Quality text
-              Text(
-                quality.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
+              QualityText(quality: quality),
               const SizedBox(width: 8),
-              // Details button
-              GestureDetector(
+              DetailsButton(
                 onTap: () => _showQualityBottomSheet(context, metrics),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.white.withOpacity(0.5)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Details',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  void _showQualityBottomSheet(BuildContext context, CallQualityMetrics? metrics) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => CallQualityMetricsBottomSheet(metrics: metrics),
+    );
+  }
+}
+
+class QualityDot extends StatelessWidget {
+  final CallQuality quality;
+
+  const QualityDot({super.key, required this.quality});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: _getQualityColor(quality),
+        shape: BoxShape.circle,
+      ),
     );
   }
 
@@ -86,13 +81,67 @@ class CallQualityIndicator extends StatelessWidget {
         return Colors.grey;
     }
   }
+}
 
-  void _showQualityBottomSheet(BuildContext context, CallQualityMetrics? metrics) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => CallQualityMetricsBottomSheet(metrics: metrics),
+class QualityText extends StatelessWidget {
+  final CallQuality quality;
+
+  const QualityText({super.key, required this.quality});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      _getQualityDisplayText(quality),
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+
+  String _getQualityDisplayText(CallQuality quality) {
+    switch (quality) {
+      case CallQuality.excellent:
+        return 'Excellent';
+      case CallQuality.good:
+        return 'Good';
+      case CallQuality.fair:
+        return 'Fair';
+      case CallQuality.poor:
+        return 'Poor';
+      case CallQuality.bad:
+        return 'Bad';
+      case CallQuality.unknown:
+        return 'Unknown';
+    }
+  }
+}
+
+class DetailsButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const DetailsButton({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white.withOpacity(0.5)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text(
+          'Details',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+      ),
     );
   }
 }

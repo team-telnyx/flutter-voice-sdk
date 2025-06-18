@@ -66,12 +66,12 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
               child: Column(
                 children: [
                   // Audio Levels Section
-                  _buildAudioLevelsSection(),
+                  AudioLevelsSection(metrics: metrics),
                   
                   const SizedBox(height: 24),
                   
                   // Metrics Section
-                  _buildMetricsSection(),
+                  MetricsSection(metrics: metrics),
                   
                   const SizedBox(height: 24),
                 ],
@@ -82,8 +82,15 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildAudioLevelsSection() {
+class AudioLevelsSection extends StatelessWidget {
+  final CallQualityMetrics? metrics;
+
+  const AudioLevelsSection({super.key, this.metrics});
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -115,8 +122,15 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
       ],
     );
   }
+}
 
-  Widget _buildMetricsSection() {
+class MetricsSection extends StatelessWidget {
+  final CallQualityMetrics? metrics;
+
+  const MetricsSection({super.key, this.metrics});
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -138,28 +152,28 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
           ),
           child: Column(
             children: [
-              _buildMetricRow(
-                'Quality',
-                metrics?.quality.toString() ?? 'Unknown',
-                _getQualityColor(metrics?.quality),
+              MetricRow(
+                label: 'Quality',
+                value: _getQualityDisplayText(metrics?.quality),
+                valueColor: _getQualityColor(metrics?.quality),
               ),
               const Divider(color: Colors.grey),
-              _buildMetricRow(
-                'MOS Score',
-                metrics != null ? '${metrics!.mos.toStringAsFixed(2)}' : 'N/A',
-                Colors.white,
+              MetricRow(
+                label: 'MOS Score',
+                value: metrics != null ? '${metrics!.mos.toStringAsFixed(2)}' : 'N/A',
+                valueColor: Colors.white,
               ),
               const Divider(color: Colors.grey),
-              _buildMetricRow(
-                'Jitter',
-                metrics != null ? '${(metrics!.jitter * 1000).toStringAsFixed(1)} ms' : 'N/A',
-                Colors.white,
+              MetricRow(
+                label: 'Jitter',
+                value: metrics != null ? '${(metrics!.jitter * 1000).toStringAsFixed(1)} ms' : 'N/A',
+                valueColor: Colors.white,
               ),
               const Divider(color: Colors.grey),
-              _buildMetricRow(
-                'Round Trip Time',
-                metrics != null ? '${(metrics!.rtt * 1000).toStringAsFixed(1)} ms' : 'N/A',
-                Colors.white,
+              MetricRow(
+                label: 'Round Trip Time',
+                value: metrics != null ? '${(metrics!.rtt * 1000).toStringAsFixed(1)} ms' : 'N/A',
+                valueColor: Colors.white,
               ),
             ],
           ),
@@ -167,13 +181,67 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
         
         if (metrics != null) ...[
           const SizedBox(height: 16),
-          _buildQualityExplanation(),
+          const QualityExplanation(),
         ],
       ],
     );
   }
 
-  Widget _buildMetricRow(String label, String value, Color valueColor) {
+  String _getQualityDisplayText(dynamic quality) {
+    if (quality == null) return 'Unknown';
+    
+    final qualityStr = quality.toString().toLowerCase();
+    switch (qualityStr) {
+      case 'excellent':
+        return 'Excellent';
+      case 'good':
+        return 'Good';
+      case 'fair':
+        return 'Fair';
+      case 'poor':
+        return 'Poor';
+      case 'bad':
+        return 'Bad';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  Color _getQualityColor(dynamic quality) {
+    if (quality == null) return Colors.grey;
+    
+    final qualityStr = quality.toString().toLowerCase();
+    switch (qualityStr) {
+      case 'excellent':
+        return Colors.green;
+      case 'good':
+        return Colors.lightGreen;
+      case 'fair':
+        return Colors.yellow;
+      case 'poor':
+        return Colors.orange;
+      case 'bad':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+}
+
+class MetricRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const MetricRow({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -198,8 +266,13 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildQualityExplanation() {
+class QualityExplanation extends StatelessWidget {
+  const QualityExplanation({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -231,25 +304,5 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Color _getQualityColor(dynamic quality) {
-    if (quality == null) return Colors.grey;
-    
-    final qualityStr = quality.toString().toLowerCase();
-    switch (qualityStr) {
-      case 'excellent':
-        return Colors.green;
-      case 'good':
-        return Colors.lightGreen;
-      case 'fair':
-        return Colors.yellow;
-      case 'poor':
-        return Colors.orange;
-      case 'bad':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
   }
 }
