@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/buttons/call_buttons.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_quality_indicator.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 
 class OnGoingCallControls extends StatelessWidget {
@@ -14,6 +15,9 @@ class OnGoingCallControls extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // Call quality indicator
+        const CallQualityIndicator(),
+        SizedBox(height: spacingM),
         // Row of action buttons on top
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
