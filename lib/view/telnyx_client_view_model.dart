@@ -122,6 +122,18 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
+
+  /// State flow for inbound audio levels list
+  final List<double> _inboundAudioLevels = [];
+  List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
+
+  /// State flow for outbound audio levels list  
+  final List<double> _outboundAudioLevels = [];
+  List<double> get outboundAudioLevels => List.unmodifiable(_outboundAudioLevels);
+
+  /// Maximum number of audio levels to keep in memory
+  static const int maxAudioLevels = 100;
+
   CallTerminationReason? get lastTerminationReason => _lastTerminationReason;
 
   void resetCallInfo() {
@@ -135,6 +147,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.idle;
     _callQualityMetrics = null;
     setPushCallStatus(false);
+    
+    // Clear audio level lists
+    _inboundAudioLevels.clear();
+    _outboundAudioLevels.clear();
     
     // Reset call history tracking
     _currentCallDestination = null;
@@ -194,6 +210,26 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void observeCurrentCall() {
+    logger.i('TelnyxClientViewModel.observeCurrentCall: Setting up call observation for callId: ${currentCall?.callId}');
+    
+    // Set up call quality callback to receive metrics every 100ms
+    currentCall?.onCallQualityChange = (metrics) {
+      _callQualityMetrics = metrics;
+      
+      // Update audio level lists directly from metrics (now coming every 100ms)
+      _inboundAudioLevels.add(metrics.inboundAudioLevel);
+      while (_inboundAudioLevels.length > maxAudioLevels) {
+        _inboundAudioLevels.removeAt(0);
+      }
+
+      _outboundAudioLevels.add(metrics.outboundAudioLevel);
+      while (_outboundAudioLevels.length > maxAudioLevels) {
+        _outboundAudioLevels.removeAt(0);
+      }
+
+      notifyListeners();
+    };
+    
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i(
         'TelnyxClientViewModel.observeCurrentCall: Call State changed to :: $state for callId: ${currentCall?.callId}',
@@ -233,12 +269,6 @@ class TelnyxClientViewModel with ChangeNotifier {
               );
             }
           }
-          currentCall?.onCallQualityChange = (metrics) {
-            // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
-            logger.i('Call quality: ${metrics}');
-            _callQualityMetrics = metrics;
-            notifyListeners();
-          };
 
           _callState = CallStateStatus.ongoingCall;
           notifyListeners();
@@ -597,6 +627,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       destination,
       'Fake State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
+      debug: true,
     );
 
     logger.i(
@@ -690,6 +721,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         _localNumber,
         'State',
         customHeaders: {},
+        debug: true,
       );
       observeCurrentCall();
 

@@ -8,8 +8,6 @@ import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/buttons/call_bu
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_invitation.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/ongoing_call_controls.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_history/call_history_button.dart';
-import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
-
 class DestinationToggle extends StatelessWidget {
   final bool isPhoneNumber;
   final ValueChanged<bool> onToggleChanged;
@@ -104,9 +102,7 @@ class _CallControlsState extends State<CallControls> {
           (txClient) => txClient.callState,
     );
 
-    final metrics = context.select<TelnyxClientViewModel, CallQualityMetrics?>(
-          (txClient) => txClient.callQualityMetrics,
-    );
+
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,56 +189,7 @@ class _CallControlsState extends State<CallControls> {
                 Center(
                   child: OnGoingCallControls(),
                 ),
-        _buildCallQualityMetrics(metrics),
       ],
-    );
-  }
-
-  Widget _buildCallQualityMetrics(CallQualityMetrics? callQualityMetrics) {
-    if (callQualityMetrics == null) return SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Card(
-        color: Color(0xFFF5F3E4), // Custom background color
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0), // Rounded edges
-        ),
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            dividerColor: Colors.transparent, // Remove ExpansionTile divider
-          ),
-          child: ExpansionTile(
-            tilePadding:
-            const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-            childrenPadding:
-            const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            title: Text(
-              'Call Quality Metrics',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            children: [
-              _buildMetricRow('Jitter', '${callQualityMetrics.jitter} ms'),
-              _buildMetricRow('RTT', '${callQualityMetrics.rtt} ms'),
-              _buildMetricRow('MOS', '${callQualityMetrics.mos}'),
-              _buildMetricRow('Quality', callQualityMetrics.quality.toString()),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMetricRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          Text(value, style: Theme.of(context).textTheme.bodyMedium),
-        ],
-      ),
     );
   }
 }
