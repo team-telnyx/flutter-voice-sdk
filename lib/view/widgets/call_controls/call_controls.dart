@@ -90,7 +90,7 @@ class CallControls extends StatefulWidget {
 
 class _CallControlsState extends State<CallControls> {
   final _destinationController = TextEditingController();
-  bool _isPhoneNumber = true;
+  bool _isPhoneNumber = false;
 
   @override
   void dispose() {
@@ -122,10 +122,8 @@ class _CallControlsState extends State<CallControls> {
               });
             },
           ),
-          const SizedBox(height: spacingM),
+          const SizedBox(height: spacingS),
         ],
-        Text('Destination', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: spacingXS),
         Padding(
           padding: const EdgeInsets.all(spacingXS),
           child: TextFormField(
