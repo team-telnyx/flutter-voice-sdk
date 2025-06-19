@@ -47,6 +47,13 @@ class AppInitializer {
           options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
         );
         logger.i('[AppInitializer] Firebase Core Initialized successfully.');
+        
+        // Set up background message handler immediately after Firebase initialization
+        // This ensures the handler is ready before any messages arrive
+        if (!kIsWeb && Platform.isAndroid) {
+          FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+          logger.i('[AppInitializer] Background message handler set up.');
+        }
       } catch (e) {
         logger.e('[AppInitializer] Firebase Core Initialization failed: $e');
       }
@@ -98,9 +105,6 @@ Future<void> main() async {
         await AppInitializer().initialize();
       }
 
-      FirebaseMessaging.onBackgroundMessage(
-        _firebaseMessagingBackgroundHandler,
-      );
       final config = await txClientViewModel.getConfig();
       runApp(
         BackgroundDetector(
@@ -174,26 +178,39 @@ class _MyAppState extends State<MyApp> {
     // Platform-specific logic for handling initial push data when app starts.
     // For Android, this checks if the app was launched from a terminated state by a notification.
     // For iOS, this is less critical as CallKit events usually drive the flow after launch.
-    PlatformPushService.handler
-        .getInitialPushData()
-        .then((data) {
-          if (data != null) {
-            final Map<dynamic, dynamic> mutablePayload = Map.from(data);
-            final answer = mutablePayload['isAnswer'] = true;
-            PlatformPushService.handler.processIncomingCallAction(
-              data,
-              isAnswer: answer,
-              isDecline: !answer,
-            );
-          } else {
-            logger.i('[_MyAppState] Android: No initial push data found.');
-          }
-        })
-        .catchError((e) {
-          logger.e(
-            '[_MyAppState] Android: Error fetching initial push data: $e',
-          );
-        });
+    _handleInitialPushData();
+  }
+  
+  Future<void> _handleInitialPushData() async {
+    try {
+      final data = await PlatformPushService.handler.getInitialPushData();
+      if (data != null && data.isNotEmpty) {
+        logger.i('[_MyAppState] Initial push data found: $data');
+        
+        // Create a mutable copy of the data
+        final Map<dynamic, dynamic> mutablePayload = Map.from(data);
+        
+        // Check if this is an answer action (from background accept)
+        final bool isAnswer = mutablePayload.containsKey('isAnswer') && 
+                             mutablePayload['isAnswer'] == true;
+        final bool isDecline = mutablePayload.containsKey('isDecline') && 
+                              mutablePayload['isDecline'] == true;
+        
+        logger.i('[_MyAppState] Processing initial push data - Answer: $isAnswer, Decline: $isDecline');
+        
+        await PlatformPushService.handler.processIncomingCallAction(
+          mutablePayload,
+          isAnswer: isAnswer,
+          isDecline: isDecline,
+        );
+      } else {
+        logger.i('[_MyAppState] No initial push data found.');
+      }
+    } catch (e) {
+      logger.e('[_MyAppState] Error handling initial push data: $e');
+      // Clear any corrupted push data
+      PlatformPushService.handler.clearPushData();
+    }
   }
 
   @override
