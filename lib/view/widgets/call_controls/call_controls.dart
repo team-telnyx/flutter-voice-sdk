@@ -110,13 +110,8 @@ class _CallControlsState extends State<CallControls> {
   @override
   Widget build(BuildContext context) {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-          (txClient) => txClient.callState,
+      (txClient) => txClient.callState,
     );
-
-    final metrics = context.select<TelnyxClientViewModel, CallQualityMetrics?>(
-          (txClient) => txClient.callQualityMetrics,
-    );
-
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,21 +135,17 @@ class _CallControlsState extends State<CallControls> {
             readOnly: clientState != CallStateStatus.idle,
             enabled: clientState == CallStateStatus.idle,
             controller: _destinationController,
-            keyboardType: _isPhoneNumber
-                ? TextInputType.phone
-                : TextInputType.text,
+            keyboardType:
+                _isPhoneNumber ? TextInputType.phone : TextInputType.text,
             inputFormatters: _isPhoneNumber
                 ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s\(\)]'))]
                 : [
-              FilteringTextInputFormatter.allow(
-                RegExp(r'[a-zA-Z0-9@\.\-_]'),
-              ),
-            ],
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9@\.\-_]'),
+                    ),
+                  ],
             decoration: InputDecoration(
-              hintStyle: Theme
-                  .of(context)
-                  .textTheme
-                  .labelSmall,
+              hintStyle: Theme.of(context).textTheme.labelSmall,
               hintText: _isPhoneNumber ? '+E164 phone number' : 'SIP address',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(spacingS),
@@ -180,34 +171,29 @@ class _CallControlsState extends State<CallControls> {
           ),
           const SizedBox(height: spacingL),
           const Center(child: CallHistoryButton()),
-        ] else
-          if (clientState == CallStateStatus.ringing)
-            Center(
-              child: DeclineButton(
-                onPressed: () {
-                  context.read<TelnyxClientViewModel>().endCall();
-                },
-              ),
-            )
-          else
-            if (clientState == CallStateStatus.ongoingInvitation)
-              Center(
-                child: CallInvitation(
-                  onAccept: () {
-                    context.read<TelnyxClientViewModel>().accept();
-                  },
-                  onDecline: () {
-                    context.read<TelnyxClientViewModel>().endCall();
-                  },
-                ),
-              )
-            else
-              if (clientState == CallStateStatus.connectingToCall)
-                Center(child: CircularProgressIndicator())
-              else
-                if (clientState == CallStateStatus.ongoingCall)
-                  Center(child: OnGoingCallControls()),
-        _buildCallQualityMetrics(metrics),
+        ] else if (clientState == CallStateStatus.ringing)
+          Center(
+            child: DeclineButton(
+              onPressed: () {
+                context.read<TelnyxClientViewModel>().endCall();
+              },
+            ),
+          )
+        else if (clientState == CallStateStatus.ongoingInvitation)
+          Center(
+            child: CallInvitation(
+              onAccept: () {
+                context.read<TelnyxClientViewModel>().accept();
+              },
+              onDecline: () {
+                context.read<TelnyxClientViewModel>().endCall();
+              },
+            ),
+          )
+        else if (clientState == CallStateStatus.connectingToCall)
+          Center(child: CircularProgressIndicator())
+        else if (clientState == CallStateStatus.ongoingCall)
+          Center(child: OnGoingCallControls()),
       ],
     );
   }
