@@ -6,9 +6,7 @@ import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/buttons/call_bu
 import 'package:telnyx_flutter_webrtc/view/widgets/dialpad_widget.dart';
 
 class OnGoingCallControls extends StatelessWidget {
-  const OnGoingCallControls({
-    super.key,
-  });
+  const OnGoingCallControls({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -63,7 +63,7 @@ class Peer {
 
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-      onDataChannelMessage;
+  onDataChannelMessage;
 
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
@@ -92,10 +92,7 @@ class Peer {
   };
 
   final Map<String, dynamic> _dcConstraints = {
-    'mandatory': {
-      'OfferToReceiveAudio': true,
-      'OfferToReceiveVideo': false,
-    },
+    'mandatory': {'OfferToReceiveAudio': true, 'OfferToReceiveVideo': false},
     'optional': [
       {'DtlsSrtpKeyAgreement': true},
     ],
@@ -123,8 +120,9 @@ class Peer {
     if (_localStream != null) {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
     } else {
-      GlobalLogger()
-          .d('Peer :: No local stream :: Unable to toggle speaker mode');
+      GlobalLogger().d(
+        'Peer :: No local stream :: Unable to toggle speaker mode',
+      );
     }
   }
 
@@ -184,8 +182,9 @@ class Peer {
     Map<String, String> customHeaders,
   ) async {
     try {
-      final RTCSessionDescription s =
-          await session.peerConnection!.createOffer(_dcConstraints);
+      final RTCSessionDescription s = await session.peerConnection!.createOffer(
+        _dcConstraints,
+      );
       await session.peerConnection!.setLocalDescription(s);
 
       if (session.remoteCandidates.isNotEmpty) {
@@ -201,9 +200,9 @@ class Peer {
       await Future.delayed(const Duration(milliseconds: 500));
 
       String? sdpUsed = '';
-      await session.peerConnection
-          ?.getLocalDescription()
-          .then((value) => sdpUsed = value?.sdp.toString());
+      await session.peerConnection?.getLocalDescription().then(
+        (value) => sdpUsed = value?.sdp.toString(),
+      );
 
       Timer(const Duration(milliseconds: 500), () {
         final dialogParams = DialogParams(
@@ -247,9 +246,9 @@ class Peer {
   ///
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
-    await _sessions[_selfId]
-        ?.peerConnection
-        ?.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
+    await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
+      RTCSessionDescription(sdp, 'answer'),
+    );
   }
 
   /// Accepts an incoming call.
@@ -282,8 +281,9 @@ class Peer {
     );
     _sessions[sessionId] = session;
 
-    await session.peerConnection
-        ?.setRemoteDescription(RTCSessionDescription(invite.sdp, 'offer'));
+    await session.peerConnection?.setRemoteDescription(
+      RTCSessionDescription(invite.sdp, 'offer'),
+    );
 
     await _createAnswer(
       session,
@@ -321,7 +321,7 @@ class Peer {
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
                 candidateString.contains('stun.telnyx.com') ||
-                    candidateString.contains('turn.telnyx.com');
+                candidateString.contains('turn.telnyx.com');
 
             if (isValidCandidate) {
               GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
@@ -340,17 +340,17 @@ class Peer {
         }
       };
 
-      final RTCSessionDescription s =
-          await session.peerConnection!.createAnswer(_dcConstraints);
+      final RTCSessionDescription s = await session.peerConnection!
+          .createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
       // Start ICE candidate gathering and wait for negotiation to complete
       _lastCandidateTime = DateTime.now();
       _setOnNegotiationComplete(() async {
         String? sdpUsed = '';
-        await session.peerConnection
-            ?.getLocalDescription()
-            .then((value) => sdpUsed = value?.sdp.toString());
+        await session.peerConnection?.getLocalDescription().then(
+          (value) => sdpUsed = value?.sdp.toString(),
+        );
 
         final dialogParams = DialogParams(
           attach: false,
@@ -409,8 +409,9 @@ class Peer {
       'video': false,
     };
 
-    final MediaStream stream =
-        await navigator.mediaDevices.getUserMedia(mediaConstraints);
+    final MediaStream stream = await navigator.mediaDevices.getUserMedia(
+      mediaConstraints,
+    );
     onLocalStream?.call(stream);
     return stream;
   }
@@ -425,19 +426,12 @@ class Peer {
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') _localStream = await createStream(media);
 
-    peerConnection = await createPeerConnection(
-      {
-        ..._iceServers,
-        ...{'sdpSemantics': sdpSemantics},
-      },
-      _dcConstraints,
-    );
+    peerConnection = await createPeerConnection({
+      ..._iceServers,
+      ...{'sdpSemantics': sdpSemantics},
+    }, _dcConstraints);
 
-    await startStats(
-      callId,
-      peerId,
-      onCallQualityChange: onCallQualityChange,
-    );
+    await startStats(callId, peerId, onCallQualityChange: onCallQualityChange);
 
     if (media != 'data') {
       switch (sdpSemantics) {
@@ -470,7 +464,8 @@ class Peer {
       );
       if (candidate.candidate != null) {
         final candidateString = candidate.candidate.toString();
-        final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
+        final isValidCandidate =
+            candidateString.contains('stun.telnyx.com') ||
             candidateString.contains('turn.telnyx.com');
 
         if (isValidCandidate) {
@@ -478,8 +473,9 @@ class Peer {
           // Add valid candidates
           await peerConnection?.addCandidate(candidate);
         } else {
-          GlobalLogger()
-              .i('Peer :: Ignoring non-STUN/TURN candidate: $candidateString');
+          GlobalLogger().i(
+            'Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+          );
         }
       } else {
         GlobalLogger().i('Peer :: onIceCandidate: complete!');
@@ -638,10 +634,12 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate =
-            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
-        GlobalLogger()
-            .d('Time since last candidate: ${timeSinceLastCandidate}ms');
+        final timeSinceLastCandidate = DateTime.now()
+            .difference(_lastCandidateTime!)
+            .inMilliseconds;
+        GlobalLogger().d(
+          'Time since last candidate: ${timeSinceLastCandidate}ms',
+        );
 
         if (timeSinceLastCandidate >= _negotiationTimeout) {
           GlobalLogger().d('Negotiation timeout reached');

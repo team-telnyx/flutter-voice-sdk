@@ -66,7 +66,9 @@ class ProfileProvider with ChangeNotifier {
   }
 
   Future<void> selectProfile(String name) async {
-    _selectedProfile = _profiles.firstWhere((profile) => profile.sipCallerIDName == name);
+    _selectedProfile = _profiles.firstWhere(
+      (profile) => profile.sipCallerIDName == name,
+    );
     await _saveProfiles();
     notifyListeners();
   }

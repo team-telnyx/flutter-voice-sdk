@@ -55,7 +55,8 @@ class StatParsingHelpers {
   }
 
   String parseIceConnectionStateChange(
-      RTCIceConnectionState iceConnectionState) {
+    RTCIceConnectionState iceConnectionState,
+  ) {
     switch (iceConnectionState) {
       case RTCIceConnectionState.RTCIceConnectionStateNew:
         return 'new';
@@ -100,11 +101,13 @@ class StatParsingHelpers {
   Map<String, dynamic> getPeerConfiguration(
     Map<String, dynamic> configuration,
   ) {
-    final iceServers =
-        (configuration['iceServers'] as List<dynamic>?)?.map((iceServer) {
+    final iceServers = (configuration['iceServers'] as List<dynamic>?)?.map((
+      iceServer,
+    ) {
       return {
-        'urls':
-            iceServer['url'] is String ? [iceServer['url']] : iceServer['url'],
+        'urls': iceServer['url'] is String
+            ? [iceServer['url']]
+            : iceServer['url'],
         'username': iceServer['username'] ?? '',
         //'credential': iceServer['credential'] ?? '',
       };

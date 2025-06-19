@@ -44,8 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
       case 'Disable Push Notifications':
-        Provider.of<TelnyxClientViewModel>(context, listen: false)
-            .disablePushNotifications();
+        Provider.of<TelnyxClientViewModel>(
+          context,
+          listen: false,
+        ).disablePushNotifications();
         break;
     }
   }
@@ -89,8 +91,9 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Export Logs', 'Disable Push Notifications'}
-                    .map((String choice) {
+                return {'Export Logs', 'Disable Push Notifications'}.map((
+                  String choice,
+                ) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
@@ -126,32 +129,32 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           : clientState == CallStateStatus.disconnected
-              ? // Connect Bottom Action widget positioned at the bottom
-              Consumer<TelnyxClientViewModel>(
-                  builder: (context, viewModel, child) {
-                    final profileProvider = context.watch<ProfileProvider>();
-                    final selectedProfile = profileProvider.selectedProfile;
-                    return Padding(
-                      padding: const EdgeInsets.all(spacingXXL),
-                      child: BottomConnectionActionWidget(
-                        buttonTitle: 'Connect',
-                        isLoading: viewModel.loggingIn,
-                        onPressed: selectedProfile != null
-                            ? () async {
-                                final config =
-                                    await selectedProfile.toTelnyxConfig();
-                                if (config is TokenConfig) {
-                                  viewModel.loginWithToken(config);
-                                } else if (config is CredentialConfig) {
-                                  viewModel.login(config);
-                                }
-                              }
-                            : null,
-                      ),
-                    );
-                  },
-                )
-              : null,
+          ? // Connect Bottom Action widget positioned at the bottom
+            Consumer<TelnyxClientViewModel>(
+              builder: (context, viewModel, child) {
+                final profileProvider = context.watch<ProfileProvider>();
+                final selectedProfile = profileProvider.selectedProfile;
+                return Padding(
+                  padding: const EdgeInsets.all(spacingXXL),
+                  child: BottomConnectionActionWidget(
+                    buttonTitle: 'Connect',
+                    isLoading: viewModel.loggingIn,
+                    onPressed: selectedProfile != null
+                        ? () async {
+                            final config = await selectedProfile
+                                .toTelnyxConfig();
+                            if (config is TokenConfig) {
+                              viewModel.loginWithToken(config);
+                            } else if (config is CredentialConfig) {
+                              viewModel.login(config);
+                            }
+                          }
+                        : null,
+                  ),
+                );
+              },
+            )
+          : null,
     );
   }
 }

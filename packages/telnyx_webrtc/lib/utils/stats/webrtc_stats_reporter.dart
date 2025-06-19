@@ -66,8 +66,9 @@ class WebRTCStatsReporter {
 
   void _enqueueMessage(String message) {
     if (!sendStats) {
-      GlobalLogger()
-          .d('Stats reporting is disabled. Not sending message: $message');
+      GlobalLogger().d(
+        'Stats reporting is disabled. Not sending message: $message',
+      );
       return;
     }
     _messageQueue.add(message);
@@ -144,8 +145,9 @@ class WebRTCStatsReporter {
           'candidate': candidate.candidate,
           'sdpMLineIndex': candidate.sdpMLineIndex,
           'sdpMid': candidate.sdpMid,
-          'usernameFragment':
-              StatParsingHelpers().parseUsernameFragment(candidate),
+          'usernameFragment': StatParsingHelpers().parseUsernameFragment(
+            candidate,
+          ),
         };
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceCandidate,
@@ -161,8 +163,9 @@ class WebRTCStatsReporter {
           localSdp = await peerConnection.getLocalDescription();
           remoteSdp = await peerConnection.getRemoteDescription();
         } catch (e) {
-          GlobalLogger()
-              .e('Error retrieving descriptions for Signaling State Stats: $e');
+          GlobalLogger().e(
+            'Error retrieving descriptions for Signaling State Stats: $e',
+          );
         }
 
         // If both are null, just skip
@@ -171,18 +174,13 @@ class WebRTCStatsReporter {
         }
 
         final description = {
-          'signalingState':
-              StatParsingHelpers().parseSignalingStateChange(signalingState),
+          'signalingState': StatParsingHelpers().parseSignalingStateChange(
+            signalingState,
+          ),
           if (remoteSdp != null)
-            'remoteDescription': {
-              'type': remoteSdp.type,
-              'sdp': remoteSdp.sdp,
-            },
+            'remoteDescription': {'type': remoteSdp.type, 'sdp': remoteSdp.sdp},
           if (localSdp != null)
-            'localDescription': {
-              'type': localSdp.type,
-              'sdp': localSdp.sdp,
-            },
+            'localDescription': {'type': localSdp.type, 'sdp': localSdp.sdp},
         };
 
         _sendDebugReportData(
@@ -222,8 +220,10 @@ class WebRTCStatsReporter {
       Map<String, dynamic>? succeededConnection;
       final statsObject = {};
 
-      final timestamp =
-          DateTime.now().toUtc().millisecondsSinceEpoch.toDouble();
+      final timestamp = DateTime.now()
+          .toUtc()
+          .millisecondsSinceEpoch
+          .toDouble();
 
       final Map<String, dynamic> localCandidates = {};
       final Map<String, dynamic> remoteCandidates = {};
@@ -253,8 +253,8 @@ class WebRTCStatsReporter {
                     (inboundValues['packetsLost'] as num?)?.toDouble() ?? 0;
                 final totalPackets =
                     (inboundValues['totalPacketsReceived'] as num?)
-                            ?.toDouble() ??
-                        1;
+                        ?.toDouble() ??
+                    1;
                 if (totalPackets > 0) {
                   packetLoss = packetsLost / (totalPackets + packetsLost);
                 }
@@ -285,10 +285,7 @@ class WebRTCStatsReporter {
             audioOutboundStats.add({
               ...outboundValues,
               'timestamp': timestamp,
-              'track': _constructTrack(
-                outboundValues,
-                timestamp,
-              ),
+              'track': _constructTrack(outboundValues, timestamp),
             });
             statsObject[report.id] = {
               ...outboundValues,
@@ -304,7 +301,7 @@ class WebRTCStatsReporter {
                 remoteInboundValues['kind'] == 'audio') {
               rtt =
                   (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ??
-                      0;
+                  0;
             }
 
             statsObject[report.id] = {
@@ -361,7 +358,8 @@ class WebRTCStatsReporter {
               // Extract RTT from candidate pair if not found in remote-inbound-rtp
               if (rtt == 0 &&
                   candidatePairValues.containsKey('currentRoundTripTime')) {
-                rtt = (candidatePairValues['currentRoundTripTime'] as num?)
+                rtt =
+                    (candidatePairValues['currentRoundTripTime'] as num?)
                         ?.toDouble() ??
                     0;
               }
@@ -449,10 +447,7 @@ class WebRTCStatsReporter {
 
       // Format the data
       final formattedData = {
-        'audio': {
-          'inbound': audioInboundStats,
-          'outbound': audioOutboundStats,
-        },
+        'audio': {'inbound': audioInboundStats, 'outbound': audioOutboundStats},
         'connection': succeededConnection ?? {},
       };
 

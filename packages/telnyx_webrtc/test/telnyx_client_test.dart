@@ -41,16 +41,18 @@ void main() {
   });
 
   // Todo remove Test -  is not need since telnyxClient.call is deprecated
-  test('verify create call returns a Call without issue when sessionId is set',
-      () {
-    final telnyxClient = TelnyxClient();
-    telnyxClient.connect();
-    // Give time to connect, verify isConnected() adjusts
-    Timer(const Duration(seconds: 2), () {
-      final call = telnyxClient.call;
-      expect((telnyxClient.call), call);
-    });
-  });
+  test(
+    'verify create call returns a Call without issue when sessionId is set',
+    () {
+      final telnyxClient = TelnyxClient();
+      telnyxClient.connect();
+      // Give time to connect, verify isConnected() adjusts
+      Timer(const Duration(seconds: 2), () {
+        final call = telnyxClient.call;
+        expect((telnyxClient.call), call);
+      });
+    },
+  );
 
   test('verify create call returns ArgumentError when no sessionId is set', () {
     final telnyxClient = MockTelnyxClient();
@@ -99,29 +101,31 @@ void main() {
     });
   });
 
-  test('verify getGatewayStatus returns IDLE at start of instance creation',
-      () {
-    final telnyxClient = TelnyxClient();
-    telnyxClient.connect();
-    // Give time to connect, verify isConnected() adjusts
-    Timer(const Duration(seconds: 2), () {
-      // called twice, once for connect, and again for login
-      verify(telnyxClient.getGatewayStatus()).called(GatewayState.idle);
-    });
-  });
+  test(
+    'verify getGatewayStatus returns IDLE at start of instance creation',
+    () {
+      final telnyxClient = TelnyxClient();
+      telnyxClient.connect();
+      // Give time to connect, verify isConnected() adjusts
+      Timer(const Duration(seconds: 2), () {
+        // called twice, once for connect, and again for login
+        verify(telnyxClient.getGatewayStatus()).called(GatewayState.idle);
+      });
+    },
+  );
 
   test('verify push invite timeout terminates call after 10 seconds', () async {
     final telnyxClient = TelnyxClient();
-    
+
     // Create a test push metadata for accepting a call
     final pushMetaData = PushMetaData(
-      isAnswer: true,
-      isDecline: false,
       voiceSdkId: 'test-sdk-id',
       callId: 'test-call-id',
       callerName: 'Test Caller',
       callerNumber: '+1234567890',
     );
+    pushMetaData.isAnswer = true;
+    pushMetaData.isDecline = false;
 
     // Create a test credential config
     final credentialConfig = CredentialConfig(
@@ -153,23 +157,25 @@ void main() {
     // Verify that the timeout logic was triggered
     // Note: In a real test, we would need to mock the call creation and state management
     // This is a basic structure for the test
-    expect(telnyxClient.calls.isEmpty || 
-           telnyxClient.calls.values.any((call) => call.callState.isDone), 
-           isTrue);
+    expect(
+      telnyxClient.calls.isEmpty ||
+          telnyxClient.calls.values.any((call) => call.callState.isDone),
+      isTrue,
+    );
   });
 
   test('verify push invite timeout is cancelled when INVITE is received', () async {
     final telnyxClient = TelnyxClient();
-    
+
     // Create a test push metadata for accepting a call
     final pushMetaData = PushMetaData(
-      isAnswer: true,
-      isDecline: false,
       voiceSdkId: 'test-sdk-id',
       callId: 'test-call-id',
       callerName: 'Test Caller',
       callerNumber: '+1234567890',
     );
+    pushMetaData.isAnswer = true;
+    pushMetaData.isDecline = false;
 
     // Create a test credential config
     final credentialConfig = CredentialConfig(
@@ -190,7 +196,7 @@ void main() {
     // In a real scenario, this would be done through the socket message handler
     // For this test, we'll just verify the timer can be cancelled
     await Future.delayed(const Duration(seconds: 2));
-    
+
     // Simulate disconnect which should cancel the timer
     telnyxClient.disconnect();
 

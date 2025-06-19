@@ -128,12 +128,12 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.idle;
     _callQualityMetrics = null;
     setPushCallStatus(false);
-    
+
     // Reset call history tracking
     _currentCallDestination = null;
     _currentCallDirection = null;
     _currentCallStartTime = null;
-    
+
     notifyListeners();
   }
 
@@ -235,9 +235,10 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.done:
           logger.i('Call done : ${state.terminationReason}');
-          
+
           // Save call to history
-          if (_currentCallDestination != null && _currentCallDirection != null) {
+          if (_currentCallDestination != null &&
+              _currentCallDirection != null) {
             final wasAnswered = _callState == CallStateStatus.ongoingCall;
             _addCallToHistory(
               destination: _currentCallDestination!,
@@ -245,7 +246,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               wasAnswered: wasAnswered,
             );
           }
-          
+
           if (!kIsWeb) {
             if (currentCall?.callId != null || _incomingInvite != null) {
               FlutterCallkitIncoming.endCall(
@@ -270,9 +271,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     };
   }
 
-  Future<void> _saveCredentialsForAutoLogin(
-    Config config,
-  ) async {
+  Future<void> _saveCredentialsForAutoLogin(Config config) async {
     await _clearConfigForAutoLogin();
     final prefs = await SharedPreferences.getInstance();
     if (config is TokenConfig) {
@@ -284,10 +283,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     await prefs.setString('sipName', config.sipCallerIDName);
     await prefs.setString('sipNumber', config.sipCallerIDNumber);
     if (config.notificationToken != null) {
-      await prefs.setString(
-        'notificationToken',
-        config.notificationToken!,
-      );
+      await prefs.setString('notificationToken', config.notificationToken!);
     }
   }
 
@@ -335,7 +331,8 @@ class TelnyxClientViewModel with ChangeNotifier {
 
               // Track incoming call for history
               if (_incomingInvite != null) {
-                _currentCallDestination = _incomingInvite!.callerIdNumber ?? 'Unknown';
+                _currentCallDestination =
+                    _incomingInvite!.callerIdNumber ?? 'Unknown';
                 _currentCallDirection = CallDirection.incoming;
                 _currentCallStartTime = DateTime.now();
               }
@@ -389,7 +386,8 @@ class TelnyxClientViewModel with ChangeNotifier {
           case SocketMethod.bye:
             {
               // Save call to history before resetting call info
-              if (_currentCallDestination != null && _currentCallDirection != null) {
+              if (_currentCallDestination != null &&
+                  _currentCallDirection != null) {
                 final wasAnswered = _callState == CallStateStatus.ongoingCall;
                 _addCallToHistory(
                   destination: _currentCallDestination!,
@@ -397,7 +395,7 @@ class TelnyxClientViewModel with ChangeNotifier {
                   wasAnswered: wasAnswered,
                 );
               }
-              
+
               callState = CallStateStatus.idle;
               resetCallInfo();
 
@@ -438,11 +436,11 @@ class TelnyxClientViewModel with ChangeNotifier {
           await messageLogger.writeLog(message.toString());
         }
       }
-
       // Observe Socket Error Messages
       ..onSocketErrorReceived = (TelnyxSocketError error) {
         _setErrorDialog(
-            formatSignalingErrorMessage(error.errorCode, error.errorMessage));
+          formatSignalingErrorMessage(error.errorCode, error.errorMessage),
+        );
 
         switch (error.errorCode) {
           //ToDo Error handling here depends on the requirement of the SDK implementor and the use case
