@@ -63,6 +63,9 @@ class TelnyxClient {
   // Map to track reconnection timers for each call
   final Map<String?, Timer> _reconnectionTimers = {};
 
+  // Timer to handle missing INVITE after accepting a call from VoIP push
+  Timer? _pushInviteTimeoutTimer;
+
   /// Default constructor for the TelnyxClient
   TelnyxClient() {
     onSocketMessageReceived = (TelnyxMessage message) {
@@ -277,6 +280,57 @@ class TelnyxClient {
     }
   }
 
+  /// Starts a timeout timer for push invite
+  /// If no INVITE is received within 10 seconds after accepting a push call,
+  /// the call will be terminated with ORIGINATOR_CANCEL reason
+  void _startPushInviteTimeout() {
+    // Cancel any existing timer
+    _cancelPushInviteTimeout();
+
+    GlobalLogger().i('Starting push invite timeout timer (10 seconds)');
+
+    _pushInviteTimeoutTimer = Timer(
+      const Duration(seconds: 10),
+      () {
+        GlobalLogger().i('Push invite timeout expired - no INVITE received within 10 seconds');
+        
+        // Create termination reason for ORIGINATOR_CANCEL
+        final terminationReason = CallTerminationReason(
+          cause: 'ORIGINATOR_CANCEL',
+          causeCode: 487,
+          sipCode: 487,
+          sipReason: 'Request Terminated',
+        );
+
+        // Find any pending call from push and terminate it
+        for (var call in calls.values) {
+          if (call.callState == CallState.newCall || call.callState == CallState.connecting) {
+            GlobalLogger().i('Terminating call ${call.callId} due to push invite timeout');
+            call.callHandler.onCallStateChanged.call(
+              CallState.done.withTerminationReason(terminationReason),
+            );
+            call.endCall();
+            break; // Only terminate the first matching call
+          }
+        }
+
+        // Reset push-related flags
+        _pendingAnswerFromPush = false;
+        _isCallFromPush = false;
+        _pushInviteTimeoutTimer = null;
+      },
+    );
+  }
+
+  /// Cancels the push invite timeout timer
+  void _cancelPushInviteTimeout() {
+    if (_pushInviteTimeoutTimer != null) {
+      _pushInviteTimeoutTimer!.cancel();
+      _pushInviteTimeoutTimer = null;
+      GlobalLogger().i('Cancelled push invite timeout timer');
+    }
+  }
+
   /// Handles the push notification received from the backend
   /// and initiates the connection with the provided [pushMetaData]
   /// and [credentialConfig] or [tokenConfig]
@@ -310,6 +364,8 @@ class TelnyxClient {
       GlobalLogger().i(
           'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true');
       _pendingAnswerFromPush = true;
+      // Start timeout timer for missing INVITE after accepting push call
+      _startPushInviteTimeout();
     } else {
       GlobalLogger().i(
           'TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false');
@@ -938,6 +994,8 @@ class TelnyxClient {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
     clearPushMetaData();
+    // Cancel push invite timeout timer on disconnect
+    _cancelPushInviteTimeout();
     GlobalLogger().i('disconnect()');
     if (_closed) {
       GlobalLogger().i('WebSocket is already closed');
@@ -963,6 +1021,8 @@ class TelnyxClient {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
     clearPushMetaData();
+    // Cancel push invite timeout timer on disconnect
+    _cancelPushInviteTimeout();
     GlobalLogger().i('disconnect()');
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
@@ -1251,6 +1311,8 @@ class TelnyxClient {
                     'State',
                   );
                   _pendingAnswerFromPush = false;
+                  // Cancel push invite timeout since INVITE was received
+                  _cancelPushInviteTimeout();
                   offerCall.callHandler.changeState(CallState.connecting);
                 }
                 if (_pendingDeclineFromPush) {
@@ -1284,6 +1346,8 @@ class TelnyxClient {
                   isAttach: true,
                 );
                 _pendingAnswerFromPush = false;
+                // Cancel push invite timeout since INVITE was received
+                _cancelPushInviteTimeout();
                 break;
               }
             case SocketMethod.media:
