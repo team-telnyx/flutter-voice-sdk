@@ -40,6 +40,8 @@ class _ControlHeadersState extends State<ControlHeaders> {
             const SizedBox(height: spacingS),
             SocketConnectivityStatus(isConnected: txClient.registered),
             const SizedBox(height: spacingXL),
+            CallStateStatusWidget(callState: txClient.callState),
+            const SizedBox(height: spacingXL),
             Text('Session ID', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: spacingS),
             Text(
@@ -76,5 +78,71 @@ class SocketConnectivityStatus extends StatelessWidget {
         Text(isConnected ? 'Client-ready' : 'Disconnected'),
       ],
     );
+  }
+}
+
+class CallStateStatusWidget extends StatelessWidget {
+  final CallStateStatus callState;
+
+  const CallStateStatusWidget({super.key, required this.callState});
+
+  @override
+  Widget build(BuildContext context) {
+    final callStateColor = _getCallStateColor(callState);
+    final callStateName = _getCallStateName(callState);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Call State', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: spacingS),
+        Row(
+          children: <Widget>[
+            Container(
+              width: spacingS,
+              height: spacingS,
+              decoration: BoxDecoration(
+                color: callStateColor,
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+            const SizedBox(width: spacingS),
+            Text(callStateName),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Color _getCallStateColor(CallStateStatus state) {
+    switch (state) {
+      case CallStateStatus.ongoingCall:
+        return Colors.green; // Active call - green
+      case CallStateStatus.ringing:
+      case CallStateStatus.ongoingInvitation:
+        return const Color(0xFF3434EF); // Ringing - blue
+      case CallStateStatus.connectingToCall:
+        return const Color(0xFF3434EF); // Connecting - blue
+      case CallStateStatus.disconnected:
+      case CallStateStatus.idle:
+        return const Color(0xFF93928D); // Done/Idle - gray
+    }
+  }
+
+  String _getCallStateName(CallStateStatus state) {
+    switch (state) {
+      case CallStateStatus.disconnected:
+        return 'Disconnected';
+      case CallStateStatus.idle:
+        return 'Idle';
+      case CallStateStatus.ringing:
+        return 'Ringing';
+      case CallStateStatus.ongoingInvitation:
+        return 'Incoming';
+      case CallStateStatus.connectingToCall:
+        return 'Connecting';
+      case CallStateStatus.ongoingCall:
+        return 'Active';
+    }
   }
 }
