@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
+import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 
 class ControlHeaders extends StatefulWidget {
   const ControlHeaders({super.key});
@@ -40,7 +41,10 @@ class _ControlHeadersState extends State<ControlHeaders> {
             const SizedBox(height: spacingS),
             SocketConnectivityStatus(isConnected: txClient.registered),
             const SizedBox(height: spacingXL),
-            CallStateStatusWidget(callState: txClient.callState),
+            CallStateStatusWidget(
+              callState: txClient.callState,
+              terminationReason: txClient.lastTerminationReason,
+            ),
             const SizedBox(height: spacingXL),
             Text('Session ID', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: spacingS),
@@ -83,8 +87,13 @@ class SocketConnectivityStatus extends StatelessWidget {
 
 class CallStateStatusWidget extends StatelessWidget {
   final CallStateStatus callState;
+  final CallTerminationReason? terminationReason;
 
-  const CallStateStatusWidget({super.key, required this.callState});
+  const CallStateStatusWidget({
+    super.key, 
+    required this.callState,
+    this.terminationReason,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +116,7 @@ class CallStateStatusWidget extends StatelessWidget {
               ),
             ),
             const SizedBox(width: spacingS),
-            Text(callStateName),
+            Expanded(child: Text(callStateName)),
           ],
         ),
       ],
@@ -134,6 +143,10 @@ class CallStateStatusWidget extends StatelessWidget {
       case CallStateStatus.disconnected:
         return 'Disconnected';
       case CallStateStatus.idle:
+        // Show termination reason if available and recent
+        if (terminationReason != null) {
+          return 'Done - ${terminationReason?.cause.toString() ?? 'NORMAL_CLEARING'}';
+        }
         return 'Idle';
       case CallStateStatus.ringing:
         return 'Ringing';
