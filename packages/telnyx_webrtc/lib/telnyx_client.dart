@@ -334,8 +334,8 @@ class TelnyxClient {
         GlobalLogger().i(
           'Creating temporary call object for timeout handling with call ID: $_pushCallId',
         );
-        targetCall = _createCall();
-        targetCall.callId = _pushCallId;
+        targetCall = _createCall()
+        ..callId = _pushCallId;
         calls[_pushCallId!] = targetCall;
       }
 
@@ -347,7 +347,6 @@ class TelnyxClient {
         targetCall.callHandler.onCallStateChanged.call(
           CallState.done.withTerminationReason(terminationReason),
         );
-        targetCall.endCall();
       } else {
         GlobalLogger().w('No call found to terminate for push invite timeout');
       }
