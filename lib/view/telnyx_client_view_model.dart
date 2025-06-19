@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
@@ -13,6 +14,7 @@ import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
@@ -56,6 +58,9 @@ class TelnyxClientViewModel with ChangeNotifier {
   String? _currentCallDestination;
   CallDirection? _currentCallDirection;
   DateTime? _currentCallStartTime;
+
+  // Call termination reason tracking
+  CallTerminationReason? _lastTerminationReason;
 
   String? _errorDialogMessage;
   String? get errorDialogMessage => _errorDialogMessage;
@@ -117,6 +122,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
+  CallTerminationReason? get lastTerminationReason => _lastTerminationReason;
+
   void resetCallInfo() {
     logger.i('TxClientViewModel :: Reset Call Info');
     BackgroundDetector.ignore = false;
@@ -133,6 +140,12 @@ class TelnyxClientViewModel with ChangeNotifier {
     _currentCallDestination = null;
     _currentCallDirection = null;
     _currentCallStartTime = null;
+    
+    // Reset termination reason after a delay to allow UI to show it
+    Timer(const Duration(seconds: 5), () {
+      _lastTerminationReason = null;
+      notifyListeners();
+    });
     
     notifyListeners();
   }
@@ -235,6 +248,9 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.done:
           logger.i('Call done : ${state.terminationReason}');
+          
+          // Store the termination reason for display
+          _lastTerminationReason = state.terminationReason;
           
           // Save call to history
           if (_currentCallDestination != null && _currentCallDirection != null) {
