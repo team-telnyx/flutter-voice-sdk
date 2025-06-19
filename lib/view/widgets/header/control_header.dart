@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
+import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 
 class ControlHeaders extends StatefulWidget {
   const ControlHeaders({super.key});
@@ -20,7 +21,7 @@ class _ControlHeadersState extends State<ControlHeaders> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: spacingL),
+              padding: const EdgeInsets.symmetric(vertical: spacingS),
               child: Center(
                 child: Image.asset(
                   logo_path,
@@ -39,6 +40,11 @@ class _ControlHeadersState extends State<ControlHeaders> {
             Text('Socket', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: spacingS),
             SocketConnectivityStatus(isConnected: txClient.registered),
+            const SizedBox(height: spacingXL),
+            CallStateStatusWidget(
+              callState: txClient.callState,
+              terminationReason: txClient.lastTerminationReason,
+            ),
             const SizedBox(height: spacingXL),
             Text('Session ID', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: spacingS),
@@ -76,5 +82,80 @@ class SocketConnectivityStatus extends StatelessWidget {
         Text(isConnected ? 'Client-ready' : 'Disconnected'),
       ],
     );
+  }
+}
+
+class CallStateStatusWidget extends StatelessWidget {
+  final CallStateStatus callState;
+  final CallTerminationReason? terminationReason;
+
+  const CallStateStatusWidget({
+    super.key, 
+    required this.callState,
+    this.terminationReason,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final callStateColor = _getCallStateColor(callState);
+    final callStateName = _getCallStateName(callState);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Call State', style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: spacingS),
+        Row(
+          children: <Widget>[
+            Container(
+              width: spacingS,
+              height: spacingS,
+              decoration: BoxDecoration(
+                color: callStateColor,
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+            const SizedBox(width: spacingS),
+            Expanded(child: Text(callStateName)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Color _getCallStateColor(CallStateStatus state) {
+    switch (state) {
+      case CallStateStatus.ongoingCall:
+        return Colors.green; // Active call - green
+      case CallStateStatus.ringing:
+      case CallStateStatus.ongoingInvitation:
+        return const Color(0xFF3434EF); // Ringing - blue
+      case CallStateStatus.connectingToCall:
+        return const Color(0xFF3434EF); // Connecting - blue
+      case CallStateStatus.disconnected:
+      case CallStateStatus.idle:
+        return const Color(0xFF93928D); // Done/Idle - gray
+    }
+  }
+
+  String _getCallStateName(CallStateStatus state) {
+    switch (state) {
+      case CallStateStatus.disconnected:
+        return 'Disconnected';
+      case CallStateStatus.idle:
+        // Show termination reason if available and recent
+        if (terminationReason != null) {
+          return 'Done - ${terminationReason?.cause.toString() ?? 'NORMAL_CLEARING'}';
+        }
+        return 'Idle';
+      case CallStateStatus.ringing:
+        return 'Ringing';
+      case CallStateStatus.ongoingInvitation:
+        return 'Incoming';
+      case CallStateStatus.connectingToCall:
+        return 'Connecting';
+      case CallStateStatus.ongoingCall:
+        return 'Active';
+    }
   }
 }

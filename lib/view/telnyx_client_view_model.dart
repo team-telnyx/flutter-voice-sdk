@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
@@ -13,6 +14,7 @@ import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
@@ -56,6 +58,9 @@ class TelnyxClientViewModel with ChangeNotifier {
   String? _currentCallDestination;
   CallDirection? _currentCallDirection;
   DateTime? _currentCallStartTime;
+
+  // Call termination reason tracking
+  CallTerminationReason? _lastTerminationReason;
 
   String? _errorDialogMessage;
   String? get errorDialogMessage => _errorDialogMessage;
@@ -117,6 +122,20 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
+
+  /// State flow for inbound audio levels list
+  final List<double> _inboundAudioLevels = [];
+  List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
+
+  /// State flow for outbound audio levels list  
+  final List<double> _outboundAudioLevels = [];
+  List<double> get outboundAudioLevels => List.unmodifiable(_outboundAudioLevels);
+
+  /// Maximum number of audio levels to keep in memory
+  static const int maxAudioLevels = 100;
+
+  CallTerminationReason? get lastTerminationReason => _lastTerminationReason;
+
   void resetCallInfo() {
     logger.i('TxClientViewModel :: Reset Call Info');
     BackgroundDetector.ignore = false;
@@ -129,10 +148,22 @@ class TelnyxClientViewModel with ChangeNotifier {
     _callQualityMetrics = null;
     setPushCallStatus(false);
 
+
+    // Clear audio level lists
+    _inboundAudioLevels.clear();
+    _outboundAudioLevels.clear();
+
     // Reset call history tracking
     _currentCallDestination = null;
     _currentCallDirection = null;
     _currentCallStartTime = null;
+
+
+    // Reset termination reason after a delay to allow UI to show it
+    Timer(const Duration(seconds: 5), () {
+      _lastTerminationReason = null;
+      notifyListeners();
+    });
 
     notifyListeners();
   }
@@ -181,6 +212,26 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void observeCurrentCall() {
+    logger.i('TelnyxClientViewModel.observeCurrentCall: Setting up call observation for callId: ${currentCall?.callId}');
+
+    // Set up call quality callback to receive metrics every 100ms
+    currentCall?.onCallQualityChange = (metrics) {
+      _callQualityMetrics = metrics;
+
+      // Update audio level lists directly from metrics (now coming every 100ms)
+      _inboundAudioLevels.add(metrics.inboundAudioLevel);
+      while (_inboundAudioLevels.length > maxAudioLevels) {
+        _inboundAudioLevels.removeAt(0);
+      }
+
+      _outboundAudioLevels.add(metrics.outboundAudioLevel);
+      while (_outboundAudioLevels.length > maxAudioLevels) {
+        _outboundAudioLevels.removeAt(0);
+      }
+
+      notifyListeners();
+    };
+
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i(
         'TelnyxClientViewModel.observeCurrentCall: Call State changed to :: $state for callId: ${currentCall?.callId}',
@@ -220,12 +271,6 @@ class TelnyxClientViewModel with ChangeNotifier {
               );
             }
           }
-          currentCall?.onCallQualityChange = (metrics) {
-            // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
-            logger.i('Call quality: ${metrics}');
-            _callQualityMetrics = metrics;
-            notifyListeners();
-          };
 
           _callState = CallStateStatus.ongoingCall;
           notifyListeners();
@@ -235,6 +280,9 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.done:
           logger.i('Call done : ${state.terminationReason}');
+
+          // Store the termination reason for display
+          _lastTerminationReason = state.terminationReason;
 
           // Save call to history
           if (_currentCallDestination != null &&
@@ -579,6 +627,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       destination,
       'Fake State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
+      debug: true,
     );
 
     logger.i(
@@ -672,6 +721,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         _localNumber,
         'State',
         customHeaders: {},
+        debug: true,
       );
       observeCurrentCall();
 

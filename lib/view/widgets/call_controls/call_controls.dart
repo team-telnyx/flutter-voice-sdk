@@ -8,7 +8,6 @@ import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/buttons/call_bu
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_invitation.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/ongoing_call_controls.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_history/call_history_button.dart';
-import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 
 class DestinationToggle extends StatelessWidget {
   final bool isPhoneNumber;
@@ -100,7 +99,7 @@ class CallControls extends StatefulWidget {
 
 class _CallControlsState extends State<CallControls> {
   final _destinationController = TextEditingController();
-  bool _isPhoneNumber = true;
+  bool _isPhoneNumber = false;
 
   @override
   void dispose() {
@@ -111,12 +110,13 @@ class _CallControlsState extends State<CallControls> {
   @override
   Widget build(BuildContext context) {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-      (txClient) => txClient.callState,
+          (txClient) => txClient.callState,
     );
 
     final metrics = context.select<TelnyxClientViewModel, CallQualityMetrics?>(
-      (txClient) => txClient.callQualityMetrics,
+          (txClient) => txClient.callQualityMetrics,
     );
+
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,10 +132,8 @@ class _CallControlsState extends State<CallControls> {
               });
             },
           ),
-          const SizedBox(height: spacingM),
+          const SizedBox(height: spacingS),
         ],
-        Text('Destination', style: Theme.of(context).textTheme.labelMedium),
-        const SizedBox(height: spacingXS),
         Padding(
           padding: const EdgeInsets.all(spacingXS),
           child: TextFormField(
@@ -148,12 +146,15 @@ class _CallControlsState extends State<CallControls> {
             inputFormatters: _isPhoneNumber
                 ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s\(\)]'))]
                 : [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[a-zA-Z0-9@\.\-_]'),
-                    ),
-                  ],
+              FilteringTextInputFormatter.allow(
+                RegExp(r'[a-zA-Z0-9@\.\-_]'),
+              ),
+            ],
             decoration: InputDecoration(
-              hintStyle: Theme.of(context).textTheme.labelSmall,
+              hintStyle: Theme
+                  .of(context)
+                  .textTheme
+                  .labelSmall,
               hintText: _isPhoneNumber ? '+E164 phone number' : 'SIP address',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(spacingS),
@@ -179,83 +180,35 @@ class _CallControlsState extends State<CallControls> {
           ),
           const SizedBox(height: spacingL),
           const Center(child: CallHistoryButton()),
-        ] else if (clientState == CallStateStatus.ringing)
-          Center(
-            child: DeclineButton(
-              onPressed: () {
-                context.read<TelnyxClientViewModel>().endCall();
-              },
-            ),
-          )
-        else if (clientState == CallStateStatus.ongoingInvitation)
-          Center(
-            child: CallInvitation(
-              onAccept: () {
-                context.read<TelnyxClientViewModel>().accept();
-              },
-              onDecline: () {
-                context.read<TelnyxClientViewModel>().endCall();
-              },
-            ),
-          )
-        else if (clientState == CallStateStatus.connectingToCall)
-          Center(child: CircularProgressIndicator())
-        else if (clientState == CallStateStatus.ongoingCall)
-          Center(child: OnGoingCallControls()),
+        ] else
+          if (clientState == CallStateStatus.ringing)
+            Center(
+              child: DeclineButton(
+                onPressed: () {
+                  context.read<TelnyxClientViewModel>().endCall();
+                },
+              ),
+            )
+          else
+            if (clientState == CallStateStatus.ongoingInvitation)
+              Center(
+                child: CallInvitation(
+                  onAccept: () {
+                    context.read<TelnyxClientViewModel>().accept();
+                  },
+                  onDecline: () {
+                    context.read<TelnyxClientViewModel>().endCall();
+                  },
+                ),
+              )
+            else
+              if (clientState == CallStateStatus.connectingToCall)
+                Center(child: CircularProgressIndicator())
+              else
+                if (clientState == CallStateStatus.ongoingCall)
+                  Center(child: OnGoingCallControls()),
         _buildCallQualityMetrics(metrics),
       ],
-    );
-  }
-
-  Widget _buildCallQualityMetrics(CallQualityMetrics? callQualityMetrics) {
-    if (callQualityMetrics == null) return SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Card(
-        color: Color(0xFFF5F3E4), // Custom background color
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.0), // Rounded edges
-        ),
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            dividerColor: Colors.transparent, // Remove ExpansionTile divider
-          ),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 12.0,
-            ),
-            childrenPadding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
-            title: Text(
-              'Call Quality Metrics',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            children: [
-              _buildMetricRow('Jitter', '${callQualityMetrics.jitter} ms'),
-              _buildMetricRow('RTT', '${callQualityMetrics.rtt} ms'),
-              _buildMetricRow('MOS', '${callQualityMetrics.mos}'),
-              _buildMetricRow('Quality', callQualityMetrics.quality.toString()),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMetricRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          Text(value, style: Theme.of(context).textTheme.bodyMedium),
-        ],
-      ),
     );
   }
 }
