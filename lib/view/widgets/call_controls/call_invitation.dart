@@ -17,13 +17,9 @@ class CallInvitation extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        CallButton(
-          onPressed: onAccept,
-        ),
+        CallButton(onPressed: onAccept),
         SizedBox(width: spacingM),
-        DeclineButton(
-          onPressed: onDecline,
-        ),
+        DeclineButton(onPressed: onDecline),
       ],
     );
   }

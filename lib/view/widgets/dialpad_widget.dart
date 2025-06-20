@@ -5,10 +5,7 @@ import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 class DialPad extends StatefulWidget {
   final ValueChanged<String>? onDigitPressed;
 
-  const DialPad({
-    Key? key,
-    this.onDigitPressed,
-  }) : super(key: key);
+  const DialPad({Key? key, this.onDigitPressed}) : super(key: key);
 
   @override
   _DialPadState createState() => _DialPadState();
@@ -74,9 +71,7 @@ class _DialPadState extends State<DialPad> {
               readOnly: true,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: fontSizeXL, color: Colors.black),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-              ),
+              decoration: const InputDecoration(border: InputBorder.none),
             ),
 
             const SizedBox(height: spacingM),

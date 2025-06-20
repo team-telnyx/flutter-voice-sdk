@@ -26,11 +26,11 @@ class _CallHistoryBottomSheetState extends State<CallHistoryBottomSheet> {
   Future<void> _loadCallHistory() async {
     final profileProvider = context.read<ProfileProvider>();
     final selectedProfile = profileProvider.selectedProfile;
-    
+
     if (selectedProfile != null) {
       final profileId = _getProfileId(selectedProfile);
       final history = await CallHistoryService.getCallHistory(profileId);
-      
+
       if (mounted) {
         setState(() {
           _callHistory = history;
@@ -58,7 +58,7 @@ class _CallHistoryBottomSheetState extends State<CallHistoryBottomSheet> {
   void _onCallHistoryEntryTap(CallHistoryEntry entry) {
     // Close the bottom sheet
     Navigator.of(context).pop();
-    
+
     // Initiate call to the destination
     context.read<TelnyxClientViewModel>().call(entry.destination);
   }
@@ -86,7 +86,7 @@ class _CallHistoryBottomSheetState extends State<CallHistoryBottomSheet> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header
           Padding(
             padding: const EdgeInsets.all(spacingL),
@@ -106,42 +106,35 @@ class _CallHistoryBottomSheetState extends State<CallHistoryBottomSheet> {
               ],
             ),
           ),
-          
+
           // Content
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _callHistory.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.history,
-                              size: 64,
-                              color: Colors.grey,
-                            ),
-                            SizedBox(height: spacingM),
-                            Text(
-                              'No call history',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.history, size: 64, color: Colors.grey),
+                        SizedBox(height: spacingM),
+                        Text(
+                          'No call history',
+                          style: TextStyle(fontSize: 18, color: Colors.grey),
                         ),
-                      )
-                    : ListView.builder(
-                        itemCount: _callHistory.length,
-                        itemBuilder: (context, index) {
-                          final entry = _callHistory[index];
-                          return CallHistoryListItem(
-                            entry: entry,
-                            onTap: () => _onCallHistoryEntryTap(entry),
-                          );
-                        },
-                      ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _callHistory.length,
+                    itemBuilder: (context, index) {
+                      final entry = _callHistory[index];
+                      return CallHistoryListItem(
+                        entry: entry,
+                        onTap: () => _onCallHistoryEntryTap(entry),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -177,21 +170,13 @@ class CallHistoryListItem extends StatelessWidget {
       ),
       title: Text(
         entry.displayDestination,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w500),
       ),
       subtitle: Text(
         '${entry.direction == CallDirection.incoming ? 'Incoming' : 'Outgoing'} • ${entry.formattedTime}',
-        style: TextStyle(
-          color: Colors.grey.shade600,
-          fontSize: 12,
-        ),
+        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
       ),
-      trailing: Icon(
-        Icons.call,
-        color: Colors.grey.shade600,
-      ),
+      trailing: Icon(Icons.call, color: Colors.grey.shade600),
       onTap: onTap,
     );
   }

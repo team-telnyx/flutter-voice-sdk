@@ -73,61 +73,67 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 @pragma('vm:entry-point')
 Future<void> main() async {
-  await runZonedGuarded(() async {
-    WidgetsFlutterBinding.ensureInitialized();
+  await runZonedGuarded(
+    () async {
+      WidgetsFlutterBinding.ensureInitialized();
 
-    // Catch Flutter framework errors
-    FlutterError.onError = (FlutterErrorDetails details) {
-      FlutterError.presentError(details);
-      logger.e(
-        'Caught Flutter error: ${details.exception}',
-        stackTrace: details.stack,
+      // Catch Flutter framework errors
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FlutterError.presentError(details);
+        logger.e(
+          'Caught Flutter error: ${details.exception}',
+          stackTrace: details.stack,
+        );
+        PlatformPushService.handler.clearPushData();
+      };
+
+      // Catch other platform errors (e.g., Dart errors outside Flutter)
+      PlatformDispatcher.instance.onError = (error, stack) {
+        logger.e('Caught Platform error: $error', stackTrace: stack);
+        PlatformPushService.handler.clearPushData();
+        return true;
+      };
+
+      if (!AppInitializer()._isInitialized) {
+        await AppInitializer().initialize();
+      }
+
+      FirebaseMessaging.onBackgroundMessage(
+        _firebaseMessagingBackgroundHandler,
       );
-      PlatformPushService.handler.clearPushData();
-    };
-
-    // Catch other platform errors (e.g., Dart errors outside Flutter)
-    PlatformDispatcher.instance.onError = (error, stack) {
-      logger.e('Caught Platform error: $error', stackTrace: stack);
-      PlatformPushService.handler.clearPushData();
-      return true;
-    };
-
-    if (!AppInitializer()._isInitialized) {
-      await AppInitializer().initialize();
-    }
-
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    final config = await txClientViewModel.getConfig();
-    runApp(
-      BackgroundDetector(
-        skipWeb: true,
-        onLifecycleEvent: (AppLifecycleState state) {
-          if (state == AppLifecycleState.resumed) {
-            logger
-                .i('[BackgroundDetector] We are in the foreground, CONNECTING');
-            // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
-            if (!txClientViewModel.callFromPush) {
-              if (config != null && config is CredentialConfig) {
-                txClientViewModel.login(config);
-              } else if (config != null && config is TokenConfig) {
-                txClientViewModel.loginWithToken(config);
+      final config = await txClientViewModel.getConfig();
+      runApp(
+        BackgroundDetector(
+          skipWeb: true,
+          onLifecycleEvent: (AppLifecycleState state) {
+            if (state == AppLifecycleState.resumed) {
+              logger.i(
+                '[BackgroundDetector] We are in the foreground, CONNECTING',
+              );
+              // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
+              if (!txClientViewModel.callFromPush) {
+                if (config != null && config is CredentialConfig) {
+                  txClientViewModel.login(config);
+                } else if (config != null && config is TokenConfig) {
+                  txClientViewModel.loginWithToken(config);
+                }
               }
+            } else if (state == AppLifecycleState.paused) {
+              logger.i(
+                '[BackgroundDetector] We are in the background, DISCONNECTING',
+              );
+              txClientViewModel.disconnect();
             }
-          } else if (state == AppLifecycleState.paused) {
-            logger.i(
-              '[BackgroundDetector] We are in the background, DISCONNECTING',
-            );
-            txClientViewModel.disconnect();
-          }
-        },
-        child: const MyApp(),
-      ),
-    );
-  }, (error, stack) {
-    logger.e('Caught Zoned error: $error', stackTrace: stack);
-    PlatformPushService.handler.clearPushData();
-  });
+          },
+          child: const MyApp(),
+        ),
+      );
+    },
+    (error, stack) {
+      logger.e('Caught Zoned error: $error', stackTrace: stack);
+      PlatformPushService.handler.clearPushData();
+    },
+  );
 }
 
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
@@ -141,9 +147,7 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
   }
   logger.i('[handlePush] Before txClientViewModel.getConfig()');
   final config = await txClientViewModel.getConfig();
-  logger.i(
-    '[handlePush] Created PushMetaData: ${pushMetaData?.toJson()}',
-  );
+  logger.i('[handlePush] Created PushMetaData: ${pushMetaData?.toJson()}');
   txClientViewModel
     ..handlePushNotification(
       pushMetaData!,
@@ -170,21 +174,26 @@ class _MyAppState extends State<MyApp> {
     // Platform-specific logic for handling initial push data when app starts.
     // For Android, this checks if the app was launched from a terminated state by a notification.
     // For iOS, this is less critical as CallKit events usually drive the flow after launch.
-    PlatformPushService.handler.getInitialPushData().then((data) {
-      if (data != null) {
-        final Map<dynamic, dynamic> mutablePayload = Map.from(data);
-        final answer = mutablePayload['isAnswer'] = true;
-        PlatformPushService.handler.processIncomingCallAction(
-          data,
-          isAnswer: answer,
-          isDecline: !answer,
-        );
-      } else {
-        logger.i('[_MyAppState] Android: No initial push data found.');
-      }
-    }).catchError((e) {
-      logger.e('[_MyAppState] Android: Error fetching initial push data: $e');
-    });
+    PlatformPushService.handler
+        .getInitialPushData()
+        .then((data) {
+          if (data != null) {
+            final Map<dynamic, dynamic> mutablePayload = Map.from(data);
+            final answer = mutablePayload['isAnswer'] = true;
+            PlatformPushService.handler.processIncomingCallAction(
+              data,
+              isAnswer: answer,
+              isDecline: !answer,
+            );
+          } else {
+            logger.i('[_MyAppState] Android: No initial push data found.');
+          }
+        })
+        .catchError((e) {
+          logger.e(
+            '[_MyAppState] Android: Error fetching initial push data: $e',
+          );
+        });
   }
 
   @override
@@ -198,9 +207,7 @@ class _MyAppState extends State<MyApp> {
         title: 'Telnyx WebRTC',
         theme: AppTheme.lightTheme,
         initialRoute: '/',
-        routes: {
-          '/': (context) => const HomeScreen(),
-        },
+        routes: {'/': (context) => const HomeScreen()},
       ),
     );
   }
