@@ -113,6 +113,12 @@ class TelnyxClient {
   bool _registered = false;
   int _registrationRetryCounter = 0;
 
+  /// Timer for handling push notification answer timeout
+  Timer? _pendingAnswerTimeout;
+
+  /// Timeout duration for pending answer from push (10 seconds)
+  static const Duration _pushAnswerTimeoutDuration = Duration(seconds: 10);
+
   bool _autoReconnectLogin = true;
   int _connectRetryCounter = 0;
 
@@ -277,6 +283,90 @@ class TelnyxClient {
     }
   }
 
+  /// Starts the timeout timer for pending answer from push notification
+  void _startPendingAnswerTimeout() {
+    // Cancel any existing timeout
+    _cancelPendingAnswerTimeout();
+
+    GlobalLogger().i(
+        'Starting pending answer timeout (${_pushAnswerTimeoutDuration.inSeconds}s)');
+
+    _pendingAnswerTimeout = Timer(_pushAnswerTimeoutDuration, () {
+      _handlePendingAnswerTimeout();
+    });
+  }
+
+  /// Cancels the pending answer timeout timer
+  void _cancelPendingAnswerTimeout() {
+    if (_pendingAnswerTimeout != null) {
+      _pendingAnswerTimeout?.cancel();
+      _pendingAnswerTimeout = null;
+      GlobalLogger().i('Cancelled pending answer timeout');
+    }
+  }
+
+  /// Handles the timeout when no INVITE is received after accepting from push
+  void _handlePendingAnswerTimeout() {
+    GlobalLogger().i(
+        'Pending answer timeout expired - no INVITE received within ${_pushAnswerTimeoutDuration.inSeconds} seconds');
+
+    // Reset the pending answer flag
+    _pendingAnswerFromPush = false;
+
+    // Create termination reason for originator cancel
+    final terminationReason = CallTerminationReason(
+      cause: 'ORIGINATOR_CANCEL',
+      causeCode: 487,
+      sipCode: 487,
+      sipReason: 'Request Terminated',
+    );
+
+    // Use call ID from push metadata, or generate a timeout-specific ID
+    final callId = _pushMetaData?.callId ?? 'timeout-${const Uuid().v4()}';
+
+    final byeMessage = ReceiveByeMessage(
+      jsonrpc: JsonRPCConstant.jsonrpc,
+      id: 0,
+      method: SocketMethod.bye,
+      params: ReceiveByeParams(
+        callID: callId,
+        sipCallId: callId,
+        sipCode: terminationReason.sipCode,
+        causeCode: terminationReason.causeCode,
+        cause: terminationReason.cause,
+        sipReason: terminationReason.sipReason,
+      ),
+    );
+
+    final byeMessageJson = jsonEncode(byeMessage.toJson());
+    GlobalLogger().i(
+        'Sending BYE message due to pending answer timeout: $byeMessageJson');
+
+    final receivedMessage = ReceivedMessage(
+      jsonrpc: JsonRPCConstant.jsonrpc,
+      id: byeMessage.id,
+      method: byeMessage.method,
+      byeParams: byeMessage.params,
+    );
+
+    // Send the BYE message through the normal message flow
+    // This will trigger the existing BYE handling in the ViewModel which:
+    // 1. Calls resetCallInfo() to reset call state to idle
+    // 2. Dismisses any loading dialogs (CircularProgressIndicator)
+    // 3. Updates the UI to show the proper termination reason
+    final message = TelnyxMessage(
+      socketMethod: SocketMethod.bye,
+      message: receivedMessage,
+    );
+    onSocketMessageReceived.call(message);
+
+    // Clear the timeout timer reference
+    _pendingAnswerTimeout = null;
+
+    GlobalLogger().i(
+        'Pending answer timeout handled - call terminated with ORIGINATOR_CANCEL');
+  }
+
   /// Handles the push notification received from the backend
   /// and initiates the connection with the provided [pushMetaData]
   /// and [credentialConfig] or [tokenConfig]
@@ -289,10 +379,12 @@ class TelnyxClient {
     CredentialConfig? credentialConfig,
     TokenConfig? tokenConfig,
   ) {
-    GlobalLogger().i('TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}');
+    GlobalLogger().i(
+        'TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}');
 
     if (pushMetaData.isDecline == true) {
-      GlobalLogger().i('TelnyxClient.handlePushNotification: Decline case - using simplified decline logic with decline_push parameter');
+      GlobalLogger().i(
+          'TelnyxClient.handlePushNotification: Decline case - using simplified decline logic with decline_push parameter');
       // For decline, we use a simplified approach: connect, login with decline_push=true, then disconnect
       _connectWithCallBack(pushMetaData, () {
         if (credentialConfig != null) {
@@ -310,6 +402,8 @@ class TelnyxClient {
       GlobalLogger().i(
           'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true');
       _pendingAnswerFromPush = true;
+      // Start the timeout timer for pending answer
+      _startPendingAnswerTimeout();
     } else {
       GlobalLogger().i(
           'TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false');
@@ -326,7 +420,8 @@ class TelnyxClient {
 
   /// Internal method for credential login with decline_push parameter
   void _credentialLoginWithDecline(CredentialConfig config) {
-    GlobalLogger().i('TelnyxClient._credentialLoginWithDecline: Sending login with decline_push=true');
+    GlobalLogger().i(
+        'TelnyxClient._credentialLoginWithDecline: Sending login with decline_push=true');
     final uuid = const Uuid().v4();
     final user = config.sipUser;
     final password = config.sipPassword;
@@ -335,9 +430,10 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
-  
+
     final loginParams = LoginParams(
       login: user,
       passwd: password,
@@ -356,17 +452,19 @@ class TelnyxClient {
 
     final String jsonLoginMessage = jsonEncode(loginMessage);
     txSocket.send(jsonLoginMessage);
-    
+
     // Disconnect after sending the decline login message
     Timer(const Duration(milliseconds: 1000), () {
-      GlobalLogger().i('TelnyxClient._credentialLoginWithDecline: Disconnecting after decline login');
+      GlobalLogger().i(
+          'TelnyxClient._credentialLoginWithDecline: Disconnecting after decline login');
       disconnect();
     });
   }
 
   /// Internal method for token login with decline_push parameter
   void _tokenLoginWithDecline(TokenConfig config) {
-    GlobalLogger().i('TelnyxClient._tokenLoginWithDecline: Sending login with decline_push=true');
+    GlobalLogger().i(
+        'TelnyxClient._tokenLoginWithDecline: Sending login with decline_push=true');
     final uuid = const Uuid().v4();
     final token = config.sipToken;
     final notificationToken = config.notificationToken;
@@ -374,7 +472,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -394,10 +493,11 @@ class TelnyxClient {
 
     final String jsonLoginMessage = jsonEncode(loginMessage);
     txSocket.send(jsonLoginMessage);
-    
+
     // Disconnect after sending the decline login message
     Timer(const Duration(milliseconds: 1000), () {
-      GlobalLogger().i('TelnyxClient._tokenLoginWithDecline: Disconnecting after decline login');
+      GlobalLogger().i(
+          'TelnyxClient._tokenLoginWithDecline: Disconnecting after decline login');
       disconnect();
     });
   }
@@ -937,6 +1037,8 @@ class TelnyxClient {
   void disconnectWithCallBack(OnCloseCallback? closeCallback) {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
+    // Cancel any pending answer timeout
+    _cancelPendingAnswerTimeout();
     clearPushMetaData();
     GlobalLogger().i('disconnect()');
     if (_closed) {
@@ -962,6 +1064,8 @@ class TelnyxClient {
   void disconnect() {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
+    // Cancel any pending answer timeout
+    _cancelPendingAnswerTimeout();
     clearPushMetaData();
     GlobalLogger().i('disconnect()');
     if (_closed) return;
@@ -1244,6 +1348,9 @@ class TelnyxClient {
                   offerCall.playRingtone(_ringtonePath);
                   offerCall.callHandler.changeState(CallState.ringing);
                 } else {
+                  // Cancel the pending answer timeout since INVITE arrived
+                  _cancelPendingAnswerTimeout();
+
                   offerCall.acceptCall(
                     invite.inviteParams!,
                     invite.inviteParams!.calleeIdName ?? '',
@@ -1283,6 +1390,8 @@ class TelnyxClient {
                   'State',
                   isAttach: true,
                 );
+                // Cancel the pending answer timeout since ATTACH arrived
+                _cancelPendingAnswerTimeout();
                 _pendingAnswerFromPush = false;
                 break;
               }

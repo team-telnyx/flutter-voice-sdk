@@ -434,6 +434,31 @@ class TelnyxClientViewModel with ChangeNotifier {
             }
           case SocketMethod.bye:
             {
+              logger.i(
+                'TxClientViewModel :: observeResponses :: Received BYE message: ${message.message}',
+              );
+              
+              // Extract termination reason from BYE message if available
+              CallTerminationReason? terminationReason;
+              if (message.message.byeParams != null) {
+                final byeParams = message.message.byeParams!;
+                if (byeParams.cause != null || byeParams.sipCode != null) {
+                  terminationReason = CallTerminationReason(
+                    cause: byeParams.cause,
+                    causeCode: byeParams.causeCode,
+                    sipCode: byeParams.sipCode,
+                    sipReason: byeParams.sipReason,
+                  );
+                  
+                  // Store the termination reason for display
+                  _lastTerminationReason = terminationReason;
+                  
+                  logger.i(
+                    'TxClientViewModel :: observeResponses :: Extracted termination reason from BYE: $terminationReason',
+                  );
+                }
+              }
+              
               // Save call to history before resetting call info
               if (_currentCallDestination != null && _currentCallDirection != null) {
                 final wasAnswered = _callState == CallStateStatus.ongoingCall;
@@ -445,12 +470,17 @@ class TelnyxClientViewModel with ChangeNotifier {
               }
               
               callState = CallStateStatus.idle;
-              resetCallInfo();
 
-              // End Call via CallKit on iOS
+              // Handle CallKit cleanup
               if (!kIsWeb && Platform.isIOS) {
                 if (callFromPush) {
-                  _endCallFromPush(true);
+                  // For iOS push calls, handle CallKit cleanup but avoid double resetCallInfo()
+                  FlutterCallkitIncoming.endCall(
+                    currentCall?.callId ?? _incomingInvite!.callID!,
+                  );
+                  if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+                    _telnyxClient.disconnect();
+                  }
                 }
               }
 
@@ -473,6 +503,8 @@ class TelnyxClientViewModel with ChangeNotifier {
                   }
                 }
               }
+              
+              // Call resetCallInfo() once at the end, after termination reason is set
               resetCallInfo();
               break;
             }
