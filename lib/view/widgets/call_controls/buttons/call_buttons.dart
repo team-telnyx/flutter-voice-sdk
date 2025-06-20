@@ -19,23 +19,19 @@ abstract class BaseButton extends StatelessWidget {
     return InkWell(
       customBorder: const CircleBorder(),
       onTap: onPressed,
-      child: SvgPicture.asset(
-        iconPath,
-        width: iconSize,
-        height: iconSize,
-      ),
+      child: SvgPicture.asset(iconPath, width: iconSize, height: iconSize),
     );
   }
 }
 
 class CallButton extends BaseButton {
   const CallButton({super.key, required VoidCallback onPressed})
-      : super(onPressed: onPressed, iconPath: green_call_icon);
+    : super(onPressed: onPressed, iconPath: green_call_icon);
 }
 
 class DeclineButton extends BaseButton {
   const DeclineButton({super.key, required VoidCallback onPressed})
-      : super(onPressed: onPressed, iconPath: red_decline_icon);
+    : super(onPressed: onPressed, iconPath: red_decline_icon);
 }
 
 class CallControlButton extends StatefulWidget {
@@ -67,8 +63,9 @@ class _CallControlButtonState extends State<CallControlButton> {
         shape: BoxShape.circle,
       ),
       child: IconButton(
-        icon:
-            Icon(widget.isDisabled ? widget.disabledIcon : widget.enabledIcon),
+        icon: Icon(
+          widget.isDisabled ? widget.disabledIcon : widget.enabledIcon,
+        ),
         onPressed: widget.onToggle,
       ),
     );

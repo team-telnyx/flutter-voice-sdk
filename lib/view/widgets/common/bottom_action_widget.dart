@@ -15,10 +15,12 @@ class BottomConnectionActionWidget extends StatefulWidget {
   });
 
   @override
-  State<BottomConnectionActionWidget> createState() => _BottomConnectionActionWidgetState();
+  State<BottomConnectionActionWidget> createState() =>
+      _BottomConnectionActionWidgetState();
 }
 
-class _BottomConnectionActionWidgetState extends State<BottomConnectionActionWidget> {
+class _BottomConnectionActionWidgetState
+    extends State<BottomConnectionActionWidget> {
   String _versionString = '';
 
   @override
@@ -67,4 +69,4 @@ class _BottomConnectionActionWidgetState extends State<BottomConnectionActionWid
       ],
     );
   }
-} 
+}

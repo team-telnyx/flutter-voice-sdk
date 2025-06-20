@@ -6,7 +6,6 @@ import 'package:telnyx_flutter_webrtc/utils/custom_sdk_logger.dart';
 
 /// A utility class to help with retrieving stored configuration.
 class ConfigHelper {
-
   /// Retrieves stored Credential configuration from SharedPreferences.
   /// Returns null if required fields are missing.
   static Future<CredentialConfig?> getCredentialConfigFromPrefs() async {
@@ -18,21 +17,26 @@ class ConfigHelper {
       final sipNumber = prefs.getString('sipNumber');
       final notificationToken = prefs.getString('notificationToken');
 
-      if (sipUser != null && sipPassword != null && sipName != null && sipNumber != null) {
+      if (sipUser != null &&
+          sipPassword != null &&
+          sipName != null &&
+          sipNumber != null) {
         return CredentialConfig(
           sipCallerIDName: sipName,
           sipCallerIDNumber: sipNumber,
           sipUser: sipUser,
           sipPassword: sipPassword,
           notificationToken: notificationToken,
-          logLevel: LogLevel.all, 
-          customLogger: CustomSDKLogger(), 
+          logLevel: LogLevel.all,
+          customLogger: CustomSDKLogger(),
           debug: false,
           reconnectionTimeout: 30000,
         );
       }
     } catch (e) {
-      Logger().e('[ConfigHelper] Error reading CredentialConfig from Prefs: $e');
+      Logger().e(
+        '[ConfigHelper] Error reading CredentialConfig from Prefs: $e',
+      );
     }
     return null;
   }
@@ -63,11 +67,11 @@ class ConfigHelper {
     }
     return null;
   }
-  
+
   /// Retrieves either Credential or Token configuration from SharedPreferences.
   /// Prefers CredentialConfig if available.
   /// Returns null if neither configuration can be fully retrieved.
-  static Future<Object?> getTelnyxConfigFromPrefs() async { 
+  static Future<Object?> getTelnyxConfigFromPrefs() async {
     try {
       Object? config = await getCredentialConfigFromPrefs();
       config ??= await getTokenConfigFromPrefs();
@@ -77,4 +81,4 @@ class ConfigHelper {
       return null;
     }
   }
-} 
+}

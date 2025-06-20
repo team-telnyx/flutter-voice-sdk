@@ -12,8 +12,9 @@ class LoginMessage {
     id = json['id'];
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params =
-        json['params'] != null ? LoginParams.fromJson(json['params']) : null;
+    params = json['params'] != null
+        ? LoginParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -35,7 +36,7 @@ class LoginParams {
   String? passwd;
   UserVariables? userVariables;
   String? sessionId;
-  
+
   LoginParams({
     this.login,
     this.loginToken,
@@ -48,11 +49,11 @@ class LoginParams {
   LoginParams.fromJson(Map<String, dynamic> json) {
     login = json['login'];
     loginToken = json['login_token'];
-    
+
     if (json['loginParams'] != null) {
       loginParams = Map<String, String>.from(json['loginParams']);
     }
-    
+
     passwd = json['passwd'];
     sessionId = json['sessid'];
     userVariables = json['userVariables'] != null

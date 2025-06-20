@@ -22,20 +22,14 @@ class DisablePushMessage {
 }
 
 class DisablePushParams {
-  DisablePushParams({
-    this.user,
-    this.loginToken,
-    required this.userVariables,
-  });
+  DisablePushParams({this.user, this.loginToken, required this.userVariables});
 
   final String? user;
   final String? loginToken;
   final PushUserVariables userVariables;
 
   Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = {
-      'User-Agent': userVariables.toJson(),
-    };
+    final Map<String, dynamic> data = {'User-Agent': userVariables.toJson()};
     if (user != null) {
       data['user'] = user;
     }

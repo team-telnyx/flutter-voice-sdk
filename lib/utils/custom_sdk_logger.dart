@@ -11,17 +11,13 @@ class CustomSDKLogger implements CustomLogger {
 
   /// Default constructor that initializes the logger with the default log level
   CustomSDKLogger() {
-    logger = Logger(
-      filter: CustomLogFilter(_logLevel),
-    );
+    logger = Logger(filter: CustomLogFilter(_logLevel));
   }
 
   @override
   void setLogLevel(LogLevel level) {
     _logLevel = level;
-    logger = Logger(
-      filter: CustomLogFilter(_logLevel),
-    );
+    logger = Logger(filter: CustomLogFilter(_logLevel));
   }
 
   @override
@@ -89,11 +85,20 @@ class CustomLogFilter extends LogFilter {
       case LogLevel.warning:
         return event.level == Level.warning || event.level == Level.error;
       case LogLevel.debug:
-        return event.level == Level.debug || event.level == Level.warning || event.level == Level.error;
+        return event.level == Level.debug ||
+            event.level == Level.warning ||
+            event.level == Level.error;
       case LogLevel.info:
-        return event.level == Level.info || event.level == Level.debug || event.level == Level.warning || event.level == Level.error;
+        return event.level == Level.info ||
+            event.level == Level.debug ||
+            event.level == Level.warning ||
+            event.level == Level.error;
       case LogLevel.verto:
-        return event.level == Level.trace || event.level == Level.info || event.level == Level.debug || event.level == Level.warning || event.level == Level.error;
+        return event.level == Level.trace ||
+            event.level == Level.info ||
+            event.level == Level.debug ||
+            event.level == Level.warning ||
+            event.level == Level.error;
       case LogLevel.all:
         return true;
       default:

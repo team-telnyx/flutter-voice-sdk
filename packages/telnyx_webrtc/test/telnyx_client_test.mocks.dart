@@ -34,78 +34,110 @@ class MockTelnyxClient extends _i1.Mock implements _i4.TelnyxClient {
 
   @override
   _i4.OnSocketMessageReceived get onSocketMessageReceived =>
-      (super.noSuchMethod(Invocation.getter(#onSocketMessageReceived),
-              returnValue: (_i5.TelnyxMessage message) {})
+      (super.noSuchMethod(
+            Invocation.getter(#onSocketMessageReceived),
+            returnValue: (_i5.TelnyxMessage message) {},
+          )
           as _i4.OnSocketMessageReceived);
   @override
   set onSocketMessageReceived(
-          _i4.OnSocketMessageReceived? _onSocketMessageReceived) =>
-      super.noSuchMethod(
-          Invocation.setter(#onSocketMessageReceived, _onSocketMessageReceived),
-          returnValueForMissingStub: null);
+    _i4.OnSocketMessageReceived? _onSocketMessageReceived,
+  ) => super.noSuchMethod(
+    Invocation.setter(#onSocketMessageReceived, _onSocketMessageReceived),
+    returnValueForMissingStub: null,
+  );
   @override
   _i4.OnSocketErrorReceived get onSocketErrorReceived =>
-      (super.noSuchMethod(Invocation.getter(#onSocketErrorReceived),
-              returnValue: (_i6.TelnyxSocketError message) {})
+      (super.noSuchMethod(
+            Invocation.getter(#onSocketErrorReceived),
+            returnValue: (_i6.TelnyxSocketError message) {},
+          )
           as _i4.OnSocketErrorReceived);
   @override
   set onSocketErrorReceived(
-          _i4.OnSocketErrorReceived? _onSocketErrorReceived) =>
-      super.noSuchMethod(
-          Invocation.setter(#onSocketErrorReceived, _onSocketErrorReceived),
-          returnValueForMissingStub: null);
+    _i4.OnSocketErrorReceived? _onSocketErrorReceived,
+  ) => super.noSuchMethod(
+    Invocation.setter(#onSocketErrorReceived, _onSocketErrorReceived),
+    returnValueForMissingStub: null,
+  );
   @override
-  _i2.TxSocket get txSocket => (super.noSuchMethod(Invocation.getter(#txSocket),
-      returnValue: _FakeTxSocket_0()) as _i2.TxSocket);
+  _i2.TxSocket get txSocket =>
+      (super.noSuchMethod(
+            Invocation.getter(#txSocket),
+            returnValue: _FakeTxSocket_0(),
+          )
+          as _i2.TxSocket);
   @override
-  set txSocket(_i2.TxSocket? _txSocket) =>
-      super.noSuchMethod(Invocation.setter(#txSocket, _txSocket),
-          returnValueForMissingStub: null);
+  set txSocket(_i2.TxSocket? _txSocket) => super.noSuchMethod(
+    Invocation.setter(#txSocket, _txSocket),
+    returnValueForMissingStub: null,
+  );
   @override
-  set sessid(String? _sessionId) =>
-      super.noSuchMethod(Invocation.setter(#sessionId, _sessionId),
-          returnValueForMissingStub: null);
+  set sessid(String? _sessionId) => super.noSuchMethod(
+    Invocation.setter(#sessionId, _sessionId),
+    returnValueForMissingStub: null,
+  );
   @override
   _i3.Call get call =>
       (super.noSuchMethod(Invocation.getter(#call), returnValue: _FakeCall_1())
           as _i3.Call);
   @override
-  set call(_i3.Call? _call) =>
-      super.noSuchMethod(Invocation.setter(#call, _call),
-          returnValueForMissingStub: null);
+  set call(_i3.Call? _call) => super.noSuchMethod(
+    Invocation.setter(#call, _call),
+    returnValueForMissingStub: null,
+  );
   @override
   set _storedCredentialConfig(_i7.CredentialConfig? _storedCredentialConfig) =>
       super.noSuchMethod(
-          Invocation.setter(#storedCredentialConfig, _storedCredentialConfig),
-          returnValueForMissingStub: null);
+        Invocation.setter(#storedCredentialConfig, _storedCredentialConfig),
+        returnValueForMissingStub: null,
+      );
   @override
-  set _storedTokenConfig(_i7.TokenConfig? _storedTokenConfig) => super
-      .noSuchMethod(Invocation.setter(#storedTokenConfig, _storedTokenConfig),
-          returnValueForMissingStub: null);
+  set _storedTokenConfig(_i7.TokenConfig? _storedTokenConfig) =>
+      super.noSuchMethod(
+        Invocation.setter(#storedTokenConfig, _storedTokenConfig),
+        returnValueForMissingStub: null,
+      );
   @override
-  bool isConnected() => (super.noSuchMethod(Invocation.method(#isConnected, []),
-      returnValue: false) as bool);
+  bool isConnected() =>
+      (super.noSuchMethod(
+            Invocation.method(#isConnected, []),
+            returnValue: false,
+          )
+          as bool);
   @override
   String getGatewayStatus() =>
-      (super.noSuchMethod(Invocation.method(#getGatewayStatus, []),
-          returnValue: '') as String);
+      (super.noSuchMethod(
+            Invocation.method(#getGatewayStatus, []),
+            returnValue: '',
+          )
+          as String);
   @override
-  void connect() => super.noSuchMethod(Invocation.method(#connect, []),
-      returnValueForMissingStub: null);
+  void connect() => super.noSuchMethod(
+    Invocation.method(#connect, []),
+    returnValueForMissingStub: null,
+  );
 
   @override
   _i3.Call createCall() =>
-      (super.noSuchMethod(Invocation.method(#createCall, []),
-          returnValue: _FakeCall_1()) as _i3.Call);
+      (super.noSuchMethod(
+            Invocation.method(#createCall, []),
+            returnValue: _FakeCall_1(),
+          )
+          as _i3.Call);
   @override
-  void credentialLogin(_i7.CredentialConfig? config) =>
-      super.noSuchMethod(Invocation.method(#credentialLogin, [config]),
-          returnValueForMissingStub: null);
+  void credentialLogin(_i7.CredentialConfig? config) => super.noSuchMethod(
+    Invocation.method(#credentialLogin, [config]),
+    returnValueForMissingStub: null,
+  );
   @override
-  void tokenLogin(_i7.TokenConfig? config) =>
-      super.noSuchMethod(Invocation.method(#tokenLogin, [config]),
-          returnValueForMissingStub: null);
+  void tokenLogin(_i7.TokenConfig? config) => super.noSuchMethod(
+    Invocation.method(#tokenLogin, [config]),
+    returnValueForMissingStub: null,
+  );
   @override
-  void disconnect() => super.noSuchMethod(Invocation.method(#disconnect, []),
-      returnValueForMissingStub: null);
+  void disconnect() => super.noSuchMethod(
+    Invocation.method(#disconnect, []),
+    returnValueForMissingStub: null,
+  );
 }
