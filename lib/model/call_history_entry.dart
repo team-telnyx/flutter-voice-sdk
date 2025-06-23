@@ -1,4 +1,7 @@
-enum CallDirection { incoming, outgoing }
+enum CallDirection {
+  incoming,
+  outgoing,
+}
 
 class CallHistoryEntry {
   final String id;

@@ -8,7 +8,7 @@ import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
 class ProfileList extends StatelessWidget {
   final void Function(Profile) onProfileEditSelected;
   const ProfileList({Key? key, required this.onProfileEditSelected})
-    : super(key: key);
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +28,7 @@ class ProfileList extends StatelessWidget {
           itemCount: provider.profiles.length,
           itemBuilder: (context, index) {
             final profile = provider.profiles[index];
-            final isSelected =
-                provider.selectedProfile?.sipCallerIDName ==
+            final isSelected = provider.selectedProfile?.sipCallerIDName ==
                 profile.sipCallerIDName;
 
             return ListTile(
@@ -47,11 +46,20 @@ class ProfileList extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: SvgPicture.asset(edit_icon, width: 16, height: 16),
-                    onPressed: () => onProfileEditSelected(profile),
+                    icon: SvgPicture.asset(
+                      edit_icon,
+                      width: 16,
+                      height: 16,
+                    ),
+                    onPressed: () =>
+                      onProfileEditSelected(profile),
                   ),
                   IconButton(
-                    icon: SvgPicture.asset(delete_icon, width: 16, height: 16),
+                    icon: SvgPicture.asset(
+                      delete_icon,
+                      width: 16,
+                      height: 16,
+                    ),
                     onPressed: () =>
                         provider.removeProfile(profile.sipCallerIDName),
                   ),

@@ -17,7 +17,6 @@ class Profile {
   final String sipCallerIDName;
   final String sipCallerIDNumber;
   final String? notificationToken;
-  final bool isDebug;
 
   Profile({
     required this.isTokenLogin,
@@ -27,7 +26,6 @@ class Profile {
     this.sipCallerIDName = '',
     this.sipCallerIDNumber = '',
     this.notificationToken = '',
-    this.isDebug = false,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -39,7 +37,6 @@ class Profile {
       sipCallerIDName: json['sipCallerIDName'] as String? ?? '',
       sipCallerIDNumber: json['sipCallerIDNumber'] as String? ?? '',
       notificationToken: json['notificationToken'] as String? ?? '',
-      isDebug: json['isDebug'] as bool? ?? false,
     );
   }
 
@@ -52,30 +49,7 @@ class Profile {
       'sipCallerIDName': sipCallerIDName,
       'sipCallerIDNumber': sipCallerIDNumber,
       'notificationToken': notificationToken,
-      'isDebug': isDebug,
     };
-  }
-
-  Profile copyWith({
-    bool? isTokenLogin,
-    String? token,
-    String? sipUser,
-    String? sipPassword,
-    String? sipCallerIDName,
-    String? sipCallerIDNumber,
-    String? notificationToken,
-    bool? isDebug,
-  }) {
-    return Profile(
-      isTokenLogin: isTokenLogin ?? this.isTokenLogin,
-      token: token ?? this.token,
-      sipUser: sipUser ?? this.sipUser,
-      sipPassword: sipPassword ?? this.sipPassword,
-      sipCallerIDName: sipCallerIDName ?? this.sipCallerIDName,
-      sipCallerIDNumber: sipCallerIDNumber ?? this.sipCallerIDNumber,
-      notificationToken: notificationToken ?? this.notificationToken,
-      isDebug: isDebug ?? this.isDebug,
-    );
   }
 
   Future<String?> getNotificationTokenForPlatform() async {
@@ -106,7 +80,7 @@ class Profile {
         sipCallerIDName: sipCallerIDName,
         sipCallerIDNumber: sipCallerIDNumber,
         notificationToken: await getNotificationTokenForPlatform() ?? '',
-        debug: isDebug,
+        debug: false,
         logLevel: LogLevel.all,
         customLogger: CustomSDKLogger(),
       );
@@ -117,7 +91,7 @@ class Profile {
         sipCallerIDName: sipCallerIDName,
         sipCallerIDNumber: sipCallerIDNumber,
         notificationToken: await getNotificationTokenForPlatform() ?? '',
-        debug: isDebug,
+        debug: false,
         logLevel: LogLevel.all,
         customLogger: CustomSDKLogger(),
       );

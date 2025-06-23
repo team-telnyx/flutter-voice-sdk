@@ -51,7 +51,7 @@ class TxSocket {
 
   /// Send data to the WebSocket server
   void send(dynamic data) {
-    if (_socket.readyState == WebSocket.open) {
+    if ( _socket.readyState == WebSocket.open) {
       _socket.add(data);
       GlobalLogger().i('TxSocket :: send : \n\n$data');
     } else {

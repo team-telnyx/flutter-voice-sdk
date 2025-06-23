@@ -32,47 +32,33 @@ class MockTxSocket extends _i1.Mock implements _i2.TxSocket {
       (super.noSuchMethod(Invocation.getter(#onOpen), returnValue: () {})
           as _i2.OnOpenCallback);
   @override
-  set onOpen(_i2.OnOpenCallback? _onOpen) => super.noSuchMethod(
-    Invocation.setter(#onOpen, _onOpen),
-    returnValueForMissingStub: null,
-  );
+  set onOpen(_i2.OnOpenCallback? _onOpen) =>
+      super.noSuchMethod(Invocation.setter(#onOpen, _onOpen),
+          returnValueForMissingStub: null);
   @override
   _i2.OnMessageCallback get onMessage =>
-      (super.noSuchMethod(
-            Invocation.getter(#onMessage),
-            returnValue: (dynamic msg) {},
-          )
-          as _i2.OnMessageCallback);
+      (super.noSuchMethod(Invocation.getter(#onMessage),
+          returnValue: (dynamic msg) {}) as _i2.OnMessageCallback);
   @override
-  set onMessage(_i2.OnMessageCallback? _onMessage) => super.noSuchMethod(
-    Invocation.setter(#onMessage, _onMessage),
-    returnValueForMissingStub: null,
-  );
+  set onMessage(_i2.OnMessageCallback? _onMessage) =>
+      super.noSuchMethod(Invocation.setter(#onMessage, _onMessage),
+          returnValueForMissingStub: null);
   @override
   _i2.OnCloseCallback get onClose =>
-      (super.noSuchMethod(
-            Invocation.getter(#onClose),
-            returnValue: (int code, String reason) {},
-          )
-          as _i2.OnCloseCallback);
+      (super.noSuchMethod(Invocation.getter(#onClose),
+          returnValue: (int code, String reason) {}) as _i2.OnCloseCallback);
   @override
-  set onClose(_i2.OnCloseCallback? _onClose) => super.noSuchMethod(
-    Invocation.setter(#onClose, _onClose),
-    returnValueForMissingStub: null,
-  );
+  set onClose(_i2.OnCloseCallback? _onClose) =>
+      super.noSuchMethod(Invocation.setter(#onClose, _onClose),
+          returnValueForMissingStub: null);
   @override
-  void connect() => super.noSuchMethod(
-    Invocation.method(#connect, []),
-    returnValueForMissingStub: null,
-  );
+  void connect() => super.noSuchMethod(Invocation.method(#connect, []),
+      returnValueForMissingStub: null);
   @override
-  void send(dynamic data) => super.noSuchMethod(
-    Invocation.method(#send, [data]),
-    returnValueForMissingStub: null,
-  );
+  void send(dynamic data) =>
+      super.noSuchMethod(Invocation.method(#send, [data]),
+          returnValueForMissingStub: null);
   @override
-  void close() => super.noSuchMethod(
-    Invocation.method(#close, []),
-    returnValueForMissingStub: null,
-  );
+  void close() => super.noSuchMethod(Invocation.method(#close, []),
+      returnValueForMissingStub: null);
 }

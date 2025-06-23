@@ -122,14 +122,14 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
+
   /// State flow for inbound audio levels list
   final List<double> _inboundAudioLevels = [];
   List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
 
-  /// State flow for outbound audio levels list
+  /// State flow for outbound audio levels list  
   final List<double> _outboundAudioLevels = [];
-  List<double> get outboundAudioLevels =>
-      List.unmodifiable(_outboundAudioLevels);
+  List<double> get outboundAudioLevels => List.unmodifiable(_outboundAudioLevels);
 
   /// Maximum number of audio levels to keep in memory
   static const int maxAudioLevels = 100;
@@ -147,22 +147,22 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.idle;
     _callQualityMetrics = null;
     setPushCallStatus(false);
-
+    
     // Clear audio level lists
     _inboundAudioLevels.clear();
     _outboundAudioLevels.clear();
-
+    
     // Reset call history tracking
     _currentCallDestination = null;
     _currentCallDirection = null;
     _currentCallStartTime = null;
-
+    
     // Reset termination reason after a delay to allow UI to show it
     Timer(const Duration(seconds: 5), () {
       _lastTerminationReason = null;
       notifyListeners();
     });
-
+    
     notifyListeners();
   }
 
@@ -210,14 +210,12 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void observeCurrentCall() {
-    logger.i(
-      'TelnyxClientViewModel.observeCurrentCall: Setting up call observation for callId: ${currentCall?.callId}',
-    );
-
+    logger.i('TelnyxClientViewModel.observeCurrentCall: Setting up call observation for callId: ${currentCall?.callId}');
+    
     // Set up call quality callback to receive metrics every 100ms
     currentCall?.onCallQualityChange = (metrics) {
       _callQualityMetrics = metrics;
-
+      
       // Update audio level lists directly from metrics (now coming every 100ms)
       _inboundAudioLevels.add(metrics.inboundAudioLevel);
       while (_inboundAudioLevels.length > maxAudioLevels) {
@@ -231,7 +229,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
       notifyListeners();
     };
-
+    
     currentCall?.callHandler.onCallStateChanged = (CallState state) {
       logger.i(
         'TelnyxClientViewModel.observeCurrentCall: Call State changed to :: $state for callId: ${currentCall?.callId}',
@@ -280,13 +278,12 @@ class TelnyxClientViewModel with ChangeNotifier {
           break;
         case CallState.done:
           logger.i('Call done : ${state.terminationReason}');
-
+          
           // Store the termination reason for display
           _lastTerminationReason = state.terminationReason;
-
+          
           // Save call to history
-          if (_currentCallDestination != null &&
-              _currentCallDirection != null) {
+          if (_currentCallDestination != null && _currentCallDirection != null) {
             final wasAnswered = _callState == CallStateStatus.ongoingCall;
             _addCallToHistory(
               destination: _currentCallDestination!,
@@ -294,7 +291,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               wasAnswered: wasAnswered,
             );
           }
-
+          
           if (!kIsWeb) {
             if (currentCall?.callId != null || _incomingInvite != null) {
               FlutterCallkitIncoming.endCall(
@@ -319,7 +316,9 @@ class TelnyxClientViewModel with ChangeNotifier {
     };
   }
 
-  Future<void> _saveCredentialsForAutoLogin(Config config) async {
+  Future<void> _saveCredentialsForAutoLogin(
+    Config config,
+  ) async {
     await _clearConfigForAutoLogin();
     final prefs = await SharedPreferences.getInstance();
     if (config is TokenConfig) {
@@ -331,7 +330,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     await prefs.setString('sipName', config.sipCallerIDName);
     await prefs.setString('sipNumber', config.sipCallerIDNumber);
     if (config.notificationToken != null) {
-      await prefs.setString('notificationToken', config.notificationToken!);
+      await prefs.setString(
+        'notificationToken',
+        config.notificationToken!,
+      );
     }
   }
 
@@ -379,8 +381,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
               // Track incoming call for history
               if (_incomingInvite != null) {
-                _currentCallDestination =
-                    _incomingInvite!.callerIdNumber ?? 'Unknown';
+                _currentCallDestination = _incomingInvite!.callerIdNumber ?? 'Unknown';
                 _currentCallDirection = CallDirection.incoming;
                 _currentCallStartTime = DateTime.now();
               }
@@ -459,8 +460,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               }
               
               // Save call to history before resetting call info
-              if (_currentCallDestination != null &&
-                  _currentCallDirection != null) {
+              if (_currentCallDestination != null && _currentCallDirection != null) {
                 final wasAnswered = _callState == CallStateStatus.ongoingCall;
                 _addCallToHistory(
                   destination: _currentCallDestination!,
@@ -468,7 +468,7 @@ class TelnyxClientViewModel with ChangeNotifier {
                   wasAnswered: wasAnswered,
                 );
               }
-
+              
               callState = CallStateStatus.idle;
 
               // Handle CallKit cleanup
@@ -516,11 +516,11 @@ class TelnyxClientViewModel with ChangeNotifier {
           await messageLogger.writeLog(message.toString());
         }
       }
+
       // Observe Socket Error Messages
       ..onSocketErrorReceived = (TelnyxSocketError error) {
         _setErrorDialog(
-          formatSignalingErrorMessage(error.errorCode, error.errorMessage),
-        );
+            formatSignalingErrorMessage(error.errorCode, error.errorMessage));
 
         switch (error.errorCode) {
           //ToDo Error handling here depends on the requirement of the SDK implementor and the use case

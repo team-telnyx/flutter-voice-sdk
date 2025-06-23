@@ -29,9 +29,8 @@ Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
   try {
     await Firebase.initializeApp();
   } catch (e) {
-    _backgroundLogger.e(
-      '[AndroidBackgroundHandler] Firebase initialization failed: $e',
-    );
+    _backgroundLogger
+        .e('[AndroidBackgroundHandler] Firebase initialization failed: $e');
     return;
   }
 
@@ -50,9 +49,8 @@ Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
 
   // Setup CallKit listener for background actions
   FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
-    _backgroundLogger.i(
-      '[AndroidBackgroundHandler] CallKit event: ${event?.event}',
-    );
+    _backgroundLogger
+        .i('[AndroidBackgroundHandler] CallKit event: ${event?.event}');
     switch (event!.event) {
       case Event.actionCallDecline:
         _backgroundLogger.i(
@@ -60,12 +58,11 @@ Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
         );
         if (message.data['metadata'] != null) {
           try {
-            final Map<String, dynamic> metadataMap = jsonDecode(
-              message.data['metadata'],
-            );
+            final Map<String, dynamic> metadataMap =
+                jsonDecode(message.data['metadata']);
             final PushMetaData pushMetaData = PushMetaData.fromJson(metadataMap)
               ..isDecline = true;
-
+            
             // Use simplified decline logic with decline_push parameter
             final tempDeclineClient = TelnyxClient();
             final config = await ConfigHelper.getTelnyxConfigFromPrefs();
@@ -84,14 +81,12 @@ Future<void> androidBackgroundMessageHandler(RemoteMessage message) async {
               );
             }
           } catch (e) {
-            _backgroundLogger.e(
-              '[AndroidBackgroundHandler] Error processing decline: $e',
-            );
+            _backgroundLogger
+                .e('[AndroidBackgroundHandler] Error processing decline: $e');
           }
         } else {
-          _backgroundLogger.i(
-            '[AndroidBackgroundHandler] No metadata for decline action.',
-          );
+          _backgroundLogger
+              .i('[AndroidBackgroundHandler] No metadata for decline action.');
         }
         break;
       case Event.actionCallAccept:
@@ -127,8 +122,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
 
   Future<void> _createNotificationChannel() async {
     _logger.i(
-      '[PushNotificationHandler-Android] Creating notification channel...',
-    );
+        '[PushNotificationHandler-Android] Creating notification channel...');
     const AndroidNotificationChannel channel = AndroidNotificationChannel(
       'telnyx_call_channel', // id
       'Incoming Calls', // name
@@ -144,33 +138,27 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
     try {
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
       _logger.i(
-        '[PushNotificationHandler-Android] High importance notification channel created/updated.',
-      );
+          '[PushNotificationHandler-Android] High importance notification channel created/updated.');
     } catch (e) {
       _logger.e(
-        '[PushNotificationHandler-Android] Failed to create notification channel: $e',
-      );
+          '[PushNotificationHandler-Android] Failed to create notification channel: $e');
     }
   }
 
   void _setupFCMListeners() {
     _logger.i(
-      '[PushNotificationHandler-Android] Setting up FCM listeners (onMessage, onMessageOpenedApp)...',
-    );
+        '[PushNotificationHandler-Android] Setting up FCM listeners (onMessage, onMessageOpenedApp)...');
     // Setup foreground message listener
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _logger.i(
-        '[PushNotificationHandler-Android] onMessage: Received foreground message: ${message.data}',
-      );
+          '[PushNotificationHandler-Android] onMessage: Received foreground message: ${message.data}');
       if (message.data['message'] != null &&
           message.data['message'].toString().toLowerCase() == 'missed call!') {
         _logger.i(
-          '[PushNotificationHandler-Android] onMessage: Missed call notification',
-        );
+            '[PushNotificationHandler-Android] onMessage: Missed call notification');
         NotificationService.showMissedCallNotification(message);
         return;
       }
@@ -183,15 +171,13 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
     // Setup message opened app listener
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       _logger.i(
-        '[PushNotificationHandler-Android] onMessageOpenedApp: Message data: ${message.data}',
-      );
+          '[PushNotificationHandler-Android] onMessageOpenedApp: Message data: ${message.data}');
     });
   }
 
   Future<void> _configureFCMForegroundHandling() async {
     _logger.i(
-      '[PushNotificationHandler-Android] Configuring FCM foreground presentation and requesting permissions...',
-    );
+        '[PushNotificationHandler-Android] Configuring FCM foreground presentation and requesting permissions...');
     final FirebaseMessaging messaging = FirebaseMessaging.instance;
 
     // 1. Set presentation options for foreground
@@ -201,8 +187,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
       sound: true,
     );
     _logger.i(
-      '[PushNotificationHandler-Android] Foreground presentation options set.',
-    );
+        '[PushNotificationHandler-Android] Foreground presentation options set.');
 
     // 2. Request user permission (Required for Android 13+)
     final NotificationSettings settings = await messaging.requestPermission(
@@ -215,14 +200,12 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
       sound: true,
     );
     _logger.i(
-      '[PushNotificationHandler-Android] Notification permission requested. Status: ${settings.authorizationStatus}',
-    );
+        '[PushNotificationHandler-Android] Notification permission requested. Status: ${settings.authorizationStatus}');
   }
 
   void _setupCallKitListener() {
     _logger.i(
-      '[PushNotificationHandler-Android] Setting up CallKit event listener...',
-    );
+        '[PushNotificationHandler-Android] Setting up CallKit event listener...');
     // Add CallKit listener for Android foreground/active state interactions
     // This catches events from notifications created by NotificationService
     FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
@@ -292,8 +275,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
               await FlutterCallkitIncoming.endCall(event.body['id']);
             } else {
               _logger.w(
-                '[PushNotificationHandler-Android] actionCallDecline: Could not end CallKit call without ID.',
-              );
+                  '[PushNotificationHandler-Android] actionCallDecline: Could not end CallKit call without ID.');
             }
           } else {
             _logger.i(
@@ -389,8 +371,8 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
   @override
   Future<Map<String, dynamic>?> getInitialPushData() async {
     _logger.i('[PushNotificationHandler-Android] getInitialPushData');
-    final RemoteMessage? initialMessage = await FirebaseMessaging.instance
-        .getInitialMessage();
+    final RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       _logger.i(
         '[PushNotificationHandler-Android] getInitialPushData: Found initial message: ${initialMessage.data}',
@@ -409,9 +391,8 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
     await NotificationService.showMissedCallNotification(
       RemoteMessage(
         data: Map<String, String>.from(
-          payload.map(
-            (key, value) => MapEntry(key.toString(), value.toString()),
-          ),
+          payload
+              .map((key, value) => MapEntry(key.toString(), value.toString())),
         ),
       ),
     );

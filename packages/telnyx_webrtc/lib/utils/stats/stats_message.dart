@@ -28,19 +28,27 @@ class StatsMessage {
 
 class DebugReportStartMessage extends StatsMessage {
   DebugReportStartMessage({required super.reportId})
-    : super(type: 'debug_report_start');
+      : super(
+          type: 'debug_report_start',
+        );
 }
 
 class DebugReportStopMessage extends StatsMessage {
   DebugReportStopMessage({required super.reportId})
-    : super(type: 'debug_report_stop');
+      : super(
+          type: 'debug_report_stop',
+        );
 }
 
 class DebugReportDataMessage extends StatsMessage {
   final Map<String, dynamic>? reportData;
 
-  DebugReportDataMessage({required super.reportId, required this.reportData})
-    : super(type: 'debug_report_data');
+  DebugReportDataMessage({
+    required super.reportId,
+    required this.reportData,
+  }) : super(
+          type: 'debug_report_data',
+        );
 
   @override
   Map<String, dynamic> toJson() {

@@ -193,9 +193,8 @@ class Call {
     if (_txClient.gatewayState != GatewayState.reged &&
         _txClient.gatewayState != GatewayState.idle &&
         _txClient.gatewayState != GatewayState.attached) {
-      GlobalLogger().d(
-        'Session end gateway not registered ${_txClient.gatewayState}',
-      );
+      GlobalLogger()
+          .d('Session end gateway not registered ${_txClient.gatewayState}');
       return;
     } else {
       GlobalLogger().d('Session end peer connection null');
@@ -241,11 +240,8 @@ class Call {
       video: false,
     );
 
-    final infoParams = InfoParams(
-      dialogParams: dialogParams,
-      dtmf: tone,
-      sessid: sessid,
-    );
+    final infoParams =
+        InfoParams(dialogParams: dialogParams, dtmf: tone, sessid: sessid);
 
     final dtmfMessageBody = DtmfInfoMessage(
       id: uuid,

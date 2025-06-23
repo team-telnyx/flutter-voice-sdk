@@ -7,7 +7,7 @@ class VersionUtils {
 
   static Future<String> getAppVersion() async {
     if (_appVersion != null) return _appVersion!;
-
+    
     try {
       final String pubspecContent = await rootBundle.loadString('pubspec.yaml');
       final lines = pubspecContent.split('\n');
@@ -28,11 +28,9 @@ class VersionUtils {
 
   static Future<String> getSDKVersion() async {
     if (_sdkVersion != null) return _sdkVersion!;
-
+    
     try {
-      final String pubspecContent = await rootBundle.loadString(
-        'packages/telnyx_webrtc/pubspec.yaml',
-      );
+      final String pubspecContent = await rootBundle.loadString('packages/telnyx_webrtc/pubspec.yaml');
       final lines = pubspecContent.split('\n');
       for (final line in lines) {
         if (line.startsWith('version:')) {

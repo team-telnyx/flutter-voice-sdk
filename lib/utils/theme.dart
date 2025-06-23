@@ -77,16 +77,18 @@ class AppTheme {
             const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           ),
           shape: WidgetStateProperty.all(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
           ),
-          backgroundColor: WidgetStateProperty.resolveWith<Color>((
-            Set<WidgetState> states,
-          ) {
-            if (states.contains(WidgetState.disabled)) {
-              return disabledColor;
-            }
-            return primaryColor;
-          }),
+          backgroundColor: WidgetStateProperty.resolveWith<Color>(
+            (Set<WidgetState> states) {
+              if (states.contains(WidgetState.disabled)) {
+                return disabledColor;
+              }
+              return primaryColor;
+            },
+          ),
           foregroundColor: WidgetStateProperty.all(secondaryColor),
         ),
       ),
@@ -100,21 +102,17 @@ class AppTheme {
           shape: WidgetStateProperty.all(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(
-                style: BorderStyle.solid,
-                color: Colors.red,
-                width: 2,
-              ),
+              side: const BorderSide(style: BorderStyle.solid, color: Colors.red, width: 2),
             ),
           ),
-          backgroundColor: WidgetStateProperty.resolveWith<Color>((
-            Set<WidgetState> states,
-          ) {
-            if (states.contains(WidgetState.disabled)) {
-              return disabledColor;
-            }
-            return secondaryColor;
-          }),
+          backgroundColor: WidgetStateProperty.resolveWith<Color>(
+            (Set<WidgetState> states) {
+              if (states.contains(WidgetState.disabled)) {
+                return disabledColor;
+              }
+              return secondaryColor;
+            },
+          ),
           foregroundColor: WidgetStateProperty.all(primaryColor),
         ),
       ),

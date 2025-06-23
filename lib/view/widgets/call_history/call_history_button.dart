@@ -27,7 +27,10 @@ class CallHistoryButton extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(spacingS),
         ),
-        side: BorderSide(color: Colors.grey.shade400, width: 1.5),
+        side: BorderSide(
+          color: Colors.grey.shade400,
+          width: 1.5,
+        ),
         foregroundColor: Colors.grey.shade700,
       ),
     );

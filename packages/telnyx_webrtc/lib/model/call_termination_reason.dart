@@ -25,21 +25,21 @@ class CallTerminationReason {
   @override
   String toString() {
     final List<String> parts = [];
-
+    
     if (sipCode != null) {
       parts.add('SIP $sipCode');
     }
-
+    
     if (sipReason != null && sipReason!.isNotEmpty) {
       parts.add(sipReason!);
     } else if (cause != null && cause!.isNotEmpty) {
       parts.add(cause!);
     }
-
+    
     if (parts.isEmpty) {
       return 'Unknown reason';
     }
-
+    
     return parts.join(': ');
   }
 }

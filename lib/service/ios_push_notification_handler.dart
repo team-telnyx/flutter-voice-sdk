@@ -29,20 +29,14 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
   }
 
   void _setupCallKitListener() {
-    _logger.i(
-      '[PushNotificationHandler-iOS] Setting up CallKit event listener...',
-    );
+    _logger.i('[PushNotificationHandler-iOS] Setting up CallKit event listener...');
     FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
-      _logger.i(
-        '[PushNotificationHandler-iOS] onEvent: ${event?.event} :: ${event?.body}',
-      );
+      _logger.i('[PushNotificationHandler-iOS] onEvent: ${event?.event} :: ${event?.body}');
       switch (event!.event) {
         case Event.actionCallIncoming:
           // This event means CallKit UI is shown. Metadata is from AppDelegate.
           if (event.body['extra']?['metadata'] == null) {
-            _logger.i(
-              '[PushNotificationHandler-iOS] actionCallIncoming: Push Data is null!',
-            );
+            _logger.i('[PushNotificationHandler-iOS] actionCallIncoming: Push Data is null!');
             return;
           }
           _logger.i(
@@ -51,95 +45,63 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
           break;
 
         case Event.actionCallAccept:
-          _logger.i(
-            '[PushNotificationHandler-iOS] actionCallAccept: Received. Metadata: ${event.body?['extra']?['metadata']}',
-          );
+          _logger.i('[PushNotificationHandler-iOS] actionCallAccept: Received. Metadata: ${event.body?['extra']?['metadata']}');
           if (txClientViewModel.incomingInvitation != null) {
-            _logger.i(
-              '[PushNotificationHandler-iOS] actionCallAccept: ViewModel has existing incomingInvitation. Accepting directly.',
-            );
+            _logger.i('[PushNotificationHandler-iOS] actionCallAccept: ViewModel has existing incomingInvitation. Accepting directly.');
             await txClientViewModel.accept();
           } else {
             final metadata = event.body['extra']?['metadata'];
             if (metadata == null) {
-              _logger.i(
-                '[PushNotificationHandler-iOS] actionCallAccept: Metadata missing. Accepting without push context.',
-              );
+              _logger.i('[PushNotificationHandler-iOS] actionCallAccept: Metadata missing. Accepting without push context.');
               await txClientViewModel.accept();
             } else {
-              _logger.i(
-                '[PushNotificationHandler-iOS] actionCallAccept: Metadata present. Calling processIncomingCallAction. Metadata: $metadata',
-              );
+              _logger.i('[PushNotificationHandler-iOS] actionCallAccept: Metadata present. Calling processIncomingCallAction. Metadata: $metadata');
               var decodedMetadata = metadata;
               if (metadata is String) {
                 try {
                   decodedMetadata = jsonDecode(metadata);
                 } catch (e) {
-                  _logger.e(
-                    '[PushNotificationHandler-iOS] actionCallAccept: Error decoding metadata JSON: $e. Attempting direct accept.',
-                  );
+                  _logger.e('[PushNotificationHandler-iOS] actionCallAccept: Error decoding metadata JSON: $e. Attempting direct accept.');
                   await txClientViewModel.accept(); // Fallback
                   return;
                 }
               }
-              await processIncomingCallAction(
-                decodedMetadata as Map<dynamic, dynamic>,
-                isAnswer: true,
-              );
+              await processIncomingCallAction(decodedMetadata as Map<dynamic, dynamic>, isAnswer: true);
             }
           }
           break;
 
         case Event.actionCallDecline:
-          _logger.i(
-            '[PushNotificationHandler-iOS] actionCallDecline: Received. Metadata: ${event.body?['extra']?['metadata']}',
-          );
+          _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Received. Metadata: ${event.body?['extra']?['metadata']}');
           final metadata = event.body['extra']?['metadata'];
-          if (txClientViewModel.incomingInvitation != null ||
-              txClientViewModel.currentCall != null) {
-            _logger.i(
-              '[PushNotificationHandler-iOS] actionCallDecline: Main client has existing call/invite. Using txClientViewModel.endCall().',
-            );
+          if (txClientViewModel.incomingInvitation != null || txClientViewModel.currentCall != null) {
+            _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Main client has existing call/invite. Using txClientViewModel.endCall().');
             txClientViewModel.endCall();
           } else if (metadata == null) {
-            _logger.i(
-              '[PushNotificationHandler-iOS] actionCallDecline: No metadata and no active call/invite in ViewModel.',
-            );
+            _logger.i('[PushNotificationHandler-iOS] actionCallDecline: No metadata and no active call/invite in ViewModel.');
             // If an ID is reliably available in event.body['id'], use it to end the specific CallKit call.
-            if (event.body?['id'] != null &&
-                event.body['id'].toString().isNotEmpty) {
+            if(event.body?['id'] != null && event.body['id'].toString().isNotEmpty){
               await FlutterCallkitIncoming.endCall(event.body['id']);
             } else {
-              _logger.w(
-                '[PushNotificationHandler-iOS] actionCallDecline: Could not end CallKit call without ID.',
-              );
+               _logger.w('[PushNotificationHandler-iOS] actionCallDecline: Could not end CallKit call without ID.');
             }
           } else {
-            _logger.i(
-              '[PushNotificationHandler-iOS] actionCallDecline: Metadata present. Using simplified decline logic with decline_push parameter. Metadata: $metadata',
-            );
+            _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Metadata present. Using simplified decline logic with decline_push parameter. Metadata: $metadata');
             var decodedMetadata = metadata;
             if (metadata is String) {
               try {
                 decodedMetadata = jsonDecode(metadata);
               } catch (e) {
-                _logger.e(
-                  '[PushNotificationHandler-iOS] actionCallDecline: Error decoding metadata JSON: $e. Unable to process decline.',
-                );
+                _logger.e('[PushNotificationHandler-iOS] actionCallDecline: Error decoding metadata JSON: $e. Unable to process decline.');
                 return;
               }
             }
             // Using temporary client logic as established
-            final Map<dynamic, dynamic> eventData = Map<dynamic, dynamic>.from(
-              decodedMetadata as Map,
-            );
-            final PushMetaData pushMetaData = PushMetaData.fromJson(eventData)
-              ..isDecline = true;
+            final Map<dynamic, dynamic> eventData = Map<dynamic, dynamic>.from(decodedMetadata as Map);
+            final PushMetaData pushMetaData = PushMetaData.fromJson(eventData)..isDecline = true;
             final tempDeclineClient = TelnyxClient();
             final config = await ConfigHelper.getTelnyxConfigFromPrefs();
-            _logger.i(
-              '[PushNotificationHandler-iOS] actionCallDecline: Temp client attempting to handlePushNotification. Config :: $config',
-            );
+            _logger.i('[PushNotificationHandler-iOS] actionCallDecline: Temp client attempting to handlePushNotification. Config :: $config');
             if (config != null) {
               tempDeclineClient.handlePushNotification(
                 pushMetaData,
@@ -147,44 +109,30 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
                 config is TokenConfig ? config : null,
               );
             } else {
-              _logger.e(
-                '[PushNotificationHandler-iOS] actionCallDecline: Could not get config for temp client.',
-              );
+               _logger.e('[PushNotificationHandler-iOS] actionCallDecline: Could not get config for temp client.');
             }
           }
           break;
 
         case Event.actionCallEnded:
-          _logger.i(
-            '[PushNotificationHandler-iOS] actionCallEnded: Call ended event from CallKit.',
-          );
+          _logger.i('[PushNotificationHandler-iOS] actionCallEnded: Call ended event from CallKit.');
           txClientViewModel.endCall();
           break;
 
         case Event.actionCallTimeout:
-          _logger.i(
-            '[PushNotificationHandler-iOS] actionCallTimeout: Call timeout event from CallKit.',
-          );
+          _logger.i('[PushNotificationHandler-iOS] actionCallTimeout: Call timeout event from CallKit.');
           txClientViewModel.endCall();
           break;
         default:
-          _logger.i(
-            '[PushNotificationHandler-iOS] Unhandled CallKit event: ${event.event}',
-          );
+          _logger.i('[PushNotificationHandler-iOS] Unhandled CallKit event: ${event.event}');
           break;
       }
     });
   }
 
   @override
-  Future<void> processIncomingCallAction(
-    Map<dynamic, dynamic> payload, {
-    bool isAnswer = false,
-    bool isDecline = false,
-  }) async {
-    _logger.i(
-      '[PushNotificationHandler-iOS] processIncomingCallAction. Payload: $payload, Answer: $isAnswer, Decline: $isDecline',
-    );
+  Future<void> processIncomingCallAction(Map<dynamic, dynamic> payload, {bool isAnswer = false, bool isDecline = false}) async {
+    _logger.i('[PushNotificationHandler-iOS] processIncomingCallAction. Payload: $payload, Answer: $isAnswer, Decline: $isDecline');
     final Map<dynamic, dynamic> mutablePayload = Map.from(payload);
     if (isAnswer) mutablePayload['isAnswer'] = true;
     if (isDecline) mutablePayload['isDecline'] = true;
@@ -194,9 +142,7 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
 
   @override
   Future<void> displayIncomingCallUi(Map<dynamic, dynamic> payload) async {
-    _logger.i(
-      '[PushNotificationHandler-iOS] displayIncomingCallUi: Primarily handled by native AppDelegate.swift. Payload: $payload',
-    );
+    _logger.i('[PushNotificationHandler-iOS] displayIncomingCallUi: Primarily handled by native AppDelegate.swift. Payload: $payload');
   }
 
   @override
@@ -210,9 +156,7 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
 
   @override
   Future<Map<String, dynamic>?> getInitialPushData() async {
-    _logger.i(
-      '[PushNotificationHandler-iOS] getInitialPushData: Not typically used in the same way as Android. CallKit events drive the flow.',
-    );
+    _logger.i('[PushNotificationHandler-iOS] getInitialPushData: Not typically used in the same way as Android. CallKit events drive the flow.');
     // iOS flow is primarily driven by CallKit events after app launch.
     // No direct equivalent to FCM's getInitialMessage for VoIP pushes in this context.
     return null;
@@ -220,9 +164,7 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
 
   @override
   Future<void> showMissedCallNotification(Map<dynamic, dynamic> payload) async {
-    _logger.i(
-      '[PushNotificationHandler-iOS] showMissedCallNotification: Not implemented for iOS in this handler. Relies on CallKits native missed call handling. Payload: $payload',
-    );
+    _logger.i('[PushNotificationHandler-iOS] showMissedCallNotification: Not implemented for iOS in this handler. Relies on CallKits native missed call handling. Payload: $payload');
     // iOS CallKit handles its own missed call notifications/badges typically.
   }
 
@@ -238,11 +180,8 @@ class IOSPushNotificationHandler implements PushNotificationHandler {
     // Firebase might be used for other purposes, but from this handler's perspective for push,
     // it doesn't manage Firebase initialization itself in the same way Android FCM flow does.
     // If Firebase is initialized globally (e.g. for Analytics), checking Firebase.apps.isNotEmpty could be valid.
-    final bool initialized =
-        Firebase.apps.isNotEmpty; // Check if any app is initialized
-    _logger.i(
-      '[PushNotificationHandler-iOS] isFirebaseInitialized: Returning $initialized',
-    );
+    final bool initialized = Firebase.apps.isNotEmpty; // Check if any app is initialized
+    _logger.i('[PushNotificationHandler-iOS] isFirebaseInitialized: Returning $initialized');
     return initialized;
   }
-}
+} 

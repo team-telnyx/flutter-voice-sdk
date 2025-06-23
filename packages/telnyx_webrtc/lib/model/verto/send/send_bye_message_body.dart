@@ -12,9 +12,8 @@ class SendByeMessage {
     id = json['id'];
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params = json['params'] != null
-        ? SendByeParams.fromJson(json['params'])
-        : null;
+    params =
+        json['params'] != null ? SendByeParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {

@@ -39,9 +39,9 @@ class _CustomFormFieldState extends State<CustomFormField> {
           padding: const EdgeInsets.only(bottom: spacingXS),
           child: Text(
             widget.title,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         TextFormField(
@@ -53,9 +53,7 @@ class _CustomFormFieldState extends State<CustomFormField> {
             suffixIcon: widget.isPassword
                 ? IconButton(
                     icon: Icon(
-                      _isPasswordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off,
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                     ),
                     onPressed: () {
                       setState(() {
@@ -83,9 +81,9 @@ class FieldTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: spacingXS),
       child: Text(
         title,
-        style: Theme.of(
-          context,
-        ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500),
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -114,14 +112,9 @@ class CredentialToggle extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onToggleChanged(false),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: spacingM,
-                  horizontal: spacingL,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
                 decoration: BoxDecoration(
-                  color: !isTokenLogin
-                      ? active_text_field_color
-                      : Colors.transparent,
+                  color: !isTokenLogin ? active_text_field_color : Colors.transparent,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(8),
                     bottomLeft: Radius.circular(8),
@@ -142,14 +135,9 @@ class CredentialToggle extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onToggleChanged(true),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: spacingM,
-                  horizontal: spacingL,
-                ),
+                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
                 decoration: BoxDecoration(
-                  color: isTokenLogin
-                      ? active_text_field_color
-                      : Colors.transparent,
+                  color: isTokenLogin ? active_text_field_color : Colors.transparent,
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(8),
                     bottomRight: Radius.circular(8),
@@ -176,11 +164,8 @@ class AddProfileForm extends StatefulWidget {
   final Profile? existingProfile;
   final VoidCallback onCancelPressed;
 
-  const AddProfileForm({
-    Key? key,
-    required this.onCancelPressed,
-    this.existingProfile,
-  }) : super(key: key);
+  const AddProfileForm({Key? key, required this.onCancelPressed, this.existingProfile})
+      : super(key: key);
 
   @override
   _AddProfileFormState createState() => _AddProfileFormState();
@@ -346,9 +331,9 @@ class _AddProfileFormState extends State<AddProfileForm> {
                       });
                       widget.onCancelPressed();
                     } catch (e) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(e.toString())));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString())),
+                      );
                     }
                   }
                 },

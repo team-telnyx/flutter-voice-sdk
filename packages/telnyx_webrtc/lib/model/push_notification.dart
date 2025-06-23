@@ -1,5 +1,8 @@
 class PushNotification {
-  PushNotification({required this.metadata, required this.message});
+  PushNotification({
+    required this.metadata,
+    required this.message,
+  });
 
   PushMetaData metadata;
   String message;

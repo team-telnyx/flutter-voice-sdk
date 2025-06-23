@@ -43,9 +43,9 @@ class AudioWaveform extends StatelessWidget {
               ),
               const Spacer(),
               Text(
-                audioLevels.isNotEmpty
-                    ? '${(audioLevels.last * 100).toStringAsFixed(0)}%'
-                    : '0%',
+                audioLevels.isNotEmpty 
+                  ? '${(audioLevels.last * 100).toStringAsFixed(0)}%'
+                  : '0%',
                 style: TextStyle(
                   color: color,
                   fontSize: 12,
@@ -120,18 +120,21 @@ class _AnimatedWaveformBarState extends State<AnimatedWaveformBar>
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-
+    
     // Initialize the animation with the starting height
     final initialHeight = max(
       widget.minHeight,
       widget.minHeight + (widget.level * (widget.maxHeight - widget.minHeight)),
     );
-
-    _heightAnimation = Tween<double>(begin: initialHeight, end: initialHeight)
-        .animate(
-          CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-        );
-
+    
+    _heightAnimation = Tween<double>(
+      begin: initialHeight,
+      end: initialHeight,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
+    
     _updateAnimation();
     _animationController.forward();
   }
@@ -150,15 +153,14 @@ class _AnimatedWaveformBarState extends State<AnimatedWaveformBar>
       widget.minHeight,
       widget.minHeight + (widget.level * (widget.maxHeight - widget.minHeight)),
     );
-
-    _heightAnimation =
-        Tween<double>(
-          begin: _heightAnimation
-              .value, // Now safe to access since it's initialized
-          end: targetHeight,
-        ).animate(
-          CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-        );
+    
+    _heightAnimation = Tween<double>(
+      begin: _heightAnimation.value, // Now safe to access since it's initialized
+      end: targetHeight,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeOut,
+    ));
   }
 
   @override

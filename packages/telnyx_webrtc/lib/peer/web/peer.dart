@@ -56,7 +56,7 @@ class Peer {
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
   Function(dynamic event)? onPeersUpdate;
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
   /// Gets the SDP semantics based on the platform.
@@ -67,7 +67,10 @@ class Peer {
   final Map<String, dynamic> _iceServers = {
     'iceServers': [
       {
-        'urls': [DefaultConfig.defaultStun, DefaultConfig.defaultTurn],
+        'urls': [
+          DefaultConfig.defaultStun,
+          DefaultConfig.defaultTurn,
+        ],
         'username': DefaultConfig.username,
         'credential': DefaultConfig.password,
       },
@@ -75,7 +78,10 @@ class Peer {
   };
 
   final Map<String, dynamic> _dcConstraints = {
-    'mandatory': {'OfferToReceiveAudio': true, 'OfferToReceiveVideo': false},
+    'mandatory': {
+      'OfferToReceiveAudio': true,
+      'OfferToReceiveVideo': false,
+    },
     'optional': [
       {'DtlsSrtpKeyAgreement': true},
     ],
@@ -124,9 +130,8 @@ class Peer {
       _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
       GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
     } else {
-      GlobalLogger().d(
-        'Peer :: No local stream :: Unable to toggle speaker mode',
-      );
+      GlobalLogger()
+          .d('Peer :: No local stream :: Unable to toggle speaker mode');
     }
   }
 
@@ -187,9 +192,8 @@ class Peer {
     Map<String, String> customHeaders,
   ) async {
     try {
-      final description = await session.peerConnection!.createOffer(
-        _dcConstraints,
-      );
+      final description =
+          await session.peerConnection!.createOffer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(description);
 
       // Add any remote candidates that arrived early
@@ -258,9 +262,8 @@ class Peer {
   void remoteSessionReceived(String sdp) async {
     final session = _sessions[_selfId];
     if (session != null) {
-      await session.peerConnection?.setRemoteDescription(
-        RTCSessionDescription(sdp, 'answer'),
-      );
+      await session.peerConnection
+          ?.setRemoteDescription(RTCSessionDescription(sdp, 'answer'));
       onCallStateChange?.call(session, CallState.active);
     }
   }
@@ -297,9 +300,8 @@ class Peer {
     _sessions[sessionId] = session;
 
     // Set the remote SDP from the inbound INVITE
-    await session.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(invite.sdp, 'offer'),
-    );
+    await session.peerConnection
+        ?.setRemoteDescription(RTCSessionDescription(invite.sdp, 'offer'));
 
     // Create and send the Answer (or Attach)
     await _createAnswer(
@@ -339,12 +341,11 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-              candidateString.contains('turn.telnyx.com');
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
-            GlobalLogger().i(
-              'Web Peer :: Valid ICE candidate: $candidateString',
-            );
+            GlobalLogger()
+                .i('Web Peer :: Valid ICE candidate: $candidateString');
             // Only add valid candidates and reset timer
             await session.peerConnection?.addCandidate(candidate);
             _lastCandidateTime = DateTime.now();
@@ -359,9 +360,8 @@ class Peer {
       };
 
       // Create and set local description
-      final description = await session.peerConnection!.createAnswer(
-        _dcConstraints,
-      );
+      final description =
+          await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(description);
 
       // Start ICE candidate gathering and wait for negotiation to complete
@@ -421,9 +421,8 @@ class Peer {
       'audio': true,
       'video': false,
     };
-    final MediaStream stream = await navigator.mediaDevices.getUserMedia(
-      mediaConstraints,
-    );
+    final MediaStream stream =
+        await navigator.mediaDevices.getUserMedia(mediaConstraints);
 
     onLocalStream?.call(stream);
     return stream;
@@ -442,9 +441,8 @@ class Peer {
     required String callId,
     required String media,
   }) async {
-    GlobalLogger().i(
-      'Web Peer :: _createSession => sid=$sessionId, callId=$callId',
-    );
+    GlobalLogger()
+        .i('Web Peer :: _createSession => sid=$sessionId, callId=$callId');
 
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') {
@@ -455,10 +453,13 @@ class Peer {
     }
 
     // Create PeerConnection
-    final pc = await createPeerConnection({
-      ..._iceServers,
-      ...{'sdpSemantics': sdpSemantics},
-    }, _dcConstraints);
+    final pc = await createPeerConnection(
+      {
+        ..._iceServers,
+        ...{'sdpSemantics': sdpSemantics},
+      },
+      _dcConstraints,
+    );
 
     // If we want the same plan-b/unified-plan logic as mobile:
     if (media != 'data') {
@@ -504,12 +505,11 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-              candidateString.contains('turn.telnyx.com');
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
-            GlobalLogger().i(
-              'Web Peer :: Valid ICE candidate: $candidateString',
-            );
+            GlobalLogger()
+                .i('Web Peer :: Valid ICE candidate: $candidateString');
             // Add valid candidates
             await pc.addCandidate(candidate);
           } else {
@@ -577,18 +577,12 @@ class Peer {
     RTCPeerConnection pc,
   ) async {
     if (!_debug) {
-      GlobalLogger().d(
-        'Peer :: Stats manager will NOT start; debug mode not enabled.',
-      );
+      GlobalLogger()
+          .d('Peer :: Stats manager will NOT start; debug mode not enabled.');
       return false;
     }
-    _statsManager = WebRTCStatsReporter(
-      _socket,
-      pc,
-      callId,
-      peerId,
-      _txClient.isDebug(),
-    );
+    _statsManager =
+        WebRTCStatsReporter(_socket, pc, callId, peerId, _txClient.isDebug());
     await _statsManager?.startStatsReporting();
     GlobalLogger().d('Peer :: Stats Manager started for callId=$callId');
     return true;
@@ -658,12 +652,10 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastCandidateTime!)
-            .inMilliseconds;
-        GlobalLogger().d(
-          'Time since last candidate: ${timeSinceLastCandidate}ms',
-        );
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
+        GlobalLogger()
+            .d('Time since last candidate: ${timeSinceLastCandidate}ms');
 
         if (timeSinceLastCandidate >= _negotiationTimeout) {
           GlobalLogger().d('Negotiation timeout reached');
