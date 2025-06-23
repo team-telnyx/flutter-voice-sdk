@@ -371,7 +371,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               ),
               Expanded(
                 child: Text(
-                  'Fallback to auto region on connection failure',
+                  'Allow Region Fallback',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ),
@@ -407,7 +407,17 @@ class _AddProfileFormState extends State<AddProfileForm> {
                     );
 
                     try {
-                      context.read<ProfileProvider>().addProfile(profile);
+                      final provider = context.read<ProfileProvider>();
+                      if (widget.existingProfile != null) {
+                        // Update existing profile
+                        provider.updateProfile(
+                          widget.existingProfile!.sipCallerIDName,
+                          profile,
+                        );
+                      } else {
+                        // Add new profile
+                        provider.addProfile(profile);
+                      }
                       setState(() {
                         _resetForm();
                       });
@@ -419,7 +429,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
                     }
                   }
                 },
-                child: const Text('Save'),
+                child: Text(widget.existingProfile != null ? 'Update' : 'Save'),
               ),
             ],
           ),

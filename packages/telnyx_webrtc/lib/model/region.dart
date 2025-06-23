@@ -2,22 +2,22 @@
 enum Region {
   /// Automatically select the best region
   auto('AUTO', 'auto'),
-  
+
   /// European region
   eu('EU', 'eu'),
-  
+
   /// US Central region
   usCentral('US-CENTRAL', 'us-central'),
-  
+
   /// US East region
   usEast('US-EAST', 'us-east'),
-  
+
   /// US West region
   usWest('US-WEST', 'us-west'),
-  
+
   /// Canada Central region
   caCentral('CA-CENTRAL', 'ca-central'),
-  
+
   /// Asia Pacific region
   apac('APAC', 'apac');
 
@@ -25,7 +25,7 @@ enum Region {
 
   /// The display name of the region
   final String displayName;
-  
+
   /// The value used for connection
   final String value;
 
