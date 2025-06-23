@@ -47,11 +47,13 @@ class AppInitializer {
           options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
         );
         logger.i('[AppInitializer] Firebase Core Initialized successfully.');
-        
+
         // Set up background message handler immediately after Firebase initialization
         // This ensures the handler is ready before any messages arrive
         if (!kIsWeb && Platform.isAndroid) {
-          FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+          FirebaseMessaging.onBackgroundMessage(
+            _firebaseMessagingBackgroundHandler,
+          );
           logger.i('[AppInitializer] Background message handler set up.');
         }
       } catch (e) {
@@ -180,24 +182,28 @@ class _MyAppState extends State<MyApp> {
     // For iOS, this is less critical as CallKit events usually drive the flow after launch.
     _handleInitialPushData();
   }
-  
+
   Future<void> _handleInitialPushData() async {
     try {
       final data = await PlatformPushService.handler.getInitialPushData();
       if (data != null && data.isNotEmpty) {
         logger.i('[_MyAppState] Initial push data found: $data');
-        
+
         // Create a mutable copy of the data
         final Map<dynamic, dynamic> mutablePayload = Map.from(data);
-        
+
         // Check if this is an answer action (from background accept)
-        final bool isAnswer = mutablePayload.containsKey('isAnswer') && 
-                             mutablePayload['isAnswer'] == true;
-        final bool isDecline = mutablePayload.containsKey('isDecline') && 
-                              mutablePayload['isDecline'] == true;
-        
-        logger.i('[_MyAppState] Processing initial push data - Answer: $isAnswer, Decline: $isDecline');
-        
+        final bool isAnswer =
+            mutablePayload.containsKey('isAnswer') &&
+            mutablePayload['isAnswer'] == true;
+        final bool isDecline =
+            mutablePayload.containsKey('isDecline') &&
+            mutablePayload['isDecline'] == true;
+
+        logger.i(
+          '[_MyAppState] Processing initial push data - Answer: $isAnswer, Decline: $isDecline',
+        );
+
         await PlatformPushService.handler.processIncomingCallAction(
           mutablePayload,
           isAnswer: isAnswer,

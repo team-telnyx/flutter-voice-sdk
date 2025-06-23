@@ -334,8 +334,7 @@ class TelnyxClient {
         GlobalLogger().i(
           'Creating temporary call object for timeout handling with call ID: $_pushCallId',
         );
-        targetCall = _createCall()
-        ..callId = _pushCallId;
+        targetCall = _createCall()..callId = _pushCallId;
         calls[_pushCallId!] = targetCall;
       }
 
