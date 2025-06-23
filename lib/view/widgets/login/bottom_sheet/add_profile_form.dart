@@ -4,6 +4,7 @@ import 'package:telnyx_flutter_webrtc/model/profile_model.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
+import 'package:telnyx_webrtc/model/region.dart';
 
 class CustomFormField extends StatefulWidget {
   final String title;
@@ -195,6 +196,8 @@ class _AddProfileFormState extends State<AddProfileForm> {
   final _sipPasswordController = TextEditingController();
   final _sipCallerIDNameController = TextEditingController();
   final _sipCallerIDNumberController = TextEditingController();
+  Region _selectedRegion = Region.auto;
+  bool _fallbackOnRegionFailure = true;
 
   @override
   void initState() {
@@ -207,6 +210,8 @@ class _AddProfileFormState extends State<AddProfileForm> {
       _sipPasswordController.text = profile.sipPassword;
       _sipCallerIDNameController.text = profile.sipCallerIDName;
       _sipCallerIDNumberController.text = profile.sipCallerIDNumber;
+      _selectedRegion = profile.region;
+      _fallbackOnRegionFailure = profile.fallbackOnRegionFailure;
     }
   }
 
@@ -229,6 +234,8 @@ class _AddProfileFormState extends State<AddProfileForm> {
     _sipCallerIDNameController.clear();
     _sipCallerIDNumberController.clear();
     _isTokenLogin = false;
+    _selectedRegion = Region.auto;
+    _fallbackOnRegionFailure = true;
   }
 
   @override
@@ -312,6 +319,64 @@ class _AddProfileFormState extends State<AddProfileForm> {
               return null;
             },
           ),
+          const SizedBox(height: spacingM),
+          // Region Selection
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: spacingXS),
+                child: Text(
+                  'Region',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              DropdownButtonFormField<Region>(
+                value: _selectedRegion,
+                decoration: InputDecoration(
+                  hintText: 'Select region',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                items: Region.values.map((Region region) {
+                  return DropdownMenuItem<Region>(
+                    value: region,
+                    child: Text(region.displayName),
+                  );
+                }).toList(),
+                onChanged: (Region? newValue) {
+                  if (newValue != null) {
+                    setState(() {
+                      _selectedRegion = newValue;
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: spacingM),
+          // Fallback Option
+          Row(
+            children: [
+              Checkbox(
+                value: _fallbackOnRegionFailure,
+                onChanged: (bool? value) {
+                  setState(() {
+                    _fallbackOnRegionFailure = value ?? true;
+                  });
+                },
+              ),
+              Expanded(
+                child: Text(
+                  'Fallback to auto region on connection failure',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: spacingL),
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -337,6 +402,8 @@ class _AddProfileFormState extends State<AddProfileForm> {
                       sipPassword: _sipPasswordController.text,
                       sipCallerIDName: _sipCallerIDNameController.text,
                       sipCallerIDNumber: _sipCallerIDNumberController.text,
+                      region: _selectedRegion,
+                      fallbackOnRegionFailure: _fallbackOnRegionFailure,
                     );
 
                     try {

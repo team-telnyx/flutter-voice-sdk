@@ -32,6 +32,8 @@ import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
+import 'package:telnyx_webrtc/model/region.dart';
+import 'package:telnyx_webrtc/utils/connectivity_helper.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -148,6 +150,54 @@ class TelnyxClient {
   bool _earlySDP = false;
 
   final String _storedHostAddress = DefaultConfig.socketHostAddress;
+
+  /// Build the host address with region support
+  Future<String> _buildHostAddress(Config config, {String? voiceSdkId}) async {
+    String baseHost = _storedHostAddress;
+    
+    // If region is not AUTO, prepend the region to the host
+    if (config.region != Region.auto) {
+      // Extract the base host from the WebSocket URL
+      final uri = Uri.parse(_storedHostAddress);
+      final hostWithoutProtocol = uri.host;
+      final regionHost = '${config.region.value}.$hostWithoutProtocol';
+      
+      // Rebuild the WebSocket URL with the region
+      baseHost = '${uri.scheme}://$regionHost:${uri.port}';
+      
+      GlobalLogger().i('Using region-specific host: $baseHost');
+      
+      // If fallback is enabled, check connectivity
+      if (config.fallbackOnRegionFailure) {
+        try {
+          final reachableHost = await ConnectivityHelper.resolveReachableHost(
+            regionHost,
+            uri.port,
+          );
+          
+          if (reachableHost != regionHost) {
+            // Fallback to the original host
+            baseHost = _storedHostAddress;
+            GlobalLogger().i('Falling back to default host: $baseHost');
+          }
+        } catch (e) {
+          GlobalLogger().e('Error checking region connectivity: $e');
+          baseHost = _storedHostAddress;
+        }
+      }
+    }
+    
+    // Add voice SDK ID if provided
+    if (voiceSdkId != null) {
+      final uri = Uri.parse(baseHost);
+      final newUri = uri.replace(
+        queryParameters: {'voice_sdk_id': voiceSdkId},
+      );
+      baseHost = newUri.toString();
+    }
+    
+    return baseHost;
+  }
 
   CredentialConfig? _storedCredentialConfig;
 
@@ -494,7 +544,7 @@ class TelnyxClient {
   }
 
   /// Connects to the WebSocket using the provided [tokenConfig]
-  void connectWithToken(TokenConfig tokenConfig) {
+  Future<void> connectWithToken(TokenConfig tokenConfig) async {
     // First check if there is a custom logger set within the config - if so, we set it here
     _logger = tokenConfig.customLogger ?? DefaultLogger();
     GlobalLogger.logger = _logger;
@@ -506,16 +556,14 @@ class TelnyxClient {
       ..log(LogLevel.info, 'connect()')
       ..log(LogLevel.info, 'connecting to WebSocket $_storedHostAddress');
     try {
-      if (_pushMetaData != null) {
-        txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
-        GlobalLogger().i(
-          'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
-        );
-      } else {
-        txSocket.hostAddress = _storedHostAddress;
-        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
-      }
+      // Build the host address with region support
+      final hostAddress = await _buildHostAddress(
+        tokenConfig,
+        voiceSdkId: _pushMetaData?.voiceSdkId,
+      );
+      
+      txSocket.hostAddress = hostAddress;
+      GlobalLogger().i('connecting to WebSocket $hostAddress');
       txSocket
         ..onOpen = () {
           _closed = false;
@@ -543,7 +591,7 @@ class TelnyxClient {
   }
 
   /// Connects to the WebSocket using the provided [CredentialConfig]
-  void connectWithCredential(CredentialConfig credentialConfig) {
+  Future<void> connectWithCredential(CredentialConfig credentialConfig) async {
     // First check if there is a custom logger set within the config - if so, we set it here
     // Use custom logger if provided or fallback to default.
     _logger = credentialConfig.customLogger ?? DefaultLogger();
@@ -557,16 +605,14 @@ class TelnyxClient {
       ..setLogLevel(credentialConfig.logLevel)
       ..log(LogLevel.info, 'connect()');
     try {
-      if (_pushMetaData != null) {
-        txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
-        GlobalLogger().i(
-          'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
-        );
-      } else {
-        txSocket.hostAddress = _storedHostAddress;
-        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
-      }
+      // Build the host address with region support
+      final hostAddress = await _buildHostAddress(
+        credentialConfig,
+        voiceSdkId: _pushMetaData?.voiceSdkId,
+      );
+      
+      txSocket.hostAddress = hostAddress;
+      GlobalLogger().i('connecting to WebSocket $hostAddress');
       txSocket
         ..onOpen = () {
           _closed = false;
