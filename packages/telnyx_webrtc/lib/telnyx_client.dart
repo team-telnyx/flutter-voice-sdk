@@ -152,7 +152,7 @@ class TelnyxClient {
   final String _storedHostAddress = DefaultConfig.socketHostAddress;
 
   /// Build the host address with region support
-  Future<String> _buildHostAddress(Config config, {String? voiceSdkId}) async {
+  String _buildHostAddress(Config config, {String? voiceSdkId}) {
     String baseHost = _storedHostAddress;
     
     // If region is not AUTO, prepend the region to the host
@@ -166,25 +166,6 @@ class TelnyxClient {
       baseHost = '${uri.scheme}://$regionHost:${uri.port}';
       
       GlobalLogger().i('Using region-specific host: $baseHost');
-      
-      // If fallback is enabled, check connectivity
-      if (config.fallbackOnRegionFailure) {
-        try {
-          final reachableHost = await ConnectivityHelper.resolveReachableHost(
-            regionHost,
-            uri.port,
-          );
-          
-          if (reachableHost != regionHost) {
-            // Fallback to the original host
-            baseHost = _storedHostAddress;
-            GlobalLogger().i('Falling back to default host: $baseHost');
-          }
-        } catch (e) {
-          GlobalLogger().e('Error checking region connectivity: $e');
-          baseHost = _storedHostAddress;
-        }
-      }
     }
     
     // Add voice SDK ID if provided
@@ -202,6 +183,10 @@ class TelnyxClient {
   CredentialConfig? _storedCredentialConfig;
 
   TokenConfig? _storedTokenConfig;
+
+  // Track current config for region fallback
+  Config? _currentConfig;
+  bool _isRegionFallbackAttempt = false;
 
   /// The stored [CredentialConfig] for the client - if no stored credential is present, this will be null
   CredentialConfig? get storedCredential => _storedCredentialConfig;
@@ -544,7 +529,10 @@ class TelnyxClient {
   }
 
   /// Connects to the WebSocket using the provided [tokenConfig]
-  Future<void> connectWithToken(TokenConfig tokenConfig) async {
+  void connectWithToken(TokenConfig tokenConfig) {
+    // Store current config for potential fallback
+    _currentConfig = tokenConfig;
+    
     // First check if there is a custom logger set within the config - if so, we set it here
     _logger = tokenConfig.customLogger ?? DefaultLogger();
     GlobalLogger.logger = _logger;
@@ -557,7 +545,7 @@ class TelnyxClient {
       ..log(LogLevel.info, 'connecting to WebSocket $_storedHostAddress');
     try {
       // Build the host address with region support
-      final hostAddress = await _buildHostAddress(
+      final hostAddress = _buildHostAddress(
         tokenConfig,
         voiceSdkId: _pushMetaData?.voiceSdkId,
       );
@@ -568,6 +556,7 @@ class TelnyxClient {
         ..onOpen = () {
           _closed = false;
           _connected = true;
+          _isRegionFallbackAttempt = false; // Reset fallback flag on successful connection
           GlobalLogger().i(
             'TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected',
           );
@@ -591,7 +580,10 @@ class TelnyxClient {
   }
 
   /// Connects to the WebSocket using the provided [CredentialConfig]
-  Future<void> connectWithCredential(CredentialConfig credentialConfig) async {
+  void connectWithCredential(CredentialConfig credentialConfig) {
+    // Store current config for potential fallback
+    _currentConfig = credentialConfig;
+    
     // First check if there is a custom logger set within the config - if so, we set it here
     // Use custom logger if provided or fallback to default.
     _logger = credentialConfig.customLogger ?? DefaultLogger();
@@ -606,7 +598,7 @@ class TelnyxClient {
       ..log(LogLevel.info, 'connect()');
     try {
       // Build the host address with region support
-      final hostAddress = await _buildHostAddress(
+      final hostAddress = _buildHostAddress(
         credentialConfig,
         voiceSdkId: _pushMetaData?.voiceSdkId,
       );
@@ -617,6 +609,7 @@ class TelnyxClient {
         ..onOpen = () {
           _closed = false;
           _connected = true;
+          _isRegionFallbackAttempt = false; // Reset fallback flag on successful connection
           GlobalLogger().i(
             'TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected',
           );
@@ -1055,6 +1048,56 @@ class TelnyxClient {
     GlobalLogger().i('WebSocket closed');
     if (wasClean == false) {
       GlobalLogger().i('WebSocket abrupt disconnection');
+    }
+    
+    // Handle region fallback if connection failed and fallback is enabled
+    if (!wasClean && 
+        _currentConfig != null && 
+        _currentConfig!.region != Region.auto && 
+        _currentConfig!.fallbackOnRegionFailure && 
+        !_isRegionFallbackAttempt) {
+      
+      GlobalLogger().i('Connection failed with region ${_currentConfig!.region.value}, attempting fallback to auto region');
+      _isRegionFallbackAttempt = true;
+      
+      // Create a fallback config with auto region
+      Config fallbackConfig;
+      if (_currentConfig is TokenConfig) {
+        final tokenConfig = _currentConfig as TokenConfig;
+        fallbackConfig = TokenConfig(
+          sipToken: tokenConfig.sipToken,
+          notificationToken: tokenConfig.notificationToken,
+          region: Region.auto, // Force auto region for fallback
+          fallbackOnRegionFailure: tokenConfig.fallbackOnRegionFailure,
+          logLevel: tokenConfig.logLevel,
+          customLogger: tokenConfig.customLogger,
+          reconnectionTimeout: tokenConfig.reconnectionTimeout,
+        );
+        
+        // Retry connection with auto region
+        Timer(const Duration(milliseconds: 1000), () {
+          connectWithToken(fallbackConfig as TokenConfig);
+        });
+      } else if (_currentConfig is CredentialConfig) {
+        final credConfig = _currentConfig as CredentialConfig;
+        fallbackConfig = CredentialConfig(
+          sipUser: credConfig.sipUser,
+          sipPassword: credConfig.sipPassword,
+          sipCallerIDName: credConfig.sipCallerIDName,
+          sipCallerIDNumber: credConfig.sipCallerIDNumber,
+          notificationToken: credConfig.notificationToken,
+          region: Region.auto, // Force auto region for fallback
+          fallbackOnRegionFailure: credConfig.fallbackOnRegionFailure,
+          logLevel: credConfig.logLevel,
+          customLogger: credConfig.customLogger,
+          reconnectionTimeout: credConfig.reconnectionTimeout,
+        );
+        
+        // Retry connection with auto region
+        Timer(const Duration(milliseconds: 1000), () {
+          connectWithCredential(fallbackConfig as CredentialConfig);
+        });
+      }
     }
   }
 
