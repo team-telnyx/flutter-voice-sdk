@@ -27,7 +27,7 @@ typedef CallQualityCallback = void Function(CallQualityMetrics metrics);
 class WebRTCStatsReporter {
   /// Call quality update interval in milliseconds for real-time UI updates
   static const int callQualityIntervalMs = 100;
-  
+
   /// Socket stats reporting interval in milliseconds to avoid overloading
   static const int socketStatsIntervalMs = 3000;
 
@@ -74,8 +74,9 @@ class WebRTCStatsReporter {
 
   void _enqueueMessage(String message) {
     if (!sendStats) {
-      GlobalLogger()
-          .d('Stats reporting is disabled. Not sending message: $message');
+      GlobalLogger().d(
+        'Stats reporting is disabled. Not sending message: $message',
+      );
       return;
     }
     _messageQueue.add(message);
@@ -110,16 +111,26 @@ class WebRTCStatsReporter {
     await _setupPeerEventHandlers();
 
     // Start call quality updates every 100ms for real-time UI
-    GlobalLogger().d('Starting call quality updates every ${callQualityIntervalMs}ms');
-    _callQualityTimer = Timer.periodic(Duration(milliseconds: callQualityIntervalMs), (_) async {
-      await _collectCallQualityMetrics();
-    });
+    GlobalLogger().d(
+      'Starting call quality updates every ${callQualityIntervalMs}ms',
+    );
+    _callQualityTimer = Timer.periodic(
+      Duration(milliseconds: callQualityIntervalMs),
+      (_) async {
+        await _collectCallQualityMetrics();
+      },
+    );
 
     // Start socket stats reporting every 3 seconds to avoid overloading
-    GlobalLogger().d('Starting socket stats reporting every ${socketStatsIntervalMs}ms');
-    _socketStatsTimer = Timer.periodic(Duration(milliseconds: socketStatsIntervalMs), (_) async {
-      await _collectAndSendStats();
-    });
+    GlobalLogger().d(
+      'Starting socket stats reporting every ${socketStatsIntervalMs}ms',
+    );
+    _socketStatsTimer = Timer.periodic(
+      Duration(milliseconds: socketStatsIntervalMs),
+      (_) async {
+        await _collectAndSendStats();
+      },
+    );
   }
 
   void stopStatsReporting() {
@@ -161,8 +172,9 @@ class WebRTCStatsReporter {
           'candidate': candidate.candidate,
           'sdpMLineIndex': candidate.sdpMLineIndex,
           'sdpMid': candidate.sdpMid,
-          'usernameFragment':
-              StatParsingHelpers().parseUsernameFragment(candidate),
+          'usernameFragment': StatParsingHelpers().parseUsernameFragment(
+            candidate,
+          ),
         };
         _sendDebugReportData(
           event: WebRTCStatsEvent.onIceCandidate,
@@ -178,8 +190,9 @@ class WebRTCStatsReporter {
           localSdp = await peerConnection.getLocalDescription();
           remoteSdp = await peerConnection.getRemoteDescription();
         } catch (e) {
-          GlobalLogger()
-              .e('Error retrieving descriptions for Signaling State Stats: $e');
+          GlobalLogger().e(
+            'Error retrieving descriptions for Signaling State Stats: $e',
+          );
         }
 
         // If both are null, just skip
@@ -188,18 +201,13 @@ class WebRTCStatsReporter {
         }
 
         final description = {
-          'signalingState':
-              StatParsingHelpers().parseSignalingStateChange(signalingState),
+          'signalingState': StatParsingHelpers().parseSignalingStateChange(
+            signalingState,
+          ),
           if (remoteSdp != null)
-            'remoteDescription': {
-              'type': remoteSdp.type,
-              'sdp': remoteSdp.sdp,
-            },
+            'remoteDescription': {'type': remoteSdp.type, 'sdp': remoteSdp.sdp},
           if (localSdp != null)
-            'localDescription': {
-              'type': localSdp.type,
-              'sdp': localSdp.sdp,
-            },
+            'localDescription': {'type': localSdp.type, 'sdp': localSdp.sdp},
         };
 
         _sendDebugReportData(
@@ -240,8 +248,10 @@ class WebRTCStatsReporter {
       Map<String, dynamic>? succeededConnection;
       final statsObject = {};
 
-      final timestamp =
-          DateTime.now().toUtc().millisecondsSinceEpoch.toDouble();
+      final timestamp = DateTime.now()
+          .toUtc()
+          .millisecondsSinceEpoch
+          .toDouble();
 
       final Map<String, dynamic> localCandidates = {};
       final Map<String, dynamic> remoteCandidates = {};
@@ -268,10 +278,7 @@ class WebRTCStatsReporter {
             audioOutboundStats.add({
               ...outboundValues,
               'timestamp': timestamp,
-              'track': _constructTrack(
-                outboundValues,
-                timestamp,
-              ),
+              'track': _constructTrack(outboundValues, timestamp),
             });
             statsObject[report.id] = {
               ...outboundValues,
@@ -405,10 +412,7 @@ class WebRTCStatsReporter {
 
       // Format the data
       final formattedData = {
-        'audio': {
-          'inbound': audioInboundStats,
-          'outbound': audioOutboundStats,
-        },
+        'audio': {'inbound': audioInboundStats, 'outbound': audioOutboundStats},
         'connection': succeededConnection ?? {},
       };
 
@@ -545,13 +549,18 @@ class WebRTCStatsReporter {
             if (inboundValues.containsKey('jitter') &&
                 inboundValues['kind'] == 'audio') {
               jitter = (inboundValues['jitter'] as num?)?.toDouble() ?? 0;
-              inboundAudioLevel = (inboundValues['audioLevel'] as num?)?.toDouble() ?? 0.0;
-              
+              inboundAudioLevel =
+                  (inboundValues['audioLevel'] as num?)?.toDouble() ?? 0.0;
+
               // Extract packet loss if available
               if (inboundValues.containsKey('packetsLost') &&
                   inboundValues.containsKey('totalPacketsReceived')) {
-                final packetsLost = (inboundValues['packetsLost'] as num?)?.toDouble() ?? 0;
-                final totalPackets = (inboundValues['totalPacketsReceived'] as num?)?.toDouble() ?? 1;
+                final packetsLost =
+                    (inboundValues['packetsLost'] as num?)?.toDouble() ?? 0;
+                final totalPackets =
+                    (inboundValues['totalPacketsReceived'] as num?)
+                        ?.toDouble() ??
+                    1;
                 if (totalPackets > 0) {
                   packetLoss = packetsLost / (totalPackets + packetsLost);
                 }
@@ -559,34 +568,41 @@ class WebRTCStatsReporter {
               inboundAudioStats = Map<String, dynamic>.from(inboundValues);
             }
             break;
-            
+
           case 'outbound-rtp':
             final outboundValues = report.values.cast<String, dynamic>();
             if (outboundValues['kind'] == 'audio') {
               outboundAudioStats = Map<String, dynamic>.from(outboundValues);
             }
             break;
-            
+
           case 'remote-inbound-rtp':
             final remoteInboundValues = report.values.cast<String, dynamic>();
             if (remoteInboundValues.containsKey('roundTripTime') &&
                 remoteInboundValues['kind'] == 'audio') {
-              rtt = (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ?? 0;
-              remoteInboundAudioStats = Map<String, dynamic>.from(remoteInboundValues);
+              rtt =
+                  (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ??
+                  0;
+              remoteInboundAudioStats = Map<String, dynamic>.from(
+                remoteInboundValues,
+              );
             }
             break;
-            
+
           case 'remote-outbound-rtp':
             final remoteOutboundValues = report.values.cast<String, dynamic>();
             if (remoteOutboundValues['kind'] == 'audio') {
-              remoteOutboundAudioStats = Map<String, dynamic>.from(remoteOutboundValues);
+              remoteOutboundAudioStats = Map<String, dynamic>.from(
+                remoteOutboundValues,
+              );
             }
             break;
-            
+
           case 'media-source':
             final mediaSourceValues = report.values.cast<String, dynamic>();
             if (mediaSourceValues.containsKey('audioLevel')) {
-              outboundAudioLevel = (mediaSourceValues['audioLevel'] as num?)?.toDouble() ?? 0.0;
+              outboundAudioLevel =
+                  (mediaSourceValues['audioLevel'] as num?)?.toDouble() ?? 0.0;
             }
             break;
         }

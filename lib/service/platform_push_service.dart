@@ -29,8 +29,10 @@ class PlatformPushService {
     } else {
       // Fallback for unsupported platforms, defaults to Web/No-op behavior.
       // Consider logging a warning for unsupported platforms.
-      Logger().w('Warning: Unsupported platform for push notifications. Using WebPushNotificationHandler.');
+      Logger().w(
+        'Warning: Unsupported platform for push notifications. Using WebPushNotificationHandler.',
+      );
       return WebPushNotificationHandler();
     }
   }
-} 
+}

@@ -14,7 +14,7 @@ class CallQualityIndicator extends StatelessWidget {
       builder: (context, viewModel, child) {
         final metrics = viewModel.callQualityMetrics;
         final quality = metrics?.quality ?? CallQuality.unknown;
-        
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -38,7 +38,10 @@ class CallQualityIndicator extends StatelessWidget {
     );
   }
 
-  void _showQualityBottomSheet(BuildContext context, CallQualityMetrics? metrics) {
+  void _showQualityBottomSheet(
+    BuildContext context,
+    CallQualityMetrics? metrics,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,

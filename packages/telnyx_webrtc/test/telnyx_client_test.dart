@@ -41,16 +41,18 @@ void main() {
   });
 
   // Todo remove Test -  is not need since telnyxClient.call is deprecated
-  test('verify create call returns a Call without issue when sessionId is set',
-      () {
-    final telnyxClient = TelnyxClient();
-    telnyxClient.connect();
-    // Give time to connect, verify isConnected() adjusts
-    Timer(const Duration(seconds: 2), () {
-      final call = telnyxClient.call;
-      expect((telnyxClient.call), call);
-    });
-  });
+  test(
+    'verify create call returns a Call without issue when sessionId is set',
+    () {
+      final telnyxClient = TelnyxClient();
+      telnyxClient.connect();
+      // Give time to connect, verify isConnected() adjusts
+      Timer(const Duration(seconds: 2), () {
+        final call = telnyxClient.call;
+        expect((telnyxClient.call), call);
+      });
+    },
+  );
 
   test('verify create call returns ArgumentError when no sessionId is set', () {
     final telnyxClient = MockTelnyxClient();
@@ -138,4 +140,17 @@ void main() {
     // we'd mock the timer and verify timeout behavior
     expect(telnyxClient.isConnected, isA<Function>());
   });
+
+  test(
+    'verify getGatewayStatus returns IDLE at start of instance creation',
+    () {
+      final telnyxClient = TelnyxClient();
+      telnyxClient.connect();
+      // Give time to connect, verify isConnected() adjusts
+      Timer(const Duration(seconds: 2), () {
+        // called twice, once for connect, and again for login
+        verify(telnyxClient.getGatewayStatus()).called(GatewayState.idle);
+      });
+    },
+  );
 }

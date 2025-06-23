@@ -8,7 +8,7 @@ enum NetworkReason {
 
   /// The network has adjusted due to Airplane mode.
   airplaneMode('Airplane mode enabled'),
-  
+
   /// A server error occurred.
   serverError('Server error');
 
