@@ -25,6 +25,7 @@ import 'package:telnyx_webrtc/utils/logging/default_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/preference_storage.dart';
+import 'package:telnyx_webrtc/utils/websocket_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
@@ -33,7 +34,6 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
-import 'package:telnyx_webrtc/utils/connectivity_helper.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -154,20 +154,20 @@ class TelnyxClient {
   /// Build the host address with region support
   String _buildHostAddress(Config config, {String? voiceSdkId}) {
     String baseHost = _storedHostAddress;
-    
+
     // If region is not AUTO, prepend the region to the host
     if (config.region != Region.auto) {
       // Extract the base host from the WebSocket URL
       final uri = Uri.parse(_storedHostAddress);
       final hostWithoutProtocol = uri.host;
       final regionHost = '${config.region.value}.$hostWithoutProtocol';
-      
+
       // Rebuild the WebSocket URL with the region
       baseHost = '${uri.scheme}://$regionHost:${uri.port}';
-      
+
       GlobalLogger().i('Using region-specific host: $baseHost');
     }
-    
+
     // Add voice SDK ID if provided
     if (voiceSdkId != null) {
       final uri = Uri.parse(baseHost);
@@ -176,7 +176,7 @@ class TelnyxClient {
       );
       baseHost = newUri.toString();
     }
-    
+
     return baseHost;
   }
 
@@ -281,8 +281,7 @@ class TelnyxClient {
     // Create a new timer
     _reconnectionTimers[call.callId] = Timer(
       Duration(
-        milliseconds:
-            _storedCredentialConfig?.reconnectionTimeout ??
+        milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
             _storedTokenConfig?.reconnectionTimeout ??
             Constants.reconnectionTimeout,
       ),
@@ -380,9 +379,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -423,9 +421,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -519,7 +516,8 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _connected = false;
-          _onClose(true, closeCode, closeReason);
+          final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          _onClose(wasClean, closeCode, closeReason);
         };
     } catch (e, string) {
       GlobalLogger().e('${e.toString()} :: $string');
@@ -532,7 +530,7 @@ class TelnyxClient {
   void connectWithToken(TokenConfig tokenConfig) {
     // Store current config for potential fallback
     _currentConfig = tokenConfig;
-    
+
     // First check if there is a custom logger set within the config - if so, we set it here
     _logger = tokenConfig.customLogger ?? DefaultLogger();
     GlobalLogger.logger = _logger;
@@ -549,14 +547,15 @@ class TelnyxClient {
         tokenConfig,
         voiceSdkId: _pushMetaData?.voiceSdkId,
       );
-      
+
       txSocket.hostAddress = hostAddress;
       GlobalLogger().i('connecting to WebSocket $hostAddress');
       txSocket
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          _isRegionFallbackAttempt = false; // Reset fallback flag on successful connection
+          _isRegionFallbackAttempt =
+              false; // Reset fallback flag on successful connection
           GlobalLogger().i(
             'TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected',
           );
@@ -569,7 +568,8 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _connected = false;
-          _onClose(true, closeCode, closeReason);
+          final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
@@ -583,7 +583,7 @@ class TelnyxClient {
   void connectWithCredential(CredentialConfig credentialConfig) {
     // Store current config for potential fallback
     _currentConfig = credentialConfig;
-    
+
     // First check if there is a custom logger set within the config - if so, we set it here
     // Use custom logger if provided or fallback to default.
     _logger = credentialConfig.customLogger ?? DefaultLogger();
@@ -602,14 +602,15 @@ class TelnyxClient {
         credentialConfig,
         voiceSdkId: _pushMetaData?.voiceSdkId,
       );
-      
+
       txSocket.hostAddress = hostAddress;
       GlobalLogger().i('connecting to WebSocket $hostAddress');
       txSocket
         ..onOpen = () {
           _closed = false;
           _connected = true;
-          _isRegionFallbackAttempt = false; // Reset fallback flag on successful connection
+          _isRegionFallbackAttempt =
+              false; // Reset fallback flag on successful connection
           GlobalLogger().i(
             'TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected',
           );
@@ -622,7 +623,8 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _connected = false;
-          _onClose(true, closeCode, closeReason);
+          bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
@@ -635,6 +637,7 @@ class TelnyxClient {
   @Deprecated(
     'Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)',
   )
+
   /// Connects to the WebSocket with a previously provided [Config]
   void connect() {
     GlobalLogger().i('connect()');
@@ -667,7 +670,8 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _connected = false;
-          _onClose(true, closeCode, closeReason);
+          bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
@@ -702,6 +706,7 @@ class TelnyxClient {
   @Deprecated(
     'telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()',
   )
+
   /// The current instance of [Call] associated with this client. Can be used
   Call get call {
     // If _call is null, initialize it with the default value.
@@ -863,8 +868,8 @@ class TelnyxClient {
           pushNotificationToken: config.notificationToken!,
           pushNotificationProvider:
               defaultTargetPlatform == TargetPlatform.android
-              ? 'android'
-              : 'ios',
+                  ? 'android'
+                  : 'ios',
         ),
       );
       final disablePushMessage = DisablePushMessage(
@@ -1049,31 +1054,36 @@ class TelnyxClient {
     if (wasClean == false) {
       GlobalLogger().i('WebSocket abrupt disconnection');
     }
-    
+
     // Handle region fallback if connection failed and fallback is enabled
-    if (!wasClean && 
-        _currentConfig != null && 
-        _currentConfig!.region != Region.auto && 
-        _currentConfig!.fallbackOnRegionFailure && 
+    if (!wasClean &&
+        _currentConfig != null &&
+        _currentConfig!.region != Region.auto &&
+        _currentConfig!.fallbackOnRegionFailure &&
         !_isRegionFallbackAttempt) {
-      
-      GlobalLogger().i('Connection failed with region ${_currentConfig!.region.value}, attempting fallback to auto region');
+      GlobalLogger().i(
+        'Connection failed with region ${_currentConfig!.region.value}, attempting fallback to auto region',
+      );
       _isRegionFallbackAttempt = true;
-      
+
       // Create a fallback config with auto region
       Config fallbackConfig;
       if (_currentConfig is TokenConfig) {
         final tokenConfig = _currentConfig as TokenConfig;
         fallbackConfig = TokenConfig(
           sipToken: tokenConfig.sipToken,
+          sipCallerIDName: tokenConfig.sipCallerIDName,
+          sipCallerIDNumber: tokenConfig.sipCallerIDNumber,
           notificationToken: tokenConfig.notificationToken,
-          region: Region.auto, // Force auto region for fallback
+          region: Region.auto,
+          // Force auto region for fallback
           fallbackOnRegionFailure: tokenConfig.fallbackOnRegionFailure,
           logLevel: tokenConfig.logLevel,
           customLogger: tokenConfig.customLogger,
           reconnectionTimeout: tokenConfig.reconnectionTimeout,
+          debug: tokenConfig.debug,
         );
-        
+
         // Retry connection with auto region
         Timer(const Duration(milliseconds: 1000), () {
           connectWithToken(fallbackConfig as TokenConfig);
@@ -1086,13 +1096,15 @@ class TelnyxClient {
           sipCallerIDName: credConfig.sipCallerIDName,
           sipCallerIDNumber: credConfig.sipCallerIDNumber,
           notificationToken: credConfig.notificationToken,
-          region: Region.auto, // Force auto region for fallback
+          region: Region.auto,
+          // Force auto region for fallback
           fallbackOnRegionFailure: credConfig.fallbackOnRegionFailure,
           logLevel: credConfig.logLevel,
           customLogger: credConfig.customLogger,
           reconnectionTimeout: credConfig.reconnectionTimeout,
+          debug: credConfig.debug,
         );
-        
+
         // Retry connection with auto region
         Timer(const Duration(milliseconds: 1000), () {
           connectWithCredential(fallbackConfig as CredentialConfig);
@@ -1184,24 +1196,22 @@ class TelnyxClient {
                         //sending attach Call
                         final String platform =
                             defaultTargetPlatform == TargetPlatform.android
-                            ? 'android'
-                            : 'ios';
-                        const String pushEnvironment = kDebugMode
-                            ? 'development'
-                            : 'production';
+                                ? 'android'
+                                : 'ios';
+                        const String pushEnvironment =
+                            kDebugMode ? 'development' : 'production';
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
-                              method: SocketMethod.attachCall,
-                              id: const Uuid().v4(),
-                              params: Params(
-                                userVariables: <dynamic, dynamic>{
-                                  'push_notification_environment':
-                                      pushEnvironment,
-                                  'push_notification_provider': platform,
-                                },
-                              ),
-                              jsonrpc: '2.0',
-                            );
+                          method: SocketMethod.attachCall,
+                          id: const Uuid().v4(),
+                          params: Params(
+                            userVariables: <dynamic, dynamic>{
+                              'push_notification_environment': pushEnvironment,
+                              'push_notification_provider': platform,
+                            },
+                          ),
+                          jsonrpc: '2.0',
+                        );
                         GlobalLogger().i(
                           'attachCallMessage :: ${attachCallMessage.toJson()}',
                         );
