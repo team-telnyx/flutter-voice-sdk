@@ -7,12 +7,7 @@ String attachCallMessageToJson(AttachCallMessage data) =>
     json.encode(data.toJson());
 
 class AttachCallMessage {
-  AttachCallMessage({
-    this.method,
-    this.id,
-    this.params,
-    this.jsonrpc,
-  });
+  AttachCallMessage({this.method, this.id, this.params, this.jsonrpc});
 
   String? method;
   String? id;
@@ -28,27 +23,22 @@ class AttachCallMessage {
       );
 
   Map<dynamic, dynamic> toJson() => {
-        'method': method,
-        'id': id,
-        'params': params?.toJson(),
-        'jsonrpc': jsonrpc,
-      };
+    'method': method,
+    'id': id,
+    'params': params?.toJson(),
+    'jsonrpc': jsonrpc,
+  };
 }
 
 class Params {
-  Params({
-    required this.userVariables,
-  });
+  Params({required this.userVariables});
 
   Map<dynamic, dynamic> userVariables;
 
-  factory Params.fromJson(Map<dynamic, dynamic> json) => Params(
-        userVariables: Map<dynamic, dynamic>.from(json['userVariables']),
-      );
+  factory Params.fromJson(Map<dynamic, dynamic> json) =>
+      Params(userVariables: Map<dynamic, dynamic>.from(json['userVariables']));
 
-  Map<dynamic, dynamic> toJson() => {
-        'userVariables': userVariables,
-      };
+  Map<dynamic, dynamic> toJson() => {'userVariables': userVariables};
 }
 
 //        pushNotificationProvider: json["push_notification_provider"],

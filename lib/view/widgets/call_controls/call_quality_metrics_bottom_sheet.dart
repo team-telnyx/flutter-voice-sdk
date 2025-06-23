@@ -5,9 +5,7 @@ import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/audio_waveform.
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 
 class CallQualityMetricsBottomSheet extends StatelessWidget {
-  const CallQualityMetricsBottomSheet({
-    super.key,
-  });
+  const CallQualityMetricsBottomSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +30,7 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          
+
           // Header
           Padding(
             padding: const EdgeInsets.all(20),
@@ -49,15 +47,12 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                  ),
+                  icon: const Icon(Icons.close, color: Colors.white),
                 ),
               ],
             ),
           ),
-          
+
           // Content - Now using Consumer to get real-time updates
           Flexible(
             child: SingleChildScrollView(
@@ -65,17 +60,17 @@ class CallQualityMetricsBottomSheet extends StatelessWidget {
               child: Consumer<TelnyxClientViewModel>(
                 builder: (context, viewModel, child) {
                   final metrics = viewModel.callQualityMetrics;
-                  
+
                   return Column(
                     children: [
                       // Audio Levels Section
                       AudioLevelsSection(metrics: metrics),
-                      
+
                       const SizedBox(height: 24),
-                      
+
                       // Metrics Section
                       MetricsSection(metrics: metrics),
-                      
+
                       const SizedBox(height: 24),
                     ],
                   );
@@ -110,16 +105,16 @@ class AudioLevelsSection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Inbound Audio Waveform
             AudioWaveform(
               label: 'Inbound Level',
               audioLevels: viewModel.inboundAudioLevels,
               color: Colors.green,
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Outbound Audio Waveform
             AudioWaveform(
               label: 'Outbound Level',
@@ -152,7 +147,7 @@ class MetricsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        
+
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -169,25 +164,31 @@ class MetricsSection extends StatelessWidget {
               const Divider(color: Colors.grey),
               MetricRow(
                 label: 'MOS Score',
-                value: metrics != null ? '${metrics!.mos.toStringAsFixed(2)}' : 'N/A',
+                value: metrics != null
+                    ? '${metrics!.mos.toStringAsFixed(2)}'
+                    : 'N/A',
                 valueColor: Colors.white,
               ),
               const Divider(color: Colors.grey),
               MetricRow(
                 label: 'Jitter',
-                value: metrics != null ? '${(metrics!.jitter * 1000).toStringAsFixed(1)} ms' : 'N/A',
+                value: metrics != null
+                    ? '${(metrics!.jitter * 1000).toStringAsFixed(1)} ms'
+                    : 'N/A',
                 valueColor: Colors.white,
               ),
               const Divider(color: Colors.grey),
               MetricRow(
                 label: 'Round Trip Time',
-                value: metrics != null ? '${(metrics!.rtt * 1000).toStringAsFixed(1)} ms' : 'N/A',
+                value: metrics != null
+                    ? '${(metrics!.rtt * 1000).toStringAsFixed(1)} ms'
+                    : 'N/A',
                 valueColor: Colors.white,
               ),
             ],
           ),
         ),
-        
+
         if (metrics != null) ...[
           const SizedBox(height: 16),
           const QualityExplanation(),
@@ -198,7 +199,7 @@ class MetricsSection extends StatelessWidget {
 
   String _getQualityDisplayText(dynamic quality) {
     if (quality == null) return 'Unknown';
-    
+
     final qualityStr = quality.toString().toLowerCase();
     switch (qualityStr) {
       case 'excellent':
@@ -218,7 +219,7 @@ class MetricsSection extends StatelessWidget {
 
   Color _getQualityColor(dynamic quality) {
     if (quality == null) return Colors.grey;
-    
+
     final qualityStr = quality.toString().toLowerCase();
     switch (qualityStr) {
       case 'excellent':
@@ -256,13 +257,7 @@ class MetricRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 14,
-            ),
-          ),
+          Text(label, style: TextStyle(color: Colors.grey[400], fontSize: 14)),
           Text(
             value,
             style: TextStyle(

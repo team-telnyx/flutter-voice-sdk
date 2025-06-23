@@ -90,7 +90,7 @@ class CallStateStatusWidget extends StatelessWidget {
   final CallTerminationReason? terminationReason;
 
   const CallStateStatusWidget({
-    super.key, 
+    super.key,
     required this.callState,
     this.terminationReason,
   });

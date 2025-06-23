@@ -8,6 +8,7 @@ import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/buttons/call_bu
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_invitation.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/ongoing_call_controls.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_history/call_history_button.dart';
+
 class DestinationToggle extends StatelessWidget {
   final bool isPhoneNumber;
   final ValueChanged<bool> onToggleChanged;
@@ -31,9 +32,14 @@ class DestinationToggle extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onToggleChanged(false),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
+                padding: const EdgeInsets.symmetric(
+                  vertical: spacingM,
+                  horizontal: spacingL,
+                ),
                 decoration: BoxDecoration(
-                  color: !isPhoneNumber ? active_text_field_color : Colors.transparent,
+                  color: !isPhoneNumber
+                      ? active_text_field_color
+                      : Colors.transparent,
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(8),
                     bottomLeft: Radius.circular(8),
@@ -54,9 +60,14 @@ class DestinationToggle extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onToggleChanged(true),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: spacingM, horizontal: spacingL),
+                padding: const EdgeInsets.symmetric(
+                  vertical: spacingM,
+                  horizontal: spacingL,
+                ),
                 decoration: BoxDecoration(
-                  color: isPhoneNumber ? active_text_field_color : Colors.transparent,
+                  color: isPhoneNumber
+                      ? active_text_field_color
+                      : Colors.transparent,
                   borderRadius: const BorderRadius.only(
                     topRight: Radius.circular(8),
                     bottomRight: Radius.circular(8),
@@ -99,10 +110,8 @@ class _CallControlsState extends State<CallControls> {
   @override
   Widget build(BuildContext context) {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-          (txClient) => txClient.callState,
+      (txClient) => txClient.callState,
     );
-
-
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,15 +135,19 @@ class _CallControlsState extends State<CallControls> {
             readOnly: clientState != CallStateStatus.idle,
             enabled: clientState == CallStateStatus.idle,
             controller: _destinationController,
-            keyboardType: _isPhoneNumber ? TextInputType.phone : TextInputType.text,
-            inputFormatters: _isPhoneNumber 
+            keyboardType: _isPhoneNumber
+                ? TextInputType.phone
+                : TextInputType.text,
+            inputFormatters: _isPhoneNumber
                 ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s\(\)]'))]
-                : [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9@\.\-_]'))],
+                : [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9@\.\-_]'),
+                    ),
+                  ],
             decoration: InputDecoration(
               hintStyle: Theme.of(context).textTheme.labelSmall,
-              hintText: _isPhoneNumber 
-                  ? '+E164 phone number'
-                  : 'SIP address',
+              hintText: _isPhoneNumber ? '+E164 phone number' : 'SIP address',
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(spacingS),
               ),
@@ -158,11 +171,8 @@ class _CallControlsState extends State<CallControls> {
             ),
           ),
           const SizedBox(height: spacingL),
-          const Center(
-            child: CallHistoryButton(),
-          ),
-        ]
-        else if (clientState == CallStateStatus.ringing)
+          const Center(child: CallHistoryButton()),
+        ] else if (clientState == CallStateStatus.ringing)
           Center(
             child: DeclineButton(
               onPressed: () {
@@ -171,24 +181,20 @@ class _CallControlsState extends State<CallControls> {
             ),
           )
         else if (clientState == CallStateStatus.ongoingInvitation)
-            Center(
-              child: CallInvitation(
-                onAccept: () {
-                  context.read<TelnyxClientViewModel>().accept();
-                },
-                onDecline: () {
-                  context.read<TelnyxClientViewModel>().endCall();
-                },
-              ),
-            )
-          else if (clientState == CallStateStatus.connectingToCall)
-              Center(
-                child: CircularProgressIndicator(),
-              )
-            else if (clientState == CallStateStatus.ongoingCall)
-                Center(
-                  child: OnGoingCallControls(),
-                ),
+          Center(
+            child: CallInvitation(
+              onAccept: () {
+                context.read<TelnyxClientViewModel>().accept();
+              },
+              onDecline: () {
+                context.read<TelnyxClientViewModel>().endCall();
+              },
+            ),
+          )
+        else if (clientState == CallStateStatus.connectingToCall)
+          Center(child: CircularProgressIndicator())
+        else if (clientState == CallStateStatus.ongoingCall)
+          Center(child: OnGoingCallControls()),
       ],
     );
   }
