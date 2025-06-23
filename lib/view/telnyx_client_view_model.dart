@@ -122,14 +122,14 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _incomingInvite;
   }
 
-
   /// State flow for inbound audio levels list
   final List<double> _inboundAudioLevels = [];
   List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
 
-  /// State flow for outbound audio levels list  
+  /// State flow for outbound audio levels list
   final List<double> _outboundAudioLevels = [];
-  List<double> get outboundAudioLevels => List.unmodifiable(_outboundAudioLevels);
+  List<double> get outboundAudioLevels =>
+      List.unmodifiable(_outboundAudioLevels);
 
   /// Maximum number of audio levels to keep in memory
   static const int maxAudioLevels = 100;
@@ -148,7 +148,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     _callQualityMetrics = null;
     setPushCallStatus(false);
 
-
     // Clear audio level lists
     _inboundAudioLevels.clear();
     _outboundAudioLevels.clear();
@@ -157,7 +156,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     _currentCallDestination = null;
     _currentCallDirection = null;
     _currentCallStartTime = null;
-
 
     // Reset termination reason after a delay to allow UI to show it
     Timer(const Duration(seconds: 5), () {
@@ -212,7 +210,9 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void observeCurrentCall() {
-    logger.i('TelnyxClientViewModel.observeCurrentCall: Setting up call observation for callId: ${currentCall?.callId}');
+    logger.i(
+      'TelnyxClientViewModel.observeCurrentCall: Setting up call observation for callId: ${currentCall?.callId}',
+    );
 
     // Set up call quality callback to receive metrics every 100ms
     currentCall?.onCallQualityChange = (metrics) {

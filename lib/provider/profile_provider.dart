@@ -72,4 +72,26 @@ class ProfileProvider with ChangeNotifier {
     await _saveProfiles();
     notifyListeners();
   }
+
+  Future<void> toggleDebugMode() async {
+    if (_selectedProfile != null) {
+      final updatedProfile = _selectedProfile!.copyWith(
+        isDebug: !_selectedProfile!.isDebug,
+      );
+
+      // Update the profile in the list
+      final index = _profiles.indexWhere(
+        (p) => p.sipCallerIDName == _selectedProfile!.sipCallerIDName,
+      );
+      if (index != -1) {
+        _profiles[index] = updatedProfile;
+      }
+
+      // Update the selected profile
+      _selectedProfile = updatedProfile;
+
+      await _saveProfiles();
+      notifyListeners();
+    }
+  }
 }

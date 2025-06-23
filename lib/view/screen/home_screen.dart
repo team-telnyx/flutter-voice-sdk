@@ -49,6 +49,10 @@ class _HomeScreenState extends State<HomeScreen> {
           listen: false,
         ).disablePushNotifications();
         break;
+      case 'Enable Debugging':
+      case 'Disable Debugging':
+        Provider.of<ProfileProvider>(context, listen: false).toggleDebugMode();
+        break;
     }
   }
 
@@ -57,6 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
       (txClient) => txClient.callState,
     );
+
+    final profileProvider = context.watch<ProfileProvider>();
+    final selectedProfile = profileProvider.selectedProfile;
 
     final errorMessage = context.select<TelnyxClientViewModel, String?>(
       (viewModel) => viewModel.errorDialogMessage,
@@ -86,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         actions: <Widget>[
-          // Only allow to log out or export logs when client is idle (not on a call or disconnected)
+          // Show different menu options based on client state
           if (clientState == CallStateStatus.idle)
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
@@ -100,12 +107,31 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }).toList();
               },
+            )
+          else if (clientState == CallStateStatus.disconnected &&
+              selectedProfile != null)
+            PopupMenuButton<String>(
+              onSelected: handleOptionClick,
+              itemBuilder: (BuildContext context) {
+                final debugToggleText = selectedProfile.isDebug
+                    ? 'Disable Debugging'
+                    : 'Enable Debugging';
+                return {'Export Logs', debugToggleText}.map((String choice) {
+                  return PopupMenuItem<String>(
+                    value: choice,
+                    child: Text(choice),
+                  );
+                }).toList();
+              },
             ),
         ],
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: spacingXXL, vertical: spacingXS),
+          padding: const EdgeInsets.symmetric(
+            horizontal: spacingXXL,
+            vertical: spacingXS,
+          ),
           child: Column(
             children: [
               const ControlHeaders(),
