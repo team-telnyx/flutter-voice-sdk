@@ -62,7 +62,11 @@ class TelnyxClientViewModel with ChangeNotifier {
   // Call termination reason tracking
   CallTerminationReason? _lastTerminationReason;
 
+  // Call timeout timer
+  Timer? _callTimeoutTimer;
+
   String? _errorDialogMessage;
+
   String? get errorDialogMessage => _errorDialogMessage;
 
   void _setErrorDialog(String message) {
@@ -124,10 +128,12 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   /// State flow for inbound audio levels list
   final List<double> _inboundAudioLevels = [];
+
   List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
 
   /// State flow for outbound audio levels list
   final List<double> _outboundAudioLevels = [];
+
   List<double> get outboundAudioLevels =>
       List.unmodifiable(_outboundAudioLevels);
 
@@ -147,6 +153,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.idle;
     _callQualityMetrics = null;
     setPushCallStatus(false);
+
+    // Cancel any active call timeout timer
+    _callTimeoutTimer?.cancel();
+    _callTimeoutTimer = null;
 
     // Clear audio level lists
     _inboundAudioLevels.clear();
@@ -257,6 +267,11 @@ class TelnyxClientViewModel with ChangeNotifier {
           logger.i(
             'TelnyxClientViewModel.observeCurrentCall: Current call is Active. Call ID: ${currentCall?.callId}',
           );
+
+          // Cancel the timeout timer since call is now active
+          _callTimeoutTimer?.cancel();
+          _callTimeoutTimer = null;
+
           if (!kIsWeb && Platform.isIOS) {
             final String? callKitKnownUuid =
                 _incomingInvite?.callID ?? currentCall?.callId;
@@ -436,7 +451,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 'TxClientViewModel :: observeResponses :: Received BYE message: ${message.message}',
               );
-              
+
               // Extract termination reason from BYE message if available
               CallTerminationReason? terminationReason;
               if (message.message.byeParams != null) {
@@ -448,21 +463,21 @@ class TelnyxClientViewModel with ChangeNotifier {
                     sipCode: byeParams.sipCode,
                     sipReason: byeParams.sipReason,
                   );
-                  
+
                   // Store the termination reason for display
                   _lastTerminationReason = terminationReason;
-                  
+
                   logger.i(
                     'TxClientViewModel :: observeResponses :: Extracted termination reason from BYE: $terminationReason',
                   );
                 }
               }
-              
+
               // Save call to history before resetting call info
               if (_currentCallDestination != null &&
                   _currentCallDirection != null) {
                 final wasAnswered = _callState == CallStateStatus.ongoingCall;
-                _addCallToHistory(
+                await _addCallToHistory(
                   destination: _currentCallDestination!,
                   direction: _currentCallDirection!,
                   wasAnswered: wasAnswered,
@@ -475,10 +490,11 @@ class TelnyxClientViewModel with ChangeNotifier {
               if (!kIsWeb && Platform.isIOS) {
                 if (callFromPush) {
                   // For iOS push calls, handle CallKit cleanup but avoid double resetCallInfo()
-                  FlutterCallkitIncoming.endCall(
+                  await FlutterCallkitIncoming.endCall(
                     currentCall?.callId ?? _incomingInvite!.callID!,
                   );
-                  if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+                  if (WidgetsBinding.instance.lifecycleState !=
+                      AppLifecycleState.resumed) {
                     _telnyxClient.disconnect();
                   }
                 }
@@ -503,7 +519,7 @@ class TelnyxClientViewModel with ChangeNotifier {
                   }
                 }
               }
-              
+
               // Call resetCallInfo() once at the end, after termination reason is set
               resetCallInfo();
               break;
@@ -671,6 +687,16 @@ class TelnyxClientViewModel with ChangeNotifier {
     _currentCallDirection = CallDirection.outgoing;
     _currentCallStartTime = DateTime.now();
 
+    // Start 30-second timeout timer for outgoing calls
+    _callTimeoutTimer?.cancel(); // Cancel any existing timer
+    _callTimeoutTimer = Timer(const Duration(seconds: 10), () {
+      logger.i(
+          'TelnyxClientViewModel.call: 10-second timeout reached, ending call to $destination');
+      if (_callState != CallStateStatus.ongoingCall && _currentCall != null) {
+        endCall();
+      }
+    });
+
     // Call NotificationService to handle the CallKit UI for outgoing call
     if (_currentCall?.callId != null) {
       NotificationService.startOutgoingCallNotification(
@@ -795,6 +821,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     } else {
       logger.i('Current Call is not null');
     }
+
+    // Cancel the timeout timer when ending call manually
+    _callTimeoutTimer?.cancel();
+    _callTimeoutTimer = null;
 
     if (!kIsWeb && Platform.isIOS) {
       /* when end call from CallScreen we need to tell Callkit to end the call as well
