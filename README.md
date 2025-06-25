@@ -380,11 +380,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
          break;
         case Event.actionCallDecline:
         /*
-        * When the user declines the call from the push notification, the app will no longer be visible, and we have to
-        * handle the endCall user here.
-        * Login to the TelnyxClient and end the call
+        * When the user declines the call from the push notification, the SDK now handles this automatically.
+        * Simply set the decline flag and the SDK will handle the rest using the new push_decline method.
         * */
-          ...
+         TelnyxClient.setPushMetaData(
+                 message.data, isAnswer: false, isDecline: true);
+          break;
        }});
 }
 
@@ -586,6 +587,42 @@ const CALL_MISSED_TIMEOUT = 60;
 #### Best Practices for Push Notifications on iOS
 1. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode). Make sure you are in `release` mode. Preferably test using Testfight or Appstore.
    To test if push notifications are working, disconnect the telnyx client (while app is in foreground) and make a call to the device. You should receive a push notification.
+
+### New Push Notification Features
+
+#### Simplified Push Decline Method
+The SDK now includes a simplified method for declining push notifications. Previously, you needed to log back into the socket, listen for events, wait for an invite, and manually send a bye message. 
+
+**New Approach**: The SDK automatically handles call decline when you set the decline flag in `setPushMetaData`. The SDK will:
+- Connect to the socket
+- Send a login message with `decline_push: true` parameter
+- Automatically handle ending the call
+- Disconnect from the socket
+
+```dart
+// When declining a push notification, simply set the decline flag
+TelnyxClient.setPushMetaData(message.data, isAnswer: false, isDecline: true);
+
+// Then call handlePushNotification as usual
+_telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+```
+
+#### 10-Second Answer Timeout
+The SDK now includes an automatic timeout mechanism for push notifications. When you accept a push notification but no INVITE message arrives on the socket within 10 seconds, the SDK will:
+- Automatically consider the call cancelled
+- Emit a bye message internally with `ORIGINATOR_CANCEL` termination reason (SIP code 487)
+- Prevent indefinite waiting for missing INVITE messages
+
+This timeout mechanism activates automatically when:
+1. A push notification is accepted (`isAnswer: true`)
+2. The SDK connects and waits for an INVITE message
+3. No INVITE is received within 10 seconds
+
+**Normal Flow**: User accepts push → Timer starts → INVITE received → Timer cancelled → Call proceeds
+
+**Timeout Flow**: User accepts push → Timer starts → No INVITE received → Timer expires → Call terminated with ORIGINATOR_CANCEL
+
+No additional code is required to use this feature - it's handled automatically by the SDK.
 
 
 ## Additional Resources
