@@ -1,5 +1,6 @@
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
+import 'package:telnyx_webrtc/model/region.dart';
 
 /// Base configuration class for common parameters
 class Config {
@@ -15,6 +16,8 @@ class Config {
     this.ringTonePath,
     this.ringbackPath,
     this.reconnectionTimeout,
+    this.region = Region.auto,
+    this.fallbackOnRegionFailure = true,
   });
 
   /// Name associated with the SIP account
@@ -47,6 +50,12 @@ class Config {
   /// reconnectionTimeout in milliseconds (Default 60 seconds)
   // This is the maximum time allowed for a call to be in the RECONNECTING or DROPPED state
   int? reconnectionTimeout = 60000;
+
+  /// The region to use for the connection (Auto by default)
+  final Region region;
+
+  /// Whether the SDK should default to AUTO after attempting and failing to connect to a specified region
+  final bool fallbackOnRegionFailure;
 }
 
 /// Creates an instance of CredentialConfig which can be used to log in
@@ -87,6 +96,8 @@ class CredentialConfig extends Config {
     super.ringbackPath,
     super.customLogger,
     super.reconnectionTimeout,
+    super.region = Region.auto,
+    super.fallbackOnRegionFailure = true,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -133,6 +144,8 @@ class TokenConfig extends Config {
     super.ringbackPath,
     super.customLogger,
     super.reconnectionTimeout,
+    super.region = Region.auto,
+    super.fallbackOnRegionFailure = true,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API
