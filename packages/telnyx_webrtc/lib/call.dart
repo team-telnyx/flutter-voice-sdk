@@ -29,12 +29,53 @@ typedef CallStateCallback = void Function(CallState state);
 /// Callback for call quality metrics updates
 typedef CallQualityChangeCallback = void Function(CallQualityMetrics metrics);
 
+/// **CallHandler - Single Source of Truth for Call State Management**
+/// 
+/// The CallHandler class serves as the centralized state management system for all call state changes
+/// within the Telnyx WebRTC SDK. It ensures consistent state transitions and guarantees that state
+/// change callbacks are always triggered when the call state is modified.
+/// 
+/// **Key Responsibilities:**
+/// - Maintains the authoritative call state for each Call instance
+/// - Ensures all state changes trigger the registered callback
+/// - Provides a consistent interface for state management across the SDK
+/// 
+/// **Usage Pattern:**
+/// Instead of directly modifying `call.callState`, use `callHandler.changeState(newState)` to ensure
+/// proper state management and callback execution.
+/// 
+/// **Access Points Throughout SDK:**
+/// - `call.dart`: Used in `endCall()`, `onHoldUnholdPressed()` methods
+/// - `telnyx_client.dart`: Used for new calls, connections, and call termination
+/// - `peer/peer.dart`: Used when WebRTC connection becomes active
+/// 
+/// **Example:**
+/// ```dart
+/// // Correct way to change call state
+/// callHandler.changeState(CallState.active);
+/// 
+/// // This ensures both the state is updated AND the callback is triggered
+/// ```
 class CallHandler {
+  /// Callback function that gets invoked whenever the call state changes
   late CallStateCallback onCallStateChanged;
+  
+  /// Reference to the associated Call instance whose state this handler manages
   late Call? call;
 
+  /// Creates a new CallHandler instance
+  /// 
+  /// @param onCallStateChanged - The callback to invoke when state changes
+  /// @param call - The Call instance this handler will manage
   CallHandler(this.onCallStateChanged, this.call);
 
+  /// **Primary State Change Method - Use This Instead of Direct Assignment**
+  /// 
+  /// This method is the single source of truth for all call state changes.
+  /// It updates the call's state and ensures the callback is triggered.
+  /// 
+  /// @param state - The new CallState to transition to
+  /// 
   void changeState(CallState state) {
     call?.callState = state;
     onCallStateChanged(state);
@@ -55,7 +96,31 @@ class Call {
     this.debug,
   );
 
+  /// **CallHandler Instance - Single Source of Truth for State Management**
+  /// 
+  /// This is the authoritative state manager for this Call instance. All call state changes
+  /// MUST go through this handler to ensure proper state transitions and callback execution.
+  /// 
+  /// **Usage:**
+  /// - Use `callHandler.changeState(newState)` instead of direct `callState` assignment
+  /// - Automatically triggers registered callbacks when state changes occur
+  /// - Ensures consistent state management across the entire SDK
+  /// 
+  /// **State Change Locations in this Class:**
+  /// - `endCall()` method: Sets state to `CallState.done`
+  /// - `onHoldUnholdPressed()` method: Toggles between `CallState.active` and `CallState.held`
   late CallHandler callHandler;
+  
+  /// **Current Call State - Managed by CallHandler**
+  /// 
+  /// This property holds the current state of the call. While it can be read directly,
+  /// it should NEVER be modified directly. All state changes must go through the
+  /// `callHandler.changeState()` method to maintain consistency.
+  /// 
+  /// **Important:** 
+  /// - READ ONLY in practice - do not assign directly
+  /// - Modified only through `callHandler.changeState()`
+  /// - Represents states like: newCall, ringing, connecting, active, held, done, etc.
   late CallState callState;
 
   final audioService = AudioService();
@@ -170,6 +235,14 @@ class Call {
   }
 
   /// Attempts to end the call identified via the [callID]
+  /// 
+  /// This method handles the complete call termination process and uses the CallHandler
+  /// to ensure proper state management during call end.
+  /// 
+  /// **State Management:**
+  /// - Uses `callHandler.changeState(CallState.done)` as the single source of truth
+  /// - Ensures state transition callbacks are triggered
+  /// - Maintains consistency with the rest of the SDK
   void endCall() {
     final uuid = const Uuid().v4();
     final byeDialogParams = ByeDialogParams(callId: callId);
@@ -280,6 +353,12 @@ class Call {
 
   /// Either places the call on hold, or unholds the call based on the current
   /// hold state.
+  /// 
+  /// **State Management via CallHandler:**
+  /// - Uses `callHandler.changeState()` as the single source of truth for state transitions
+  /// - When unholding: Sets state to `CallState.active` 
+  /// - When holding: Sets state to `CallState.held`
+  /// - Ensures proper callback execution and consistency across the SDK
   void onHoldUnholdPressed() {
     if (onHold) {
       _sendHoldModifier('unhold');
