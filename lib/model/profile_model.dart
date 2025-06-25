@@ -7,6 +7,7 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 import 'package:telnyx_flutter_webrtc/utils/custom_sdk_logger.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 class Profile {
@@ -18,6 +19,8 @@ class Profile {
   final String sipCallerIDNumber;
   final String? notificationToken;
   final bool isDebug;
+  final Region region;
+  final bool fallbackOnRegionFailure;
 
   Profile({
     required this.isTokenLogin,
@@ -28,6 +31,8 @@ class Profile {
     this.sipCallerIDNumber = '',
     this.notificationToken = '',
     this.isDebug = false,
+    this.region = Region.auto,
+    this.fallbackOnRegionFailure = true,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -40,6 +45,11 @@ class Profile {
       sipCallerIDNumber: json['sipCallerIDNumber'] as String? ?? '',
       notificationToken: json['notificationToken'] as String? ?? '',
       isDebug: json['isDebug'] as bool? ?? false,
+      region: Region.values.firstWhere(
+        (r) => r.value == (json['region'] as String? ?? 'auto'),
+        orElse: () => Region.auto,
+      ),
+      fallbackOnRegionFailure: json['fallbackOnRegionFailure'] as bool? ?? true,
     );
   }
 
@@ -53,6 +63,8 @@ class Profile {
       'sipCallerIDNumber': sipCallerIDNumber,
       'notificationToken': notificationToken,
       'isDebug': isDebug,
+      'region': region.value,
+      'fallbackOnRegionFailure': fallbackOnRegionFailure,
     };
   }
 
@@ -65,6 +77,8 @@ class Profile {
     String? sipCallerIDNumber,
     String? notificationToken,
     bool? isDebug,
+    Region? region,
+    bool? fallbackOnRegionFailure,
   }) {
     return Profile(
       isTokenLogin: isTokenLogin ?? this.isTokenLogin,
@@ -75,6 +89,8 @@ class Profile {
       sipCallerIDNumber: sipCallerIDNumber ?? this.sipCallerIDNumber,
       notificationToken: notificationToken ?? this.notificationToken,
       isDebug: isDebug ?? this.isDebug,
+      region: region ?? this.region,
+      fallbackOnRegionFailure: fallbackOnRegionFailure ?? this.fallbackOnRegionFailure,
     );
   }
 
@@ -109,6 +125,8 @@ class Profile {
         debug: isDebug,
         logLevel: LogLevel.all,
         customLogger: CustomSDKLogger(),
+        region: region,
+        fallbackOnRegionFailure: fallbackOnRegionFailure,
       );
     } else {
       return CredentialConfig(
@@ -120,6 +138,8 @@ class Profile {
         debug: isDebug,
         logLevel: LogLevel.all,
         customLogger: CustomSDKLogger(),
+        region: region,
+        fallbackOnRegionFailure: fallbackOnRegionFailure,
       );
     }
   }
