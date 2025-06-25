@@ -174,9 +174,20 @@ class Call {
     final uuid = const Uuid().v4();
     final byeDialogParams = ByeDialogParams(callId: callId);
 
+    // Determine the appropriate cause code based on current call state
+    final (causeCode, causeName) = switch (callState) {
+      // When Active or Connecting, use NORMAL_CLEARING
+      CallState.active => (CauseCode.NORMAL_CLEARING.value, CauseCode.NORMAL_CLEARING.name),
+      CallState.connecting => (CauseCode.NORMAL_CLEARING.value, CauseCode.NORMAL_CLEARING.name),
+      // When Ringing (i.e. Rejecting an incoming call), use USER_BUSY
+      CallState.ringing => (CauseCode.USER_BUSY.value, CauseCode.USER_BUSY.name),
+      // Default to NORMAL_CLEARING for other states
+      _ => (CauseCode.NORMAL_CLEARING.value, CauseCode.NORMAL_CLEARING.name),
+    };
+
     final byeParams = SendByeParams(
-      cause: CauseCode.USER_BUSY.name,
-      causeCode: CauseCode.USER_BUSY.index + 1,
+      cause: causeName,
+      causeCode: causeCode,
       dialogParams: byeDialogParams,
       sessid: sessid,
     );
