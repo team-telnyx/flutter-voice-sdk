@@ -1,4 +1,13 @@
-## [2.0.0](https://pub.dev/packages/telnyx_webrtc/versions/1.2.0) (2025-06-13)
+## [2.0.1](https://pub.dev/packages/telnyx_webrtc/versions/2.0.1) (2025-06-26)
+### Enhancement
+
+- Added Region Selection support as a parameter on the Config class. This allows users to specify the region for their WebSocket connection, enhancing performance and reliability based on geographical location. It will default to 'auto' if not specified, which will automatically select the best region based on the user's location. There is also a fallbackOnRegionFailure parameter that defaults to true, which will automatically fallback to the 'auto' region if the specified region fails to connect if set to true. 
+- Added a 10 second answer timeout for accepted push notifications. This ensures that if a user accepts a push notification but does not receive an invite on the socket once connected within 10 seconds, the call will be automatically ended with an ORIGINATOR_CANCELLED termination reason. This prevents situations where a user accepts a call but does not receive the invite due to network issues or other delays potentially causing infinite loading states in implementations. 
+
+### Bug Fixing
+- Fixed an issue where the Termination Cause was always 'USER_BUSY' regardless of current call state. Now, when terminating an active call, the state will be 'NORMAL_CLEARING' and when rejecting an invite, the Termination Cause will be 'USER_BUSY'.
+
+## [2.0.0](https://pub.dev/packages/telnyx_webrtc/versions/2.0.0) (2025-06-13)
 
 ### Enhancement
 
