@@ -74,11 +74,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
          break;
         case Event.actionCallDecline:
         /*
-        * When the user declines the call from the push notification, the app will no longer be visible, and we have to
-        * handle the endCall user here.
-        * Login to the TelnyxClient and end the call
+        * When the user declines the call from the push notification, the SDK now handles this automatically.
+        * Simply set the decline flag and the SDK will handle the rest using the new push_decline method.
         * */
-          ...
+         TelnyxClient.setPushMetaData(
+                 message.data, isAnswer: false, isDecline: true);
+          break;
        }});
 }
 
@@ -569,6 +570,179 @@ This also means however that when we are showing a notification, which on iOS ca
 1. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode). Make sure you are in `release` mode. Preferably test using Testfight or Appstore.
    To test if push notifications are working, disconnect the telnyx client (while app is in foreground) and make a call to the device. You should receive a push notification.
 
-   
+## New Push Notification Features
+
+### Simplified Push Decline Method
+
+The Telnyx Flutter Voice SDK now includes a significantly simplified method for declining push notifications, eliminating the complex workflow previously required.
+
+#### Previous Method (Legacy)
+Previously, declining a push notification required:
+1. Logging back into the socket
+2. Listening for events
+3. Waiting for an INVITE message
+4. Manually sending a bye message to decline the call
+5. Handling bye responses and cleanup
+
+#### New Simplified Method
+The SDK now handles push call decline automatically when you set the decline flag. The process is streamlined to:
+
+1. **Set the decline flag** when the user declines the push notification:
+```dart
+case Event.actionCallDecline:
+  TelnyxClient.setPushMetaData(message.data, isAnswer: false, isDecline: true);
+  break;
+```
+
+2. **Call handlePushNotification** as usual:
+```dart
+Future<void> _handlePushNotification() async {
+  final data = await TelnyxClient.getPushMetaData();
+  PushMetaData? pushMetaData = PushMetaData.fromJson(data);
+  if (pushMetaData != null) {
+    _telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+  }
+}
+```
+
+#### What Happens Internally
+When `isDecline: true` is set, the SDK automatically:
+- Connects to the Telnyx socket
+- Sends a login message with `decline_push: true` parameter
+- The backend handles the call termination
+- Automatically disconnects from the socket
+- No need to wait for INVITE messages or handle bye responses
+
+#### Benefits
+- **Simplified Implementation**: Reduces code complexity significantly
+- **Automatic Cleanup**: SDK handles all socket management and cleanup
+- **Reliable**: Eliminates potential race conditions and edge cases
+- **Consistent**: Works the same way across Android and iOS platforms
+
+### 10-Second Answer Timeout Mechanism
+
+The SDK now includes an automatic timeout mechanism to handle cases where an INVITE message is missing after accepting a VoIP push notification.
+
+#### The Problem
+Sometimes after accepting a push notification, the INVITE message may not arrive due to:
+- Network connectivity issues
+- Server-side problems
+- Message delivery failures
+- Backend processing delays
+
+Previously, this would result in the app waiting indefinitely for an INVITE that might never come.
+
+#### The Solution
+The SDK now implements a 10-second timeout mechanism that:
+- Starts automatically when a push notification is accepted (`isAnswer: true`)
+- Monitors for incoming INVITE messages
+- Automatically terminates the call if no INVITE arrives within 10 seconds
+- Sends a bye message with `ORIGINATOR_CANCEL` termination reason (SIP code 487)
+
+#### How It Works
+
+**Normal Flow (INVITE Received)**:
+1. User accepts push notification
+2. SDK starts 10-second timer
+3. INVITE message arrives on socket
+4. Timer is cancelled
+5. Call proceeds normally
+
+**Timeout Flow (No INVITE Received)**:
+1. User accepts push notification
+2. SDK starts 10-second timer
+3. No INVITE message arrives within 10 seconds
+4. Timer expires
+5. SDK automatically sends bye message with `ORIGINATOR_CANCEL`
+6. Call is terminated gracefully
+
+#### Implementation Details
+The timeout mechanism is completely automatic and requires no additional code. It activates when:
+- `TelnyxClient.setPushMetaData()` is called with `isAnswer: true`
+- `handlePushNotification()` is called
+- The SDK connects and waits for an INVITE
+
+#### Handling Timeout Events
+Your existing call event handlers will receive the termination event:
+
+```dart
+_telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
+  switch (message.socketMethod) {
+    case SocketMethod.bye:
+      final byeMessage = message.message as ReceivedMessage;
+      final byeParams = ReceiveByeMessageBody.fromJson(byeMessage.result);
+      
+      if (byeParams.terminationReason?.reason == CallTerminationReason.ORIGINATOR_CANCEL) {
+        // Handle timeout case - call was cancelled due to missing INVITE
+        print('Call terminated due to timeout - no INVITE received');
+      }
+      break;
+    // ... other cases
+  }
+};
+```
+
+#### Benefits
+- **Prevents Indefinite Waiting**: Ensures calls don't hang indefinitely
+- **Automatic Recovery**: No manual intervention required
+- **Clear Termination Reason**: Provides specific reason code for debugging
+- **Consistent Behavior**: Works across all platforms and scenarios
+- **User Experience**: Prevents users from waiting for calls that will never connect
+
+#### Configuration
+The timeout duration is fixed at 10 seconds and is not currently configurable. This duration was chosen to balance between:
+- Allowing sufficient time for normal INVITE delivery
+- Preventing excessive wait times for users
+- Accommodating network latency variations
+
+### Migration Guide
+
+#### For Existing Decline Implementations
+If you have existing push decline logic, you can simplify it:
+
+**Before**:
+```dart
+case Event.actionCallDecline:
+  // Complex logic to connect, wait for invite, send bye, etc.
+  await connectAndDeclineCall(message.data);
+  break;
+```
+
+**After**:
+```dart
+case Event.actionCallDecline:
+  TelnyxClient.setPushMetaData(message.data, isAnswer: false, isDecline: true);
+  break;
+```
+
+#### For Timeout Handling
+No migration is required for the timeout feature - it works automatically with existing code. However, you may want to add specific handling for `ORIGINATOR_CANCEL` termination reasons in your bye message handlers.
+
+### Testing the New Features
+
+#### Testing Push Decline
+1. Receive a push notification while app is terminated
+2. Decline the call from the notification
+3. Verify the call is declined without complex socket operations
+4. Check logs to confirm `decline_push: true` parameter is sent
+
+#### Testing Answer Timeout
+1. Accept a push notification
+2. Simulate network issues or server problems that prevent INVITE delivery
+3. Wait 10 seconds
+4. Verify the call is automatically terminated with `ORIGINATOR_CANCEL`
+5. Check that your app handles the termination gracefully
+
+### Troubleshooting
+
+#### Push Decline Issues
+- Ensure you're setting `isDecline: true` in `setPushMetaData`
+- Verify `handlePushNotification` is called after setting the metadata
+- Check network connectivity for the decline message to be sent
+
+#### Timeout Issues
+- The timeout only applies to accepted push notifications (`isAnswer: true`)
+- Normal incoming calls (not from push) are not affected by this timeout
+- If INVITE arrives after timeout, it will be ignored as the call is already terminated
 
 

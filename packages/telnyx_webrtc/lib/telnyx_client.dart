@@ -41,8 +41,15 @@ typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 /// Callback for when the socket receives an error
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
-/// The TelnyxClient class that can be used to control the SDK. Such as connect,
-/// disconnect, check gateway status or create instance of [Call] to make calls.
+/// Represents the main entry point for interacting with the Telnyx RTC SDK.
+///
+/// This class manages the WebSocket connection to the Telnyx backend, handles
+/// user authentication, and facilitates call creation and management. It provides
+/// methods to connect, disconnect, send and receive calls, and monitor the
+/// connection status.
+///
+/// Callbacks like [onSocketMessageReceived] and [onSocketErrorReceived] must be
+/// implemented to handle events and errors from the socket.
 class TelnyxClient {
   /// Callback for when the socket receives a message
   late OnSocketMessageReceived onSocketMessageReceived;
@@ -127,7 +134,7 @@ class TelnyxClient {
   /// The current gateway state for the socket connection
   String gatewayState = GatewayState.idle;
 
-  /// The current gateway response time for the socket connection
+  /// A map of all current calls, with the call ID as the key and the [Call] object as the value.
   Map<String, Call> calls = {};
 
   /// The current active calls being handled by the TelnyxClient instance
@@ -402,13 +409,18 @@ class TelnyxClient {
         'Pending answer timeout handled - call terminated with ORIGINATOR_CANCEL');
   }
 
-  /// Handles the push notification received from the backend
-  /// and initiates the connection with the provided [pushMetaData]
-  /// and [credentialConfig] or [tokenConfig]
-  /// If the push notification is received while the client is not connected
-  /// Note: Do not call the connect method after calling this method, it implicitly calls the
-  /// connect method with the provided [pushMetaData]
-  /// and [credentialConfig] or [tokenConfig]
+  /// Handles an incoming push notification to initiate a call flow.
+  ///
+  /// This method connects the client and logs in using the provided configuration,
+  /// preparing it to receive an incoming call invitation. It should be called when
+  /// your application receives a push notification from Telnyx.
+  ///
+  /// **Note:** Do not call [connectWithCredential] or [connectWithToken] separately
+  /// if you are using this method, as it handles the connection process internally.
+  ///
+  /// - [pushMetaData]: The metadata received from the push notification.
+  /// - [credentialConfig]: The credential configuration for login (if using credentials).
+  /// - [tokenConfig]: The token configuration for login (if using a token).
   void handlePushNotification(
     PushMetaData pushMetaData,
     CredentialConfig? credentialConfig,
@@ -788,7 +800,11 @@ class TelnyxClient {
     'telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()',
   )
 
-  /// The current instance of [Call] associated with this client. Can be used
+  /// The current instance of [Call] associated with this client.
+  ///
+  /// This is deprecated. Use [newInvite] to create a new call or
+  /// [acceptCall] to answer an incoming one. For existing calls, retrieve them
+  /// from the [calls] map using their call ID.
   Call get call {
     // If _call is null, initialize it with the default value.
     _call ??= _createCall();
@@ -937,9 +953,12 @@ class TelnyxClient {
     }
   }
 
-  /// Disables push notifications for the current previously authenticated user - either by [CredentialConfig] or [TokenConfig]
-  /// returns : {"jsonrpc":"2.0","id":"","result":{"message":"disable push notification success"}}
+  /// Disables push notifications for the currently authenticated user.
   ///
+  /// This method requires a user to be logged in via [connectWithCredential] or
+  /// [connectWithToken] and have a `notificationToken` provided in the config.
+  /// It sends a request to the Telnyx backend to stop sending push notifications
+  /// to the associated device token.
   void disablePushNotifications() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
     if (config != null && config.notificationToken != null) {
@@ -971,8 +990,20 @@ class TelnyxClient {
     }
   }
 
-  /// Creates an invitation to send to a [destinationNumber] or SIP Destination
-  /// using the provided [callerName], [callerNumber] and a [clientState]
+  /// Creates and sends a new call invitation.
+  ///
+  /// This method initiates an outgoing call to a [destinationNumber] (which can be
+  /// a SIP URI or a phone number).
+  ///
+  /// - [callerName]: The name to be displayed to the callee.
+  /// - [callerNumber]: The phone number or SIP URI of the caller.
+  /// - [destinationNumber]: The phone number or SIP URI to call.
+  /// - [clientState]: A custom string that can be used to store and retrieve state
+  ///   between applications. It is passed to the remote party.
+  /// - [customHeaders]: Optional custom SIP headers to add to the INVITE message.
+  /// - [debug]: Enables detailed logging for this specific call if set to true.
+  ///
+  /// Returns a [Call] object representing the new outgoing call.
   Call newInvite(
     String callerName,
     String callerNumber,
@@ -1012,8 +1043,20 @@ class TelnyxClient {
     return inviteCall;
   }
 
-  /// Accepts the incoming call specified via the [invite] parameter, sending
-  /// your local specified [callerName], [callerNumber] and [clientState]
+  /// Accepts an incoming call.
+  ///
+  /// This method should be called in response to an `invite` event received via
+  /// the [onSocketMessageReceived] callback.
+  ///
+  /// - [invite]: The [IncomingInviteParams] object from the received invite message.
+  /// - [callerName]: The name of the user accepting the call.
+  /// - [callerNumber]: The number or SIP URI of the user accepting the call.
+  /// - [clientState]: A custom string for application-specific state.
+  /// - [isAttach]: Set to true if this is a call being re-attached (e.g., after network reconnection).
+  /// - [customHeaders]: Optional custom SIP headers to add to the response.
+  /// - [debug]: Enables detailed logging for this specific call if set to true.
+  ///
+  /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
     IncomingInviteParams invite,
     String callerName,
@@ -1078,7 +1121,10 @@ class TelnyxClient {
     }
   }
 
-  /// Closes the socket connection, effectively logging the user out.
+  /// Closes the socket connection and provides a callback upon completion.
+  ///
+  /// This method logs the user out and terminates the WebSocket connection.
+  /// The [closeCallback] is invoked when the disconnection is complete.
   void disconnectWithCallBack(OnCloseCallback? closeCallback) {
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
