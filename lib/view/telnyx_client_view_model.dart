@@ -42,7 +42,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _registered = false;
   bool _loggingIn = false;
   bool callFromPush = false;
-  bool _speakerPhone = true;
+  bool _speakerPhone = false;
   bool _mute = false;
   bool _hold = false;
 
