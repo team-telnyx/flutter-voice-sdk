@@ -45,66 +45,6 @@ on the iOS platform, you need to add the microphone permission to your Info.plis
     <string>$(PRODUCT_NAME) Microphone Usage!</string>
 ```
 
-## Call Quality Metrics
-
-The SDK provides real-time call quality metrics through the `onCallQualityChange` callback on the `Call` object. This allows you to monitor call quality in real-time and provide feedback to users.
-
-### Enabling Call Quality Metrics
-
-To enable call quality metrics, set the `debug` parameter to `true` when creating or answering a call:
-
-```dart
-// When making a call
-call.newInvite(
-    callerName: "John Doe",
-    callerNumber: "+1234567890",
-    destinationNumber: "+1987654321",
-    clientState: "some-state",
-    debug: true
-);
-
-// When answering a call
-call.acceptCall(
-    callId: callId,
-    destinationNumber: "destination",
-    debug: true
-);
-
-// Listen for call quality metrics
-call.onCallQualityChange = (metrics) {
-    // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
-    print("Call quality: ${metrics.quality}");
-    print("MOS score: ${metrics.mos}");
-    print("Jitter: ${metrics.jitter * 1000} ms");
-    print("Round-trip time: ${metrics.rtt * 1000} ms");
-};
-```
-
-### CallQualityMetrics Properties
-
-The `CallQualityMetrics` object provides the following properties:
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `jitter` | double | Jitter in seconds (multiply by 1000 for milliseconds) |
-| `rtt` | double | Round-trip time in seconds (multiply by 1000 for milliseconds) |
-| `mos` | double | Mean Opinion Score (1.0-5.0) |
-| `quality` | CallQuality | Call quality rating based on MOS |
-| `inboundAudio` | Map<String, dynamic>? | Inbound audio statistics |
-| `outboundAudio` | Map<String, dynamic>? | Outbound audio statistics |
-
-### CallQuality Enum
-
-The `CallQuality` enum provides the following values:
-
-| Value | MOS Range | Description |
-|-------|-----------|-------------|
-| `excellent` | MOS > 4.2 | Excellent call quality |
-| `good` | 4.1 <= MOS <= 4.2 | Good call quality |
-| `fair` | 3.7 <= MOS <= 4.0 | Fair call quality |
-| `poor` | 3.1 <= MOS <= 3.6 | Poor call quality |
-| `bad` | MOS <= 3.0 | Bad call quality |
-| `unknown` | N/A | Unable to calculate quality |
 
 ## Basic Usage
 
@@ -315,6 +255,68 @@ To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
     _telnyxClient.call.onHoldUnholdPressed();
 ```
 
+## Call Quality Metrics
+
+The SDK provides real-time call quality metrics through the `onCallQualityChange` callback on the `Call` object. This allows you to monitor call quality in real-time and provide feedback to users.
+
+### Enabling Call Quality Metrics
+
+To enable call quality metrics, set the `debug` parameter to `true` when creating or answering a call:
+
+```dart
+// When making a call
+call.newInvite(
+    callerName: "John Doe",
+    callerNumber: "+1234567890",
+    destinationNumber: "+1987654321",
+    clientState: "some-state",
+    debug: true
+);
+
+// When answering a call
+call.acceptCall(
+    callId: callId,
+    destinationNumber: "destination",
+    debug: true
+);
+
+// Listen for call quality metrics
+call.onCallQualityChange = (metrics) {
+    // Access metrics.jitter, metrics.rtt, metrics.mos, metrics.quality
+    print("Call quality: ${metrics.quality}");
+    print("MOS score: ${metrics.mos}");
+    print("Jitter: ${metrics.jitter * 1000} ms");
+    print("Round-trip time: ${metrics.rtt * 1000} ms");
+};
+```
+
+### CallQualityMetrics Properties
+
+The `CallQualityMetrics` object provides the following properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `jitter` | double | Jitter in seconds (multiply by 1000 for milliseconds) |
+| `rtt` | double | Round-trip time in seconds (multiply by 1000 for milliseconds) |
+| `mos` | double | Mean Opinion Score (1.0-5.0) |
+| `quality` | CallQuality | Call quality rating based on MOS |
+| `inboundAudio` | Map<String, dynamic>? | Inbound audio statistics |
+| `outboundAudio` | Map<String, dynamic>? | Outbound audio statistics |
+
+### CallQuality Enum
+
+The `CallQuality` enum provides the following values:
+
+| Value | MOS Range | Description |
+|-------|-----------|-------------|
+| `excellent` | MOS > 4.2 | Excellent call quality |
+| `good` | 4.1 <= MOS <= 4.2 | Good call quality |
+| `fair` | 3.7 <= MOS <= 4.0 | Fair call quality |
+| `poor` | 3.1 <= MOS <= 3.6 | Poor call quality |
+| `bad` | MOS <= 3.0 | Bad call quality |
+| `unknown` | N/A | Unable to calculate quality |
+
+
 ## Advanced Usage - Push Notifications
 
 ###  Adding push notifications - Android platform
@@ -378,11 +380,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
          break;
         case Event.actionCallDecline:
         /*
-        * When the user declines the call from the push notification, the app will no longer be visible, and we have to
-        * handle the endCall user here.
-        * Login to the TelnyxClient and end the call
+        * When the user declines the call from the push notification, the SDK now handles this automatically.
+        * Simply set the decline flag and the SDK will handle the rest using the new push_decline method.
         * */
-          ...
+         TelnyxClient.setPushMetaData(
+                 message.data, isAnswer: false, isDecline: true);
+          break;
        }});
 }
 
@@ -584,6 +587,42 @@ const CALL_MISSED_TIMEOUT = 60;
 #### Best Practices for Push Notifications on iOS
 1. Push Notifications only work in foreground for apps that are run in `debug` mode (You will not receive push notifications when you terminate the app while running in debug mode). Make sure you are in `release` mode. Preferably test using Testfight or Appstore.
    To test if push notifications are working, disconnect the telnyx client (while app is in foreground) and make a call to the device. You should receive a push notification.
+
+### New Push Notification Features
+
+#### Simplified Push Decline Method
+The SDK now includes a simplified method for declining push notifications. Previously, you needed to log back into the socket, listen for events, wait for an invite, and manually send a bye message. 
+
+**New Approach**: The SDK automatically handles call decline when you set the decline flag in `setPushMetaData`. The SDK will:
+- Connect to the socket
+- Send a login message with `decline_push: true` parameter
+- Automatically handle ending the call
+- Disconnect from the socket
+
+```dart
+// When declining a push notification, simply set the decline flag
+TelnyxClient.setPushMetaData(message.data, isAnswer: false, isDecline: true);
+
+// Then call handlePushNotification as usual
+_telnyxClient.handlePushNotification(pushMetaData, credentialConfig, tokenConfig);
+```
+
+#### 10-Second Answer Timeout
+The SDK now includes an automatic timeout mechanism for push notifications. When you accept a push notification but no INVITE message arrives on the socket within 10 seconds, the SDK will:
+- Automatically consider the call cancelled
+- Emit a bye message internally with `ORIGINATOR_CANCEL` termination reason (SIP code 487)
+- Prevent indefinite waiting for missing INVITE messages
+
+This timeout mechanism activates automatically when:
+1. A push notification is accepted (`isAnswer: true`)
+2. The SDK connects and waits for an INVITE message
+3. No INVITE is received within 10 seconds
+
+**Normal Flow**: User accepts push → Timer starts → INVITE received → Timer cancelled → Call proceeds
+
+**Timeout Flow**: User accepts push → Timer starts → No INVITE received → Timer expires → Call terminated with ORIGINATOR_CANCEL
+
+No additional code is required to use this feature - it's handled automatically by the SDK.
 
 
 ## Additional Resources
