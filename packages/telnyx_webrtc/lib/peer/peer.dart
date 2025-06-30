@@ -495,9 +495,10 @@ class Peer {
           // This ensures calls start with earpiece audio routing by default on Android
           if (Platform.isAndroid) {
             Future.delayed(const Duration(milliseconds: 100), () {
-              enableSpeakerPhone(false);
+              currentCall?.enableSpeakerPhone(false);
               GlobalLogger().i(
-                  'Peer :: Automatically disabled speaker phone for Android call');
+                'Peer :: Automatically disabled speaker phone for Android call',
+              );
             });
           }
 

@@ -123,23 +123,41 @@ class Call {
   /// - Represents states like: newCall, ringing, connecting, active, held, done, etc.
   late CallState callState;
 
+  /// AudioService instance to handle audio playback
   final audioService = AudioService();
 
+  /// Debug mode flag to enable call quality metrics
   final bool debug;
+  /// Callback function that gets invoked when the call ends
   final Function callEnded;
+  /// The TxSocket instance used for sending messages to the Telnyx WebRTC server
   final TxSocket txSocket;
+  /// The TelnyxClient instance used for managing calls and connections
   final TelnyxClient _txClient;
+  /// Session ID for the current call
   final String sessid;
+  /// The file path for the ringback audio file (audio played when calling)
   final String ringBackFile;
+  /// The file path for the ringtone audio file (audio played when receiving a call)
   final String ringToneFile;
+  /// The unique identifier for the call, used to track the call session
   String? callId;
+  /// The Peer connection instance used for WebRTC communication
   Peer? peerConnection;
 
+  /// Indicates whether the call is currently on hold
   bool onHold = false;
+  /// Indicates whether the call is currently using speaker phone
+  bool speakerPhone = false;
+  /// The caller's name for the current session
   String sessionCallerName = '';
+  /// The caller's number for the current session
   String sessionCallerNumber = '';
+  /// The destination number for the current session
   String sessionDestinationNumber = '';
+  /// The client state for the current session, used to pass custom data
   String sessionClientState = '';
+  /// Custom SIP headers to be sent with the call
   Map<String, String> customHeaders = {};
 
   /// Callback for call quality metrics updates.
@@ -189,6 +207,7 @@ class Call {
     );
   }
 
+  /// Handles the remote session received from the peer connection.
   void onRemoteSessionReceived(String? sdp) {
     if (sdp != null) {
       peerConnection?.remoteSessionReceived(sdp);
@@ -350,6 +369,10 @@ class Call {
   /// Enables or disables the speakerphone based on the [enable] parameter
   void enableSpeakerPhone(bool enable) {
     peerConnection?.enableSpeakerPhone(enable);
+    speakerPhone = enable;
+    GlobalLogger().d(
+      'Speakerphone ${enable ? 'enabled' : 'disabled'}',
+    );
   }
 
   /// Either places the call on hold, or unholds the call based on the current
@@ -372,10 +395,12 @@ class Call {
     }
   }
 
+  /// Handles call quality metrics updates.
   void callQualityMetricsHandler(CallQualityMetrics metrics) {
     onCallQualityChange?.call(metrics);
   }
 
+  /// Initializes call metrics tracking by setting the callback for call quality changes.
   void initCallMetrics() {
     peerConnection?.onCallQualityChange = callQualityMetricsHandler;
   }
@@ -414,14 +439,15 @@ class Call {
     txSocket.send(jsonModifyMessage);
   }
 
-  // Example file path for 'web/assets/audio/sound.wav'
+  /// Plays an audio file from the assets directory.
+  /// Example file path for '/assets/audio/sound.wav'
   void playAudio(String filePath) {
     if (filePath.isNotEmpty) {
       audioService.playLocalFile(filePath);
     }
   }
 
-  // Play ringtone for only web, iOS and Android will use native audio player
+  /// Play ringtone for only web, iOS and Android will use native audio player
   void playRingtone(String filePath) {
     if (kIsWeb && filePath.isNotEmpty) {
       audioService.playLocalFile(filePath);
@@ -429,14 +455,17 @@ class Call {
     }
   }
 
+  /// Stops the currently playing audio.
   void stopAudio() {
     audioService.stopAudio();
   }
 }
 
+/// AudioService class to handle audio playback
 class AudioService {
   final AudioPlayer _audioPlayer = AudioPlayer();
 
+  /// Plays a local audio file from the assets directory.
   Future<void> playLocalFile(String filePath) async {
     // Ensure the file path is correct and accessible from the web directory
     await _audioPlayer.setAsset(filePath);
@@ -444,6 +473,7 @@ class AudioService {
     await _audioPlayer.play();
   }
 
+  /// Stops the currently playing audio.
   Future<void> stopAudio() async {
     // Ensure the file path is correct and accessible from the web directory
     await _audioPlayer.stop();
