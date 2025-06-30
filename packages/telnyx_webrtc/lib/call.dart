@@ -347,6 +347,7 @@ class Call {
     peerConnection?.muteUnmuteMic();
   }
 
+  /// Enables or disables the speakerphone based on the [enable] parameter
   void enableSpeakerPhone(bool enable) {
     peerConnection?.enableSpeakerPhone(enable);
   }
