@@ -21,11 +21,12 @@ import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 
 class Peer {
-  Peer(this._socket, this._debug, this._txClient);
+  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate);
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
   final bool _debug;
+  final bool _forceRelayCandidate;
 
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
@@ -74,6 +75,19 @@ class Peer {
       },
     ],
   };
+
+  /// Builds the ICE configuration based on the forceRelayCandidate setting
+  Map<String, dynamic> _buildIceConfiguration() {
+    final config = Map<String, dynamic>.from(_iceServers);
+    
+    if (_forceRelayCandidate) {
+      // When forceRelayCandidate is enabled, only use TURN relay candidates
+      config['iceTransportPolicy'] = 'relay';
+      GlobalLogger().i('Peer :: Force relay candidate enabled - using TURN relay only');
+    }
+    
+    return config;
+  }
 
   final Map<String, dynamic> _dcConstraints = {
     'mandatory': {'OfferToReceiveAudio': true, 'OfferToReceiveVideo': false},
@@ -459,7 +473,7 @@ class Peer {
 
     // Create PeerConnection
     final pc = await createPeerConnection({
-      ..._iceServers,
+      ..._buildIceConfiguration(),
       ...{'sdpSemantics': sdpSemantics},
     }, _dcConstraints);
 

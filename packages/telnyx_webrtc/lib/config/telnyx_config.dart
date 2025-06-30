@@ -18,6 +18,7 @@ class Config {
     this.reconnectionTimeout,
     this.region = Region.auto,
     this.fallbackOnRegionFailure = true,
+    this.forceRelayCandidate = false,
   });
 
   /// Name associated with the SIP account
@@ -56,6 +57,14 @@ class Config {
 
   /// Whether the SDK should default to AUTO after attempting and failing to connect to a specified region
   final bool fallbackOnRegionFailure;
+
+  /// Controls whether the SDK should force TURN relay for peer connections.
+  /// When enabled, the SDK will only use TURN relay candidates for ICE gathering,
+  /// which prevents the "local network access" permission popup from appearing.
+  /// - Note: Enabling this may affect the quality of calls when devices are on the same local network,
+  ///   as all media will be relayed through TURN servers.
+  /// - Important: This setting is disabled by default to maintain optimal call quality.
+  final bool forceRelayCandidate;
 }
 
 /// Creates an instance of CredentialConfig which can be used to log in
@@ -70,6 +79,7 @@ class Config {
 /// [ringTonePath] is the path to the ringtone file (audio to play when receiving a call)
 /// [ringbackPath] is the path to the ringback file (audio to play when calling)
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
+/// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
 class CredentialConfig extends Config {
   /// Creates an instance of CredentialConfig which can be used to log in
   ///
@@ -98,6 +108,7 @@ class CredentialConfig extends Config {
     super.reconnectionTimeout,
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
+    super.forceRelayCandidate = false,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -119,6 +130,7 @@ class CredentialConfig extends Config {
 /// [ringTonePath] is the path to the ringtone file (audio to play when receiving a call)
 /// [ringbackPath] is the path to the ringback file (audio to play when calling)
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
+/// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
 class TokenConfig extends Config {
   /// Creates an instance of TokenConfig which can be used to log in
   ///
@@ -146,6 +158,7 @@ class TokenConfig extends Config {
     super.reconnectionTimeout,
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
+    super.forceRelayCandidate = false,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API

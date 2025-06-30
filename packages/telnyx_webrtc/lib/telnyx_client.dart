@@ -209,6 +209,12 @@ class TelnyxClient {
   /// The stored [TokenConfig] for the client - if no stored token is present, this will be null
   TokenConfig? get storedToken => _storedTokenConfig;
 
+  /// Returns the forceRelayCandidate setting from the current config
+  bool getForceRelayCandidate() {
+    final config = _storedCredentialConfig ?? _storedTokenConfig;
+    return config?.forceRelayCandidate ?? false;
+  }
+
   /// Returns whether or not the client is connected to the socket connection
   bool isConnected() {
     return _connected;
@@ -1024,7 +1030,7 @@ class TelnyxClient {
 
     // Create the peer connection with debug enabled if requested
     inviteCall.peerConnection =
-        Peer(inviteCall.txSocket, debug || _debug, this);
+        Peer(inviteCall.txSocket, debug || _debug, this, getForceRelayCandidate());
     inviteCall.peerConnection?.invite(
       callerName,
       callerNumber,
@@ -1077,7 +1083,7 @@ class TelnyxClient {
     final destinationNum = invite.callerIdNumber;
 
     // Create the peer connection
-    answerCall.peerConnection = Peer(txSocket, debug || _debug, this);
+    answerCall.peerConnection = Peer(txSocket, debug || _debug, this, getForceRelayCandidate());
 
     // Set up the session with the callback if debug is enabled
     answerCall.peerConnection?.accept(

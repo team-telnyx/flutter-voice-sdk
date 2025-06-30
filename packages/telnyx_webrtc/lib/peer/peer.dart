@@ -26,13 +26,14 @@ class Peer {
   RTCPeerConnection? peerConnection;
 
   /// The constructor for the Peer class.
-  Peer(this._socket, this._debug, this._txClient);
+  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate);
 
   final String _selfId = randomNumeric(6);
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
   final bool _debug;
+  final bool _forceRelayCandidate;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -92,6 +93,19 @@ class Peer {
       },
     ],
   };
+
+  /// Builds the ICE configuration based on the forceRelayCandidate setting
+  Map<String, dynamic> _buildIceConfiguration() {
+    final config = Map<String, dynamic>.from(_iceServers);
+    
+    if (_forceRelayCandidate) {
+      // When forceRelayCandidate is enabled, only use TURN relay candidates
+      config['iceTransportPolicy'] = 'relay';
+      GlobalLogger().i('Peer :: Force relay candidate enabled - using TURN relay only');
+    }
+    
+    return config;
+  }
 
   final Map<String, dynamic> _dcConstraints = {
     'mandatory': {'OfferToReceiveAudio': true, 'OfferToReceiveVideo': false},
@@ -432,7 +446,7 @@ class Peer {
     if (media != 'data') _localStream = await createStream(media);
 
     peerConnection = await createPeerConnection({
-      ..._iceServers,
+      ..._buildIceConfiguration(),
       ...{'sdpSemantics': sdpSemantics},
     }, _dcConstraints);
 
