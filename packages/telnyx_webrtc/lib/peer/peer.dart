@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
@@ -64,7 +65,7 @@ class Peer {
 
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
 
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
@@ -202,8 +203,8 @@ class Peer {
 
       String? sdpUsed = '';
       await session.peerConnection?.getLocalDescription().then(
-        (value) => sdpUsed = value?.sdp.toString(),
-      );
+            (value) => sdpUsed = value?.sdp.toString(),
+          );
 
       Timer(const Duration(milliseconds: 500), () async {
         final userAgent = await VersionUtils.getUserAgent();
@@ -249,8 +250,8 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(sdp, 'answer'),
-    );
+          RTCSessionDescription(sdp, 'answer'),
+        );
   }
 
   /// Accepts an incoming call.
@@ -323,7 +324,7 @@ class Peer {
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
                 candidateString.contains('stun.telnyx.com') ||
-                candidateString.contains('turn.telnyx.com');
+                    candidateString.contains('turn.telnyx.com');
 
             if (isValidCandidate) {
               GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
@@ -342,8 +343,8 @@ class Peer {
         }
       };
 
-      final RTCSessionDescription s = await session.peerConnection!
-          .createAnswer(_dcConstraints);
+      final RTCSessionDescription s =
+          await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
       // Start ICE candidate gathering and wait for negotiation to complete
@@ -351,8 +352,8 @@ class Peer {
       _setOnNegotiationComplete(() async {
         String? sdpUsed = '';
         await session.peerConnection?.getLocalDescription().then(
-          (value) => sdpUsed = value?.sdp.toString(),
-        );
+              (value) => sdpUsed = value?.sdp.toString(),
+            );
 
         final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -415,6 +416,7 @@ class Peer {
     final MediaStream stream = await navigator.mediaDevices.getUserMedia(
       mediaConstraints,
     );
+
     onLocalStream?.call(stream);
     return stream;
   }
@@ -467,8 +469,7 @@ class Peer {
       );
       if (candidate.candidate != null) {
         final candidateString = candidate.candidate.toString();
-        final isValidCandidate =
-            candidateString.contains('stun.telnyx.com') ||
+        final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
             candidateString.contains('turn.telnyx.com');
 
         if (isValidCandidate) {
@@ -492,6 +493,17 @@ class Peer {
           final Call? currentCall = _txClient.calls[callId];
           currentCall?.callHandler.changeState(CallState.active);
           onCallStateChange?.call(newSession, CallState.active);
+
+          // Automatically disable speaker phone to fix Android default behavior
+          // This ensures calls start with earpiece audio routing by default on Android
+          if (Platform.isAndroid) {
+            Future.delayed(const Duration(milliseconds: 100), () {
+              currentCall?.enableSpeakerPhone(false);
+              GlobalLogger().i(
+                'Peer :: Automatically disabled speaker phone for Android call',
+              );
+            });
+          }
 
           // Cancel any reconnection timer for this call
           _txClient.onCallStateChangedToActive(callId);
@@ -637,9 +649,8 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastCandidateTime!)
-            .inMilliseconds;
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );
