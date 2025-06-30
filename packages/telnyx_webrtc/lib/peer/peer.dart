@@ -10,6 +10,7 @@ import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
+import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
@@ -204,7 +205,8 @@ class Peer {
         (value) => sdpUsed = value?.sdp.toString(),
       );
 
-      Timer(const Duration(milliseconds: 500), () {
+      Timer(const Duration(milliseconds: 500), () async {
+        final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -224,7 +226,7 @@ class Peer {
           dialogParams: dialogParams,
           sdp: sdpUsed,
           sessid: sessionId,
-          userAgent: 'Flutter-1.0',
+          userAgent: userAgent,
         );
         final inviteMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
@@ -352,6 +354,7 @@ class Peer {
           (value) => sdpUsed = value?.sdp.toString(),
         );
 
+        final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -371,7 +374,7 @@ class Peer {
           dialogParams: dialogParams,
           sdp: sdpUsed,
           sessid: session.sid,
-          userAgent: 'Flutter-1.0',
+          userAgent: userAgent,
         );
         final answerMessage = InviteAnswerMessage(
           id: const Uuid().v4(),

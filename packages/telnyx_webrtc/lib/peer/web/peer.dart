@@ -17,6 +17,7 @@ import 'package:telnyx_webrtc/tx_socket.dart'
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
+import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 
 class Peer {
@@ -213,7 +214,8 @@ class Peer {
       }
 
       // Send INVITE
-      Timer(const Duration(milliseconds: 500), () {
+      Timer(const Duration(milliseconds: 500), () async {
+        final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -234,7 +236,7 @@ class Peer {
           dialogParams: dialogParams,
           sdp: sdpUsed,
           sessid: session.sid,
-          userAgent: 'Flutter-1.0',
+          userAgent: userAgent,
         );
 
         final inviteMessage = InviteAnswerMessage(
@@ -373,6 +375,7 @@ class Peer {
           sdpUsed = localDesc.sdp;
         }
 
+        final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -393,7 +396,7 @@ class Peer {
           dialogParams: dialogParams,
           sdp: sdpUsed,
           sessid: session.sid, // We use the session's sid
-          userAgent: 'Flutter-1.0',
+          userAgent: userAgent,
         );
 
         final answerMessage = InviteAnswerMessage(
