@@ -95,7 +95,8 @@ class Profile {
       notificationToken: notificationToken ?? this.notificationToken,
       isDebug: isDebug ?? this.isDebug,
       region: region ?? this.region,
-      fallbackOnRegionFailure: fallbackOnRegionFailure ?? this.fallbackOnRegionFailure,
+      fallbackOnRegionFailure:
+          fallbackOnRegionFailure ?? this.fallbackOnRegionFailure,
       forceRelayCandidate: forceRelayCandidate ?? this.forceRelayCandidate,
     );
   }

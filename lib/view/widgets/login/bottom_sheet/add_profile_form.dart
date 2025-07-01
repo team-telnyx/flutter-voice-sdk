@@ -198,6 +198,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
   final _sipCallerIDNumberController = TextEditingController();
   Region _selectedRegion = Region.auto;
   bool _fallbackOnRegionFailure = true;
+  bool _forceRelayCandidate = false;
 
   @override
   void initState() {
@@ -212,6 +213,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
       _sipCallerIDNumberController.text = profile.sipCallerIDNumber;
       _selectedRegion = profile.region;
       _fallbackOnRegionFailure = profile.fallbackOnRegionFailure;
+      _forceRelayCandidate = profile.forceRelayCandidate;
     }
   }
 
@@ -236,6 +238,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
     _isTokenLogin = false;
     _selectedRegion = Region.auto;
     _fallbackOnRegionFailure = true;
+    _forceRelayCandidate = false;
   }
 
   @override
@@ -377,6 +380,37 @@ class _AddProfileFormState extends State<AddProfileForm> {
               ),
             ],
           ),
+          const SizedBox(height: spacingM),
+          // Force Relay Candidates Option
+          Row(
+            children: [
+              Checkbox(
+                value: _forceRelayCandidate,
+                onChanged: (bool? value) {
+                  setState(() {
+                    _forceRelayCandidate = value ?? false;
+                  });
+                },
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Force Relay Candidates',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    Text(
+                      'Forces TURN relay for all connections, preventing local network access prompts',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: spacingL),
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -404,6 +438,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
                       sipCallerIDNumber: _sipCallerIDNumberController.text,
                       region: _selectedRegion,
                       fallbackOnRegionFailure: _fallbackOnRegionFailure,
+                      forceRelayCandidate: _forceRelayCandidate,
                     );
 
                     try {

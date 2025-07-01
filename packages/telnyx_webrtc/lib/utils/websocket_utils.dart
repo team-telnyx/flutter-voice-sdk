@@ -24,11 +24,14 @@ class WebSocketUtils {
     // --- 2. Lower-level/Network-related Unclean Closures ---
     // These often indicate a connection failure before or during the handshake,
     // or a system-level error.
-    if (closeCode == 500 || // Custom/Non-standard HTTP-like error, treat as unclean
+    if (closeCode ==
+            500 || // Custom/Non-standard HTTP-like error, treat as unclean
         normalizedReason.contains('failed host lookup') ||
         normalizedReason.contains('socketexception') ||
         normalizedReason.contains('connection refused') ||
-        normalizedReason.contains('connection reset by peer') || // Common network error
+        normalizedReason.contains(
+          'connection reset by peer',
+        ) || // Common network error
         normalizedReason.contains('network is unreachable')) {
       return false;
     }
@@ -37,10 +40,13 @@ class WebSocketUtils {
     // These are standard WebSocket codes that typically indicate a graceful or expected closure.
     // We've excluded the error codes handled above.
     if (closeCode == 1000 || // Normal Closure
-        closeCode == 1001 || // Going Away (e.g., server shutting down, browser navigating)
-        closeCode == 1002 || // Protocol error (could be clean if client understands/expects it, but safer to treat as potentially unclean if not explicit) - DECISION: For this version, keeping it here for simplicity of standard codes.
+        closeCode ==
+            1001 || // Going Away (e.g., server shutting down, browser navigating)
+        closeCode ==
+            1002 || // Protocol error (could be clean if client understands/expects it, but safer to treat as potentially unclean if not explicit) - DECISION: For this version, keeping it here for simplicity of standard codes.
         closeCode == 1003 ||
-        closeCode == 1005) // No status provided, generally sent when manually disconnected
+        closeCode ==
+            1005) // No status provided, generally sent when manually disconnected
     {
       // Unacceptable Data
       return true;

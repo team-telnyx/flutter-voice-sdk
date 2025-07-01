@@ -436,7 +436,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 'TxClientViewModel :: observeResponses :: Received BYE message: ${message.message}',
               );
-              
+
               // Extract termination reason from BYE message if available
               CallTerminationReason? terminationReason;
               if (message.message.byeParams != null) {
@@ -448,16 +448,16 @@ class TelnyxClientViewModel with ChangeNotifier {
                     sipCode: byeParams.sipCode,
                     sipReason: byeParams.sipReason,
                   );
-                  
+
                   // Store the termination reason for display
                   _lastTerminationReason = terminationReason;
-                  
+
                   logger.i(
                     'TxClientViewModel :: observeResponses :: Extracted termination reason from BYE: $terminationReason',
                   );
                 }
               }
-              
+
               // Save call to history before resetting call info
               if (_currentCallDestination != null &&
                   _currentCallDirection != null) {
@@ -478,7 +478,8 @@ class TelnyxClientViewModel with ChangeNotifier {
                   FlutterCallkitIncoming.endCall(
                     currentCall?.callId ?? _incomingInvite!.callID!,
                   );
-                  if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+                  if (WidgetsBinding.instance.lifecycleState !=
+                      AppLifecycleState.resumed) {
                     _telnyxClient.disconnect();
                   }
                 }
@@ -503,7 +504,7 @@ class TelnyxClientViewModel with ChangeNotifier {
                   }
                 }
               }
-              
+
               // Call resetCallInfo() once at the end, after termination reason is set
               resetCallInfo();
               break;

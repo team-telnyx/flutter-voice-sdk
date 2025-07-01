@@ -79,13 +79,15 @@ class Peer {
   /// Builds the ICE configuration based on the forceRelayCandidate setting
   Map<String, dynamic> _buildIceConfiguration() {
     final config = Map<String, dynamic>.from(_iceServers);
-    
+
     if (_forceRelayCandidate) {
       // When forceRelayCandidate is enabled, only use TURN relay candidates
       config['iceTransportPolicy'] = 'relay';
-      GlobalLogger().i('Peer :: Force relay candidate enabled - using TURN relay only');
+      GlobalLogger().i(
+        'Peer :: Force relay candidate enabled - using TURN relay only',
+      );
     }
-    
+
     return config;
   }
 
