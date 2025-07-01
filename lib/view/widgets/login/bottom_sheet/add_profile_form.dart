@@ -249,7 +249,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: spacingM),
+          const SizedBox(height: spacingS),
           CredentialToggle(
             isTokenLogin: _isTokenLogin,
             onToggleChanged: (value) {
@@ -258,7 +258,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               });
             },
           ),
-          const SizedBox(height: spacingL),
+          const SizedBox(height: spacingM),
           if (_isTokenLogin) ...[
             CustomFormField(
               title: 'Token',
@@ -283,7 +283,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
                 return null;
               },
             ),
-            const SizedBox(height: spacingM),
+            const SizedBox(height: spacingS),
             CustomFormField(
               title: 'SIP Password',
               controller: _sipPasswordController,
@@ -297,7 +297,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               },
             ),
           ],
-          const SizedBox(height: spacingM),
+          const SizedBox(height: spacingS),
           CustomFormField(
             title: 'Caller ID Name',
             controller: _sipCallerIDNameController,
@@ -309,7 +309,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               return null;
             },
           ),
-          const SizedBox(height: spacingM),
+          const SizedBox(height: spacingS),
           CustomFormField(
             title: 'Caller ID Number',
             controller: _sipCallerIDNumberController,
@@ -322,7 +322,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               return null;
             },
           ),
-          const SizedBox(height: spacingM),
+          const SizedBox(height: spacingS),
           // Region Selection
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +360,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               ),
             ],
           ),
-          const SizedBox(height: spacingM),
+          const SizedBox(height: spacingS),
           // Fallback Option
           Row(
             children: [
@@ -380,7 +380,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
               ),
             ],
           ),
-          const SizedBox(height: spacingM),
+          const SizedBox(height: spacingS),
           // Force Relay Candidates Option
           Row(
             children: [
