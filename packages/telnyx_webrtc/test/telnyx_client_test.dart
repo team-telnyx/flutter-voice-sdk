@@ -101,27 +101,29 @@ void main() {
     });
   });
 
-  test('verify getGatewayStatus returns IDLE at start of instance creation',
-      () {
-    final telnyxClient = TelnyxClient();
-    telnyxClient.connect();
-    // Give time to connect, verify isConnected() adjusts
-    Timer(const Duration(seconds: 2), () {
-      // called twice, once for connect, and again for login
-      verify(telnyxClient.getGatewayStatus()).called(GatewayState.idle);
-    });
-  });
+  test(
+    'verify getGatewayStatus returns IDLE at start of instance creation',
+    () {
+      final telnyxClient = TelnyxClient();
+      telnyxClient.connect();
+      // Give time to connect, verify isConnected() adjusts
+      Timer(const Duration(seconds: 2), () {
+        // called twice, once for connect, and again for login
+        verify(telnyxClient.getGatewayStatus()).called(GatewayState.idle);
+      });
+    },
+  );
 
   test('verify pending answer timeout functionality exists', () {
     final telnyxClient = TelnyxClient();
-    
+
     // Create a push metadata with isAnswer = true
     final pushMetaData = PushMetaData(
       callerName: 'Test Caller',
       callerNumber: '+1234567890',
       callId: 'test-call-id',
     )..isAnswer = true;
-    
+
     final credentialConfig = CredentialConfig(
       sipUser: 'test',
       sipPassword: 'test',
@@ -132,10 +134,10 @@ void main() {
       logLevel: LogLevel.info,
       debug: false,
     );
-    
+
     // Handle the push notification (this should start the timeout)
     telnyxClient.handlePushNotification(pushMetaData, credentialConfig, null);
-    
+
     // Verify the method doesn't crash - in a real implementation,
     // we'd mock the timer and verify timeout behavior
     expect(telnyxClient.isConnected, isA<Function>());

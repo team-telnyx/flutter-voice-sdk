@@ -56,18 +56,23 @@ class ProfileProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> updateProfile(String originalName, Profile updatedProfile) async {
+  Future<void> updateProfile(
+    String originalName,
+    Profile updatedProfile,
+  ) async {
     final index = _profiles.indexWhere(
       (p) => p.sipCallerIDName == originalName,
     );
-    
+
     if (index == -1) {
       throw Exception('Profile not found');
     }
 
     // If the name is changing, check if the new name already exists
     if (originalName != updatedProfile.sipCallerIDName) {
-      if (_profiles.any((p) => p.sipCallerIDName == updatedProfile.sipCallerIDName)) {
+      if (_profiles.any(
+        (p) => p.sipCallerIDName == updatedProfile.sipCallerIDName,
+      )) {
         throw Exception('A profile with this name already exists');
       }
     }
