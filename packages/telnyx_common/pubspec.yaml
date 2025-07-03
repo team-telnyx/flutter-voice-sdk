@@ -1,0 +1,25 @@
+name: telnyx_common
+description: A high-level, state-agnostic, drop-in module for the Telnyx Flutter SDK that simplifies WebRTC integration.
+version: 0.1.0
+homepage: https://github.com/team-telnyx/flutter-voice-sdk
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  telnyx_webrtc:
+    path: ../telnyx_webrtc
+  flutter_callkit_incoming: ^2.0.0
+  uuid: ^4.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  mockito: ^5.4.0
+  build_runner: ^2.4.0
+
+flutter:
