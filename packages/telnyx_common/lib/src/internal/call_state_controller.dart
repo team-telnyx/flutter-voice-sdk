@@ -8,6 +8,7 @@ import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import '../models/call.dart';
 import '../models/call_state.dart';
 import '../models/connection_state.dart';
+import '../../utils/iterable_extensions.dart';
 import 'session_manager.dart';
 
 /// Internal component that serves as the central state machine for call management.
@@ -19,8 +20,10 @@ class CallStateController {
   final TelnyxClient _telnyxClient;
   final SessionManager _sessionManager;
 
-  final StreamController<List<Call>> _callsController = StreamController<List<Call>>.broadcast();
-  final StreamController<Call?> _activeCallController = StreamController<Call?>.broadcast();
+  final StreamController<List<Call>> _callsController =
+      StreamController<List<Call>>.broadcast();
+  final StreamController<Call?> _activeCallController =
+      StreamController<Call?>.broadcast();
 
   final Map<String, Call> _calls = {};
   final Map<String, telnyx_call.Call> _telnyxCalls = {};
@@ -67,8 +70,8 @@ class CallStateController {
     try {
       // Initiate the call through the TelnyxClient
       final telnyxCall = _telnyxClient.newInvite(
-        'User', // Default caller name
-        'Unknown', // Default caller number
+        _sessionManager.sipCallerIDName ?? 'User',
+        _sessionManager.sipCallerIDNumber ?? 'Unknown',
         destination,
         'State', // Default state
         customHeaders: {'X-RTC-CALLID': call.callId},
@@ -151,7 +154,7 @@ class CallStateController {
     if (inviteParams?.callID == null) return;
 
     final callId = inviteParams!.callID!;
-    
+
     // Check if we already have this call (avoid duplicates)
     if (_calls.containsKey(callId)) return;
 
@@ -172,10 +175,11 @@ class CallStateController {
   void _handleAnswerMessage(TelnyxMessage message) {
     // Find the call that was answered and update its state
     final activeCall = _calls.values
-        .where((call) => call.currentState == CallState.initiating || 
-                        call.currentState == CallState.ringing)
+        .where((call) =>
+            call.currentState == CallState.initiating ||
+            call.currentState == CallState.ringing)
         .firstOrNull;
-    
+
     if (activeCall != null) {
       activeCall.updateState(CallState.active);
       _notifyCallsChanged();
@@ -186,9 +190,10 @@ class CallStateController {
   void _handleRingingMessage(TelnyxMessage message) {
     // Update outgoing calls to ringing state
     final ringingCall = _calls.values
-        .where((call) => !call.isIncoming && call.currentState == CallState.initiating)
+        .where((call) =>
+            !call.isIncoming && call.currentState == CallState.initiating)
         .firstOrNull;
-    
+
     if (ringingCall != null) {
       ringingCall.updateState(CallState.ringing);
       _notifyCallsChanged();
@@ -208,10 +213,11 @@ class CallStateController {
   }
 
   /// Handles call actions from the Call objects.
-  void _handleCallAction(String callId, CallAction action, [Map<String, dynamic>? params]) {
+  void _handleCallAction(String callId, CallAction action,
+      [Map<String, dynamic>? params]) {
     final call = _calls[callId];
     final telnyxCall = _telnyxCalls[callId];
-    
+
     if (call == null) return;
 
     switch (action) {
@@ -246,7 +252,16 @@ class CallStateController {
     try {
       if (telnyxCall != null) {
         // Use existing TelnyxCall if available
-        telnyxCall.callHandler.acceptCall();
+        telnyxCall.acceptCall(
+          IncomingInviteParams(
+            callID: call.callId,
+            callerIdName: call.callerName,
+            callerIdNumber: call.callerNumber,
+          ),
+          _sessionManager.sipCallerIDName ?? 'User',
+          _sessionManager.sipCallerIDNumber ?? 'Unknown',
+          'State', // Default state
+        );
       } else {
         // Create new TelnyxCall for incoming call
         final inviteParams = IncomingInviteParams(
@@ -254,20 +269,18 @@ class CallStateController {
           callerIdName: call.callerName,
           callerIdNumber: call.callerNumber,
         );
-        
+
         final newTelnyxCall = _telnyxClient.acceptCall(
           inviteParams,
-          'User', // Default local name
-          'Unknown', // Default local number
+          _sessionManager.sipCallerIDName ?? 'User',
+          _sessionManager.sipCallerIDNumber ?? 'Unknown',
           'State', // Default state
           customHeaders: {},
           debug: true,
         );
 
-        if (newTelnyxCall != null) {
-          _telnyxCalls[call.callId] = newTelnyxCall;
-          _observeTelnyxCall(call.callId, newTelnyxCall);
-        }
+        _telnyxCalls[call.callId] = newTelnyxCall;
+        _observeTelnyxCall(call.callId, newTelnyxCall);
       }
 
       call.updateState(CallState.active);
@@ -313,11 +326,11 @@ class CallStateController {
     try {
       telnyxCall?.onHoldUnholdPressed();
       if (hold) {
-        call.updateState(CallState.held);
-        call.updateHoldState(true);
+        call..updateState(CallState.held)
+        ..updateHoldState(true);
       } else {
-        call.updateState(CallState.active);
-        call.updateHoldState(false);
+        call..updateState(CallState.active)
+        ..updateHoldState(false);
       }
       _notifyCallsChanged();
     } catch (error) {
@@ -342,13 +355,15 @@ class CallStateController {
     if (call == null) return;
 
     // Set up call state observer
-    telnyxCall.callHandler.onCallStateChanged = (telnyx_call_state.CallState state) {
+    telnyxCall.callHandler.onCallStateChanged =
+        (telnyx_call_state.CallState state) {
       _handleTelnyxCallStateChange(callId, state);
     };
   }
 
   /// Handles state changes from TelnyxCall objects.
-  void _handleTelnyxCallStateChange(String callId, telnyx_call_state.CallState state) {
+  void _handleTelnyxCallStateChange(
+      String callId, telnyx_call_state.CallState state) {
     final call = _calls[callId];
     if (call == null) return;
 
@@ -425,9 +440,8 @@ class CallStateController {
     _callsController.add(callsList);
 
     // Update active call stream
-    final activeCall = callsList
-        .where((call) => call.currentState.isActive)
-        .firstOrNull;
+    final activeCall =
+        callsList.where((call) => call.currentState.isActive).firstOrNull;
     _activeCallController.add(activeCall);
   }
 
@@ -443,16 +457,5 @@ class CallStateController {
 
     _callsController.close();
     _activeCallController.close();
-  }
-}
-
-/// Extension to add firstOrNull method for older Dart versions.
-extension IterableExtension<T> on Iterable<T> {
-  T? get firstOrNull {
-    final iterator = this.iterator;
-    if (iterator.moveNext()) {
-      return iterator.current;
-    }
-    return null;
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter_callkit_incoming/entities/call_event.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/android_params.dart';
@@ -17,7 +18,7 @@ class CallKitAdapter {
   final CallKitEventCallback onCallDeclined;
   final CallKitEventCallback onCallEnded;
 
-  StreamSubscription<CallEvent>? _callEventSubscription;
+  StreamSubscription<CallEvent?>? _callEventSubscription;
   bool _disposed = false;
 
   /// Creates a new CallKitAdapter instance.
@@ -138,8 +139,8 @@ class CallKitAdapter {
   }
 
   /// Handles CallKit events and routes them to the appropriate callbacks.
-  void _handleCallEvent(CallEvent event) {
-    if (_disposed) return;
+  void _handleCallEvent(CallEvent? event) {
+    if (_disposed || event == null) return;
 
     final callId = event.body['id'] as String?;
     if (callId == null) return;

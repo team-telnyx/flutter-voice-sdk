@@ -10,4 +10,10 @@ export 'src/telnyx_voip_client.dart';
 export 'src/models/call.dart';
 export 'src/models/connection_state.dart';
 export 'src/models/call_state.dart';
-export 'src/models/config.dart';
+export 'utils/iterable_extensions.dart';
+
+// Re-export telnyx_config classes directly
+export 'package:telnyx_webrtc/config/telnyx_config.dart';
+export 'package:telnyx_webrtc/utils/logging/log_level.dart';
+export 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
+export 'package:telnyx_webrtc/model/region.dart';

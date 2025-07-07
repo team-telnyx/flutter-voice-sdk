@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'package:telnyx_webrtc/telnyx_client.dart';
-import 'package:telnyx_webrtc/config/telnyx_config.dart' as telnyx_config;
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
-import '../models/connection_state.dart';
-import '../models/config.dart';
+import 'package:telnyx_common/src/models/connection_state.dart';
 
 /// Internal component responsible for managing the TelnyxClient connection lifecycle.
 ///
@@ -18,6 +17,10 @@ class SessionManager {
 
   ConnectionState _currentState = const Disconnected();
   bool _disposed = false;
+
+  // Store caller ID information from login config
+  String? _sipCallerIDName;
+  String? _sipCallerIDNumber;
 
   /// Creates a new SessionManager instance.
   SessionManager() {
@@ -33,6 +36,12 @@ class SessionManager {
   /// Access to the underlying TelnyxClient for call operations.
   TelnyxClient get telnyxClient => _telnyxClient;
 
+  /// SIP caller ID name from the login configuration.
+  String? get sipCallerIDName => _sipCallerIDName;
+
+  /// SIP caller ID number from the login configuration.
+  String? get sipCallerIDNumber => _sipCallerIDNumber;
+
   /// Connects to the Telnyx platform using credential authentication.
   Future<void> connectWithCredential(CredentialConfig config) async {
     if (_disposed) throw StateError('SessionManager has been disposed');
@@ -40,13 +49,25 @@ class SessionManager {
     _updateState(const Connecting());
 
     try {
-      final telnyxConfig = telnyx_config.CredentialConfig(
+      // Store caller ID information for later use
+      _sipCallerIDName = config.sipCallerIDName;
+      _sipCallerIDNumber = config.sipCallerIDNumber;
+
+      final telnyxConfig = CredentialConfig(
         sipUser: config.sipUser,
         sipPassword: config.sipPassword,
-        sipCallerIDName: config.sipUser, // Use sipUser as default caller ID name
-        sipCallerIDNumber: config.sipUser, // Use sipUser as default caller ID number
-        notificationToken: config.fcmToken,
+        sipCallerIDName: config.sipCallerIDName,
+        sipCallerIDNumber: config.sipCallerIDNumber,
+        notificationToken: config.notificationToken,
+        autoReconnect: config.autoReconnect,
+        logLevel: config.logLevel,
         debug: config.debug,
+        customLogger: config.customLogger,
+        ringTonePath: config.ringTonePath,
+        ringbackPath: config.ringbackPath,
+        reconnectionTimeout: config.reconnectionTimeout,
+        region: config.region,
+        fallbackOnRegionFailure: config.fallbackOnRegionFailure,
       );
 
       _telnyxClient.connectWithCredential(telnyxConfig);
@@ -62,12 +83,24 @@ class SessionManager {
     _updateState(const Connecting());
 
     try {
-      final telnyxConfig = telnyx_config.TokenConfig(
-        sipToken: config.token,
-        sipCallerIDName: 'User', // Default caller ID name for token auth
-        sipCallerIDNumber: 'Unknown', // Default caller ID number for token auth
-        notificationToken: config.fcmToken,
+      // Store caller ID information for later use
+      _sipCallerIDName = config.sipCallerIDName;
+      _sipCallerIDNumber = config.sipCallerIDNumber;
+
+      final telnyxConfig = TokenConfig(
+        sipToken: config.sipToken,
+        sipCallerIDName: config.sipCallerIDName,
+        sipCallerIDNumber: config.sipCallerIDNumber,
+        notificationToken: config.notificationToken,
+        autoReconnect: config.autoReconnect,
+        logLevel: config.logLevel,
         debug: config.debug,
+        customLogger: config.customLogger,
+        ringTonePath: config.ringTonePath,
+        ringbackPath: config.ringbackPath,
+        reconnectionTimeout: config.reconnectionTimeout,
+        region: config.region,
+        fallbackOnRegionFailure: config.fallbackOnRegionFailure,
       );
 
       _telnyxClient.connectWithToken(telnyxConfig);
@@ -98,6 +131,10 @@ class SessionManager {
     try {
       _telnyxClient.disconnect();
       _updateState(const Disconnected());
+      
+      // Clear stored caller ID information
+      _sipCallerIDName = null;
+      _sipCallerIDNumber = null;
     } catch (error, stackTrace) {
       _updateState(ConnectionError(error, stackTrace));
     }
@@ -139,5 +176,9 @@ class SessionManager {
 
     _telnyxClient.disconnect();
     _connectionStateController.close();
+    
+    // Clear stored caller ID information
+    _sipCallerIDName = null;
+    _sipCallerIDNumber = null;
   }
 }

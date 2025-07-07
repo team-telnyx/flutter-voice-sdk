@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'package:telnyx_webrtc/model/push_notification.dart';
-import 'models/call.dart';
-import 'models/connection_state.dart';
-import 'models/config.dart';
-import 'internal/session_manager.dart';
-import 'internal/call_state_controller.dart';
-import 'internal/callkit_adapter.dart';
-import 'internal/push_notification_gateway.dart';
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_common/src/models/call.dart';
+import 'package:telnyx_common/src/models/connection_state.dart';
+import 'package:telnyx_common/src/internal/session_manager.dart';
+import 'package:telnyx_common/src/internal/call_state_controller.dart';
+import 'package:telnyx_common/src/internal/callkit_adapter.dart';
+import 'package:telnyx_common/src/internal/push_notification_gateway.dart';
+import 'package:telnyx_common/utils/iterable_extensions.dart';
 
 /// The main public interface for the telnyx_common module.
 ///
@@ -236,16 +237,5 @@ class TelnyxVoipClient {
     _sessionManager.dispose();
     _callKitAdapter?.dispose();
     _pushGateway?.dispose();
-  }
-}
-
-/// Extension to add firstOrNull method for older Dart versions.
-extension IterableExtension<T> on Iterable<T> {
-  T? get firstOrNull {
-    final iterator = this.iterator;
-    if (iterator.moveNext()) {
-      return iterator.current;
-    }
-    return null;
   }
 }

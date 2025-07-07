@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:telnyx_common/telnyx_common.dart';
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
+
+import '../lib/telnyx_common.dart';
 
 /// A minimal, headless example application that demonstrates the core functionality
 /// of the telnyx_common module without any UI dependencies.
@@ -192,6 +194,9 @@ Future<void> _handleLogin(TelnyxVoipClient client, String sipUser, String sipPas
   final config = CredentialConfig(
     sipUser: sipUser,
     sipPassword: sipPassword,
+    sipCallerIDName: sipUser, // Use sipUser as caller ID name
+    sipCallerIDNumber: sipUser, // Use sipUser as caller ID number
+    logLevel: LogLevel.info,
     debug: true,
   );
 
@@ -204,7 +209,10 @@ Future<void> _handleTokenLogin(TelnyxVoipClient client, String token) async {
   print('🔐 Logging in with token...');
   
   final config = TokenConfig(
-    token: token,
+    sipToken: token,
+    sipCallerIDName: 'User', // Default caller ID name for token auth
+    sipCallerIDNumber: 'Unknown', // Default caller ID number for token auth
+    logLevel: LogLevel.info,
     debug: true,
   );
 
@@ -308,15 +316,4 @@ void _showStatus(TelnyxVoipClient client) {
     }
   }
   print('');
-}
-
-/// Extension to add firstOrNull method for older Dart versions.
-extension IterableExtension<T> on Iterable<T> {
-  T? get firstOrNull {
-    final iterator = this.iterator;
-    if (iterator.moveNext()) {
-      return iterator.current;
-    }
-    return null;
-  }
 }

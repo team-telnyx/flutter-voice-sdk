@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:telnyx_common/telnyx_common.dart';
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
+
+import '../lib/telnyx_common.dart';
 
 void main() {
   group('TelnyxVoipClient', () {
@@ -35,9 +37,13 @@ void main() {
       client.dispose();
 
       expect(
-        () => client.login(const CredentialConfig(
+        () => client.login(CredentialConfig(
           sipUser: 'test',
           sipPassword: 'test',
+          sipCallerIDName: 'Test User',
+          sipCallerIDNumber: 'test',
+          logLevel: LogLevel.info,
+          debug: false,
         )),
         throwsStateError,
       );
@@ -45,28 +51,38 @@ void main() {
 
     group('Configuration', () {
       test('should accept credential config', () {
-        const config = CredentialConfig(
+        final config = CredentialConfig(
           sipUser: 'testuser',
           sipPassword: 'testpass',
-          fcmToken: 'testtoken',
+          sipCallerIDName: 'Test User',
+          sipCallerIDNumber: 'testuser',
+          notificationToken: 'testtoken',
+          logLevel: LogLevel.info,
           debug: true,
         );
 
         expect(config.sipUser, equals('testuser'));
         expect(config.sipPassword, equals('testpass'));
-        expect(config.fcmToken, equals('testtoken'));
+        expect(config.sipCallerIDName, equals('Test User'));
+        expect(config.sipCallerIDNumber, equals('testuser'));
+        expect(config.notificationToken, equals('testtoken'));
         expect(config.debug, isTrue);
       });
 
       test('should accept token config', () {
-        const config = TokenConfig(
-          token: 'testtoken',
-          fcmToken: 'fcmtoken',
+        final config = TokenConfig(
+          sipToken: 'testtoken',
+          sipCallerIDName: 'Test User',
+          sipCallerIDNumber: 'testuser',
+          notificationToken: 'fcmtoken',
+          logLevel: LogLevel.info,
           debug: false,
         );
 
-        expect(config.token, equals('testtoken'));
-        expect(config.fcmToken, equals('fcmtoken'));
+        expect(config.sipToken, equals('testtoken'));
+        expect(config.sipCallerIDName, equals('Test User'));
+        expect(config.sipCallerIDNumber, equals('testuser'));
+        expect(config.notificationToken, equals('fcmtoken'));
         expect(config.debug, isFalse);
       });
     });
