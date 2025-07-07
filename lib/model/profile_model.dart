@@ -21,6 +21,7 @@ class Profile {
   final bool isDebug;
   final Region region;
   final bool fallbackOnRegionFailure;
+  final bool forceRelayCandidate;
 
   Profile({
     required this.isTokenLogin,
@@ -33,6 +34,7 @@ class Profile {
     this.isDebug = false,
     this.region = Region.auto,
     this.fallbackOnRegionFailure = true,
+    this.forceRelayCandidate = false,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -50,6 +52,7 @@ class Profile {
         orElse: () => Region.auto,
       ),
       fallbackOnRegionFailure: json['fallbackOnRegionFailure'] as bool? ?? true,
+      forceRelayCandidate: json['forceRelayCandidate'] as bool? ?? false,
     );
   }
 
@@ -65,6 +68,7 @@ class Profile {
       'isDebug': isDebug,
       'region': region.value,
       'fallbackOnRegionFailure': fallbackOnRegionFailure,
+      'forceRelayCandidate': forceRelayCandidate,
     };
   }
 
@@ -79,6 +83,7 @@ class Profile {
     bool? isDebug,
     Region? region,
     bool? fallbackOnRegionFailure,
+    bool? forceRelayCandidate,
   }) {
     return Profile(
       isTokenLogin: isTokenLogin ?? this.isTokenLogin,
@@ -90,7 +95,9 @@ class Profile {
       notificationToken: notificationToken ?? this.notificationToken,
       isDebug: isDebug ?? this.isDebug,
       region: region ?? this.region,
-      fallbackOnRegionFailure: fallbackOnRegionFailure ?? this.fallbackOnRegionFailure,
+      fallbackOnRegionFailure:
+          fallbackOnRegionFailure ?? this.fallbackOnRegionFailure,
+      forceRelayCandidate: forceRelayCandidate ?? this.forceRelayCandidate,
     );
   }
 
@@ -127,6 +134,7 @@ class Profile {
         customLogger: CustomSDKLogger(),
         region: region,
         fallbackOnRegionFailure: fallbackOnRegionFailure,
+        forceRelayCandidate: forceRelayCandidate,
       );
     } else {
       return CredentialConfig(
@@ -140,6 +148,7 @@ class Profile {
         customLogger: CustomSDKLogger(),
         region: region,
         fallbackOnRegionFailure: fallbackOnRegionFailure,
+        forceRelayCandidate: forceRelayCandidate,
       );
     }
   }

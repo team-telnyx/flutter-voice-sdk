@@ -139,14 +139,16 @@ Future<void> main() async {
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
   logger.i('[handlePush] Started. Raw data: $data');
   txClientViewModel.setPushCallStatus(true);
-  
+
   // Check if this is an answer action from push notification
   final bool isAnswer = data['isAnswer'] == true;
   if (isAnswer) {
-    logger.i('[handlePush] Answer action detected - setting call state to connectingToCall');
+    logger.i(
+      '[handlePush] Answer action detected - setting call state to connectingToCall',
+    );
     txClientViewModel.callState = CallStateStatus.connectingToCall;
   }
-  
+
   PushMetaData? pushMetaData;
   if (defaultTargetPlatform == TargetPlatform.android) {
     pushMetaData = PushMetaData.fromJson(data);

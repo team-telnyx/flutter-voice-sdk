@@ -74,9 +74,6 @@ class WebRTCStatsReporter {
 
   void _enqueueMessage(String message) {
     if (!sendStats) {
-      GlobalLogger().d(
-        'Stats reporting is disabled. Not sending message: $message',
-      );
       return;
     }
     _messageQueue.add(message);
