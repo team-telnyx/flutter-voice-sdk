@@ -7,10 +7,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
-import 'package:telnyx_flutter_webrtc/provider/telnyx_common_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
-import 'package:telnyx_flutter_webrtc/view/screen/home_screen_telnyx_common.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
@@ -18,19 +16,13 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_flutter_webrtc/service/platform_push_service.dart';
-import 'package:telnyx_flutter_webrtc/service/telnyx_common_push_service.dart';
 import 'package:telnyx_flutter_webrtc/service/android_push_notification_handler.dart'
     show androidBackgroundMessageHandler;
-import 'package:telnyx_flutter_webrtc/service/telnyx_common_background_handler.dart';
 
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
 final logger = Logger();
-final txClientViewModel = TelnyxClientViewModel(); // Legacy - will be replaced
-final telnyxCommonProvider = TelnyxCommonProvider(); // New telnyx_common implementation
-
-// Feature flag to switch between old and new implementation
-const bool useTelnyxCommon = true; // Set to true to use telnyx_common implementation
+final txClientViewModel = TelnyxClientViewModel();
 
 class AppInitializer {
   static final AppInitializer _instance = AppInitializer._internal();
@@ -106,14 +98,9 @@ Future<void> main() async {
         await AppInitializer().initialize();
       }
 
-      // Register both background message handlers for compatibility
       FirebaseMessaging.onBackgroundMessage(
-        _firebaseMessagingBackgroundHandler, // Legacy handler
+        _firebaseMessagingBackgroundHandler,
       );
-      // TODO: Switch to telnyx_common handler once migration is complete
-      // FirebaseMessaging.onBackgroundMessage(
-      //   telnyxCommonBackgroundMessageHandler,
-      // );
       final config = await txClientViewModel.getConfig();
       runApp(
         BackgroundDetector(
@@ -194,9 +181,6 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     logger.i('[_MyAppState] initState called.');
 
-    // Initialize the new telnyx_common push service
-    TelnyxCommonPushService.instance.initialize(telnyxCommonProvider);
-
     // Platform-specific logic for handling initial push data when app starts.
     // For Android, this checks if the app was launched from a terminated state by a notification.
     // For iOS, this is less critical as CallKit events usually drive the flow after launch.
@@ -226,19 +210,14 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (context) => txClientViewModel), // Legacy
-        ChangeNotifierProvider(create: (context) => telnyxCommonProvider), // New
+        ChangeNotifierProvider(create: (context) => txClientViewModel),
         ChangeNotifierProvider(create: (context) => ProfileProvider()),
       ],
       child: MaterialApp(
         title: 'Telnyx WebRTC',
         theme: AppTheme.lightTheme,
         initialRoute: '/',
-        routes: {
-          '/': (context) => useTelnyxCommon 
-              ? const HomeScreenTelnyxCommon() 
-              : const HomeScreen(),
-        },
+        routes: {'/': (context) => const HomeScreen()},
       ),
     );
   }

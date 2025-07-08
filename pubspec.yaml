@@ -33,8 +33,6 @@ dev_dependencies:
   patrol: ^3.14.0
   telnyx_webrtc:
     path: ./packages/telnyx_webrtc
-  telnyx_common:
-    path: ./packages/telnyx_common
 
 flutter:
   uses-material-design: true
