@@ -24,6 +24,7 @@ enum CallStateStatus {
   ongoingInvitation,
   connectingToCall,
   ongoingCall,
+  held,
 }
 
 class TelnyxClientViewModel with ChangeNotifier {
@@ -109,7 +110,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   String get sessionId {
-    return _telnyxVoipClient.currentConnectionState.toString();
+    return _telnyxVoipClient.sessionId;
   }
 
   String get localName => _localName;
@@ -147,7 +148,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       case telnyx.CallState.active:
         return CallStateStatus.ongoingCall;
       case telnyx.CallState.held:
-        return CallStateStatus.ongoingCall; // Held calls are still ongoing
+        return CallStateStatus.held;
       case telnyx.CallState.reconnecting:
         return CallStateStatus.connectingToCall;
       case telnyx.CallState.ended:
@@ -219,9 +220,23 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   /// Set up call quality monitoring for the active call
   void _setupCallQualityMonitoring(telnyx.Call call) {
-    // TODO: Implement call quality monitoring
-    // This would need to be implemented based on how telnyx_common exposes call quality
-    // For now, we'll preserve the existing call quality logic
+    // Listen to call quality metrics from the telnyx_common Call
+    call.callQualityMetrics.listen((metrics) {
+      _callQualityMetrics = metrics;
+
+      // Update audio level lists directly from metrics
+      _inboundAudioLevels.add(metrics.inboundAudioLevel);
+      while (_inboundAudioLevels.length > maxAudioLevels) {
+        _inboundAudioLevels.removeAt(0);
+      }
+
+      _outboundAudioLevels.add(metrics.outboundAudioLevel);
+      while (_outboundAudioLevels.length > maxAudioLevels) {
+        _outboundAudioLevels.removeAt(0);
+      }
+
+      notifyListeners();
+    });
   }
 
   void resetCallInfo() {
@@ -570,8 +585,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       return;
     }
     _speakerPhone = !_speakerPhone;
-    // TODO: Implement speaker phone toggle with telnyx_common
-    // currentCall?.enableSpeakerPhone(_speakerPhone);
+    _activeCall?.enableSpeakerPhone(_speakerPhone);
     notifyListeners();
   }
 
@@ -586,8 +600,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i(
         'TelnyxClientViewModel.disablePushNotifications: Disabling push notifications');
     try {
-      // TODO: Implement push notification disabling in telnyx_common
-      // For now, we'll just log the request
+      _telnyxVoipClient.disablePushNotifications();
       logger.i(
           'TelnyxClientViewModel.disablePushNotifications: Push notifications disabled');
     } catch (e) {

@@ -43,6 +43,14 @@ class SessionManager {
   /// SIP caller ID number from the login configuration.
   String? get sipCallerIDNumber => _sipCallerIDNumber;
 
+  /// Current session ID (UUID) for this connection.
+  String get sessionId => _telnyxClient.sessid;
+
+  /// Disables push notifications for the current session.
+  void disablePushNotifications() {
+    _telnyxClient.disablePushNotifications();
+  }
+
   /// Connects to the Telnyx platform using credential authentication.
   Future<void> connectWithCredential(CredentialConfig config) async {
     if (_disposed) throw StateError('SessionManager has been disposed');

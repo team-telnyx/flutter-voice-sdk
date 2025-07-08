@@ -4,6 +4,7 @@ import 'package:telnyx_webrtc/call.dart' as telnyx_call;
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/call_state.dart' as telnyx_call_state;
+import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import '../../models/call.dart';
 import '../../models/call_state.dart';
@@ -28,6 +29,7 @@ class CallStateController {
   final Map<String, Call> _calls = {};
   final Map<String, telnyx_call.Call> _telnyxCalls = {};
   final Map<String, StreamSubscription> _callSubscriptions = {};
+  final Map<String, IncomingInviteParams> _originalInviteParams = {};
 
   bool _disposed = false;
 
@@ -47,9 +49,15 @@ class CallStateController {
   List<Call> get currentCalls => _calls.values.toList();
 
   /// Current active call (synchronous access).
+  /// Returns the call that needs user attention (ringing, active, held, etc.)
   Call? get currentActiveCall {
     return _calls.values
-        .where((call) => call.currentState.isActive)
+        .where((call) =>
+            call.currentState == CallState.ringing ||
+            call.currentState == CallState.active ||
+            call.currentState == CallState.held ||
+            call.currentState == CallState.initiating ||
+            call.currentState == CallState.reconnecting)
         .firstOrNull;
   }
 
@@ -105,7 +113,15 @@ class CallStateController {
 
   /// Sets up observers for socket messages from the TelnyxClient.
   void _setupSocketObservers() {
+    // Store the original callback so we can call it first
+    final originalCallback = _telnyxClient.onSocketMessageReceived;
+    
     _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
+      // First, let the TelnyxClient handle the message internally
+      // This is crucial for WebRTC setup, especially for incoming invites
+      originalCallback(message);
+      
+      // Then handle our additional processing
       _handleSocketMessage(message);
     };
   }
@@ -158,6 +174,21 @@ class CallStateController {
     // Check if we already have this call (avoid duplicates)
     if (_calls.containsKey(callId)) return;
 
+    // Store the original invite parameters with SDP data
+    _originalInviteParams[callId] = inviteParams;
+
+    // Get the TelnyxCall that was created during internal processing
+    final telnyxCall = _telnyxClient.getCallOrNull(callId);
+    
+    if (telnyxCall != null) {
+      // Store the TelnyxCall for later use
+      _telnyxCalls[callId] = telnyxCall;
+      
+      // Set up observation of the TelnyxCall
+      _observeTelnyxCall(callId, telnyxCall);
+    }
+
+    // Create our wrapper Call object
     final call = Call(
       callId: callId,
       callerName: inviteParams.callerIdName ?? 'Unknown Caller',
@@ -242,6 +273,9 @@ class CallStateController {
       case CallAction.dtmf:
         _sendDtmf(call, telnyxCall, params?['tone'] as String?);
         break;
+      case CallAction.enableSpeakerPhone:
+        _enableSpeakerPhone(call, telnyxCall, params?['enable'] as bool?);
+        break;
     }
   }
 
@@ -250,21 +284,24 @@ class CallStateController {
     if (!call.isIncoming || !call.currentState.canAnswer) return;
 
     try {
-      if (telnyxCall != null) {
-        // Use existing TelnyxCall if available
-        telnyxCall.acceptCall(
-          IncomingInviteParams(
-            callID: call.callId,
-            callerIdName: call.callerName,
-            callerIdNumber: call.callerNumber,
-          ),
+      // Get the original invite parameters with SDP data
+      final originalInviteParams = _originalInviteParams[call.callId];
+      
+      if (telnyxCall != null && originalInviteParams != null) {
+        // Use existing TelnyxCall with original invite parameters containing SDP data
+        final updatedTelnyxCall = telnyxCall.acceptCall(
+          originalInviteParams,
           _sessionManager.sipCallerIDName ?? 'User',
           _sessionManager.sipCallerIDNumber ?? 'Unknown',
           'State', // Default state
         );
+        
+        // Update our reference and re-observe the updated call
+        _telnyxCalls[call.callId] = updatedTelnyxCall;
+        _observeTelnyxCall(call.callId, updatedTelnyxCall);
       } else {
-        // Create new TelnyxCall for incoming call
-        final inviteParams = IncomingInviteParams(
+        // Fallback: Try to get the call from TelnyxClient or create new one
+        final inviteParams = originalInviteParams ?? IncomingInviteParams(
           callID: call.callId,
           callerIdName: call.callerName,
           callerIdNumber: call.callerNumber,
@@ -283,7 +320,8 @@ class CallStateController {
         _observeTelnyxCall(call.callId, newTelnyxCall);
       }
 
-      call.updateState(CallState.active);
+      // Don't update state here - let the TelnyxCall state change handler do it
+      // This ensures proper state synchronization
       _notifyCallsChanged();
     } catch (error) {
       call.updateState(CallState.error);
@@ -325,15 +363,16 @@ class CallStateController {
 
     try {
       telnyxCall?.onHoldUnholdPressed();
+      
+      // Immediately update the state since TelnyxCall state handlers may not be working properly
       if (hold) {
-        call
-          ..updateState(CallState.held)
-          ..updateHoldState(true);
+        call.updateState(CallState.held);
+        call.updateHoldState(true);
       } else {
-        call
-          ..updateState(CallState.active)
-          ..updateHoldState(false);
+        call.updateState(CallState.active);
+        call.updateHoldState(false);
       }
+      
       _notifyCallsChanged();
     } catch (error) {
       // Hold operation failed, but don't change call state
@@ -351,6 +390,18 @@ class CallStateController {
     }
   }
 
+  /// Enables or disables speaker phone.
+  void _enableSpeakerPhone(
+      Call call, telnyx_call.Call? telnyxCall, bool? enable) {
+    if (!call.currentState.canMute || enable == null) return;
+
+    try {
+      telnyxCall?.enableSpeakerPhone(enable);
+    } catch (error) {
+      // Speaker phone operation failed, but don't change call state
+    }
+  }
+
   /// Observes a TelnyxCall for state changes.
   void _observeTelnyxCall(String callId, telnyx_call.Call telnyxCall) {
     final call = _calls[callId];
@@ -360,6 +411,11 @@ class CallStateController {
     telnyxCall.callHandler.onCallStateChanged =
         (telnyx_call_state.CallState state) {
       _handleTelnyxCallStateChange(callId, state);
+    };
+
+    // Set up call quality monitoring
+    telnyxCall.onCallQualityChange = (metrics) {
+      call.updateCallQualityMetrics(metrics);
     };
   }
 
@@ -378,6 +434,7 @@ class CallStateController {
         break;
       case telnyx_call_state.CallState.active:
         call.updateState(CallState.active);
+        call.updateHoldState(false);
         break;
       case telnyx_call_state.CallState.held:
         call.updateState(CallState.held);
@@ -417,6 +474,9 @@ class CallStateController {
     final call = _calls.remove(callId);
     final telnyxCall = _telnyxCalls.remove(callId);
     final subscription = _callSubscriptions.remove(callId);
+    
+    // Clean up stored invite parameters
+    _originalInviteParams.remove(callId);
 
     call?.dispose();
     subscription?.cancel();
@@ -442,8 +502,7 @@ class CallStateController {
     _callsController.add(callsList);
 
     // Update active call stream
-    final activeCall =
-        callsList.where((call) => call.currentState.isActive).firstOrNull;
+    final activeCall = currentActiveCall;
     _activeCallController.add(activeCall);
   }
 

@@ -127,6 +127,8 @@ class CallStateStatusWidget extends StatelessWidget {
     switch (state) {
       case CallStateStatus.ongoingCall:
         return Colors.green; // Active call - green
+      case CallStateStatus.held:
+        return Colors.orange; // Held call - orange
       case CallStateStatus.ringing:
       case CallStateStatus.ongoingInvitation:
         return const Color(0xFF3434EF); // Ringing - blue
@@ -156,6 +158,8 @@ class CallStateStatusWidget extends StatelessWidget {
         return 'Connecting';
       case CallStateStatus.ongoingCall:
         return 'Active';
+      case CallStateStatus.held:
+        return 'Held';
     }
   }
 }

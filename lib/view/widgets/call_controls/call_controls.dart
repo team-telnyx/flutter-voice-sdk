@@ -192,7 +192,8 @@ class _CallControlsState extends State<CallControls> {
           )
         else if (clientState == CallStateStatus.connectingToCall)
           Center(child: CircularProgressIndicator())
-        else if (clientState == CallStateStatus.ongoingCall)
+        else if (clientState == CallStateStatus.ongoingCall || 
+                 clientState == CallStateStatus.held)
           Center(child: OnGoingCallControls()),
       ],
     );
