@@ -47,8 +47,8 @@ void _setupStateMonitoring(TelnyxVoipClient client) {
     print('📞 Active Calls (${calls.length}):');
     for (final call in calls) {
       print('  - ${call.callId}: ${call.currentState} '
-            '${call.isIncoming ? '(incoming)' : '(outgoing)'} '
-            '${call.destination ?? call.callerNumber ?? 'Unknown'}');
+          '${call.isIncoming ? '(incoming)' : '(outgoing)'} '
+          '${call.destination ?? call.callerNumber ?? 'Unknown'}');
     }
     if (calls.isEmpty) {
       print('  - No active calls');
@@ -59,7 +59,7 @@ void _setupStateMonitoring(TelnyxVoipClient client) {
   client.activeCall.listen((call) {
     if (call != null) {
       print('🎯 Active Call: ${call.callId} (${call.currentState})');
-      
+
       // Monitor call state changes
       call.callState.listen((state) {
         print('📱 Call ${call.callId} state: $state');
@@ -99,7 +99,7 @@ Future<void> _runInteractiveLoop(TelnyxVoipClient client) async {
   while (true) {
     stdout.write('telnyx> ');
     final input = stdin.readLineSync()?.trim() ?? '';
-    
+
     if (input.isEmpty) continue;
 
     final parts = input.split(' ');
@@ -179,7 +179,8 @@ Future<void> _runInteractiveLoop(TelnyxVoipClient client) async {
           return;
 
         default:
-          print('❌ Unknown command: $command. Type "help" for available commands.');
+          print(
+              '❌ Unknown command: $command. Type "help" for available commands.');
       }
     } catch (error) {
       print('❌ Error executing command: $error');
@@ -188,9 +189,10 @@ Future<void> _runInteractiveLoop(TelnyxVoipClient client) async {
 }
 
 /// Handles credential-based login.
-Future<void> _handleLogin(TelnyxVoipClient client, String sipUser, String sipPassword) async {
+Future<void> _handleLogin(
+    TelnyxVoipClient client, String sipUser, String sipPassword) async {
   print('🔐 Logging in with credentials...');
-  
+
   final config = CredentialConfig(
     sipUser: sipUser,
     sipPassword: sipPassword,
@@ -207,7 +209,7 @@ Future<void> _handleLogin(TelnyxVoipClient client, String sipUser, String sipPas
 /// Handles token-based login.
 Future<void> _handleTokenLogin(TelnyxVoipClient client, String token) async {
   print('🔐 Logging in with token...');
-  
+
   final config = TokenConfig(
     sipToken: token,
     sipCallerIDName: 'User', // Default caller ID name for token auth
@@ -235,7 +237,8 @@ Future<void> _handleCall(TelnyxVoipClient client, String destination) async {
 /// Handles answering an incoming call.
 Future<void> _handleAnswer(TelnyxVoipClient client) async {
   final incomingCall = client.currentCalls
-      .where((call) => call.isIncoming && call.currentState == CallState.ringing)
+      .where(
+          (call) => call.isIncoming && call.currentState == CallState.ringing)
       .firstOrNull;
 
   if (incomingCall == null) {
@@ -306,13 +309,13 @@ void _showStatus(TelnyxVoipClient client) {
   print('  Connection: ${client.currentConnectionState}');
   print('  Total Calls: ${client.currentCalls.length}');
   print('  Active Call: ${client.currentActiveCall?.callId ?? 'None'}');
-  
+
   if (client.currentCalls.isNotEmpty) {
     print('  Call Details:');
     for (final call in client.currentCalls) {
       print('    - ${call.callId}: ${call.currentState} '
-            '${call.isIncoming ? '(incoming)' : '(outgoing)'} '
-            '${call.destination ?? call.callerNumber ?? 'Unknown'}');
+          '${call.isIncoming ? '(incoming)' : '(outgoing)'} '
+          '${call.destination ?? call.callerNumber ?? 'Unknown'}');
     }
   }
   print('');

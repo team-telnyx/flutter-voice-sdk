@@ -5,11 +5,11 @@ import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/call_state.dart' as telnyx_call_state;
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
-import '../models/call.dart';
-import '../models/call_state.dart';
-import '../models/connection_state.dart';
-import '../../utils/iterable_extensions.dart';
-import 'session_manager.dart';
+import '../../models/call.dart';
+import '../../models/call_state.dart';
+import '../../models/connection_state.dart';
+import '../../../utils/iterable_extensions.dart';
+import '../session/session_manager.dart';
 
 /// Internal component that serves as the central state machine for call management.
 ///
@@ -326,11 +326,13 @@ class CallStateController {
     try {
       telnyxCall?.onHoldUnholdPressed();
       if (hold) {
-        call..updateState(CallState.held)
-        ..updateHoldState(true);
+        call
+          ..updateState(CallState.held)
+          ..updateHoldState(true);
       } else {
-        call..updateState(CallState.active)
-        ..updateHoldState(false);
+        call
+          ..updateState(CallState.active)
+          ..updateHoldState(false);
       }
       _notifyCallsChanged();
     } catch (error) {

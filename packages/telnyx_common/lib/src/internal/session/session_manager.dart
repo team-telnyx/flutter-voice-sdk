@@ -12,7 +12,7 @@ import 'package:telnyx_common/src/models/connection_state.dart';
 /// connection management, and error handling.
 class SessionManager {
   final TelnyxClient _telnyxClient = TelnyxClient();
-  final StreamController<ConnectionState> _connectionStateController = 
+  final StreamController<ConnectionState> _connectionStateController =
       StreamController<ConnectionState>.broadcast();
 
   ConnectionState _currentState = const Disconnected();
@@ -28,7 +28,8 @@ class SessionManager {
   }
 
   /// Stream of connection state changes.
-  Stream<ConnectionState> get connectionState => _connectionStateController.stream;
+  Stream<ConnectionState> get connectionState =>
+      _connectionStateController.stream;
 
   /// Current connection state (synchronous access).
   ConnectionState get currentState => _currentState;
@@ -131,7 +132,7 @@ class SessionManager {
     try {
       _telnyxClient.disconnect();
       _updateState(const Disconnected());
-      
+
       // Clear stored caller ID information
       _sipCallerIDName = null;
       _sipCallerIDNumber = null;
@@ -176,7 +177,7 @@ class SessionManager {
 
     _telnyxClient.disconnect();
     _connectionStateController.close();
-    
+
     // Clear stored caller ID information
     _sipCallerIDName = null;
     _sipCallerIDNumber = null;

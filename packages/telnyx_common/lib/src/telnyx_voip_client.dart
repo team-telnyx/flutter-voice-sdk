@@ -3,10 +3,11 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_common/src/models/call.dart';
 import 'package:telnyx_common/src/models/connection_state.dart';
-import 'package:telnyx_common/src/internal/session_manager.dart';
-import 'package:telnyx_common/src/internal/call_state_controller.dart';
-import 'package:telnyx_common/src/internal/callkit_adapter.dart';
-import 'package:telnyx_common/src/internal/push_notification_gateway.dart';
+import 'package:telnyx_common/src/internal/session/session_manager.dart';
+import 'package:telnyx_common/src/internal/calls/call_state_controller.dart';
+import 'package:telnyx_common/src/internal/push/push_notification_manager.dart';
+import 'package:telnyx_common/src/internal/push/push_token_provider.dart';
+import 'package:telnyx_common/src/internal/push/notification_display_service.dart';
 import 'package:telnyx_common/utils/iterable_extensions.dart';
 
 /// The main public interface for the telnyx_common module.
@@ -22,20 +23,36 @@ class TelnyxVoipClient {
   // Internal components
   late final SessionManager _sessionManager;
   late final CallStateController _callStateController;
-  CallKitAdapter? _callKitAdapter;
-  PushNotificationGateway? _pushGateway;
+  PushNotificationManager? _pushNotificationManager;
 
   // Configuration
-  bool _nativeUIEnabled = false;
+  final PushNotificationManagerConfig _pushConfig;
   bool _disposed = false;
 
   /// Creates a new TelnyxVoipClient instance.
   ///
-  /// [enableNativeUI] - Whether to enable native call UI integration (Phase 2).
+  /// [enableNativeUI] - Whether to enable native call UI integration.
   /// When enabled, the client will automatically show native incoming call
   /// screens and manage call UI through the system's call interface.
-  TelnyxVoipClient({bool enableNativeUI = false}) {
-    _nativeUIEnabled = enableNativeUI;
+  ///
+  /// [enableBackgroundHandling] - Whether to enable background push notification handling.
+  ///
+  /// [notificationConfig] - Optional configuration for notification display.
+  ///
+  /// [customTokenProvider] - Optional custom push token provider. If not provided,
+  /// push token functionality will be disabled. Applications should implement
+  /// PushTokenProvider to provide platform-specific token management.
+  TelnyxVoipClient({
+    bool enableNativeUI = false,
+    bool enableBackgroundHandling = true,
+    NotificationConfig? notificationConfig,
+    PushTokenProvider? customTokenProvider,
+  }) : _pushConfig = PushNotificationManagerConfig(
+          enableNativeUI: enableNativeUI,
+          enableBackgroundHandling: enableBackgroundHandling,
+          notificationConfig: notificationConfig,
+          customTokenProvider: customTokenProvider,
+        ) {
     _initializeComponents();
   }
 
@@ -44,7 +61,8 @@ class TelnyxVoipClient {
   /// Emits the current status of the connection to the Telnyx backend.
   /// Values include connecting, connected, disconnected, and error states.
   /// Listen to this to show connection indicators in your UI.
-  Stream<ConnectionState> get connectionState => _sessionManager.connectionState;
+  Stream<ConnectionState> get connectionState =>
+      _sessionManager.connectionState;
 
   /// Stream of all current calls.
   ///
@@ -69,6 +87,9 @@ class TelnyxVoipClient {
   /// Current active call (synchronous access).
   Call? get currentActiveCall => _callStateController.currentActiveCall;
 
+  /// Current push token (synchronous access).
+  String? get currentPushToken => _pushNotificationManager?.currentToken;
+
   /// Connects to the Telnyx platform using credential authentication.
   ///
   /// [config] - The credential configuration containing SIP username and password.
@@ -77,6 +98,9 @@ class TelnyxVoipClient {
   /// Listen to [connectionState] to monitor the actual connection status.
   Future<void> login(CredentialConfig config) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
+
+    // Initialize push notification manager if not already done
+    await _ensurePushNotificationManagerInitialized();
 
     await _sessionManager.connectWithCredential(config);
   }
@@ -89,6 +113,9 @@ class TelnyxVoipClient {
   /// Listen to [connectionState] to monitor the actual connection status.
   Future<void> loginWithToken(TokenConfig config) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
+
+    // Initialize push notification manager if not already done
+    await _ensurePushNotificationManagerInitialized();
 
     await _sessionManager.connectWithToken(config);
   }
@@ -116,9 +143,10 @@ class TelnyxVoipClient {
     final call = await _callStateController.newCall(destination);
 
     // Show outgoing call UI if native UI is enabled
-    if (_nativeUIEnabled && _callKitAdapter != null) {
-      await _callKitAdapter!.startOutgoingCall(
+    if (_pushConfig.enableNativeUI && _pushNotificationManager != null) {
+      await _pushNotificationManager!.showOutgoingCall(
         callId: call.callId,
+        callerName: 'Local User', // This could be made configurable
         destination: destination,
       );
     }
@@ -143,11 +171,20 @@ class TelnyxVoipClient {
   Future<void> handlePushNotification(Map<String, dynamic> payload) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
 
-    if (_pushGateway == null) {
-      throw StateError('Push notification handling requires native UI to be enabled');
-    }
+    // Ensure push notification manager is initialized
+    await _ensurePushNotificationManagerInitialized();
 
-    await _pushGateway!.handlePushNotification(payload);
+    await _pushNotificationManager!.handlePushNotification(payload);
+  }
+
+  /// Refreshes the current push token.
+  ///
+  /// Returns the new token if successful, null otherwise.
+  Future<String?> refreshPushToken() async {
+    if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
+
+    await _ensurePushNotificationManagerInitialized();
+    return await _pushNotificationManager!.refreshToken();
   }
 
   /// Initializes the internal components.
@@ -156,73 +193,37 @@ class TelnyxVoipClient {
     _sessionManager = SessionManager();
 
     // Initialize call state controller
-    _callStateController = CallStateController(_sessionManager.telnyxClient, _sessionManager);
+    _callStateController =
+        CallStateController(_sessionManager.telnyxClient, _sessionManager);
 
     // Monitor connection state for call cleanup
-    _callStateController.monitorConnectionState(_sessionManager.connectionState);
-
-    // Initialize native UI components if enabled
-    if (_nativeUIEnabled) {
-      _initializeNativeUI();
-    }
+    _callStateController
+        .monitorConnectionState(_sessionManager.connectionState);
   }
 
-  /// Initializes native UI components (Phase 2).
-  void _initializeNativeUI() {
-    // Initialize CallKit adapter
-    _callKitAdapter = CallKitAdapter(
-      onCallAccepted: _handleCallAccepted,
-      onCallDeclined: _handleCallDeclined,
-      onCallEnded: _handleCallEnded,
-    );
+  /// Ensures the push notification manager is initialized.
+  Future<void> _ensurePushNotificationManagerInitialized() async {
+    if (_pushNotificationManager != null) return;
 
-    // Initialize push notification gateway
-    _pushGateway = PushNotificationGateway(
-      _callKitAdapter!,
+    _pushNotificationManager = PushNotificationManager(config: _pushConfig);
+
+    await _pushNotificationManager!.initialize(
       onPushNotificationProcessed: _handlePushNotificationProcessed,
+      onTokenRefresh: _handleTokenRefresh,
     );
-
-    // Initialize the CallKit adapter
-    _callKitAdapter!.initialize();
-  }
-
-  /// Handles call accepted from native UI.
-  void _handleCallAccepted(String callId) {
-    final call = _callStateController.currentCalls
-        .where((c) => c.callId == callId)
-        .firstOrNull;
-
-    if (call != null && call.isIncoming) {
-      call.answer();
-    }
-  }
-
-  /// Handles call declined from native UI.
-  void _handleCallDeclined(String callId) {
-    final call = _callStateController.currentCalls
-        .where((c) => c.callId == callId)
-        .firstOrNull;
-
-    if (call != null) {
-      call.hangup();
-    }
-  }
-
-  /// Handles call ended from native UI.
-  void _handleCallEnded(String callId) {
-    final call = _callStateController.currentCalls
-        .where((c) => c.callId == callId)
-        .firstOrNull;
-
-    if (call != null) {
-      call.hangup();
-    }
   }
 
   /// Handles processed push notifications.
   void _handlePushNotificationProcessed(PushMetaData pushMetaData) {
     // Connect with push metadata to handle the incoming call
     _sessionManager.connectWithPushMetadata(pushMetaData);
+  }
+
+  /// Handles push token refresh.
+  void _handleTokenRefresh(String newToken) {
+    print(
+        'TelnyxVoipClient: Push token refreshed: ${newToken.substring(0, 10)}...');
+    // Here you could implement token registration with your backend
   }
 
   /// Disposes of the client and cleans up all resources.
@@ -235,7 +236,6 @@ class TelnyxVoipClient {
 
     _callStateController.dispose();
     _sessionManager.dispose();
-    _callKitAdapter?.dispose();
-    _pushGateway?.dispose();
+    _pushNotificationManager?.dispose();
   }
 }

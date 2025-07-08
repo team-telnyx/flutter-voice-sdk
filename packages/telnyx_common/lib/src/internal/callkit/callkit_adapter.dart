@@ -33,7 +33,8 @@ class CallKitAdapter {
     if (_disposed) return;
 
     // Listen for CallKit events
-    _callEventSubscription = FlutterCallkitIncoming.onEvent.listen(_handleCallEvent);
+    _callEventSubscription =
+        FlutterCallkitIncoming.onEvent.listen(_handleCallEvent);
   }
 
   /// Shows the native incoming call UI.
@@ -109,7 +110,8 @@ class CallKitAdapter {
   }
 
   /// Hides the incoming call UI (Android only).
-  Future<void> hideIncomingCall(String callId, String callerName, String callerNumber) async {
+  Future<void> hideIncomingCall(
+      String callId, String callerName, String callerNumber) async {
     if (_disposed) return;
 
     try {

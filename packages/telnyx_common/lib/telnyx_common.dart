@@ -10,6 +10,14 @@ export 'src/telnyx_voip_client.dart';
 export 'src/models/call.dart';
 export 'src/models/connection_state.dart';
 export 'src/models/call_state.dart';
+export 'src/internal/push/push_notification_manager.dart'
+    show PushNotificationManagerConfig;
+export 'src/internal/push/notification_display_service.dart'
+    show NotificationConfig;
+export 'src/internal/push/push_token_provider.dart' show PushTokenProvider;
+export 'src/internal/push/firebase_push_token_provider.dart';
+export 'src/internal/push/ios_push_token_provider.dart';
+export 'src/internal/push/default_push_token_provider.dart';
 export 'utils/iterable_extensions.dart';
 
 // Re-export telnyx_config classes directly

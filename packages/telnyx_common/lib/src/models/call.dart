@@ -3,7 +3,8 @@ import 'package:uuid/uuid.dart';
 import 'call_state.dart';
 
 /// Callback function type for call actions.
-typedef CallActionCallback = void Function(String callId, CallAction action, [Map<String, dynamic>? params]);
+typedef CallActionCallback = void Function(String callId, CallAction action,
+    [Map<String, dynamic>? params]);
 
 /// Enum representing different call actions.
 enum CallAction {
@@ -41,9 +42,12 @@ class Call {
   final CallActionCallback onAction;
 
   // Stream controllers for reactive state management
-  final StreamController<CallState> _callStateController = StreamController<CallState>.broadcast();
-  final StreamController<bool> _isMutedController = StreamController<bool>.broadcast();
-  final StreamController<bool> _isHeldController = StreamController<bool>.broadcast();
+  final StreamController<CallState> _callStateController =
+      StreamController<CallState>.broadcast();
+  final StreamController<bool> _isMutedController =
+      StreamController<bool>.broadcast();
+  final StreamController<bool> _isHeldController =
+      StreamController<bool>.broadcast();
 
   // Current state values
   CallState _currentState = CallState.initiating;
@@ -137,7 +141,7 @@ class Call {
     if (!_currentState.canMute) {
       throw StateError('Cannot mute call in current state: $_currentState');
     }
-    
+
     final action = _isMuted ? CallAction.unmute : CallAction.mute;
     onAction(callId, action);
   }
@@ -160,14 +164,15 @@ class Call {
   /// [tone] should be a single digit (0-9), *, or #.
   /// This method can only be called on active calls.
   Future<void> dtmf(String tone) async {
-    if (!_currentState.canMute) { // Using canMute as proxy for "can send DTMF"
+    if (!_currentState.canMute) {
+      // Using canMute as proxy for "can send DTMF"
       throw StateError('Cannot send DTMF in current state: $_currentState');
     }
-    
+
     if (!RegExp(r'^[0-9*#]$').hasMatch(tone)) {
       throw ArgumentError('Invalid DTMF tone: $tone. Must be 0-9, *, or #');
     }
-    
+
     onAction(callId, CallAction.dtmf, {'tone': tone});
   }
 
@@ -184,8 +189,8 @@ class Call {
   @override
   String toString() {
     return 'Call(callId: $callId, state: $_currentState, '
-           'isIncoming: $isIncoming, destination: $destination, '
-           'callerName: $callerName, callerNumber: $callerNumber)';
+        'isIncoming: $isIncoming, destination: $destination, '
+        'callerName: $callerName, callerNumber: $callerNumber)';
   }
 
   @override

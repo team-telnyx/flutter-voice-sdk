@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:telnyx_webrtc/model/push_notification.dart';
-import 'callkit_adapter.dart';
+import '../callkit/callkit_adapter.dart';
 
 /// Callback function type for processed push notifications.
 typedef PushNotificationCallback = void Function(PushMetaData pushMetaData);
@@ -48,13 +48,15 @@ class PushNotificationGateway {
 
       // Check if this is a missed call notification
       if (_isMissedCallNotification(payload)) {
-        print('PushNotificationGateway: Received missed call notification, ignoring');
+        print(
+            'PushNotificationGateway: Received missed call notification, ignoring');
         return;
       }
 
       // Check if the notification is stale
       if (_isStaleNotification(payload)) {
-        print('PushNotificationGateway: Notification is stale, showing missed call instead');
+        print(
+            'PushNotificationGateway: Notification is stale, showing missed call instead');
         await _showMissedCallNotification(callId, pushMetaData, payload);
         return;
       }
@@ -70,9 +72,11 @@ class PushNotificationGateway {
       // Notify that the push notification has been processed
       onPushNotificationProcessed(pushMetaData);
 
-      print('PushNotificationGateway: Successfully processed push notification for call $callId');
+      print(
+          'PushNotificationGateway: Successfully processed push notification for call $callId');
     } catch (error) {
-      print('PushNotificationGateway: Error processing push notification: $error');
+      print(
+          'PushNotificationGateway: Error processing push notification: $error');
     }
   }
 
@@ -108,7 +112,7 @@ class PushNotificationGateway {
       try {
         final metadataMap = payload['metadata'];
         final Map<String, dynamic> parsedMetadata;
-        
+
         if (metadataMap is String) {
           parsedMetadata = jsonDecode(metadataMap);
         } else if (metadataMap is Map<String, dynamic>) {
@@ -128,7 +132,8 @@ class PushNotificationGateway {
           }
         }
       } catch (error) {
-        print('PushNotificationGateway: Error extracting call ID from headers: $error');
+        print(
+            'PushNotificationGateway: Error extracting call ID from headers: $error');
       }
     }
 
@@ -153,7 +158,8 @@ class PushNotificationGateway {
 
       return difference.inSeconds > 30; // 30 seconds timeout
     } catch (error) {
-      print('PushNotificationGateway: Error checking notification staleness: $error');
+      print(
+          'PushNotificationGateway: Error checking notification staleness: $error');
       return false;
     }
   }
@@ -171,9 +177,11 @@ class PushNotificationGateway {
       // Note: Showing missed call notification would require additional
       // CallKit functionality that's not implemented in this basic version.
       // This is a placeholder for the full implementation.
-      print('PushNotificationGateway: Would show missed call notification for $callId');
+      print(
+          'PushNotificationGateway: Would show missed call notification for $callId');
     } catch (error) {
-      print('PushNotificationGateway: Error showing missed call notification: $error');
+      print(
+          'PushNotificationGateway: Error showing missed call notification: $error');
     }
   }
 
