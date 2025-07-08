@@ -24,6 +24,8 @@ dependencies:
   flutter_svg: ^2.0.17
   fluttertoast: ^8.2.11
   logger: ^2.5.0
+  telnyx_common:
+    path: ./packages/telnyx_common
 
 dev_dependencies:
   flutter_test:
