@@ -76,12 +76,14 @@ class NotificationDisplayService {
           FlutterLocalNotificationsPlugin();
 
       await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
-      
+
       print('NotificationDisplayService: Android notification channel created');
     } else {
-      print('NotificationDisplayService: iOS notification channels not required');
+      print(
+          'NotificationDisplayService: iOS notification channels not required');
     }
   }
 

@@ -74,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text("Error"),
+            title: const Text('Error'),
             content: Text(errorMessage),
             actions: [
               TextButton(
@@ -82,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   context.read<TelnyxClientViewModel>().clearErrorDialog();
                   Navigator.of(context).pop();
                 },
-                child: const Text("OK"),
+                child: const Text('OK'),
               ),
             ],
           ),
@@ -155,32 +155,32 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           : clientState == CallStateStatus.disconnected
-          ? // Connect Bottom Action widget positioned at the bottom
-            Consumer<TelnyxClientViewModel>(
-              builder: (context, viewModel, child) {
-                final profileProvider = context.watch<ProfileProvider>();
-                final selectedProfile = profileProvider.selectedProfile;
-                return Padding(
-                  padding: const EdgeInsets.all(spacingXXL),
-                  child: BottomConnectionActionWidget(
-                    buttonTitle: 'Connect',
-                    isLoading: viewModel.loggingIn,
-                    onPressed: selectedProfile != null
-                        ? () async {
-                            final config = await selectedProfile
-                                .toTelnyxConfig();
-                            if (config is TokenConfig) {
-                              viewModel.loginWithToken(config);
-                            } else if (config is CredentialConfig) {
-                              viewModel.login(config);
-                            }
-                          }
-                        : null,
-                  ),
-                );
-              },
-            )
-          : null,
+              ? // Connect Bottom Action widget positioned at the bottom
+              Consumer<TelnyxClientViewModel>(
+                  builder: (context, viewModel, child) {
+                    final profileProvider = context.watch<ProfileProvider>();
+                    final selectedProfile = profileProvider.selectedProfile;
+                    return Padding(
+                      padding: const EdgeInsets.all(spacingXXL),
+                      child: BottomConnectionActionWidget(
+                        buttonTitle: 'Connect',
+                        isLoading: viewModel.loggingIn,
+                        onPressed: selectedProfile != null
+                            ? () async {
+                                final config =
+                                    await selectedProfile.toTelnyxConfig();
+                                if (config is TokenConfig) {
+                                  viewModel.loginWithToken(config);
+                                } else if (config is CredentialConfig) {
+                                  viewModel.login(config);
+                                }
+                              }
+                            : null,
+                      ),
+                    );
+                  },
+                )
+              : null,
     );
   }
 }

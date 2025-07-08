@@ -26,12 +26,12 @@ abstract class BaseButton extends StatelessWidget {
 
 class CallButton extends BaseButton {
   const CallButton({super.key, required VoidCallback onPressed})
-    : super(onPressed: onPressed, iconPath: green_call_icon);
+      : super(onPressed: onPressed, iconPath: green_call_icon);
 }
 
 class DeclineButton extends BaseButton {
   const DeclineButton({super.key, required VoidCallback onPressed})
-    : super(onPressed: onPressed, iconPath: red_decline_icon);
+      : super(onPressed: onPressed, iconPath: red_decline_icon);
 }
 
 class CallControlButton extends StatefulWidget {
