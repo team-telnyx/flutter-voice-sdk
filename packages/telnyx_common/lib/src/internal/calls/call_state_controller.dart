@@ -31,6 +31,9 @@ class CallStateController {
   final Map<String, StreamSubscription> _callSubscriptions = {};
   final Map<String, IncomingInviteParams> _originalInviteParams = {};
 
+  // Track socket-driven state changes to prioritize them over TelnyxCall state changes
+  final Map<String, DateTime> _lastSocketStateChange = {};
+
   bool _disposed = false;
 
   /// Creates a new CallStateController instance.
@@ -115,12 +118,12 @@ class CallStateController {
   void _setupSocketObservers() {
     // Store the original callback so we can call it first
     final originalCallback = _telnyxClient.onSocketMessageReceived;
-    
+
     _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
       // First, let the TelnyxClient handle the message internally
       // This is crucial for WebRTC setup, especially for incoming invites
       originalCallback(message);
-      
+
       // Then handle our additional processing
       _handleSocketMessage(message);
     };
@@ -179,11 +182,11 @@ class CallStateController {
 
     // Get the TelnyxCall that was created during internal processing
     final telnyxCall = _telnyxClient.getCallOrNull(callId);
-    
+
     if (telnyxCall != null) {
       // Store the TelnyxCall for later use
       _telnyxCalls[callId] = telnyxCall;
-      
+
       // Set up observation of the TelnyxCall
       _observeTelnyxCall(callId, telnyxCall);
     }
@@ -203,8 +206,11 @@ class CallStateController {
   }
 
   /// Handles answer messages from the socket.
+  /// This provides IMMEDIATE state transition to active when remote party answers.
   void _handleAnswerMessage(TelnyxMessage message) {
-    // Find the call that was answered and update its state
+    final timestamp = DateTime.now();
+
+    // Find the call that was answered and update its state IMMEDIATELY
     final activeCall = _calls.values
         .where((call) =>
             call.currentState == CallState.initiating ||
@@ -212,33 +218,49 @@ class CallStateController {
         .firstOrNull;
 
     if (activeCall != null) {
+      // Mark this as a socket-driven state change (priority update)
+      _lastSocketStateChange[activeCall.callId] = timestamp;
       activeCall.updateState(CallState.active);
+      activeCall.updateHoldState(false); // Ensure not held when active
+
       _notifyCallsChanged();
     }
   }
 
   /// Handles ringing messages from the socket.
+  /// This provides IMMEDIATE state transition to ringing for outgoing calls.
   void _handleRingingMessage(TelnyxMessage message) {
-    // Update outgoing calls to ringing state
+    final timestamp = DateTime.now();
+
+    // Update outgoing calls to ringing state IMMEDIATELY
     final ringingCall = _calls.values
         .where((call) =>
             !call.isIncoming && call.currentState == CallState.initiating)
         .firstOrNull;
 
     if (ringingCall != null) {
+      // Mark this as a socket-driven state change (priority update)
+      _lastSocketStateChange[ringingCall.callId] = timestamp;
       ringingCall.updateState(CallState.ringing);
+
       _notifyCallsChanged();
     }
   }
 
   /// Handles bye messages from the socket.
+  /// This provides IMMEDIATE state transition to ended when call terminates.
   void _handleByeMessage(TelnyxMessage message) {
-    // End all active calls when receiving a bye message
+    final timestamp = DateTime.now();
+
+    // End all active calls when receiving a bye message IMMEDIATELY
     for (final call in _calls.values) {
       if (!call.currentState.isTerminated) {
+        // Mark this as a socket-driven state change (priority update)
+        _lastSocketStateChange[call.callId] = timestamp;
         call.updateState(CallState.ended);
       }
     }
+
     _cleanupTerminatedCalls();
     _notifyCallsChanged();
   }
@@ -286,7 +308,7 @@ class CallStateController {
     try {
       // Get the original invite parameters with SDP data
       final originalInviteParams = _originalInviteParams[call.callId];
-      
+
       if (telnyxCall != null && originalInviteParams != null) {
         // Use existing TelnyxCall with original invite parameters containing SDP data
         final updatedTelnyxCall = telnyxCall.acceptCall(
@@ -295,17 +317,18 @@ class CallStateController {
           _sessionManager.sipCallerIDNumber ?? 'Unknown',
           'State', // Default state
         );
-        
+
         // Update our reference and re-observe the updated call
         _telnyxCalls[call.callId] = updatedTelnyxCall;
         _observeTelnyxCall(call.callId, updatedTelnyxCall);
       } else {
         // Fallback: Try to get the call from TelnyxClient or create new one
-        final inviteParams = originalInviteParams ?? IncomingInviteParams(
-          callID: call.callId,
-          callerIdName: call.callerName,
-          callerIdNumber: call.callerNumber,
-        );
+        final inviteParams = originalInviteParams ??
+            IncomingInviteParams(
+              callID: call.callId,
+              callerIdName: call.callerName,
+              callerIdNumber: call.callerNumber,
+            );
 
         final newTelnyxCall = _telnyxClient.acceptCall(
           inviteParams,
@@ -363,7 +386,7 @@ class CallStateController {
 
     try {
       telnyxCall?.onHoldUnholdPressed();
-      
+
       // Immediately update the state since TelnyxCall state handlers may not be working properly
       if (hold) {
         call.updateState(CallState.held);
@@ -372,7 +395,7 @@ class CallStateController {
         call.updateState(CallState.active);
         call.updateHoldState(false);
       }
-      
+
       _notifyCallsChanged();
     } catch (error) {
       // Hold operation failed, but don't change call state
@@ -423,7 +446,20 @@ class CallStateController {
   void _handleTelnyxCallStateChange(
       String callId, telnyx_call_state.CallState state) {
     final call = _calls[callId];
-    if (call == null) return;
+    if (call == null) {
+      return;
+    }
+
+    // Check if there was a recent socket-driven state change that should take priority
+    final lastSocketChange = _lastSocketStateChange[callId];
+    final now = DateTime.now();
+    const socketPriorityWindow =
+        Duration(milliseconds: 2000); // 2-second priority window
+
+    if (lastSocketChange != null &&
+        now.difference(lastSocketChange) < socketPriorityWindow) {
+      return;
+    }
 
     switch (state) {
       case telnyx_call_state.CallState.connecting:
@@ -474,9 +510,10 @@ class CallStateController {
     final call = _calls.remove(callId);
     final telnyxCall = _telnyxCalls.remove(callId);
     final subscription = _callSubscriptions.remove(callId);
-    
-    // Clean up stored invite parameters
+
+    // Clean up stored invite parameters and socket state tracking
     _originalInviteParams.remove(callId);
+    _lastSocketStateChange.remove(callId);
 
     call?.dispose();
     subscription?.cancel();

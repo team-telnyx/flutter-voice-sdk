@@ -34,7 +34,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   final telnyx.TelnyxVoipClient _telnyxVoipClient = telnyx.TelnyxVoipClient(
     enableNativeUI: true,
     enableBackgroundHandling: true,
-    customTokenProvider: telnyx.FirebasePushTokenProvider(),
+    customTokenProvider: telnyx.DefaultPushTokenProvider(),
   );
 
   // Stream subscriptions for telnyx_common
@@ -136,7 +136,13 @@ class TelnyxClientViewModel with ChangeNotifier {
     // Map telnyx_common CallState to UI CallStateStatus
     switch (_activeCall!.currentState) {
       case telnyx.CallState.initiating:
-        return CallStateStatus.connectingToCall;
+        // For outgoing calls, show ringing immediately (we're placing a call, not connecting)
+        // For incoming calls, show connecting (we're connecting to accept)
+        if (_activeCall!.isIncoming) {
+          return CallStateStatus.connectingToCall;
+        } else {
+          return CallStateStatus.ringing;
+        }
       case telnyx.CallState.ringing:
         // For incoming calls, we need to show different states based on whether user needs to answer
         if (_activeCall!.isIncoming) {
@@ -155,6 +161,9 @@ class TelnyxClientViewModel with ChangeNotifier {
       case telnyx.CallState.error:
         return CallStateStatus.idle; // Call ended, back to idle
     }
+
+    // This should never be reached, but satisfies the analyzer
+    return CallStateStatus.idle;
   }
 
   set callState(CallStateStatus newState) {
@@ -305,9 +314,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     notifyListeners();
   }
 
-  // observeCurrentCall is now handled by telnyx_common streams
-  // Call quality monitoring is set up in _setupCallQualityMonitoring
-
   Future<void> _saveCredentialsForAutoLogin(Config config) async {
     await _clearConfigForAutoLogin();
     final prefs = await SharedPreferences.getInstance();
@@ -334,9 +340,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     await prefs.remove('notificationToken');
   }
 
-  // observeResponses is now replaced by telnyx_common stream subscriptions
-  // Error handling is done in the connection state stream
-
   String formatSignalingErrorMessage(int causeCode, String message) {
     switch (causeCode) {
       case -32000:
@@ -356,8 +359,6 @@ class TelnyxClientViewModel with ChangeNotifier {
         return message;
     }
   }
-
-  // _endCallFromPush is no longer needed - handled by telnyx_common
 
   Future<void> handlePushNotification(Map<String, dynamic> pushData) async {
     logger.i(
@@ -456,8 +457,6 @@ class TelnyxClientViewModel with ChangeNotifier {
       _setErrorDialog('Failed to initiate call: $e');
     }
   }
-
-  // waitingForInvite is no longer needed - handled by telnyx_common
 
   /// Returns the stored CredentialConfig or TokenConfig, preferring Credential.
   /// Uses [ConfigHelper] for retrieval.
