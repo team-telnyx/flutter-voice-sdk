@@ -31,8 +31,7 @@ class MosCalculator {
     // - Ie is the equipment impairment factor (affected by packet loss and codec)
 
     // Delay impairment (Id)
-    final delayImpairment =
-        0.024 * effectiveRtt +
+    final delayImpairment = 0.024 * effectiveRtt +
         0.11 * (effectiveRtt - 177.3) * (effectiveRtt > 177.3 ? 1 : 0);
 
     // Equipment impairment (Ie)
@@ -58,8 +57,7 @@ class MosCalculator {
     } else if (clampedRFactor > 100) {
       mos = 4.5;
     } else {
-      mos =
-          1 +
+      mos = 1 +
           0.035 * clampedRFactor +
           clampedRFactor *
               (clampedRFactor - 60) *

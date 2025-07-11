@@ -38,7 +38,8 @@ class DefaultPushTokenProvider implements PushTokenProvider {
   }
 
   @override
-  Future<void> setupTokenRefreshListener(Function(String) onTokenRefresh) async {
+  Future<void> setupTokenRefreshListener(
+      Function(String) onTokenRefresh) async {
     if (!_initialized) return;
     await _delegate.setupTokenRefreshListener(onTokenRefresh);
   }
@@ -59,8 +60,10 @@ class _NoOpPushTokenProvider implements PushTokenProvider {
   }
 
   @override
-  Future<void> setupTokenRefreshListener(Function(String) onTokenRefresh) async {
-    print('NoOpPushTokenProvider: Token refresh not supported on this platform');
+  Future<void> setupTokenRefreshListener(
+      Function(String) onTokenRefresh) async {
+    print(
+        'NoOpPushTokenProvider: Token refresh not supported on this platform');
   }
 
   @override

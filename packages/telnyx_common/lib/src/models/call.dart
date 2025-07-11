@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:uuid/uuid.dart';
+import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'call_state.dart';
 
 /// Callback function type for call actions.
@@ -15,6 +16,7 @@ enum CallAction {
   hold,
   unhold,
   dtmf,
+  enableSpeakerPhone,
 }
 
 /// Represents an individual call with state management and control methods.
@@ -48,11 +50,14 @@ class Call {
       StreamController<bool>.broadcast();
   final StreamController<bool> _isHeldController =
       StreamController<bool>.broadcast();
+  final StreamController<CallQualityMetrics> _callQualityController =
+      StreamController<CallQualityMetrics>.broadcast();
 
   // Current state values
   CallState _currentState = CallState.initiating;
   bool _isMuted = false;
   bool _isHeld = false;
+  CallQualityMetrics? _currentCallQualityMetrics;
 
   /// Creates a new Call instance.
   ///
@@ -81,6 +86,10 @@ class Call {
   /// Stream of hold state changes.
   Stream<bool> get isHeld => _isHeldController.stream;
 
+  /// Stream of call quality metrics updates.
+  Stream<CallQualityMetrics> get callQualityMetrics =>
+      _callQualityController.stream;
+
   /// Current call state (synchronous access).
   CallState get currentState => _currentState;
 
@@ -89,6 +98,10 @@ class Call {
 
   /// Current hold state (synchronous access).
   bool get currentIsHeld => _isHeld;
+
+  /// Current call quality metrics (synchronous access).
+  CallQualityMetrics? get currentCallQualityMetrics =>
+      _currentCallQualityMetrics;
 
   /// Updates the call state and notifies listeners.
   void updateState(CallState newState) {
@@ -112,6 +125,12 @@ class Call {
       _isHeld = held;
       _isHeldController.add(held);
     }
+  }
+
+  /// Updates the call quality metrics and notifies listeners.
+  void updateCallQualityMetrics(CallQualityMetrics metrics) {
+    _currentCallQualityMetrics = metrics;
+    _callQualityController.add(metrics);
   }
 
   /// Answers the incoming call.
@@ -176,6 +195,20 @@ class Call {
     onAction(callId, CallAction.dtmf, {'tone': tone});
   }
 
+  /// Enables or disables speaker phone.
+  ///
+  /// [enable] - true to enable speaker phone, false to disable.
+  /// This method can only be called on active calls.
+  Future<void> enableSpeakerPhone(bool enable) async {
+    if (!_currentState.canMute) {
+      // Using canMute as proxy for "can enable speaker phone"
+      throw StateError(
+          'Cannot toggle speaker phone in current state: $_currentState');
+    }
+
+    onAction(callId, CallAction.enableSpeakerPhone, {'enable': enable});
+  }
+
   /// Disposes of the call and closes all streams.
   ///
   /// This method should be called when the call is no longer needed
@@ -184,6 +217,7 @@ class Call {
     _callStateController.close();
     _isMutedController.close();
     _isHeldController.close();
+    _callQualityController.close();
   }
 
   @override

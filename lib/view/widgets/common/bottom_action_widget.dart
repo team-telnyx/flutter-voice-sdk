@@ -61,9 +61,9 @@ class _BottomConnectionActionWidgetState
         Text(
           _versionString,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            fontSize: 10,
-            color: Colors.grey[600],
-          ),
+                fontSize: 10,
+                color: Colors.grey[600],
+              ),
           textAlign: TextAlign.center,
         ),
       ],

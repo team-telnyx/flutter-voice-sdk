@@ -90,6 +90,17 @@ class TelnyxVoipClient {
   /// Current push token (synchronous access).
   String? get currentPushToken => _pushNotificationManager?.currentToken;
 
+  /// Current session ID (UUID) for this connection.
+  String get sessionId => _sessionManager.sessionId;
+
+  /// Disables push notifications for the current session.
+  ///
+  /// This method sends a request to the Telnyx backend to disable push
+  /// notifications for the current registered device/session.
+  void disablePushNotifications() {
+    _sessionManager.disablePushNotifications();
+  }
+
   /// Connects to the Telnyx platform using credential authentication.
   ///
   /// [config] - The credential configuration containing SIP username and password.

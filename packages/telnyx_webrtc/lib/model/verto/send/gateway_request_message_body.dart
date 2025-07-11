@@ -44,9 +44,8 @@ class GatewayRequestStateParams {
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     if (gatewayRequestParams != null) {
-      data['reattached_sessions'] = gatewayRequestParams!
-          .map((v) => v)
-          .toList();
+      data['reattached_sessions'] =
+          gatewayRequestParams!.map((v) => v).toList();
     }
     return data;
   }

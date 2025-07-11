@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
@@ -12,12 +11,8 @@ import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
-import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
-import 'package:telnyx_flutter_webrtc/service/platform_push_service.dart';
-import 'package:telnyx_flutter_webrtc/service/android_push_notification_handler.dart'
-    show androidBackgroundMessageHandler;
 
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
@@ -41,7 +36,7 @@ class AppInitializer {
       _isInitialized = true;
       logger.i('[AppInitializer] Initializing...');
 
-      // Initialize Firebase first, ensuring it's ready before platform handlers use it.
+      // Initialize Firebase first - telnyx_common will handle the rest
       try {
         await Firebase.initializeApp(
           options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
@@ -51,24 +46,35 @@ class AppInitializer {
         logger.e('[AppInitializer] Firebase Core Initialization failed: $e');
       }
 
-      // Delegate to platform-specific push handler for initialization
-      // This will set up FCM listeners, CallKit listeners, etc.
-      await PlatformPushService.handler.initialize();
+      // telnyx_common handles push notification setup automatically
+      logger.i(
+          '[AppInitializer] Push notification setup handled by telnyx_common');
     } else {
       logger.i('[AppInitializer] Already initialized.');
     }
   }
 }
 
-// Android Only - Push Notifications
-// This global function remains as an entry point for Firebase background messages on Android.
-// It will now delegate to the annotated top-level function in android_push_notification_handler.dart.
+// Simplified background message handler using telnyx_common
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   logger.i(
     '[Background Notification]. Received background message: ${message.data}',
   );
-  await androidBackgroundMessageHandler(message);
+
+  // Initialize Firebase for the background isolate
+  try {
+    await Firebase.initializeApp(
+      options: kIsWeb ? DefaultFirebaseOptions.currentPlatform : null,
+    );
+  } catch (e) {
+    logger.e('[Background Handler] Firebase initialization failed: $e');
+    return;
+  }
+
+  // Use telnyx_common to handle push notifications automatically
+  // The TelnyxVoipClient in the view model will handle the push notification processing
+  await handlePush(message.data);
 }
 
 @pragma('vm:entry-point')
@@ -84,13 +90,11 @@ Future<void> main() async {
           'Caught Flutter error: ${details.exception}',
           stackTrace: details.stack,
         );
-        PlatformPushService.handler.clearPushData();
       };
 
       // Catch other platform errors (e.g., Dart errors outside Flutter)
       PlatformDispatcher.instance.onError = (error, stack) {
         logger.e('Caught Platform error: $error', stackTrace: stack);
-        PlatformPushService.handler.clearPushData();
         return true;
       };
 
@@ -131,7 +135,6 @@ Future<void> main() async {
     },
     (error, stack) {
       logger.e('Caught Zoned error: $error', stackTrace: stack);
-      PlatformPushService.handler.clearPushData();
     },
   );
 }
@@ -140,32 +143,18 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
   logger.i('[handlePush] Started. Raw data: $data');
   txClientViewModel.setPushCallStatus(true);
 
-  // Check if this is an answer action from push notification
-  final bool isAnswer = data['isAnswer'] == true;
-  if (isAnswer) {
-    logger.i(
-      '[handlePush] Answer action detected - setting call state to connectingToCall',
-    );
-    txClientViewModel.callState = CallStateStatus.connectingToCall;
-  }
+  // Simplified push handling using telnyx_common
+  try {
+    // Convert data to Map<String, dynamic> for telnyx_common
+    final pushData = Map<String, dynamic>.from(data);
 
-  PushMetaData? pushMetaData;
-  if (defaultTargetPlatform == TargetPlatform.android) {
-    pushMetaData = PushMetaData.fromJson(data);
-  } else if (Platform.isIOS) {
-    pushMetaData = PushMetaData.fromJson(data);
+    // telnyx_common handles push notification processing automatically
+    await txClientViewModel.handlePushNotification(pushData);
+
+    logger.i('[handlePush] Processing complete using telnyx_common');
+  } catch (e) {
+    logger.e('[handlePush] Error processing push notification: $e');
   }
-  logger.i('[handlePush] Before txClientViewModel.getConfig()');
-  final config = await txClientViewModel.getConfig();
-  logger.i('[handlePush] Created PushMetaData: ${pushMetaData?.toJson()}');
-  txClientViewModel
-    ..handlePushNotification(
-      pushMetaData!,
-      config is CredentialConfig ? config : null,
-      config is TokenConfig ? config : null,
-    )
-    ..observeResponses();
-  logger.i('[handlePush] Processing complete. Call state should update soon.');
 }
 
 class MyApp extends StatefulWidget {
@@ -179,31 +168,9 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    logger.i('[_MyAppState] initState called.');
-
-    // Platform-specific logic for handling initial push data when app starts.
-    // For Android, this checks if the app was launched from a terminated state by a notification.
-    // For iOS, this is less critical as CallKit events usually drive the flow after launch.
-    PlatformPushService.handler
-        .getInitialPushData()
-        .then((data) {
-          if (data != null) {
-            final Map<dynamic, dynamic> mutablePayload = Map.from(data);
-            final answer = mutablePayload['isAnswer'] = true;
-            PlatformPushService.handler.processIncomingCallAction(
-              data,
-              isAnswer: answer,
-              isDecline: !answer,
-            );
-          } else {
-            logger.i('[_MyAppState] Android: No initial push data found.');
-          }
-        })
-        .catchError((e) {
-          logger.e(
-            '[_MyAppState] Android: Error fetching initial push data: $e',
-          );
-        });
+    logger
+      ..i('[_MyAppState] initState called.')
+      ..i('[_MyAppState] Push data handling managed by telnyx_common');
   }
 
   @override

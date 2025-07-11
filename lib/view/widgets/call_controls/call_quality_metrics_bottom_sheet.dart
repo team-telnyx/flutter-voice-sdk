@@ -147,7 +147,6 @@ class MetricsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -188,7 +187,6 @@ class MetricsSection extends StatelessWidget {
             ],
           ),
         ),
-
         if (metrics != null) ...[
           const SizedBox(height: 16),
           const QualityExplanation(),

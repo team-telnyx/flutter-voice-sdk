@@ -105,9 +105,8 @@ class StatParsingHelpers {
       iceServer,
     ) {
       return {
-        'urls': iceServer['url'] is String
-            ? [iceServer['url']]
-            : iceServer['url'],
+        'urls':
+            iceServer['url'] is String ? [iceServer['url']] : iceServer['url'],
         'username': iceServer['username'] ?? '',
         //'credential': iceServer['credential'] ?? '',
       };

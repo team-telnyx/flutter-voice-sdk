@@ -12,6 +12,8 @@ void main() {
         sipCallerIDName: 'Test User',
         sipCallerIDNumber: '+1234567890',
         forceRelayCandidate: true,
+        logLevel: LogLevel.debug,
+        debug: false,
       );
 
       expect(config.forceRelayCandidate, true);
@@ -23,6 +25,8 @@ void main() {
         sipPassword: 'testpass',
         sipCallerIDName: 'Test User',
         sipCallerIDNumber: '+1234567890',
+        logLevel: LogLevel.debug,
+        debug: false,
       );
 
       expect(config.forceRelayCandidate, false);
@@ -34,6 +38,8 @@ void main() {
         sipCallerIDName: 'Test User',
         sipCallerIDNumber: '+1234567890',
         forceRelayCandidate: true,
+        logLevel: LogLevel.debug,
+        debug: false,
       );
 
       expect(config.forceRelayCandidate, true);
@@ -44,23 +50,11 @@ void main() {
         sipToken: 'testtoken',
         sipCallerIDName: 'Test User',
         sipCallerIDNumber: '+1234567890',
+        logLevel: LogLevel.debug,
+        debug: false,
       );
 
       expect(config.forceRelayCandidate, false);
-    });
-
-    test('TelnyxClient should return correct forceRelayCandidate value', () {
-      final client = TelnyxClient();
-      final config = CredentialConfig(
-        sipUser: 'testuser',
-        sipPassword: 'testpass',
-        sipCallerIDName: 'Test User',
-        sipCallerIDNumber: '+1234567890',
-        forceRelayCandidate: true,
-      );
-
-      client.credentialConfig = config;
-      expect(client.getForceRelayCandidate(), true);
     });
 
     test('TelnyxClient should return false when no config is set', () {

@@ -19,10 +19,12 @@ class IosPushTokenProvider implements PushTokenProvider {
     try {
       if (Platform.isIOS) {
         final token = await FlutterCallkitIncoming.getDevicePushTokenVoIP();
-        print('IosPushTokenProvider: Retrieved VoIP token: ${token?.substring(0, 20)}...');
+        print(
+            'IosPushTokenProvider: Retrieved VoIP token: ${token?.substring(0, 20)}...');
         return token;
       } else {
-        print('IosPushTokenProvider: VoIP tokens only supported on iOS platform');
+        print(
+            'IosPushTokenProvider: VoIP tokens only supported on iOS platform');
         return null;
       }
     } catch (e) {
@@ -32,7 +34,8 @@ class IosPushTokenProvider implements PushTokenProvider {
   }
 
   @override
-  Future<void> setupTokenRefreshListener(Function(String) onTokenRefresh) async {
+  Future<void> setupTokenRefreshListener(
+      Function(String) onTokenRefresh) async {
     if (_disposed) return;
 
     _onTokenRefresh = onTokenRefresh;
@@ -43,16 +46,20 @@ class IosPushTokenProvider implements PushTokenProvider {
         // in AppDelegate.swift via PKPushRegistryDelegate.didUpdate
         // The token refresh events would need to be bridged through platform channels
         // if real-time refresh detection is needed in Flutter.
-        // 
+        //
         // For now, we set up the callback but actual token refresh detection
         // would require additional native iOS implementation.
-        print('IosPushTokenProvider: VoIP token refresh listener setup complete');
-        print('IosPushTokenProvider: Note - VoIP token refresh primarily handled in AppDelegate.swift');
+        print(
+            'IosPushTokenProvider: VoIP token refresh listener setup complete');
+        print(
+            'IosPushTokenProvider: Note - VoIP token refresh primarily handled in AppDelegate.swift');
       } else {
-        print('IosPushTokenProvider: Token refresh not supported on this platform');
+        print(
+            'IosPushTokenProvider: Token refresh not supported on this platform');
       }
     } catch (e) {
-      print('IosPushTokenProvider: Error setting up token refresh listener: $e');
+      print(
+          'IosPushTokenProvider: Error setting up token refresh listener: $e');
     }
   }
 
@@ -62,8 +69,9 @@ class IosPushTokenProvider implements PushTokenProvider {
   /// when the VoIP token is updated in AppDelegate.swift
   void notifyTokenRefresh(String newToken) {
     if (_disposed) return;
-    
-    print('IosPushTokenProvider: VoIP token refreshed: ${newToken.substring(0, 20)}...');
+
+    print(
+        'IosPushTokenProvider: VoIP token refreshed: ${newToken.substring(0, 20)}...');
     _onTokenRefresh?.call(newToken);
   }
 

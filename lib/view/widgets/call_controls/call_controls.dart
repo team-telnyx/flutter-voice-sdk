@@ -135,9 +135,8 @@ class _CallControlsState extends State<CallControls> {
             readOnly: clientState != CallStateStatus.idle,
             enabled: clientState == CallStateStatus.idle,
             controller: _destinationController,
-            keyboardType: _isPhoneNumber
-                ? TextInputType.phone
-                : TextInputType.text,
+            keyboardType:
+                _isPhoneNumber ? TextInputType.phone : TextInputType.text,
             inputFormatters: _isPhoneNumber
                 ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s\(\)]'))]
                 : [
@@ -193,7 +192,8 @@ class _CallControlsState extends State<CallControls> {
           )
         else if (clientState == CallStateStatus.connectingToCall)
           Center(child: CircularProgressIndicator())
-        else if (clientState == CallStateStatus.ongoingCall)
+        else if (clientState == CallStateStatus.ongoingCall ||
+            clientState == CallStateStatus.held)
           Center(child: OnGoingCallControls()),
       ],
     );

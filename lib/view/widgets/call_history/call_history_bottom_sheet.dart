@@ -96,8 +96,8 @@ class _CallHistoryBottomSheetState extends State<CallHistoryBottomSheet> {
                 Text(
                   'Call History',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
@@ -112,29 +112,30 @@ class _CallHistoryBottomSheetState extends State<CallHistoryBottomSheet> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _callHistory.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.history, size: 64, color: Colors.grey),
-                        SizedBox(height: spacingM),
-                        Text(
-                          'No call history',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                    ? const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.history, size: 64, color: Colors.grey),
+                            SizedBox(height: spacingM),
+                            Text(
+                              'No call history',
+                              style:
+                                  TextStyle(fontSize: 18, color: Colors.grey),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _callHistory.length,
-                    itemBuilder: (context, index) {
-                      final entry = _callHistory[index];
-                      return CallHistoryListItem(
-                        entry: entry,
-                        onTap: () => _onCallHistoryEntryTap(entry),
-                      );
-                    },
-                  ),
+                      )
+                    : ListView.builder(
+                        itemCount: _callHistory.length,
+                        itemBuilder: (context, index) {
+                          final entry = _callHistory[index];
+                          return CallHistoryListItem(
+                            entry: entry,
+                            onTap: () => _onCallHistoryEntryTap(entry),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
