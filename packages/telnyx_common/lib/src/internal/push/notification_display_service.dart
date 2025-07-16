@@ -20,7 +20,7 @@ class NotificationConfig {
   final int callTimeoutSeconds;
 
   const NotificationConfig({
-    this.appName = 'Telnyx Flutter Voice',
+    this.appName = 'Call Received',
     this.defaultRingtone = 'system_ringtone_default',
     this.backgroundColor = '#0955fa',
     this.actionColor = '#4CAF50',

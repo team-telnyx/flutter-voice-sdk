@@ -10,11 +10,81 @@ import '../callkit/callkit_adapter_bridge.dart';
 
 /// Configuration for the push notification manager.
 class PushNotificationManagerConfig {
+  /// Whether to enable native call UI integration (CallKit on iOS, ConnectionService on Android).
+  ///
+  /// When enabled (default: true):
+  /// - Shows system-native incoming call screens
+  /// - Integrates with device's call history
+  /// - Provides native call control buttons (accept/decline/mute/speaker)
+  /// - Handles call audio routing through the system
+  ///
+  /// When disabled:
+  /// - No native UI is shown
+  /// - App must handle all call UI through custom implementation
+  /// - Useful for apps that want complete control over call presentation
   final bool enableNativeUI;
+
+  /// Whether to enable background push notification handling.
+  ///
+  /// When enabled (default: true):
+  /// - Push notifications are processed even when app is in background/terminated
+  /// - Enables VoIP push notifications to wake the app
+  /// - Allows receiving calls when app is not actively running
+  ///
+  /// When disabled:
+  /// - Push notifications only work when app is in foreground
+  /// - Incoming calls may be missed if app is backgrounded
+  /// - Reduces battery usage but limits call availability
   final bool enableBackgroundHandling;
+
+  /// Optional configuration for notification display customization.
+  ///
+  /// Allows customizing:
+  /// - Notification icons and colors
+  /// - Call screen appearance
+  /// - Audio settings and ringtones
+  /// - Text and localization
+  ///
+  /// If null, uses default system notification settings.
   final NotificationConfig? notificationConfig;
+
+  /// Optional custom push token provider for platform-specific token management.
+  ///
+  /// Use this to:
+  /// - Implement custom Firebase/APNS token handling
+  /// - Add token validation or transformation logic
+  /// - Integrate with custom push notification services
+  ///
+  /// If null, uses DefaultPushTokenProvider which handles standard FCM/APNS tokens.
   final PushTokenProvider? customTokenProvider;
+
+  /// Timeout in seconds for determining if a push notification is stale.
+  ///
+  /// Default: 30 seconds
+  ///
+  /// When a push notification is older than this timeout:
+  /// - It's considered "stale" and won't show as an incoming call
+  /// - Instead shows as a missed call notification
+  /// - Prevents showing outdated call invitations
+  ///
+  /// This prevents users from accidentally answering calls that have already ended.
   final int staleNotificationTimeoutSeconds;
+
+  /// Whether to enable immediate decline from push notifications.
+  ///
+  /// Default: true (enabled)
+  ///
+  /// When enabled and push contains isDecline=true:
+  /// - Call is declined immediately without showing UI
+  /// - Connects with decline_push parameter to server
+  /// - Allows declining calls without waiting for full invite
+  ///
+  /// When disabled:
+  /// - All declines require full connection and invite processing
+  /// - Slightly slower decline response time
+  ///
+  /// This feature improves user experience by enabling instant call rejection.
+  final bool enableDeclinePush;
 
   const PushNotificationManagerConfig({
     this.enableNativeUI = true,
@@ -22,6 +92,7 @@ class PushNotificationManagerConfig {
     this.notificationConfig,
     this.customTokenProvider,
     this.staleNotificationTimeoutSeconds = 30,
+    this.enableDeclinePush = true,
   });
 }
 
@@ -116,12 +187,14 @@ class PushNotificationManager {
     );
     await _callKitBridge.initialize();
 
-    // Initialize gateway with the bridge
+    // Initialize gateway with the bridge and event handler
     _gateway = PushNotificationGateway(
       _callKitBridge,
       onPushNotificationProcessed: (pushMetaData) {
         _onPushNotificationProcessed?.call(pushMetaData);
       },
+      enableDeclinePush: _config.enableDeclinePush,
+      callKitEventHandler: _eventHandler,
     );
 
     print('PushNotificationManager: Components initialized');
