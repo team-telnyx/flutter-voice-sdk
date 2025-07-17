@@ -439,43 +439,35 @@ class TelnyxClient {
       'TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}',
     );
 
-    if (pushMetaData.isDecline == true) {
+    if (pushMetaData.isAnswer ?? false) {
       GlobalLogger().i(
-        'TelnyxClient.handlePushNotification: Decline case - using simplified decline logic with decline_push parameter',
-      );
-      // For decline, we use a simplified approach: connect, login with decline_push=true, then disconnect
-      _connectWithCallBack(pushMetaData, () {
-        if (credentialConfig != null) {
-          _credentialLoginWithDecline(credentialConfig);
-        } else if (tokenConfig != null) {
-          _tokenLoginWithDecline(tokenConfig);
-        }
-      });
-      return;
-    }
-
-    // For accept and normal cases, use the existing logic
-    _isCallFromPush = true;
-    if (pushMetaData.isAnswer == true) {
-      GlobalLogger().i(
-        'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true',
+        'TelnyxClient.handlePushNotification: Setting _pendingAnswerFromPush to true for call ${pushMetaData.callId}',
       );
       _pendingAnswerFromPush = true;
-      // Start the timeout timer for pending answer
-      _startPendingAnswerTimeout();
-    } else {
+      _isCallFromPush = true;
+    } else if (pushMetaData.isDecline ?? false) {
       GlobalLogger().i(
-        'TelnyxClient.handlePushNotification: _pendingAnswerFromPush remains false',
+        'TelnyxClient.handlePushNotification: Setting _pendingDeclineFromPush to true for call ${pushMetaData.callId}',
       );
+      _pendingDeclineFromPush = true;
+      _isCallFromPush = true;
     }
 
-    _connectWithCallBack(pushMetaData, () {
+    // Store the push metadata for later use
+    _pushMetaData = pushMetaData;
+
+    // Connect to the websocket if not already connected
+    if (!_connected) {
       if (credentialConfig != null) {
-        credentialLogin(credentialConfig);
+        connectWithCredential(credentialConfig);
       } else if (tokenConfig != null) {
-        tokenLogin(tokenConfig);
+        connectWithToken(tokenConfig);
+      } else {
+        GlobalLogger().e(
+          'TelnyxClient.handlePushNotification: No valid configuration provided',
+        );
       }
-    });
+    }
   }
 
   /// Internal method for credential login with decline_push parameter

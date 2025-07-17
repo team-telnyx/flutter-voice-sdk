@@ -35,7 +35,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     enableNativeUI: true,
     enableBackgroundHandling: true,
     customTokenProvider: telnyx.DefaultPushTokenProvider(),
-    enableDeclinePush: true,
   );
 
   // Stream subscriptions for telnyx_common
