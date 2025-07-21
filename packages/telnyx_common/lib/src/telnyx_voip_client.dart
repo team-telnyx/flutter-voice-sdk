@@ -342,26 +342,34 @@ class TelnyxVoipClient {
   }
 
   /// Handles when a push notification is declined via CallKit.
-  void _handlePushNotificationDeclined(String callId, Map<String, dynamic> extra) {
+  void _handlePushNotificationDeclined(String callId, Map<String, dynamic> extra) async {
     print('TelnyxVoipClient: Push notification declined for call $callId');
 
-    // Update stored push data to indicate decline
     final metadata = _extractMetadata(extra);
     if (metadata != null) {
       try {
-        TelnyxClient.setPushMetaData(
-          extra,
-          isAnswer: false,
-          isDecline: true,  // ← Mark as declined
-        );
-        
-        print('TelnyxVoipClient: Updated stored push data with decline flag');
+        // This follows the old implementation of creating a temporary client to handle the decline
+        // This will send a login message with decline_push and then disconnect
+        final PushMetaData pushMetaData = PushMetaData.fromJson(metadata)..isDecline = true;
+        final tempDeclineClient = TelnyxClient();
+        final config = await ConfigHelper.getConfig();
+
+        print('TelnyxVoipClient: Temporary client handling push notification decline');
+
+        if (config != null) {
+          tempDeclineClient.handlePushNotification(
+            pushMetaData,
+            config is CredentialConfig ? config : null,
+            config is TokenConfig ? config : null,
+          );
+        } else {
+          print('TelnyxVoipClient: Could not get config for temp client to decline push');
+        }
       } catch (e) {
-        print('TelnyxVoipClient: Error updating stored push data: $e');
+        print('TelnyxVoipClient: Error processing push notification decline: $e');
       }
     }
-    
-    print('TelnyxVoipClient: Push notification decline processed');
+    print('TelnyxVoipClient: Push notification decline processed.');
   }
 
   /// Extracts metadata from CallKit extra data.
