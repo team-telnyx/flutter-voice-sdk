@@ -122,7 +122,6 @@ class TelnyxVoipClient {
     _storedConfig = config;
     await ConfigHelper.saveConfig(config);
 
-
     // Initialize push notification manager if not already done
     await _ensurePushNotificationManagerInitialized();
 
@@ -235,21 +234,23 @@ class TelnyxVoipClient {
       print('TelnyxVoipClient: Invalid metadata format in push payload.');
       return;
     }
-    
+
     final pushMetaData = PushMetaData.fromJson(metadataMap);
 
     // Check if this push has already been actioned (accepted or declined).
-    final bool isActioned = (pushMetaData.isAnswer ?? false) || (pushMetaData.isDecline ?? false);
+    final bool isActioned =
+        (pushMetaData.isAnswer ?? false) || (pushMetaData.isDecline ?? false);
 
     if (isActioned) {
       // This is an app launch from an accepted/declined push.
       // Bypass the UI display and go straight to connection handling.
       print('TelnyxVoipClient: Handling actioned push. Bypassing UI display.');
-      
+
       // We need to get the stored config to connect.
       final config = await ConfigHelper.getConfig();
       if (config == null) {
-        print('TelnyxVoipClient: No stored config found for push handling. Aborting.');
+        print(
+            'TelnyxVoipClient: No stored config found for push handling. Aborting.');
         return;
       }
       // Update the in-memory config to ensure the session manager uses it.
@@ -257,7 +258,6 @@ class TelnyxVoipClient {
 
       // This will call the low-level telnyx_webrtc client to connect with the correct state.
       _sessionManager.handlePushNotificationWithConfig(pushMetaData, config);
-
     } else {
       // This is an initial push notification from a background isolate.
       // Display the native incoming call UI via the gateway.
@@ -308,13 +308,14 @@ class TelnyxVoipClient {
   void _handlePushNotificationProcessed(PushMetaData pushMetaData) {
     // Store the push metadata for potential use later
     _storedPushMetaData = pushMetaData;
-    
+
     // Connect with push metadata to handle the incoming call
     _sessionManager.connectWithPushMetadata(pushMetaData);
   }
 
   /// Handles when a push notification is accepted via CallKit.
-  void _handlePushNotificationAccepted(String callId, Map<String, dynamic> extra) async {
+  void _handlePushNotificationAccepted(
+      String callId, Map<String, dynamic> extra) async {
     print('TelnyxVoipClient: Push notification accepted for call $callId');
 
     // Update stored push data to indicate acceptance
@@ -326,50 +327,58 @@ class TelnyxVoipClient {
         // This matches the old implementation approach
         TelnyxClient.setPushMetaData(
           extra,
-          isAnswer: true,  // ← Key change: mark as accepted
+          isAnswer: true, // ← Key change: mark as accepted
           isDecline: false,
         );
-        
-        print('TelnyxVoipClient: Updated stored push data with acceptance flag');
+
+        print(
+            'TelnyxVoipClient: Updated stored push data with acceptance flag');
       } catch (e) {
         print('TelnyxVoipClient: Error updating stored push data: $e');
       }
     }
-    
+
     // DON'T attempt manual login here - let the app launch flow handle everything
     // This was the core issue causing duplicate login attempts
-    print('TelnyxVoipClient: Push notification acceptance processed - app launch will handle connection');
+    print(
+        'TelnyxVoipClient: Push notification acceptance processed - app launch will handle connection');
   }
 
   /// Handles when a push notification is declined via CallKit.
-  void _handlePushNotificationDeclined(String callId, Map<String, dynamic> extra) async {
+  void _handlePushNotificationDeclined(
+      String callId, Map<String, dynamic> extra) async {
     print('TelnyxVoipClient: Push notification declined for call $callId');
 
     final metadata = _extractMetadata(extra);
     if (metadata != null) {
       try {
-        // This follows the old implementation of creating a temporary client to handle the decline
-        // This will send a login message with decline_push and then disconnect
-        final PushMetaData pushMetaData = PushMetaData.fromJson(metadata)..isDecline = true;
-        final tempDeclineClient = TelnyxClient();
+        final PushMetaData pushMetaData = PushMetaData.fromJson(metadata)
+          ..isDecline = true;
         final config = await ConfigHelper.getConfig();
 
-        print('TelnyxVoipClient: Temporary client handling push notification decline');
+        print(
+            'TelnyxVoipClient: Handling push notification decline via background client.');
 
         if (config != null) {
-          tempDeclineClient.handlePushNotification(
-            pushMetaData,
-            config is CredentialConfig ? config : null,
-            config is TokenConfig ? config : null,
-          );
+          // The SessionManager holds the TelnyxClient instance.
+          // We use it to send the decline message.
+          _sessionManager.handlePushNotificationWithConfig(
+              pushMetaData, config);
         } else {
-          print('TelnyxVoipClient: Could not get config for temp client to decline push');
+          print(
+              'TelnyxVoipClient: Could not get config for temp client to decline push');
         }
       } catch (e) {
-        print('TelnyxVoipClient: Error processing push notification decline: $e');
+        print(
+            'TelnyxVoipClient: Error processing push notification decline: $e');
+      } finally {
+        // Regardless of success or failure, this background client's job is done.
+        // Dispose of it to close any open sockets.
+        print(
+            'TelnyxVoipClient: Disposing background client after decline action.');
+        dispose();
       }
     }
-    print('TelnyxVoipClient: Push notification decline processed.');
   }
 
   /// Extracts metadata from CallKit extra data.
