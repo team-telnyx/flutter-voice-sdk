@@ -16,7 +16,6 @@ import 'package:telnyx_common/telnyx_common.dart' as telnyx;
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
-import 'dart:convert'; // Added for jsonDecode
 
 enum CallStateStatus {
   disconnected,
@@ -200,11 +199,6 @@ class TelnyxClientViewModel with ChangeNotifier {
   telnyx.Call? get currentCall {
     return _activeCall;
   }
-
-  // IncomingInviteParams is legacy - no longer used with telnyx_common
-  // IncomingInviteParams? get incomingInvitation {
-  //   return _incomingInvite;
-  // }
 
   /// State flow for inbound audio levels list
   final List<double> _inboundAudioLevels = [];
@@ -410,62 +404,6 @@ class TelnyxClientViewModel with ChangeNotifier {
           return 'Call not found: The specified call cannot be found';
         }
         return message;
-    }
-  }
-
-  Future<void> handlePushNotification(Map<String, dynamic> pushData) async {
-    logger.i(
-        'TelnyxClientViewModel.handlePushNotification: Called with data: $pushData');
-
-    try {
-      // Extract call ID from push data for tracking
-      final metadata = pushData['metadata'];
-      String? callId;
-      
-      if (metadata != null) {
-        final metadataMap = metadata is String ? jsonDecode(metadata) : metadata;
-        callId = metadataMap['call_id'] ?? metadataMap['callId'];
-        
-        // Also check for callId in custom headers if not found in metadata
-        if (callId == null || callId.isEmpty) {
-          final dialogParams = metadataMap['dialogParams'];
-          if (dialogParams != null && dialogParams['custom_headers'] != null) {
-            final customHeaders = dialogParams['custom_headers'] as List<dynamic>;
-            for (final header in customHeaders) {
-              if (header['name'] == 'X-RTC-CALLID') {
-                callId = header['value'];
-                break;
-              }
-            }
-          }
-        }
-      }
-      
-      logger.i('TelnyxClientViewModel.handlePushNotification: Extracted call ID: $callId');
-      
-      // Set up waiting state for push calls
-      if (callId != null && callId.isNotEmpty) {
-        _waitingForCallFromPush = true;
-        _expectedPushCallId = callId;
-        
-        // If we're already connected, show connecting state immediately
-        if (_connectionState is telnyx.Connected) {
-          _updateUICallState(CallStateStatus.connectingToCall);
-        }
-        // If not connected yet, the connection state listener will handle it
-        
-        logger.i('TelnyxClientViewModel.handlePushNotification: Set up waiting state for call $callId');
-      }
-
-      // telnyx_common handles push notification processing automatically
-      await _telnyxVoipClient.handlePushNotification(pushData);
-      logger.i(
-          'TelnyxClientViewModel.handlePushNotification: Push notification handled successfully');
-    } catch (e) {
-      logger.e(
-          'TelnyxClientViewModel.handlePushNotification: Failed to handle push: $e');
-      // Reset waiting state on error
-      _clearPushCallState();
     }
   }
 
