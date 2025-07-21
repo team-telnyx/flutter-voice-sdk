@@ -144,6 +144,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     if (_activeCall == null) return CallStateStatus.idle;
 
     // Map telnyx_common CallState to UI CallStateStatus
+    print('TelnyxClientViewModel: Current call state: ${_activeCall!.currentState}');
     switch (_activeCall!.currentState) {
       case telnyx.CallState.initiating:
         // For outgoing calls, show ringing immediately (we're placing a call, not connecting)
@@ -361,6 +362,12 @@ class TelnyxClientViewModel with ChangeNotifier {
     notifyListeners();
   }
 
+  void showConnectingToCall() {
+    print('TelnyxClientViewModel: Showing connecting to call UI');
+    _overrideCallState = CallStateStatus.connectingToCall;
+    notifyListeners();
+  }
+
   Future<void> _saveCredentialsForAutoLogin(Config config) async {
     await _clearConfigForAutoLogin();
     final prefs = await SharedPreferences.getInstance();
@@ -407,7 +414,18 @@ class TelnyxClientViewModel with ChangeNotifier {
     }
   }
 
-  void disconnect() async {
+  /// To be called after a push notification has been handled and the client is "logged in".
+  /// This will set up the necessary stream subscriptions for the UI to update.
+  void onPushLogin() {
+    print(
+        'TelnyxClientViewModel: Push login detected, setting up stream subscriptions...');
+    // Set up stream subscriptions if they haven't been already.
+    if (_connectionSubscription == null) {
+      _setupStreamSubscriptions();
+    }
+  }
+
+  Future<void> disconnect() async {
     logger.i(
         'TelnyxClientViewModel.disconnect: Disconnecting from telnyx_common');
     await _telnyxVoipClient.logout();

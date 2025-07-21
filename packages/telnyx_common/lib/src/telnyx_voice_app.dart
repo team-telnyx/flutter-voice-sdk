@@ -101,11 +101,12 @@ class TelnyxVoiceApp extends StatefulWidget {
     FirebaseOptions? firebaseOptions,
     
     /// Optional callback that is triggered when the SDK begins processing an
-    /// initial push notification upon app launch.
+    /// initial push notification upon app launch. You could show a loading state here for example.
     VoidCallback? onPushNotificationProcessingStarted,
     
     /// Optional callback that is triggered when the SDK completes processing an
-    /// initial push notification upon app launch.
+    /// initial push notification upon app launch. We recommend using this to start listening to
+    /// state changes in your app.
     VoidCallback? onPushNotificationProcessingCompleted,
     
     /// Optional callback for listening to app lifecycle state changes.

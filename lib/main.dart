@@ -39,12 +39,19 @@ Future<void> main() async {
           backgroundMessageHandler: _firebaseMessagingBackgroundHandler,
           onPushNotificationProcessingStarted: () {
             logger.i('[TelnyxVoiceApp] Push notification processing started');
+            // ToDo: Uncomment if you want to show a loading state
+           // txClientViewModel.showConnectingToCall();
           },
           onPushNotificationProcessingCompleted: () {
             logger.i('[TelnyxVoiceApp] Push notification processing completed');
+            // This is the crucial step to link the push flow with the UI state
+            txClientViewModel.onPushLogin();
           },
-          child: ChangeNotifierProvider<TelnyxClientViewModel>.value(
-            value: txClientViewModel,
+          child: MultiProvider(
+            providers: [
+              ChangeNotifierProvider.value(value: txClientViewModel),
+              ChangeNotifierProvider(create: (context) => ProfileProvider()),
+            ],
             child: const MyApp(),
           ),
         ),
@@ -66,17 +73,11 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (context) => txClientViewModel),
-        ChangeNotifierProvider(create: (context) => ProfileProvider()),
-      ],
-      child: MaterialApp(
-        title: 'Telnyx WebRTC',
-        theme: AppTheme.lightTheme,
-        initialRoute: '/',
-        routes: {'/': (context) => const HomeScreen()},
-      ),
+    return MaterialApp(
+      title: 'Telnyx WebRTC',
+      theme: AppTheme.lightTheme,
+      initialRoute: '/',
+      routes: {'/': (context) => const HomeScreen()},
     );
   }
 }
