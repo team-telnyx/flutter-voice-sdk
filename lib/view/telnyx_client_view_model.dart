@@ -16,6 +16,7 @@ import 'package:telnyx_common/telnyx_common.dart' as telnyx;
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'dart:convert'; // Added for jsonDecode
 
 enum CallStateStatus {
   disconnected,
@@ -51,6 +52,11 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _loggingIn = false;
   bool callFromPush = false;
   bool _speakerPhone = false;
+
+  // Push call state tracking - NEW
+  bool _waitingForCallFromPush = false;
+  String? _expectedPushCallId;
+  CallStateStatus? _overrideCallState; // For push call states
 
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
@@ -118,6 +124,11 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   // Convert telnyx_common state to legacy CallStateStatus for UI compatibility
   CallStateStatus get callState {
+    // Check for override state first (used for push calls)
+    if (_overrideCallState != null) {
+      return _overrideCallState!;
+    }
+
     // If not connected, return disconnected
     if (_connectionState == null) return CallStateStatus.disconnected;
     if (_connectionState is telnyx.Connecting) {
@@ -162,13 +173,27 @@ class TelnyxClientViewModel with ChangeNotifier {
         return CallStateStatus.idle; // Call ended, back to idle
     }
 
-    // This should never be reached, but satisfies the analyzer
     return CallStateStatus.idle;
   }
 
   set callState(CallStateStatus newState) {
     // For compatibility, but state is now managed by telnyx_common
     notifyListeners();
+  }
+
+  // Helper method to update UI call state for push calls
+  void _updateUICallState(CallStateStatus newState) {
+    if (_overrideCallState != newState) {
+      _overrideCallState = newState;
+      notifyListeners();
+    }
+  }
+
+  // Helper method to clear override state and reset push tracking
+  void _clearPushCallState() {
+    _waitingForCallFromPush = false;
+    _expectedPushCallId = null;
+    _overrideCallState = null;
   }
 
   // Legacy compatibility for current call access
@@ -195,6 +220,9 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   CallTerminationReason? get lastTerminationReason => _lastTerminationReason;
 
+  /// Expose the TelnyxVoipClient for use with TelnyxVoiceApp
+  telnyx.TelnyxVoipClient get telnyxVoipClient => _telnyxVoipClient;
+
   /// Initialize stream subscriptions to wrap telnyx_common streams with Provider
   void _setupStreamSubscriptions() {
     // Connection state changes
@@ -202,6 +230,16 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i('TelnyxClientViewModel: Connection state changed to $state');
       _connectionState = state;
       _loggingIn = state is telnyx.Connecting;
+
+      // Handle push call state transitions
+      if (state is telnyx.Connected && _waitingForCallFromPush) {
+        // We're connected and waiting for a push call - show connecting state
+        _updateUICallState(CallStateStatus.connectingToCall);
+      } else if (state is telnyx.Disconnected || state is telnyx.ConnectionError) {
+        // Connection lost - clear push call state
+        _clearPushCallState();
+      }
+
       notifyListeners();
     });
 
@@ -210,9 +248,21 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i('TelnyxClientViewModel: Active call changed to ${call?.callId}');
       _activeCall = call;
 
-      // Set up call quality monitoring if call is active
+      // Handle push call state transitions
       if (call != null) {
+        // Set up call quality monitoring
         _setupCallQualityMonitoring(call);
+
+        // If this call matches our expected push call, clear override state
+        if (_waitingForCallFromPush && call.callId == _expectedPushCallId) {
+          logger.i('TelnyxClientViewModel: Expected push call arrived, clearing override state');
+          _clearPushCallState(); // This will let the normal state logic handle the call
+        }
+      } else {
+        // No active call - clear any push call state if not waiting for connection
+        if (!_loggingIn && !(_connectionState is telnyx.Connecting)) {
+          _clearPushCallState();
+        }
       }
 
       notifyListeners();
@@ -254,6 +304,9 @@ class TelnyxClientViewModel with ChangeNotifier {
     _speakerPhone = false;
     _callQualityMetrics = null;
     setPushCallStatus(false);
+
+    // Clear push call state
+    _clearPushCallState();
 
     // Clear audio level lists
     _inboundAudioLevels.clear();
@@ -365,6 +418,45 @@ class TelnyxClientViewModel with ChangeNotifier {
         'TelnyxClientViewModel.handlePushNotification: Called with data: $pushData');
 
     try {
+      // Extract call ID from push data for tracking
+      final metadata = pushData['metadata'];
+      String? callId;
+      
+      if (metadata != null) {
+        final metadataMap = metadata is String ? jsonDecode(metadata) : metadata;
+        callId = metadataMap['call_id'] ?? metadataMap['callId'];
+        
+        // Also check for callId in custom headers if not found in metadata
+        if (callId == null || callId.isEmpty) {
+          final dialogParams = metadataMap['dialogParams'];
+          if (dialogParams != null && dialogParams['custom_headers'] != null) {
+            final customHeaders = dialogParams['custom_headers'] as List<dynamic>;
+            for (final header in customHeaders) {
+              if (header['name'] == 'X-RTC-CALLID') {
+                callId = header['value'];
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      logger.i('TelnyxClientViewModel.handlePushNotification: Extracted call ID: $callId');
+      
+      // Set up waiting state for push calls
+      if (callId != null && callId.isNotEmpty) {
+        _waitingForCallFromPush = true;
+        _expectedPushCallId = callId;
+        
+        // If we're already connected, show connecting state immediately
+        if (_connectionState is telnyx.Connected) {
+          _updateUICallState(CallStateStatus.connectingToCall);
+        }
+        // If not connected yet, the connection state listener will handle it
+        
+        logger.i('TelnyxClientViewModel.handlePushNotification: Set up waiting state for call $callId');
+      }
+
       // telnyx_common handles push notification processing automatically
       await _telnyxVoipClient.handlePushNotification(pushData);
       logger.i(
@@ -372,6 +464,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     } catch (e) {
       logger.e(
           'TelnyxClientViewModel.handlePushNotification: Failed to handle push: $e');
+      // Reset waiting state on error
+      _clearPushCallState();
     }
   }
 
@@ -614,6 +708,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     _connectionSubscription?.cancel();
     _activeCallSubscription?.cancel();
     _callsSubscription?.cancel();
+    
+    // Clear push call state
+    _clearPushCallState();
+    
     super.dispose();
   }
 }

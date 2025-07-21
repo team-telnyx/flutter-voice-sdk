@@ -138,6 +138,20 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: spacingS),
               if (clientState == CallStateStatus.disconnected)
                 const LoginControls()
+              else if (clientState == CallStateStatus.connectingToCall)
+                const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text(
+                        'Connecting to call...',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ],
+                  ),
+                )
               else
                 const CallControls(),
             ],

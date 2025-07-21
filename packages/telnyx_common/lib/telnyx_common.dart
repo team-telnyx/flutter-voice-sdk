@@ -7,6 +7,7 @@
 library telnyx_common;
 
 export 'src/telnyx_voip_client.dart';
+export 'src/telnyx_voice_app.dart';
 export 'src/models/call.dart';
 export 'src/models/connection_state.dart';
 export 'src/models/call_state.dart';

@@ -1,18 +1,16 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
-import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
-import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_common/telnyx_common.dart' as telnyx;
 
 import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 
@@ -83,20 +81,6 @@ Future<void> main() async {
     () async {
       WidgetsFlutterBinding.ensureInitialized();
 
-      // Catch Flutter framework errors
-      FlutterError.onError = (FlutterErrorDetails details) {
-        FlutterError.presentError(details);
-        logger.e(
-          'Caught Flutter error: ${details.exception}',
-          stackTrace: details.stack,
-        );
-      };
-
-      // Catch other platform errors (e.g., Dart errors outside Flutter)
-      PlatformDispatcher.instance.onError = (error, stack) {
-        logger.e('Caught Platform error: $error', stackTrace: stack);
-        return true;
-      };
 
       if (!AppInitializer()._isInitialized) {
         await AppInitializer().initialize();
@@ -105,31 +89,19 @@ Future<void> main() async {
       FirebaseMessaging.onBackgroundMessage(
         _firebaseMessagingBackgroundHandler,
       );
-      final config = await txClientViewModel.getConfig();
       runApp(
-        BackgroundDetector(
-          skipWeb: true,
-          onLifecycleEvent: (AppLifecycleState state) {
-            if (state == AppLifecycleState.resumed) {
-              logger.i(
-                '[BackgroundDetector] We are in the foreground, CONNECTING',
-              );
-              // Check if we are from push, if we are do nothing, reconnection will happen there in handlePush. Otherwise connect
-              if (!txClientViewModel.callFromPush) {
-                if (config != null && config is CredentialConfig) {
-                  txClientViewModel.login(config);
-                } else if (config != null && config is TokenConfig) {
-                  txClientViewModel.loginWithToken(config);
-                }
-              }
-            } else if (state == AppLifecycleState.paused) {
-              logger.i(
-                '[BackgroundDetector] We are in the background, DISCONNECTING',
-              );
-              txClientViewModel.disconnect();
-            }
+        telnyx.TelnyxVoiceApp(
+          voipClient: txClientViewModel.telnyxVoipClient,
+          onPushNotificationProcessingStarted: () {
+            logger.i('[TelnyxVoiceApp] Push notification processing started');
           },
-          child: const MyApp(),
+          onPushNotificationProcessingCompleted: () {
+            logger.i('[TelnyxVoiceApp] Push notification processing completed');
+          },
+          child: ChangeNotifierProvider<TelnyxClientViewModel>.value(
+            value: txClientViewModel,
+            child: const MyApp(),
+          ),
         ),
       );
     },
@@ -165,14 +137,6 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  @override
-  void initState() {
-    super.initState();
-    logger
-      ..i('[_MyAppState] initState called.')
-      ..i('[_MyAppState] Push data handling managed by telnyx_common');
-  }
-
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
