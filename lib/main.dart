@@ -45,7 +45,7 @@ Future<void> main() async {
           onPushNotificationProcessingCompleted: () {
             logger.i('[TelnyxVoiceApp] Push notification processing completed');
             // This is the crucial step to link the push flow with the UI state
-            txClientViewModel.onPushLogin();
+           // txClientViewModel.onPushLogin();
           },
           child: MultiProvider(
             providers: [

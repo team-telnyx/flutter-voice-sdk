@@ -10,8 +10,10 @@ import 'package:telnyx_flutter_webrtc/service/call_history_service.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
+
 // telnyx_common imports
 import 'package:telnyx_common/telnyx_common.dart' as telnyx;
+
 // Legacy imports for compatibility
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
@@ -29,6 +31,13 @@ enum CallStateStatus {
 
 class TelnyxClientViewModel with ChangeNotifier {
   final logger = Logger();
+
+  // Constructor - set up stream subscriptions immediately
+  TelnyxClientViewModel() {
+    logger.i(
+        'TelnyxClientViewModel: Initializing and setting up stream subscriptions');
+    _setupStreamSubscriptions();
+  }
 
   // telnyx_common client - replaces direct TelnyxClient usage
   final telnyx.TelnyxVoipClient _telnyxVoipClient = telnyx.TelnyxVoipClient(
@@ -72,6 +81,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   CallTerminationReason? _lastTerminationReason;
 
   String? _errorDialogMessage;
+
   String? get errorDialogMessage => _errorDialogMessage;
 
   void _setErrorDialog(String message) {
@@ -86,7 +96,9 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   // Provider wrapper getters - expose telnyx_common state through Provider
   telnyx.ConnectionState? get connectionState => _connectionState;
+
   telnyx.Call? get activeCall => _activeCall;
+
   List<telnyx.Call> get calls => _calls;
 
   // Legacy compatibility getters
@@ -119,6 +131,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   String get localName => _localName;
+
   String get localNumber => _localNumber;
 
   // Convert telnyx_common state to legacy CallStateStatus for UI compatibility
@@ -144,7 +157,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     if (_activeCall == null) return CallStateStatus.idle;
 
     // Map telnyx_common CallState to UI CallStateStatus
-    print('TelnyxClientViewModel: Current call state: ${_activeCall!.currentState}');
+    print(
+        'TelnyxClientViewModel: Current call state: ${_activeCall!.currentState}');
     switch (_activeCall!.currentState) {
       case telnyx.CallState.initiating:
         // For outgoing calls, show ringing immediately (we're placing a call, not connecting)
@@ -203,10 +217,12 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   /// State flow for inbound audio levels list
   final List<double> _inboundAudioLevels = [];
+
   List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
 
   /// State flow for outbound audio levels list
   final List<double> _outboundAudioLevels = [];
+
   List<double> get outboundAudioLevels =>
       List.unmodifiable(_outboundAudioLevels);
 
@@ -230,7 +246,8 @@ class TelnyxClientViewModel with ChangeNotifier {
       if (state is telnyx.Connected && _waitingForCallFromPush) {
         // We're connected and waiting for a push call - show connecting state
         _updateUICallState(CallStateStatus.connectingToCall);
-      } else if (state is telnyx.Disconnected || state is telnyx.ConnectionError) {
+      } else if (state is telnyx.Disconnected ||
+          state is telnyx.ConnectionError) {
         // Connection lost - clear push call state
         _clearPushCallState();
       }
@@ -250,7 +267,8 @@ class TelnyxClientViewModel with ChangeNotifier {
 
         // If this call matches our expected push call, clear override state
         if (_waitingForCallFromPush && call.callId == _expectedPushCallId) {
-          logger.i('TelnyxClientViewModel: Expected push call arrived, clearing override state');
+          logger.i(
+              'TelnyxClientViewModel: Expected push call arrived, clearing override state');
           _clearPushCallState(); // This will let the normal state logic handle the call
         }
       } else {
@@ -414,17 +432,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     }
   }
 
-  /// To be called after a push notification has been handled and the client is "logged in".
-  /// This will set up the necessary stream subscriptions for the UI to update.
-  void onPushLogin() {
-    print(
-        'TelnyxClientViewModel: Push login detected, setting up stream subscriptions...');
-    // Set up stream subscriptions if they haven't been already.
-    if (_connectionSubscription == null) {
-      _setupStreamSubscriptions();
-    }
-  }
-
   Future<void> disconnect() async {
     logger.i(
         'TelnyxClientViewModel.disconnect: Disconnecting from telnyx_common');
@@ -442,11 +449,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     _localName = credentialConfig.sipCallerIDName;
     _localNumber = credentialConfig.sipCallerIDNumber;
     _credentialConfig = credentialConfig;
-
-    // Set up stream subscriptions on first login
-    if (_connectionSubscription == null) {
-      _setupStreamSubscriptions();
-    }
 
     try {
       await _telnyxVoipClient.login(credentialConfig);
@@ -469,11 +471,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     _localName = tokenConfig.sipCallerIDName;
     _localNumber = tokenConfig.sipCallerIDNumber;
     _tokenConfig = tokenConfig;
-
-    // Set up stream subscriptions on first login
-    if (_connectionSubscription == null) {
-      _setupStreamSubscriptions();
-    }
 
     try {
       await _telnyxVoipClient.loginWithToken(tokenConfig);
@@ -664,10 +661,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     _connectionSubscription?.cancel();
     _activeCallSubscription?.cancel();
     _callsSubscription?.cancel();
-    
+
     // Clear push call state
     _clearPushCallState();
-    
+
     super.dispose();
   }
 }
