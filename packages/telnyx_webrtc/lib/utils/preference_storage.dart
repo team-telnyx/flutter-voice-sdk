@@ -27,8 +27,9 @@ class PreferencesStorage {
   static void saveMetadata(String metaData) {
     if (metaData.isEmpty) {
       GlobalLogger().i('Clearing PushMetaData with key $notificationKey');
+    } else {
+      GlobalLogger().i('Saving PushMetaData with key $notificationKey');
     }
-    GlobalLogger().i('Save PushMetaData $metaData with key $notificationKey');
     saveString(notificationKey, metaData);
   }
 
