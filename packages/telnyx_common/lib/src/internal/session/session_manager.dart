@@ -25,6 +25,8 @@ class SessionManager {
   // Store the configuration for push notification handling
   Config? _storedConfig;
 
+  bool _handlingPushNotification = false;
+
   /// Creates a new SessionManager instance.
   SessionManager() {
     _setupSocketObservers();
@@ -49,6 +51,12 @@ class SessionManager {
   /// Current session ID (UUID) for this connection.
   String get sessionId => _telnyxClient.sessid;
 
+  bool get isHandlingPushNotification => _handlingPushNotification;
+
+  set isHandlingPushNotification(bool value) {
+    _handlingPushNotification = value;
+  }
+
   /// Disables push notifications for the current session.
   void disablePushNotifications() {
     _telnyxClient.disablePushNotifications();
@@ -59,6 +67,7 @@ class SessionManager {
     print('SessionManager: handlePushNotificationWithConfig called');
     print('SessionManager: Push metadata: ${pushMetaData.toJson()}');
     print('SessionManager: Config type: ${config.runtimeType}');
+    _handlingPushNotification = true;
 
     try {
       if (config is CredentialConfig) {

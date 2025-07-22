@@ -27,7 +27,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 @pragma('vm:entry-point')
 Future<void> main() async {
   await runZonedGuarded(
-    () async {
+        () async {
       // Ensure Flutter binding is initialized
       WidgetsFlutterBinding.ensureInitialized();
 
@@ -39,13 +39,10 @@ Future<void> main() async {
           backgroundMessageHandler: _firebaseMessagingBackgroundHandler,
           onPushNotificationProcessingStarted: () {
             logger.i('[TelnyxVoiceApp] Push notification processing started');
-            // ToDo: Uncomment if you want to show a loading state
-           // txClientViewModel.showConnectingToCall();
           },
           onPushNotificationProcessingCompleted: () {
             logger.i('[TelnyxVoiceApp] Push notification processing completed');
-            // This is the crucial step to link the push flow with the UI state
-           // txClientViewModel.onPushLogin();
+            // The connecting state will be cleared by the activeCall stream listener
           },
           child: MultiProvider(
             providers: [
@@ -57,7 +54,7 @@ Future<void> main() async {
         ),
       );
     },
-    (error, stack) {
+        (error, stack) {
       logger.e('Caught Zoned error: $error', stackTrace: stack);
     },
   );

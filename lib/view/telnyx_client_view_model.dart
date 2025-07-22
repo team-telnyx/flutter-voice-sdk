@@ -164,11 +164,16 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i('TelnyxClientViewModel: Active call changed to ${call?.callId}');
       _activeCall = call;
 
-      // When a call becomes active or ends, we are no longer "connecting"
-      if (call != null &&
-          (call.currentState.isTerminated || call.currentState.isStable)) {
-        if (_isConnectingToCall) {
-          _isConnectingToCall = false;
+      // When a call becomes active, held, or terminated, we are no longer "connecting"
+      if (call != null) {
+        logger.i(
+            'TelnyxClientViewModel: Active call state is ${call.currentState}');
+        if (call.currentState == telnyx.CallState.active ||
+            call.currentState == telnyx.CallState.held ||
+            call.currentState.isTerminated) {
+          if (_isConnectingToCall) {
+            _isConnectingToCall = false;
+          }
         }
       }
 

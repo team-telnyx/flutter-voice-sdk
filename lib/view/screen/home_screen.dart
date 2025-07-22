@@ -146,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: <Widget>[
           // Show menu only when connected and idle, or when disconnected
           if ((connectionState is telnyx.Connected && activeCall == null) ||
-              !(connectionState is telnyx.Connected))
+              connectionState is! telnyx.Connected)
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {

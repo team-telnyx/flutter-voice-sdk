@@ -22,9 +22,9 @@ class CallStateController {
   final SessionManager _sessionManager;
 
   final StreamController<List<Call>> _callsController =
-      StreamController<List<Call>>.broadcast();
+  StreamController<List<Call>>.broadcast();
   final StreamController<Call?> _activeCallController =
-      StreamController<Call?>.broadcast();
+  StreamController<Call?>.broadcast();
 
   final Map<String, Call> _calls = {};
   final Map<String, telnyx_call.Call> _telnyxCalls = {};
@@ -55,12 +55,14 @@ class CallStateController {
   /// Returns the call that needs user attention (ringing, active, held, etc.)
   Call? get currentActiveCall {
     return _calls.values
-        .where((call) =>
-            call.currentState == CallState.ringing ||
-            call.currentState == CallState.active ||
-            call.currentState == CallState.held ||
-            call.currentState == CallState.initiating ||
-            call.currentState == CallState.reconnecting)
+        .where(
+          (call) =>
+      call.currentState == CallState.ringing ||
+          call.currentState == CallState.active ||
+          call.currentState == CallState.held ||
+          call.currentState == CallState.initiating ||
+          call.currentState == CallState.reconnecting,
+    )
         .firstOrNull;
   }
 
@@ -89,11 +91,9 @@ class CallStateController {
         debug: true,
       );
 
-      if (telnyxCall != null) {
-        _telnyxCalls[call.callId] = telnyxCall;
-        _observeTelnyxCall(call.callId, telnyxCall);
-        call.updateState(CallState.initiating);
-      }
+      _telnyxCalls[call.callId] = telnyxCall;
+      _observeTelnyxCall(call.callId, telnyxCall);
+      call.updateState(CallState.initiating);
     } catch (error) {
       // Remove the call if initiation failed
       _calls.remove(call.callId);
@@ -142,11 +142,12 @@ class CallStateController {
   void _handleSocketMessage(TelnyxMessage message) {
     switch (message.socketMethod) {
       case SocketMethod.clientReady:
-        // Notify session manager that we're connected
+      // Notify session manager that we're connected
         _sessionManager.setConnected();
         break;
 
       case SocketMethod.invite:
+        print('ZZZ - handling invite message: ${message.message}');
         _handleIncomingInvite(message.message.inviteParams);
         break;
 
@@ -163,7 +164,7 @@ class CallStateController {
         break;
 
       default:
-        // Handle other socket methods as needed
+      // Handle other socket methods as needed
         break;
     }
   }
@@ -200,7 +201,12 @@ class CallStateController {
       onAction: _handleCallAction,
     );
 
-    call.updateState(CallState.ringing);
+    if (_sessionManager.isHandlingPushNotification) {
+      call.updateState(CallState.active);
+      _sessionManager.isHandlingPushNotification = false;
+    } else {
+      call.updateState(CallState.ringing);
+    }
     _calls[callId] = call;
     _notifyCallsChanged();
   }
@@ -213,8 +219,8 @@ class CallStateController {
     // Find the call that was answered and update its state IMMEDIATELY
     final activeCall = _calls.values
         .where((call) =>
-            call.currentState == CallState.initiating ||
-            call.currentState == CallState.ringing)
+    call.currentState == CallState.initiating ||
+        call.currentState == CallState.ringing)
         .firstOrNull;
 
     if (activeCall != null) {
@@ -235,7 +241,7 @@ class CallStateController {
     // Update outgoing calls to ringing state IMMEDIATELY
     final ringingCall = _calls.values
         .where((call) =>
-            !call.isIncoming && call.currentState == CallState.initiating)
+    !call.isIncoming && call.currentState == CallState.initiating)
         .firstOrNull;
 
     if (ringingCall != null) {
@@ -414,8 +420,8 @@ class CallStateController {
   }
 
   /// Enables or disables speaker phone.
-  void _enableSpeakerPhone(
-      Call call, telnyx_call.Call? telnyxCall, bool? enable) {
+  void _enableSpeakerPhone(Call call, telnyx_call.Call? telnyxCall,
+      bool? enable) {
     if (!call.currentState.canMute || enable == null) return;
 
     try {
@@ -443,8 +449,8 @@ class CallStateController {
   }
 
   /// Handles state changes from TelnyxCall objects.
-  void _handleTelnyxCallStateChange(
-      String callId, telnyx_call_state.CallState state) {
+  void _handleTelnyxCallStateChange(String callId,
+      telnyx_call_state.CallState state) {
     final call = _calls[callId];
     if (call == null) {
       return;
@@ -454,7 +460,7 @@ class CallStateController {
     final lastSocketChange = _lastSocketStateChange[callId];
     final now = DateTime.now();
     const socketPriorityWindow =
-        Duration(milliseconds: 2000); // 2-second priority window
+    Duration(milliseconds: 2000); // 2-second priority window
 
     if (lastSocketChange != null &&
         now.difference(lastSocketChange) < socketPriorityWindow) {

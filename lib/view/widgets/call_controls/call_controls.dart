@@ -115,6 +115,13 @@ class _CallControlsState extends State<CallControls> {
     final callState = activeCall?.currentState;
     final isIdle = activeCall == null;
 
+    if (activeCall != null) {
+      print(
+          'CallControls rebuilding. Call ID: ${activeCall.callId}, State: $callState, Is Incoming: ${activeCall.isIncoming}');
+    } else {
+      print('CallControls rebuilding. No active call.');
+    }
+
     // Determine the main controls to show
     Widget mainControls;
     if (isIdle) {
