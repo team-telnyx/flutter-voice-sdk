@@ -19,16 +19,6 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
-enum CallStateStatus {
-  disconnected,
-  idle,
-  ringing,
-  ongoingInvitation,
-  connectingToCall,
-  ongoingCall,
-  held,
-}
-
 class TelnyxClientViewModel with ChangeNotifier {
   final logger = Logger();
 
@@ -56,15 +46,10 @@ class TelnyxClientViewModel with ChangeNotifier {
   telnyx.Call? _activeCall;
   List<telnyx.Call> _calls = [];
 
-  // Legacy state for compatibility
+  // UI-specific state
   bool _loggingIn = false;
-  bool callFromPush = false;
   bool _speakerPhone = false;
-
-  // Push call state tracking - NEW
-  bool _waitingForCallFromPush = false;
-  String? _expectedPushCallId;
-  CallStateStatus? _overrideCallState; // For push call states
+  bool _isConnectingToCall = false; // New flag for connecting state
 
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
@@ -94,21 +79,19 @@ class TelnyxClientViewModel with ChangeNotifier {
     notifyListeners();
   }
 
-  // Provider wrapper getters - expose telnyx_common state through Provider
+  // Provider wrapper getters - expose telnyx_common state directly
   telnyx.ConnectionState? get connectionState => _connectionState;
 
   telnyx.Call? get activeCall => _activeCall;
 
   List<telnyx.Call> get calls => _calls;
 
-  // Legacy compatibility getters
-  bool get registered {
-    return _connectionState is telnyx.Connected;
-  }
+  // UI-specific getters
+  bool get registered => _connectionState is telnyx.Connected;
 
-  bool get loggingIn {
-    return _loggingIn;
-  }
+  bool get loggingIn => _loggingIn;
+
+  bool get isConnectingToCall => _isConnectingToCall;
 
   bool get speakerPhoneState {
     return _speakerPhone;
@@ -133,82 +116,6 @@ class TelnyxClientViewModel with ChangeNotifier {
   String get localName => _localName;
 
   String get localNumber => _localNumber;
-
-  // Convert telnyx_common state to legacy CallStateStatus for UI compatibility
-  CallStateStatus get callState {
-    // Check for override state first (used for push calls)
-    if (_overrideCallState != null) {
-      return _overrideCallState!;
-    }
-
-    // If not connected, return disconnected
-    if (_connectionState == null) return CallStateStatus.disconnected;
-    if (_connectionState is telnyx.Connecting) {
-      return CallStateStatus.disconnected;
-    }
-    if (_connectionState is telnyx.Disconnected) {
-      return CallStateStatus.disconnected;
-    }
-    if (_connectionState is telnyx.ConnectionError) {
-      return CallStateStatus.disconnected;
-    }
-
-    // If connected but no active call, return idle
-    if (_activeCall == null) return CallStateStatus.idle;
-
-    // Map telnyx_common CallState to UI CallStateStatus
-    print(
-        'TelnyxClientViewModel: Current call state: ${_activeCall!.currentState}');
-    switch (_activeCall!.currentState) {
-      case telnyx.CallState.initiating:
-        // For outgoing calls, show ringing immediately (we're placing a call, not connecting)
-        // For incoming calls, show connecting (we're connecting to accept)
-        if (_activeCall!.isIncoming) {
-          return CallStateStatus.connectingToCall;
-        } else {
-          return CallStateStatus.ringing;
-        }
-      case telnyx.CallState.ringing:
-        // For incoming calls, we need to show different states based on whether user needs to answer
-        if (_activeCall!.isIncoming) {
-          return CallStateStatus.ongoingInvitation;
-        } else {
-          // For outgoing calls, show ringing
-          return CallStateStatus.ringing;
-        }
-      case telnyx.CallState.active:
-        return CallStateStatus.ongoingCall;
-      case telnyx.CallState.held:
-        return CallStateStatus.held;
-      case telnyx.CallState.reconnecting:
-        return CallStateStatus.connectingToCall;
-      case telnyx.CallState.ended:
-      case telnyx.CallState.error:
-        return CallStateStatus.idle; // Call ended, back to idle
-    }
-
-    return CallStateStatus.idle;
-  }
-
-  set callState(CallStateStatus newState) {
-    // For compatibility, but state is now managed by telnyx_common
-    notifyListeners();
-  }
-
-  // Helper method to update UI call state for push calls
-  void _updateUICallState(CallStateStatus newState) {
-    if (_overrideCallState != newState) {
-      _overrideCallState = newState;
-      notifyListeners();
-    }
-  }
-
-  // Helper method to clear override state and reset push tracking
-  void _clearPushCallState() {
-    _waitingForCallFromPush = false;
-    _expectedPushCallId = null;
-    _overrideCallState = null;
-  }
 
   // Legacy compatibility for current call access
   telnyx.Call? get currentCall {
@@ -242,14 +149,11 @@ class TelnyxClientViewModel with ChangeNotifier {
       _connectionState = state;
       _loggingIn = state is telnyx.Connecting;
 
-      // Handle push call state transitions
-      if (state is telnyx.Connected && _waitingForCallFromPush) {
-        // We're connected and waiting for a push call - show connecting state
-        _updateUICallState(CallStateStatus.connectingToCall);
-      } else if (state is telnyx.Disconnected ||
-          state is telnyx.ConnectionError) {
-        // Connection lost - clear push call state
-        _clearPushCallState();
+      // If we disconnect, ensure connecting flag is reset
+      if (state is telnyx.Disconnected || state is telnyx.ConnectionError) {
+        if (_isConnectingToCall) {
+          _isConnectingToCall = false;
+        }
       }
 
       notifyListeners();
@@ -260,21 +164,20 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i('TelnyxClientViewModel: Active call changed to ${call?.callId}');
       _activeCall = call;
 
-      // Handle push call state transitions
-      if (call != null) {
-        // Set up call quality monitoring
-        _setupCallQualityMonitoring(call);
-
-        // If this call matches our expected push call, clear override state
-        if (_waitingForCallFromPush && call.callId == _expectedPushCallId) {
-          logger.i(
-              'TelnyxClientViewModel: Expected push call arrived, clearing override state');
-          _clearPushCallState(); // This will let the normal state logic handle the call
+      // When a call becomes active or ends, we are no longer "connecting"
+      if (call != null &&
+          (call.currentState.isTerminated || call.currentState.isStable)) {
+        if (_isConnectingToCall) {
+          _isConnectingToCall = false;
         }
+      }
+
+      if (call != null) {
+        _setupCallQualityMonitoring(call);
       } else {
-        // No active call - clear any push call state if not waiting for connection
-        if (!_loggingIn && !(_connectionState is telnyx.Connecting)) {
-          _clearPushCallState();
+        // No active call, ensure connecting flag is reset
+        if (_isConnectingToCall) {
+          _isConnectingToCall = false;
         }
       }
 
@@ -316,10 +219,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     BackgroundDetector.ignore = false;
     _speakerPhone = false;
     _callQualityMetrics = null;
-    setPushCallStatus(false);
-
-    // Clear push call state
-    _clearPushCallState();
+    _isConnectingToCall = false;
 
     // Clear audio level lists
     _inboundAudioLevels.clear();
@@ -369,21 +269,11 @@ class TelnyxClientViewModel with ChangeNotifier {
     );
   }
 
-  void setPushCallStatus(bool isFromPush) {
-    callFromPush = isFromPush;
-
-    if (isFromPush) {
-      logger.i('Entering push call context.');
-    } else {
-      logger.i('Exiting push call context / Resetting state.');
+  void setConnectingToCall(bool connecting) {
+    if (_isConnectingToCall != connecting) {
+      _isConnectingToCall = connecting;
+      notifyListeners();
     }
-    notifyListeners();
-  }
-
-  void showConnectingToCall() {
-    print('TelnyxClientViewModel: Showing connecting to call UI');
-    _overrideCallState = CallStateStatus.connectingToCall;
-    notifyListeners();
   }
 
   Future<void> _saveCredentialsForAutoLogin(Config config) async {
@@ -556,7 +446,8 @@ class TelnyxClientViewModel with ChangeNotifier {
 
       // Save call to history
       if (_currentCallDestination != null && _currentCallDirection != null) {
-        final wasAnswered = callState == CallStateStatus.ongoingCall;
+        // A call is considered "answered" if it was in the 'active' state
+        final wasAnswered = activeCall?.currentState == telnyx.CallState.active;
         await _addCallToHistory(
           destination: _currentCallDestination!,
           direction: _currentCallDirection!,
@@ -661,10 +552,6 @@ class TelnyxClientViewModel with ChangeNotifier {
     _connectionSubscription?.cancel();
     _activeCallSubscription?.cancel();
     _callsSubscription?.cancel();
-
-    // Clear push call state
-    _clearPushCallState();
-
     super.dispose();
   }
 }
