@@ -142,7 +142,7 @@ class _CallControlsState extends State<CallControls> {
         ],
       );
     } else if (callState == telnyx.CallState.ringing &&
-        !activeCall!.isIncoming) {
+        !activeCall.isIncoming) {
       // Outgoing call is ringing
       mainControls = Center(
         child: DeclineButton(
@@ -150,7 +150,7 @@ class _CallControlsState extends State<CallControls> {
         ),
       );
     } else if (callState == telnyx.CallState.ringing &&
-        activeCall!.isIncoming) {
+        activeCall.isIncoming) {
       // Incoming call invitation
       mainControls = Center(
         child: CallInvitation(
@@ -162,8 +162,10 @@ class _CallControlsState extends State<CallControls> {
         callState == telnyx.CallState.held) {
       mainControls = Center(child: OnGoingCallControls());
     } else {
-      // Default to an empty container if no state matches
-      mainControls = Container();
+      // Default to loading dialog if no specific state matches
+      mainControls = Center(
+        child: CircularProgressIndicator(),
+      );
     }
 
     return Column(
