@@ -190,17 +190,15 @@ class TelnyxVoipClient {
   /// Initiates a new outgoing call.
   ///
   /// [destination] - The destination number or SIP URI to call.
+  /// [debug] - Optional flag to enable call quality metrics for this call. When enabled, the onCallQualityMetrics callback will be triggered on the call object.
   ///
   /// Returns a Future that completes with the Call object once the
   /// invitation has been sent. The call's state can be monitored through
   /// the returned Call object's streams.
-  Future<Call> newCall({required String destination}) async {
+  Future<Call> newCall({required String destination, bool debug = false}) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
 
-    final call = await _callStateController.newCall(destination);
-
-    // Note: CallKit UI for outgoing calls is now handled by CallStateController
-    // which has direct access to CallKitManager
+    final call = await _callStateController.newCall(destination, debug);
 
     return call;
   }

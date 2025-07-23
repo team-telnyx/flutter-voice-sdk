@@ -76,7 +76,7 @@ class CallStateController {
   }
 
   /// Initiates a new outgoing call.
-  Future<Call> newCall(String destination) async {
+  Future<Call> newCall(String destination, bool debug) async {
     if (_disposed) throw StateError('CallStateController has been disposed');
 
     // Create the call object first
@@ -107,7 +107,7 @@ class CallStateController {
         destination,
         'State', // Default state
         customHeaders: {'X-RTC-CALLID': call.callId},
-        debug: true,
+        debug: debug,
       );
 
       _telnyxCalls[call.callId] = telnyxCall;

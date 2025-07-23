@@ -386,12 +386,9 @@ class TelnyxClientViewModel with ChangeNotifier {
     _currentCallDirection = CallDirection.outgoing;
 
     try {
-      final call = await _telnyxVoipClient.newCall(destination: destination);
+      final call = await _telnyxVoipClient.newCall(destination: destination, debug: true);
       logger.i(
           'TelnyxClientViewModel.call: Call initiated. Call ID: ${call.callId}');
-
-      // The call state will be updated via stream subscriptions
-      // Native UI is handled automatically by telnyx_common
     } catch (e) {
       logger.e('TelnyxClientViewModel.call: Failed to initiate call: $e');
       _setErrorDialog('Failed to initiate call: $e');
