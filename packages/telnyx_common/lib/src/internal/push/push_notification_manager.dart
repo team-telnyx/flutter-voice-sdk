@@ -118,8 +118,10 @@ class PushNotificationManager {
 
   // Event callbacks
   PushNotificationCallback? _onPushNotificationProcessed;
-  Function(String callId, Map<String, dynamic> extra)? _onPushNotificationAccepted;
-  Function(String callId, Map<String, dynamic> extra)? _onPushNotificationDeclined;
+  Function(String callId, Map<String, dynamic> extra)?
+      _onPushNotificationAccepted;
+  Function(String callId, Map<String, dynamic> extra)?
+      _onPushNotificationDeclined;
   Function(String token)? _onTokenRefresh;
 
   /// Creates a new push notification manager with the given configuration.
@@ -133,8 +135,10 @@ class PushNotificationManager {
   /// including token providers, event handlers, and display services.
   Future<void> initialize({
     PushNotificationCallback? onPushNotificationProcessed,
-    Function(String callId, Map<String, dynamic> extra)? onPushNotificationAccepted,
-    Function(String callId, Map<String, dynamic> extra)? onPushNotificationDeclined,
+    Function(String callId, Map<String, dynamic> extra)?
+        onPushNotificationAccepted,
+    Function(String callId, Map<String, dynamic> extra)?
+        onPushNotificationDeclined,
     Function(String token)? onTokenRefresh,
   }) async {
     if (_initialized || _disposed) return;
@@ -379,22 +383,26 @@ class PushNotificationManager {
     print('PushNotificationManager: _handleCallAcceptEvent called');
     print('PushNotificationManager: callId = $callId');
     print('PushNotificationManager: extra = $extra');
-    
+
     final metadata = _eventHandler.extractMetadata(extra);
     print('PushNotificationManager: extracted metadata = $metadata');
-    
+
     if (metadata != null) {
       // Process accept action with metadata
       print('PushNotificationManager: Processing call accept with metadata');
-      print('PushNotificationManager: _onPushNotificationAccepted callback exists: ${_onPushNotificationAccepted != null}');
-      
+      print(
+          'PushNotificationManager: _onPushNotificationAccepted callback exists: ${_onPushNotificationAccepted != null}');
+
       // Call the acceptance callback if provided
       if (_onPushNotificationAccepted != null) {
-        print('PushNotificationManager: Calling _onPushNotificationAccepted callback');
+        print(
+            'PushNotificationManager: Calling _onPushNotificationAccepted callback');
         _onPushNotificationAccepted?.call(callId, extra);
-        print('PushNotificationManager: _onPushNotificationAccepted callback completed');
+        print(
+            'PushNotificationManager: _onPushNotificationAccepted callback completed');
       } else {
-        print('PushNotificationManager: No _onPushNotificationAccepted callback available');
+        print(
+            'PushNotificationManager: No _onPushNotificationAccepted callback available');
       }
     } else {
       print('PushNotificationManager: No metadata extracted from extra data');
@@ -402,18 +410,23 @@ class PushNotificationManager {
   }
 
   void _handleCallDeclineEvent(String callId, Map<String, dynamic> extra) {
-    print('PushNotificationManager: _handleCallDeclineEvent called for call $callId');
+    print(
+        'PushNotificationManager: _handleCallDeclineEvent called for call $callId');
     final metadata = _eventHandler.extractMetadata(extra);
     if (metadata != null) {
       if (_onPushNotificationDeclined != null) {
-        print('PushNotificationManager: Calling _onPushNotificationDeclined callback');
+        print(
+            'PushNotificationManager: Calling _onPushNotificationDeclined callback');
         _onPushNotificationDeclined?.call(callId, extra);
-        print('PushNotificationManager: _onPushNotificationDeclined callback completed');
+        print(
+            'PushNotificationManager: _onPushNotificationDeclined callback completed');
       } else {
-        print('PushNotificationManager: No _onPushNotificationDeclined callback available');
+        print(
+            'PushNotificationManager: No _onPushNotificationDeclined callback available');
       }
     } else {
-      print('PushNotificationManager: No metadata extracted from extra data for decline event');
+      print(
+          'PushNotificationManager: No metadata extracted from extra data for decline event');
     }
   }
 

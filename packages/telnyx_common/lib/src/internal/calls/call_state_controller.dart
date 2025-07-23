@@ -11,6 +11,8 @@ import '../../models/call_state.dart';
 import '../../models/connection_state.dart';
 import '../../../utils/iterable_extensions.dart';
 import '../session/session_manager.dart';
+import '../callkit/callkit_manager.dart';
+import '../../utils/background_detector.dart';
 
 /// Internal component that serves as the central state machine for call management.
 ///
@@ -20,11 +22,12 @@ import '../session/session_manager.dart';
 class CallStateController {
   final TelnyxClient _telnyxClient;
   final SessionManager _sessionManager;
+  final CallKitManager? _callKitManager;
 
   final StreamController<List<Call>> _callsController =
-  StreamController<List<Call>>.broadcast();
+      StreamController<List<Call>>.broadcast();
   final StreamController<Call?> _activeCallController =
-  StreamController<Call?>.broadcast();
+      StreamController<Call?>.broadcast();
 
   final Map<String, Call> _calls = {};
   final Map<String, telnyx_call.Call> _telnyxCalls = {};
@@ -37,7 +40,11 @@ class CallStateController {
   bool _disposed = false;
 
   /// Creates a new CallStateController instance.
-  CallStateController(this._telnyxClient, this._sessionManager) {
+  CallStateController(
+    this._telnyxClient,
+    this._sessionManager, {
+    CallKitManager? callKitManager,
+  }) : _callKitManager = callKitManager {
     _setupSocketObservers();
     _setupConnectionStateObserver();
   }
@@ -57,12 +64,12 @@ class CallStateController {
     return _calls.values
         .where(
           (call) =>
-      call.currentState == CallState.ringing ||
-          call.currentState == CallState.active ||
-          call.currentState == CallState.held ||
-          call.currentState == CallState.initiating ||
-          call.currentState == CallState.reconnecting,
-    )
+              call.currentState == CallState.ringing ||
+              call.currentState == CallState.active ||
+              call.currentState == CallState.held ||
+              call.currentState == CallState.initiating ||
+              call.currentState == CallState.reconnecting,
+        )
         .firstOrNull;
   }
 
@@ -81,6 +88,16 @@ class CallStateController {
     _calls[call.callId] = call;
 
     try {
+      // Set background detector to ignore so app doesn't disconnect during call
+      BackgroundDetector.ignore = true;
+
+      // Show CallKit UI for outgoing call
+      await _callKitManager?.showOutgoingCall(
+        callId: call.callId,
+        callerName: _sessionManager.sipCallerIDName ?? 'User',
+        destination: destination,
+      );
+
       // Initiate the call through the TelnyxClient
       final telnyxCall = _telnyxClient.newInvite(
         _sessionManager.sipCallerIDName ?? 'User',
@@ -98,6 +115,14 @@ class CallStateController {
       // Remove the call if initiation failed
       _calls.remove(call.callId);
       call.updateState(CallState.error);
+      // End CallKit UI if call failed
+      await _callKitManager?.endCall(call.callId);
+
+      // Reset background detector if no calls remain
+      if (_calls.isEmpty) {
+        BackgroundDetector.ignore = false;
+      }
+
       rethrow;
     }
 
@@ -142,7 +167,7 @@ class CallStateController {
   void _handleSocketMessage(TelnyxMessage message) {
     switch (message.socketMethod) {
       case SocketMethod.clientReady:
-      // Notify session manager that we're connected
+        // Notify session manager that we're connected
         _sessionManager.setConnected();
         break;
 
@@ -164,13 +189,13 @@ class CallStateController {
         break;
 
       default:
-      // Handle other socket methods as needed
+        // Handle other socket methods as needed
         break;
     }
   }
 
   /// Handles incoming call invitations.
-  void _handleIncomingInvite(IncomingInviteParams? inviteParams) {
+  void _handleIncomingInvite(IncomingInviteParams? inviteParams) async {
     if (inviteParams?.callID == null) return;
 
     final callId = inviteParams!.callID!;
@@ -202,10 +227,23 @@ class CallStateController {
     );
 
     if (_sessionManager.isHandlingPushNotification) {
+      // This is from a push notification that was already accepted
       call.updateState(CallState.active);
       _sessionManager.isHandlingPushNotification = false;
     } else {
+      // This is a new incoming call in foreground - show CallKit UI
       call.updateState(CallState.ringing);
+
+      // Set background detector to ignore so app doesn't disconnect during call
+      BackgroundDetector.ignore = true;
+
+      // Show CallKit UI for incoming call
+      await _callKitManager?.showIncomingCall(
+        callId: callId,
+        callerName: inviteParams.callerIdName ?? 'Unknown Caller',
+        callerNumber: inviteParams.callerIdNumber ?? 'Unknown Number',
+        extra: {},
+      );
     }
     _calls[callId] = call;
     _notifyCallsChanged();
@@ -213,14 +251,14 @@ class CallStateController {
 
   /// Handles answer messages from the socket.
   /// This provides IMMEDIATE state transition to active when remote party answers.
-  void _handleAnswerMessage(TelnyxMessage message) {
+  void _handleAnswerMessage(TelnyxMessage message) async {
     final timestamp = DateTime.now();
 
     // Find the call that was answered and update its state IMMEDIATELY
     final activeCall = _calls.values
         .where((call) =>
-    call.currentState == CallState.initiating ||
-        call.currentState == CallState.ringing)
+            call.currentState == CallState.initiating ||
+            call.currentState == CallState.ringing)
         .firstOrNull;
 
     if (activeCall != null) {
@@ -228,6 +266,9 @@ class CallStateController {
       _lastSocketStateChange[activeCall.callId] = timestamp;
       activeCall.updateState(CallState.active);
       activeCall.updateHoldState(false); // Ensure not held when active
+
+      // Set CallKit as connected when call is answered
+      await _callKitManager?.setCallConnected(activeCall.callId);
 
       _notifyCallsChanged();
     }
@@ -241,7 +282,7 @@ class CallStateController {
     // Update outgoing calls to ringing state IMMEDIATELY
     final ringingCall = _calls.values
         .where((call) =>
-    !call.isIncoming && call.currentState == CallState.initiating)
+            !call.isIncoming && call.currentState == CallState.initiating)
         .firstOrNull;
 
     if (ringingCall != null) {
@@ -255,7 +296,7 @@ class CallStateController {
 
   /// Handles bye messages from the socket.
   /// This provides IMMEDIATE state transition to ended when call terminates.
-  void _handleByeMessage(TelnyxMessage message) {
+  void _handleByeMessage(TelnyxMessage message) async {
     final timestamp = DateTime.now();
 
     // End all active calls when receiving a bye message IMMEDIATELY
@@ -264,10 +305,19 @@ class CallStateController {
         // Mark this as a socket-driven state change (priority update)
         _lastSocketStateChange[call.callId] = timestamp;
         call.updateState(CallState.ended);
+
+        // End CallKit call
+        await _callKitManager?.endCall(call.callId);
       }
     }
 
     _cleanupTerminatedCalls();
+
+    // Reset background detector if no calls remain
+    if (_calls.isEmpty) {
+      BackgroundDetector.ignore = false;
+    }
+
     _notifyCallsChanged();
   }
 
@@ -308,7 +358,7 @@ class CallStateController {
   }
 
   /// Answers an incoming call.
-  void _answerCall(Call call, telnyx_call.Call? telnyxCall) {
+  void _answerCall(Call call, telnyx_call.Call? telnyxCall) async {
     if (!call.isIncoming || !call.currentState.canAnswer) return;
 
     try {
@@ -349,6 +399,15 @@ class CallStateController {
         _observeTelnyxCall(call.callId, newTelnyxCall);
       }
 
+      // Hide incoming call UI on Android when answered
+      if (call.isIncoming) {
+        await _callKitManager?.hideIncomingCall(
+          callId: call.callId,
+          callerName: call.callerName ?? 'Unknown Caller',
+          callerNumber: call.callerNumber ?? 'Unknown Number',
+        );
+      }
+
       // Don't update state here - let the TelnyxCall state change handler do it
       // This ensures proper state synchronization
       _notifyCallsChanged();
@@ -359,16 +418,30 @@ class CallStateController {
   }
 
   /// Ends a call.
-  void _hangupCall(Call call, telnyx_call.Call? telnyxCall) {
+  void _hangupCall(Call call, telnyx_call.Call? telnyxCall) async {
     if (!call.currentState.canHangup) return;
 
     try {
       telnyxCall?.endCall();
       call.updateState(CallState.ended);
+
+      // End CallKit call
+      await _callKitManager?.endCall(call.callId);
+
       _cleanupCall(call.callId);
       _notifyCallsChanged();
     } catch (error) {
       call.updateState(CallState.error);
+
+      // End CallKit call even on error
+      await _callKitManager?.endCall(call.callId);
+
+      // Check if we should reset background detector
+      _cleanupCall(call.callId);
+      if (_calls.isEmpty) {
+        BackgroundDetector.ignore = false;
+      }
+
       _notifyCallsChanged();
     }
   }
@@ -420,8 +493,8 @@ class CallStateController {
   }
 
   /// Enables or disables speaker phone.
-  void _enableSpeakerPhone(Call call, telnyx_call.Call? telnyxCall,
-      bool? enable) {
+  void _enableSpeakerPhone(
+      Call call, telnyx_call.Call? telnyxCall, bool? enable) {
     if (!call.currentState.canMute || enable == null) return;
 
     try {
@@ -449,8 +522,8 @@ class CallStateController {
   }
 
   /// Handles state changes from TelnyxCall objects.
-  void _handleTelnyxCallStateChange(String callId,
-      telnyx_call_state.CallState state) {
+  void _handleTelnyxCallStateChange(
+      String callId, telnyx_call_state.CallState state) async {
     final call = _calls[callId];
     if (call == null) {
       return;
@@ -460,7 +533,7 @@ class CallStateController {
     final lastSocketChange = _lastSocketStateChange[callId];
     final now = DateTime.now();
     const socketPriorityWindow =
-    Duration(milliseconds: 2000); // 2-second priority window
+        Duration(milliseconds: 2000); // 2-second priority window
 
     if (lastSocketChange != null &&
         now.difference(lastSocketChange) < socketPriorityWindow) {
@@ -477,6 +550,8 @@ class CallStateController {
       case telnyx_call_state.CallState.active:
         call.updateState(CallState.active);
         call.updateHoldState(false);
+        // Set CallKit as connected when call becomes active
+        await _callKitManager?.setCallConnected(callId);
         break;
       case telnyx_call_state.CallState.held:
         call.updateState(CallState.held);
@@ -484,11 +559,25 @@ class CallStateController {
         break;
       case telnyx_call_state.CallState.done:
         call.updateState(CallState.ended);
+        // End CallKit call when call is done
+        await _callKitManager?.endCall(callId);
         _cleanupCall(callId);
+
+        // Reset background detector if no calls remain
+        if (_calls.isEmpty) {
+          BackgroundDetector.ignore = false;
+        }
         break;
       case telnyx_call_state.CallState.error:
         call.updateState(CallState.error);
+        // End CallKit call on error
+        await _callKitManager?.endCall(callId);
         _cleanupCall(callId);
+
+        // Reset background detector if no calls remain
+        if (_calls.isEmpty) {
+          BackgroundDetector.ignore = false;
+        }
         break;
       case telnyx_call_state.CallState.reconnecting:
         call.updateState(CallState.reconnecting);
@@ -501,13 +590,22 @@ class CallStateController {
   }
 
   /// Ends all active calls.
-  void _endAllCalls() {
+  void _endAllCalls() async {
     for (final call in _calls.values) {
       if (!call.currentState.isTerminated) {
         call.updateState(CallState.ended);
+
+        // End CallKit call
+        await _callKitManager?.endCall(call.callId);
       }
     }
     _cleanupTerminatedCalls();
+
+    // Reset background detector if no calls remain
+    if (_calls.isEmpty) {
+      BackgroundDetector.ignore = false;
+    }
+
     _notifyCallsChanged();
   }
 

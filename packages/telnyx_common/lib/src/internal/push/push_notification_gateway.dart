@@ -54,7 +54,6 @@ class PushNotificationGateway {
         return;
       }
 
-
       // Check if the notification is stale
       if (_isStaleNotification(payload)) {
         print(

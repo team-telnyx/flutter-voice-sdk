@@ -10,6 +10,7 @@ import 'package:telnyx_common/src/internal/calls/call_state_controller.dart';
 import 'package:telnyx_common/src/internal/push/push_notification_manager.dart';
 import 'package:telnyx_common/src/internal/push/push_token_provider.dart';
 import 'package:telnyx_common/src/internal/push/notification_display_service.dart';
+import 'package:telnyx_common/src/internal/callkit/callkit_manager.dart';
 import 'package:telnyx_common/utils/iterable_extensions.dart';
 import 'package:telnyx_common/src/util/config_helper.dart';
 
@@ -27,6 +28,7 @@ class TelnyxVoipClient {
   late final SessionManager _sessionManager;
   late final CallStateController _callStateController;
   PushNotificationManager? _pushNotificationManager;
+  CallKitManager? _callKitManager;
 
   // Configuration
   final PushNotificationManagerConfig _pushConfig;
@@ -197,14 +199,8 @@ class TelnyxVoipClient {
 
     final call = await _callStateController.newCall(destination);
 
-    // Show outgoing call UI if native UI is enabled
-    if (_pushConfig.enableNativeUI && _pushNotificationManager != null) {
-      await _pushNotificationManager!.showOutgoingCall(
-        callId: call.callId,
-        callerName: 'Local User', // This could be made configurable
-        destination: destination,
-      );
-    }
+    // Note: CallKit UI for outgoing calls is now handled by CallStateController
+    // which has direct access to CallKitManager
 
     return call;
   }
@@ -281,9 +277,37 @@ class TelnyxVoipClient {
     // Initialize session manager
     _sessionManager = SessionManager();
 
-    // Initialize call state controller
-    _callStateController =
-        CallStateController(_sessionManager.telnyxClient, _sessionManager);
+    // Initialize CallKit manager if native UI is enabled
+    if (_pushConfig.enableNativeUI) {
+      _callKitManager = CallKitManager(enableNativeUI: true);
+      _callKitManager!.initialize(
+        onCallAccepted: (callId) {
+          print('TelnyxVoipClient: Call accepted from CallKit - $callId');
+          // Call acceptance is handled by push notification callbacks
+        },
+        onCallDeclined: (callId) {
+          print('TelnyxVoipClient: Call declined from CallKit - $callId');
+          // Call decline is handled by push notification callbacks
+        },
+        onCallEnded: (callId) {
+          print('TelnyxVoipClient: Call ended from CallKit - $callId');
+          // Update call state if needed
+          final call = _callStateController.currentCalls
+              .where((c) => c.callId == callId)
+              .firstOrNull;
+          if (call != null && !call.currentState.isTerminated) {
+            call.hangup();
+          }
+        },
+      );
+    }
+
+    // Initialize call state controller with CallKit manager
+    _callStateController = CallStateController(
+      _sessionManager.telnyxClient,
+      _sessionManager,
+      callKitManager: _callKitManager,
+    );
 
     // Monitor connection state for call cleanup
     _callStateController
@@ -417,6 +441,7 @@ class TelnyxVoipClient {
     _callStateController.dispose();
     _sessionManager.dispose();
     _pushNotificationManager?.dispose();
+    _callKitManager?.dispose();
 
     // Clear stored data
     _storedConfig = null;

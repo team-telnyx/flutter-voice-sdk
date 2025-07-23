@@ -20,6 +20,7 @@ export 'src/internal/push/firebase_push_token_provider.dart';
 export 'src/internal/push/ios_push_token_provider.dart';
 export 'src/internal/push/default_push_token_provider.dart';
 export 'utils/iterable_extensions.dart';
+export 'src/utils.dart';
 
 // Re-export telnyx_config classes directly
 export 'package:telnyx_webrtc/config/telnyx_config.dart';

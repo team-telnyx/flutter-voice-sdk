@@ -91,18 +91,18 @@ class CallKitEventHandler {
   }
 
   /// Safely converts any object to Map<String, dynamic>.
-  /// 
-  /// This handles cases where the object might be _Map<Object?, Object?> 
+  ///
+  /// This handles cases where the object might be _Map<Object?, Object?>
   /// or other map types that need to be converted safely.
   Map<String, dynamic> _safeConvertToStringDynamicMap(dynamic value) {
     if (value == null) {
       return <String, dynamic>{};
     }
-    
+
     if (value is Map<String, dynamic>) {
       return value;
     }
-    
+
     if (value is Map) {
       try {
         // Convert any Map type to Map<String, dynamic>
@@ -118,7 +118,7 @@ class CallKitEventHandler {
         return <String, dynamic>{};
       }
     }
-    
+
     // If it's not a map at all, return empty map
     print('CallKitEventHandler: Expected Map but got ${value.runtimeType}');
     return <String, dynamic>{};

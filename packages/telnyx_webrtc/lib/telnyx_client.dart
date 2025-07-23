@@ -431,10 +431,10 @@ class TelnyxClient {
   /// - [credentialConfig]: The credential configuration for login (if using credentials).
   /// - [tokenConfig]: The token configuration for login (if using a token).
   void handlePushNotification(
-      PushMetaData pushMetaData,
-      CredentialConfig? credentialConfig,
-      TokenConfig? tokenConfig,
-      ) {
+    PushMetaData pushMetaData,
+    CredentialConfig? credentialConfig,
+    TokenConfig? tokenConfig,
+  ) {
     GlobalLogger().i(
       'TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}',
     );

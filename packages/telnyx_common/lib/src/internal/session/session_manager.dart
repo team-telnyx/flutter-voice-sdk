@@ -21,7 +21,7 @@ class SessionManager {
   // Store caller ID information from login config
   String? _sipCallerIDName;
   String? _sipCallerIDNumber;
-  
+
   // Store the configuration for push notification handling
   Config? _storedConfig;
 
@@ -63,7 +63,8 @@ class SessionManager {
   }
 
   /// Handles push notifications with the stored configuration.
-  void handlePushNotificationWithConfig(PushMetaData pushMetaData, Config config) {
+  void handlePushNotificationWithConfig(
+      PushMetaData pushMetaData, Config config) {
     print('SessionManager: handlePushNotificationWithConfig called');
     print('SessionManager: Push metadata: ${pushMetaData.toJson()}');
     print('SessionManager: Config type: ${config.runtimeType}');
@@ -71,14 +72,16 @@ class SessionManager {
 
     try {
       if (config is CredentialConfig) {
-        print('SessionManager: Calling TelnyxClient.handlePushNotification with CredentialConfig');
+        print(
+            'SessionManager: Calling TelnyxClient.handlePushNotification with CredentialConfig');
         telnyxClient.handlePushNotification(
           pushMetaData,
           config,
           null,
         );
       } else if (config is TokenConfig) {
-        print('SessionManager: Calling TelnyxClient.handlePushNotification with TokenConfig');
+        print(
+            'SessionManager: Calling TelnyxClient.handlePushNotification with TokenConfig');
         telnyxClient.handlePushNotification(
           pushMetaData,
           null,
@@ -102,7 +105,7 @@ class SessionManager {
       // Store caller ID information for later use
       _sipCallerIDName = config.sipCallerIDName;
       _sipCallerIDNumber = config.sipCallerIDNumber;
-      
+
       // Store the configuration for push notification handling
       _storedConfig = config;
 
@@ -139,7 +142,7 @@ class SessionManager {
       // Store caller ID information for later use
       _sipCallerIDName = config.sipCallerIDName;
       _sipCallerIDNumber = config.sipCallerIDNumber;
-      
+
       // Store the configuration for push notification handling
       _storedConfig = config;
 
@@ -207,7 +210,7 @@ class SessionManager {
       // Clear stored caller ID information
       _sipCallerIDName = null;
       _sipCallerIDNumber = null;
-      
+
       // Clear stored configuration
       _storedConfig = null;
     } catch (error, stackTrace) {
@@ -255,7 +258,7 @@ class SessionManager {
     // Clear stored caller ID information
     _sipCallerIDName = null;
     _sipCallerIDNumber = null;
-    
+
     // Clear stored configuration
     _storedConfig = null;
   }

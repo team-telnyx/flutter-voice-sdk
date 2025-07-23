@@ -141,14 +141,16 @@ class _CallControlsState extends State<CallControls> {
           const Center(child: CallHistoryButton()),
         ],
       );
-    } else if (callState == telnyx.CallState.ringing && !activeCall!.isIncoming) {
+    } else if (callState == telnyx.CallState.ringing &&
+        !activeCall!.isIncoming) {
       // Outgoing call is ringing
       mainControls = Center(
         child: DeclineButton(
           onPressed: () => context.read<TelnyxClientViewModel>().endCall(),
         ),
       );
-    } else if (callState == telnyx.CallState.ringing && activeCall!.isIncoming) {
+    } else if (callState == telnyx.CallState.ringing &&
+        activeCall!.isIncoming) {
       // Incoming call invitation
       mainControls = Center(
         child: CallInvitation(

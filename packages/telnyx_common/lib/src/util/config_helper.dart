@@ -58,7 +58,6 @@ class ConfigHelper {
     final forceRelayCandidate = prefs.getBool(_forceRelayCandidateKey) ?? false;
     final reconnectionTimeout = prefs.getInt(_reconnectionTimeoutKey);
 
-
     if (sipName == null || sipNumber == null) {
       print('ConfigHelper: No stored configuration found.');
       return null;
@@ -108,4 +107,4 @@ class ConfigHelper {
     await prefs.remove(_reconnectionTimeoutKey);
     print('ConfigHelper: Cleared stored configuration.');
   }
-} 
+}

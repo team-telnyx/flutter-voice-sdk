@@ -27,7 +27,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 @pragma('vm:entry-point')
 Future<void> main() async {
   await runZonedGuarded(
-        () async {
+    () async {
       // Ensure Flutter binding is initialized
       WidgetsFlutterBinding.ensureInitialized();
 
@@ -54,7 +54,7 @@ Future<void> main() async {
         ),
       );
     },
-        (error, stack) {
+    (error, stack) {
       logger.e('Caught Zoned error: $error', stackTrace: stack);
     },
   );
