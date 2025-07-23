@@ -8,6 +8,7 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/call_state.dart' as telnyx_call_state;
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import '../../models/call.dart';
 import '../../models/call_state.dart';
 import '../../models/connection_state.dart';
@@ -380,11 +381,14 @@ class CallStateController {
 
       if (telnyxCall != null && originalInviteParams != null) {
         // Use existing TelnyxCall with original invite parameters containing SDP data
+        // Note: The acceptCall method returns a new Call instance with updated parameters
         final updatedTelnyxCall = telnyxCall.acceptCall(
           originalInviteParams,
           _sessionManager.sipCallerIDName ?? 'User',
           _sessionManager.sipCallerIDNumber ?? 'Unknown',
           'State', // Default state
+          customHeaders: {},
+          debug: true, // Enable debug to get call quality metrics
         );
 
         // Update our reference and re-observe the updated call
@@ -399,13 +403,14 @@ class CallStateController {
               callerIdNumber: call.callerNumber,
             );
 
+        // Always enable debug for call quality metrics
         final newTelnyxCall = _telnyxClient.acceptCall(
           inviteParams,
           _sessionManager.sipCallerIDName ?? 'User',
           _sessionManager.sipCallerIDNumber ?? 'Unknown',
           'State', // Default state
           customHeaders: {},
-          debug: true,
+          debug: true, // Enable debug to get call quality metrics
         );
 
         _telnyxCalls[call.callId] = newTelnyxCall;

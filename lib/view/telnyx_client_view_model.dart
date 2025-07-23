@@ -199,6 +199,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   /// Set up call quality monitoring for the active call
   void _setupCallQualityMonitoring(telnyx.Call call) {
+    logger.i('TelnyxClientViewModel: Setting up call quality monitoring for call ${call.callId}');
     // Listen to call quality metrics from the telnyx_common Call
     call.callQualityMetrics.listen((metrics) {
       _callQualityMetrics = metrics;
