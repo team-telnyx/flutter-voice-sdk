@@ -123,6 +123,11 @@ class PushNotificationManager {
   Function(String callId, Map<String, dynamic> extra)?
       _onPushNotificationDeclined;
   Function(String token)? _onTokenRefresh;
+  
+  // Action callbacks for foreground calls
+  Function(String callId)? _onForegroundCallAccepted;
+  Function(String callId)? _onForegroundCallDeclined;
+  Function(String callId)? _onForegroundCallEnded;
 
   /// Creates a new push notification manager with the given configuration.
   PushNotificationManager({
@@ -140,6 +145,9 @@ class PushNotificationManager {
     Function(String callId, Map<String, dynamic> extra)?
         onPushNotificationDeclined,
     Function(String token)? onTokenRefresh,
+    Function(String callId)? onForegroundCallAccepted,
+    Function(String callId)? onForegroundCallDeclined,
+    Function(String callId)? onForegroundCallEnded,
   }) async {
     if (_initialized || _disposed) return;
 
@@ -150,6 +158,9 @@ class PushNotificationManager {
       _onPushNotificationAccepted = onPushNotificationAccepted;
       _onPushNotificationDeclined = onPushNotificationDeclined;
       _onTokenRefresh = onTokenRefresh;
+      _onForegroundCallAccepted = onForegroundCallAccepted;
+      _onForegroundCallDeclined = onForegroundCallDeclined;
+      _onForegroundCallEnded = onForegroundCallEnded;
 
       // Initialize core components
       await _initializeComponents();
@@ -364,18 +375,36 @@ class PushNotificationManager {
   void _handleCallAccepted(String callId) {
     print(
         'PushNotificationManager: Call accepted via CallKit bridge - $callId');
-    // Additional processing can be added here if needed
+    // Call the foreground action callback if available
+    if (_onForegroundCallAccepted != null) {
+      print('PushNotificationManager: Calling foreground call accepted callback');
+      _onForegroundCallAccepted!(callId);
+    } else {
+      print('PushNotificationManager: No foreground call accepted callback available');
+    }
   }
 
   void _handleCallDeclined(String callId) {
     print(
         'PushNotificationManager: Call declined via CallKit bridge - $callId');
-    // Additional processing can be added here if needed
+    // Call the foreground action callback if available
+    if (_onForegroundCallDeclined != null) {
+      print('PushNotificationManager: Calling foreground call declined callback');
+      _onForegroundCallDeclined!(callId);
+    } else {
+      print('PushNotificationManager: No foreground call declined callback available');
+    }
   }
 
   void _handleCallEnded(String callId) {
     print('PushNotificationManager: Call ended via CallKit bridge - $callId');
-    // Additional processing can be added here if needed
+    // Call the foreground action callback if available
+    if (_onForegroundCallEnded != null) {
+      print('PushNotificationManager: Calling foreground call ended callback');
+      _onForegroundCallEnded!(callId);
+    } else {
+      print('PushNotificationManager: No foreground call ended callback available');
+    }
   }
 
   // Event handlers for CallKitEventHandler callbacks
@@ -388,8 +417,8 @@ class PushNotificationManager {
     print('PushNotificationManager: extracted metadata = $metadata');
 
     if (metadata != null) {
-      // Process accept action with metadata
-      print('PushNotificationManager: Processing call accept with metadata');
+      // This is a push notification call - process with metadata
+      print('PushNotificationManager: Processing push call accept with metadata');
       print(
           'PushNotificationManager: _onPushNotificationAccepted callback exists: ${_onPushNotificationAccepted != null}');
 
@@ -405,7 +434,10 @@ class PushNotificationManager {
             'PushNotificationManager: No _onPushNotificationAccepted callback available');
       }
     } else {
-      print('PushNotificationManager: No metadata extracted from extra data');
+      // This is a foreground call - directly handle the acceptance
+      print('PushNotificationManager: Processing foreground call accept (no metadata)');
+      // The CallKit bridge callbacks will handle this
+      _handleCallAccepted(callId);
     }
   }
 
@@ -414,6 +446,7 @@ class PushNotificationManager {
         'PushNotificationManager: _handleCallDeclineEvent called for call $callId');
     final metadata = _eventHandler.extractMetadata(extra);
     if (metadata != null) {
+      // This is a push notification call - process with metadata
       if (_onPushNotificationDeclined != null) {
         print(
             'PushNotificationManager: Calling _onPushNotificationDeclined callback');
@@ -425,13 +458,17 @@ class PushNotificationManager {
             'PushNotificationManager: No _onPushNotificationDeclined callback available');
       }
     } else {
-      print(
-          'PushNotificationManager: No metadata extracted from extra data for decline event');
+      // This is a foreground call - directly handle the decline
+      print('PushNotificationManager: Processing foreground call decline (no metadata)');
+      // The CallKit bridge callbacks will handle this
+      _handleCallDeclined(callId);
     }
   }
 
   void _handleCallEndEvent(String callId, Map<String, dynamic> extra) {
-    print('PushNotificationManager: Processing call end event');
+    print('PushNotificationManager: Processing call end event for $callId');
+    // For end events, we don't need metadata - just forward to the bridge
+    _handleCallEnded(callId);
   }
 
   void _handleCallTimeoutEvent(String callId, Map<String, dynamic> extra) {
@@ -457,6 +494,9 @@ class PushNotificationManager {
     _onPushNotificationAccepted = null;
     _onPushNotificationDeclined = null;
     _onTokenRefresh = null;
+    _onForegroundCallAccepted = null;
+    _onForegroundCallDeclined = null;
+    _onForegroundCallEnded = null;
 
     print('PushNotificationManager: Disposed');
   }

@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
 import 'package:telnyx_flutter_webrtc/model/call_history_entry.dart';
 import 'package:telnyx_flutter_webrtc/service/call_history_service.dart';
-import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 
@@ -221,7 +220,6 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   void resetCallInfo() {
     logger.i('TxClientViewModel :: Reset Call Info');
-    BackgroundDetector.ignore = false;
     _speakerPhone = false;
     _callQualityMetrics = null;
     _isConnectingToCall = false;

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/call.dart' as telnyx_call;
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
@@ -269,6 +271,17 @@ class CallStateController {
 
       // Set CallKit as connected when call is answered
       await _callKitManager?.setCallConnected(activeCall.callId);
+      
+      // On Android, show ongoing call notification for foreground calls
+      if (!kIsWeb && Platform.isAndroid && activeCall.isIncoming) {
+        // For incoming calls answered in foreground, we need to show ongoing notification
+        await _callKitManager?.showOutgoingCall(
+          callId: activeCall.callId,
+          callerName: 'Ongoing Call',
+          destination: activeCall.callerNumber ?? 'Unknown Number',
+          extra: {'isOngoing': true},
+        );
+      }
 
       _notifyCallsChanged();
     }
@@ -399,13 +412,25 @@ class CallStateController {
         _observeTelnyxCall(call.callId, newTelnyxCall);
       }
 
-      // Hide incoming call UI on Android when answered
+      // Handle platform-specific call UI updates when answered
       if (call.isIncoming) {
-        await _callKitManager?.hideIncomingCall(
-          callId: call.callId,
-          callerName: call.callerName ?? 'Unknown Caller',
-          callerNumber: call.callerNumber ?? 'Unknown Number',
-        );
+        // On Android, we need to hide the incoming call UI and show an ongoing call notification
+        if (!kIsWeb && Platform.isAndroid) {
+          await _callKitManager?.hideIncomingCall(
+            callId: call.callId,
+            callerName: call.callerName ?? 'Unknown Caller',
+            callerNumber: call.callerNumber ?? 'Unknown Number',
+          );
+          
+          // Show ongoing call notification on Android
+          // We use showOutgoingCall which creates an ongoing call notification
+          await _callKitManager?.showOutgoingCall(
+            callId: call.callId,
+            callerName: 'Ongoing Call',
+            destination: call.callerNumber ?? 'Unknown Number',
+            extra: {'isOngoing': true},
+          );
+        }
       }
 
       // Don't update state here - let the TelnyxCall state change handler do it
@@ -552,6 +577,16 @@ class CallStateController {
         call.updateHoldState(false);
         // Set CallKit as connected when call becomes active
         await _callKitManager?.setCallConnected(callId);
+        
+        // On Android, ensure ongoing call notification is shown for incoming calls
+        if (!kIsWeb && Platform.isAndroid && call.isIncoming) {
+          await _callKitManager?.showOutgoingCall(
+            callId: callId,
+            callerName: 'Ongoing Call',
+            destination: call.callerNumber ?? 'Unknown Number',
+            extra: {'isOngoing': true},
+          );
+        }
         break;
       case telnyx_call_state.CallState.held:
         call.updateState(CallState.held);

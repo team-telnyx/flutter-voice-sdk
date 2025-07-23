@@ -277,17 +277,46 @@ class TelnyxVoipClient {
     // Initialize session manager
     _sessionManager = SessionManager();
 
-    // Initialize CallKit manager if native UI is enabled
+    // Create CallKit manager if native UI is enabled (but don't initialize yet)
     if (_pushConfig.enableNativeUI) {
       _callKitManager = CallKitManager(enableNativeUI: true);
+    }
+
+    // Initialize call state controller with CallKit manager
+    _callStateController = CallStateController(
+      _sessionManager.telnyxClient,
+      _sessionManager,
+      callKitManager: _callKitManager,
+    );
+
+    // Now initialize CallKit manager with callbacks that can access _callStateController
+    if (_callKitManager != null) {
       _callKitManager!.initialize(
         onCallAccepted: (callId) {
           print('TelnyxVoipClient: Call accepted from CallKit - $callId');
-          // Call acceptance is handled by push notification callbacks
+          // Handle foreground call acceptance directly
+          final call = _callStateController.currentCalls
+              .where((c) => c.callId == callId)
+              .firstOrNull;
+          if (call != null && call.isIncoming && call.currentState.canAnswer) {
+            print('TelnyxVoipClient: Answering call $callId from foreground');
+            call.answer();
+          } else {
+            print('TelnyxVoipClient: Call $callId not found or not in answerable state');
+          }
         },
         onCallDeclined: (callId) {
           print('TelnyxVoipClient: Call declined from CallKit - $callId');
-          // Call decline is handled by push notification callbacks
+          // Handle foreground call decline directly
+          final call = _callStateController.currentCalls
+              .where((c) => c.callId == callId)
+              .firstOrNull;
+          if (call != null && call.currentState.canHangup) {
+            print('TelnyxVoipClient: Declining call $callId from foreground');
+            call.hangup();
+          } else {
+            print('TelnyxVoipClient: Call $callId not found or not in declinable state');
+          }
         },
         onCallEnded: (callId) {
           print('TelnyxVoipClient: Call ended from CallKit - $callId');
@@ -301,13 +330,6 @@ class TelnyxVoipClient {
         },
       );
     }
-
-    // Initialize call state controller with CallKit manager
-    _callStateController = CallStateController(
-      _sessionManager.telnyxClient,
-      _sessionManager,
-      callKitManager: _callKitManager,
-    );
 
     // Monitor connection state for call cleanup
     _callStateController
@@ -325,6 +347,43 @@ class TelnyxVoipClient {
       onPushNotificationAccepted: _handlePushNotificationAccepted,
       onPushNotificationDeclined: _handlePushNotificationDeclined,
       onTokenRefresh: _handleTokenRefresh,
+      onForegroundCallAccepted: (callId) {
+        print('TelnyxVoipClient: Foreground call accepted - $callId');
+        // Handle foreground call acceptance
+        final call = _callStateController.currentCalls
+            .where((c) => c.callId == callId)
+            .firstOrNull;
+        if (call != null && call.isIncoming && call.currentState.canAnswer) {
+          print('TelnyxVoipClient: Answering foreground call $callId');
+          call.answer();
+        } else {
+          print('TelnyxVoipClient: Foreground call $callId not found or not in answerable state');
+        }
+      },
+      onForegroundCallDeclined: (callId) {
+        print('TelnyxVoipClient: Foreground call declined - $callId');
+        // Handle foreground call decline
+        final call = _callStateController.currentCalls
+            .where((c) => c.callId == callId)
+            .firstOrNull;
+        if (call != null && call.currentState.canHangup) {
+          print('TelnyxVoipClient: Declining foreground call $callId');
+          call.hangup();
+        } else {
+          print('TelnyxVoipClient: Foreground call $callId not found or not in declinable state');
+        }
+      },
+      onForegroundCallEnded: (callId) {
+        print('TelnyxVoipClient: Foreground call ended - $callId');
+        // Handle foreground call end
+        final call = _callStateController.currentCalls
+            .where((c) => c.callId == callId)
+            .firstOrNull;
+        if (call != null && !call.currentState.isTerminated) {
+          print('TelnyxVoipClient: Ending foreground call $callId');
+          call.hangup();
+        }
+      },
     );
   }
 
