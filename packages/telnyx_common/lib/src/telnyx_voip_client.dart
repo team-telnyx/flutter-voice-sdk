@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert'; // Added for jsonDecode
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_common/src/models/call.dart';
 import 'package:telnyx_common/src/models/connection_state.dart';
 import 'package:telnyx_common/src/internal/session/session_manager.dart';
@@ -8,7 +10,9 @@ import 'package:telnyx_common/src/internal/calls/call_state_controller.dart';
 import 'package:telnyx_common/src/internal/push/push_notification_manager.dart';
 import 'package:telnyx_common/src/internal/push/push_token_provider.dart';
 import 'package:telnyx_common/src/internal/push/notification_display_service.dart';
+import 'package:telnyx_common/src/internal/callkit/callkit_manager.dart';
 import 'package:telnyx_common/utils/iterable_extensions.dart';
+import 'package:telnyx_common/src/util/config_helper.dart';
 
 /// The main public interface for the telnyx_common module.
 ///
@@ -24,10 +28,16 @@ class TelnyxVoipClient {
   late final SessionManager _sessionManager;
   late final CallStateController _callStateController;
   PushNotificationManager? _pushNotificationManager;
+  CallKitManager? _callKitManager;
 
   // Configuration
   final PushNotificationManagerConfig _pushConfig;
   bool _disposed = false;
+
+  // Store configuration for push notification handling
+  Config? _storedConfig;
+  PushMetaData? _storedPushMetaData;
+  Map<String, dynamic>? _storedPushPayload;
 
   /// Creates a new TelnyxVoipClient instance.
   ///
@@ -90,6 +100,17 @@ class TelnyxVoipClient {
   /// Current push token (synchronous access).
   String? get currentPushToken => _pushNotificationManager?.currentToken;
 
+  /// Current session ID (UUID) for this connection.
+  String get sessionId => _sessionManager.sessionId;
+
+  /// Disables push notifications for the current session.
+  ///
+  /// This method sends a request to the Telnyx backend to disable push
+  /// notifications for the current registered device/session.
+  void disablePushNotifications() {
+    _sessionManager.disablePushNotifications();
+  }
+
   /// Connects to the Telnyx platform using credential authentication.
   ///
   /// [config] - The credential configuration containing SIP username and password.
@@ -98,6 +119,10 @@ class TelnyxVoipClient {
   /// Listen to [connectionState] to monitor the actual connection status.
   Future<void> login(CredentialConfig config) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
+
+    // Store the configuration for push notification handling
+    _storedConfig = config;
+    await ConfigHelper.saveConfig(config);
 
     // Initialize push notification manager if not already done
     await _ensurePushNotificationManagerInitialized();
@@ -114,10 +139,37 @@ class TelnyxVoipClient {
   Future<void> loginWithToken(TokenConfig config) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
 
+    // Store the configuration for push notification handling
+    _storedConfig = config;
+    await ConfigHelper.saveConfig(config);
+
     // Initialize push notification manager if not already done
     await _ensurePushNotificationManagerInitialized();
 
     await _sessionManager.connectWithToken(config);
+  }
+
+  /// Attempts to log in using a configuration stored on the device.
+  ///
+  /// This is useful for automatically reconnecting when the app starts.
+  /// Returns `true` if a stored configuration was found and a login attempt
+  /// was initiated, `false` otherwise.
+  Future<bool> loginFromStoredConfig() async {
+    if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
+
+    final config = await ConfigHelper.getConfig();
+    if (config != null) {
+      print('TelnyxVoipClient: Found stored config, attempting to log in...');
+      if (config is CredentialConfig) {
+        await login(config);
+      } else if (config is TokenConfig) {
+        await loginWithToken(config);
+      }
+      return true;
+    } else {
+      print('TelnyxVoipClient: No stored config found.');
+      return false;
+    }
   }
 
   /// Disconnects from the Telnyx platform.
@@ -127,54 +179,85 @@ class TelnyxVoipClient {
   Future<void> logout() async {
     if (_disposed) return;
 
+    // Clear stored configuration
+    _storedConfig = null;
+    _storedPushMetaData = null;
+    _storedPushPayload = null;
+
     await _sessionManager.disconnect();
   }
 
   /// Initiates a new outgoing call.
   ///
   /// [destination] - The destination number or SIP URI to call.
+  /// [debug] - Optional flag to enable call quality metrics for this call. When enabled, the onCallQualityMetrics callback will be triggered on the call object.
   ///
   /// Returns a Future that completes with the Call object once the
   /// invitation has been sent. The call's state can be monitored through
   /// the returned Call object's streams.
-  Future<Call> newCall({required String destination}) async {
+  Future<Call> newCall({required String destination, bool debug = false}) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
 
-    final call = await _callStateController.newCall(destination);
-
-    // Show outgoing call UI if native UI is enabled
-    if (_pushConfig.enableNativeUI && _pushNotificationManager != null) {
-      await _pushNotificationManager!.showOutgoingCall(
-        callId: call.callId,
-        callerName: 'Local User', // This could be made configurable
-        destination: destination,
-      );
-    }
+    final call = await _callStateController.newCall(destination, debug);
 
     return call;
   }
 
-  /// Processes a remote push notification payload.
-  ///
-  /// This method must be called from the application's background push handler
-  /// to initiate the incoming call flow. It parses the push payload, extracts
-  /// call metadata, and triggers the appropriate UI and connection logic.
-  ///
-  /// [payload] - The raw push notification payload from FCM/APNS.
-  ///
-  /// Example usage in FirebaseMessaging.onBackgroundMessage:
-  /// ```dart
-  /// FirebaseMessaging.onBackgroundMessage((RemoteMessage message) async {
-  ///   await telnyxVoipClient.handlePushNotification(message.data);
-  /// });
-  /// ```
+  /// This is the unified entry point for all push notifications. It intelligently
+  /// determines whether to show a new incoming call UI or to process an already
+  /// actioned (accepted/declined) call upon app launch.
   Future<void> handlePushNotification(Map<String, dynamic> payload) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
 
-    // Ensure push notification manager is initialized
+    // Ensure the push manager is ready, as we might need it for the UI.
     await _ensurePushNotificationManagerInitialized();
 
-    await _pushNotificationManager!.handlePushNotification(payload);
+    // The gateway expects the metadata to be under a 'metadata' key.
+    final metadataJson = payload['metadata'];
+    if (metadataJson == null) {
+      print('TelnyxVoipClient: No metadata in push payload, cannot process.');
+      return;
+    }
+
+    final Map<String, dynamic> metadataMap;
+    if (metadataJson is String) {
+      metadataMap = jsonDecode(metadataJson);
+    } else if (metadataJson is Map<String, dynamic>) {
+      metadataMap = metadataJson;
+    } else {
+      print('TelnyxVoipClient: Invalid metadata format in push payload.');
+      return;
+    }
+
+    final pushMetaData = PushMetaData.fromJson(metadataMap);
+
+    // Check if this push has already been actioned (accepted or declined).
+    final bool isActioned =
+        (pushMetaData.isAnswer ?? false) || (pushMetaData.isDecline ?? false);
+
+    if (isActioned) {
+      // This is an app launch from an accepted/declined push.
+      // Bypass the UI display and go straight to connection handling.
+      print('TelnyxVoipClient: Handling actioned push. Bypassing UI display.');
+
+      // We need to get the stored config to connect.
+      final config = await ConfigHelper.getConfig();
+      if (config == null) {
+        print(
+            'TelnyxVoipClient: No stored config found for push handling. Aborting.');
+        return;
+      }
+      // Update the in-memory config to ensure the session manager uses it.
+      _storedConfig = config;
+
+      // This will call the low-level telnyx_webrtc client to connect with the correct state.
+      _sessionManager.handlePushNotificationWithConfig(pushMetaData, config);
+    } else {
+      // This is an initial push notification from a background isolate.
+      // Display the native incoming call UI via the gateway.
+      print('TelnyxVoipClient: Handling initial push. Displaying UI.');
+      await _pushNotificationManager!.handlePushNotification(payload);
+    }
   }
 
   /// Refreshes the current push token.
@@ -192,9 +275,59 @@ class TelnyxVoipClient {
     // Initialize session manager
     _sessionManager = SessionManager();
 
-    // Initialize call state controller
-    _callStateController =
-        CallStateController(_sessionManager.telnyxClient, _sessionManager);
+    // Create CallKit manager if native UI is enabled (but don't initialize yet)
+    if (_pushConfig.enableNativeUI) {
+      _callKitManager = CallKitManager(enableNativeUI: true);
+    }
+
+    // Initialize call state controller with CallKit manager
+    _callStateController = CallStateController(
+      _sessionManager.telnyxClient,
+      _sessionManager,
+      callKitManager: _callKitManager,
+    );
+
+    // Now initialize CallKit manager with callbacks that can access _callStateController
+    if (_callKitManager != null) {
+      _callKitManager!.initialize(
+        onCallAccepted: (callId) {
+          print('TelnyxVoipClient: Call accepted from CallKit - $callId');
+          // Handle foreground call acceptance directly
+          final call = _callStateController.currentCalls
+              .where((c) => c.callId == callId)
+              .firstOrNull;
+          if (call != null && call.isIncoming && call.currentState.canAnswer) {
+            print('TelnyxVoipClient: Answering call $callId from foreground');
+            call.answer();
+          } else {
+            print('TelnyxVoipClient: Call $callId not found or not in answerable state');
+          }
+        },
+        onCallDeclined: (callId) {
+          print('TelnyxVoipClient: Call declined from CallKit - $callId');
+          // Handle foreground call decline directly
+          final call = _callStateController.currentCalls
+              .where((c) => c.callId == callId)
+              .firstOrNull;
+          if (call != null && call.currentState.canHangup) {
+            print('TelnyxVoipClient: Declining call $callId from foreground');
+            call.hangup();
+          } else {
+            print('TelnyxVoipClient: Call $callId not found or not in declinable state');
+          }
+        },
+        onCallEnded: (callId) {
+          print('TelnyxVoipClient: Call ended from CallKit - $callId');
+          // Update call state if needed
+          final call = _callStateController.currentCalls
+              .where((c) => c.callId == callId)
+              .firstOrNull;
+          if (call != null && !call.currentState.isTerminated) {
+            call.hangup();
+          }
+        },
+      );
+    }
 
     // Monitor connection state for call cleanup
     _callStateController
@@ -209,14 +342,142 @@ class TelnyxVoipClient {
 
     await _pushNotificationManager!.initialize(
       onPushNotificationProcessed: _handlePushNotificationProcessed,
+      onPushNotificationAccepted: _handlePushNotificationAccepted,
+      onPushNotificationDeclined: _handlePushNotificationDeclined,
       onTokenRefresh: _handleTokenRefresh,
+      onForegroundCallAccepted: (callId) {
+        print('TelnyxVoipClient: Foreground call accepted - $callId');
+        // Handle foreground call acceptance
+        final call = _callStateController.currentCalls
+            .where((c) => c.callId == callId)
+            .firstOrNull;
+        if (call != null && call.isIncoming && call.currentState.canAnswer) {
+          print('TelnyxVoipClient: Answering foreground call $callId');
+          call.answer();
+        } else {
+          print('TelnyxVoipClient: Foreground call $callId not found or not in answerable state');
+        }
+      },
+      onForegroundCallDeclined: (callId) {
+        print('TelnyxVoipClient: Foreground call declined - $callId');
+        // Handle foreground call decline
+        final call = _callStateController.currentCalls
+            .where((c) => c.callId == callId)
+            .firstOrNull;
+        if (call != null && call.currentState.canHangup) {
+          print('TelnyxVoipClient: Declining foreground call $callId');
+          call.hangup();
+        } else {
+          print('TelnyxVoipClient: Foreground call $callId not found or not in declinable state');
+        }
+      },
+      onForegroundCallEnded: (callId) {
+        print('TelnyxVoipClient: Foreground call ended - $callId');
+        // Handle foreground call end
+        final call = _callStateController.currentCalls
+            .where((c) => c.callId == callId)
+            .firstOrNull;
+        if (call != null && !call.currentState.isTerminated) {
+          print('TelnyxVoipClient: Ending foreground call $callId');
+          call.hangup();
+        }
+      },
     );
   }
 
   /// Handles processed push notifications.
   void _handlePushNotificationProcessed(PushMetaData pushMetaData) {
+    // Store the push metadata for potential use later
+    _storedPushMetaData = pushMetaData;
+
     // Connect with push metadata to handle the incoming call
     _sessionManager.connectWithPushMetadata(pushMetaData);
+  }
+
+  /// Handles when a push notification is accepted via CallKit.
+  void _handlePushNotificationAccepted(
+      String callId, Map<String, dynamic> extra) async {
+    print('TelnyxVoipClient: Push notification accepted for call $callId');
+
+    // Update stored push data to indicate acceptance
+    // The app launch flow will handle the actual connection and processing
+    final metadata = _extractMetadata(extra);
+    if (metadata != null) {
+      try {
+        // Update the stored push data with isAnswer = true
+        // This matches the old implementation approach
+        TelnyxClient.setPushMetaData(
+          extra,
+          isAnswer: true, // ← Key change: mark as accepted
+          isDecline: false,
+        );
+
+        print(
+            'TelnyxVoipClient: Updated stored push data with acceptance flag');
+      } catch (e) {
+        print('TelnyxVoipClient: Error updating stored push data: $e');
+      }
+    }
+
+    // DON'T attempt manual login here - let the app launch flow handle everything
+    // This was the core issue causing duplicate login attempts
+    print(
+        'TelnyxVoipClient: Push notification acceptance processed - app launch will handle connection');
+  }
+
+  /// Handles when a push notification is declined via CallKit.
+  void _handlePushNotificationDeclined(
+      String callId, Map<String, dynamic> extra) async {
+    print('TelnyxVoipClient: Push notification declined for call $callId');
+
+    final metadata = _extractMetadata(extra);
+    if (metadata != null) {
+      try {
+        final PushMetaData pushMetaData = PushMetaData.fromJson(metadata)
+          ..isDecline = true;
+        final config = await ConfigHelper.getConfig();
+
+        print(
+            'TelnyxVoipClient: Handling push notification decline via background client.');
+
+        if (config != null) {
+          // The SessionManager holds the TelnyxClient instance.
+          // We use it to send the decline message.
+          _sessionManager.handlePushNotificationWithConfig(
+              pushMetaData, config);
+        } else {
+          print(
+              'TelnyxVoipClient: Could not get config for temp client to decline push');
+        }
+      } catch (e) {
+        print(
+            'TelnyxVoipClient: Error processing push notification decline: $e');
+      } finally {
+        // Regardless of success or failure, this background client's job is done.
+        // Dispose of it to close any open sockets.
+        print(
+            'TelnyxVoipClient: Disposing background client after decline action.');
+        dispose();
+      }
+    }
+  }
+
+  /// Extracts metadata from CallKit extra data.
+  Map<String, dynamic>? _extractMetadata(Map<String, dynamic> extra) {
+    try {
+      final metadata = extra['metadata'];
+      if (metadata == null) return null;
+
+      if (metadata is String) {
+        return jsonDecode(metadata) as Map<String, dynamic>;
+      } else if (metadata is Map<String, dynamic>) {
+        return metadata;
+      }
+      return null;
+    } catch (e) {
+      print('TelnyxVoipClient: Error extracting metadata: $e');
+      return null;
+    }
   }
 
   /// Handles push token refresh.
@@ -237,5 +498,11 @@ class TelnyxVoipClient {
     _callStateController.dispose();
     _sessionManager.dispose();
     _pushNotificationManager?.dispose();
+    _callKitManager?.dispose();
+
+    // Clear stored data
+    _storedConfig = null;
+    _storedPushMetaData = null;
+    _storedPushPayload = null;
   }
 }

@@ -298,8 +298,7 @@ class TelnyxClient {
     // Create a new timer
     _reconnectionTimers[call.callId] = Timer(
       Duration(
-        milliseconds:
-            _storedCredentialConfig?.reconnectionTimeout ??
+        milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
             _storedTokenConfig?.reconnectionTimeout ??
             Constants.reconnectionTimeout,
       ),
@@ -492,9 +491,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -535,9 +533,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -752,6 +749,7 @@ class TelnyxClient {
   @Deprecated(
     'Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)',
   )
+
   /// Connects to the WebSocket with a previously provided [Config]
   void connect() {
     GlobalLogger().i('connect()');
@@ -820,6 +818,7 @@ class TelnyxClient {
   @Deprecated(
     'telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()',
   )
+
   /// The current instance of [Call] associated with this client.
   ///
   /// This is deprecated. Use [newInvite] to create a new call or
@@ -988,8 +987,8 @@ class TelnyxClient {
           pushNotificationToken: config.notificationToken!,
           pushNotificationProvider:
               defaultTargetPlatform == TargetPlatform.android
-              ? 'android'
-              : 'ios',
+                  ? 'android'
+                  : 'ios',
         ),
       );
       final disablePushMessage = DisablePushMessage(
@@ -1353,24 +1352,22 @@ class TelnyxClient {
                         //sending attach Call
                         final String platform =
                             defaultTargetPlatform == TargetPlatform.android
-                            ? 'android'
-                            : 'ios';
-                        const String pushEnvironment = kDebugMode
-                            ? 'development'
-                            : 'production';
+                                ? 'android'
+                                : 'ios';
+                        const String pushEnvironment =
+                            kDebugMode ? 'development' : 'production';
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
-                              method: SocketMethod.attachCall,
-                              id: const Uuid().v4(),
-                              params: Params(
-                                userVariables: <dynamic, dynamic>{
-                                  'push_notification_environment':
-                                      pushEnvironment,
-                                  'push_notification_provider': platform,
-                                },
-                              ),
-                              jsonrpc: '2.0',
-                            );
+                          method: SocketMethod.attachCall,
+                          id: const Uuid().v4(),
+                          params: Params(
+                            userVariables: <dynamic, dynamic>{
+                              'push_notification_environment': pushEnvironment,
+                              'push_notification_provider': platform,
+                            },
+                          ),
+                          jsonrpc: '2.0',
+                        );
                         GlobalLogger().i(
                           'attachCallMessage :: ${attachCallMessage.toJson()}',
                         );

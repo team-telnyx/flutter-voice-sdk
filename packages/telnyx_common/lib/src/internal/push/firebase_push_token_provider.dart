@@ -19,7 +19,8 @@ class FirebasePushTokenProvider implements PushTokenProvider {
     try {
       if (Platform.isAndroid || Platform.isIOS) {
         final token = await FirebaseMessaging.instance.getToken();
-        print('FirebasePushTokenProvider: Retrieved FCM token: ${token?.substring(0, 20)}...');
+        print(
+            'FirebasePushTokenProvider: Retrieved FCM token: ${token?.substring(0, 20)}...');
         return token;
       } else {
         print('FirebasePushTokenProvider: FCM not supported on this platform');
@@ -32,28 +33,35 @@ class FirebasePushTokenProvider implements PushTokenProvider {
   }
 
   @override
-  Future<void> setupTokenRefreshListener(Function(String) onTokenRefresh) async {
+  Future<void> setupTokenRefreshListener(
+      Function(String) onTokenRefresh) async {
     if (_disposed) return;
 
     _onTokenRefresh = onTokenRefresh;
 
     try {
       if (Platform.isAndroid || Platform.isIOS) {
-        _tokenRefreshSubscription = FirebaseMessaging.instance.onTokenRefresh.listen(
+        _tokenRefreshSubscription =
+            FirebaseMessaging.instance.onTokenRefresh.listen(
           (String token) {
-            print('FirebasePushTokenProvider: FCM token refreshed: ${token.substring(0, 20)}...');
+            print(
+                'FirebasePushTokenProvider: FCM token refreshed: ${token.substring(0, 20)}...');
             _onTokenRefresh?.call(token);
           },
           onError: (error) {
-            print('FirebasePushTokenProvider: Error in token refresh listener: $error');
+            print(
+                'FirebasePushTokenProvider: Error in token refresh listener: $error');
           },
         );
-        print('FirebasePushTokenProvider: Token refresh listener setup complete');
+        print(
+            'FirebasePushTokenProvider: Token refresh listener setup complete');
       } else {
-        print('FirebasePushTokenProvider: Token refresh not supported on this platform');
+        print(
+            'FirebasePushTokenProvider: Token refresh not supported on this platform');
       }
     } catch (e) {
-      print('FirebasePushTokenProvider: Error setting up token refresh listener: $e');
+      print(
+          'FirebasePushTokenProvider: Error setting up token refresh listener: $e');
     }
   }
 

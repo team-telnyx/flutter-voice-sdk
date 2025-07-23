@@ -7,6 +7,7 @@
 library telnyx_common;
 
 export 'src/telnyx_voip_client.dart';
+export 'src/telnyx_voice_app.dart';
 export 'src/models/call.dart';
 export 'src/models/connection_state.dart';
 export 'src/models/call_state.dart';
@@ -19,6 +20,7 @@ export 'src/internal/push/firebase_push_token_provider.dart';
 export 'src/internal/push/ios_push_token_provider.dart';
 export 'src/internal/push/default_push_token_provider.dart';
 export 'utils/iterable_extensions.dart';
+export 'src/utils.dart';
 
 // Re-export telnyx_config classes directly
 export 'package:telnyx_webrtc/config/telnyx_config.dart';

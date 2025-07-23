@@ -50,6 +50,7 @@ class PushNotificationGateway {
       if (_isMissedCallNotification(payload)) {
         print(
             'PushNotificationGateway: Received missed call notification, ignoring');
+        await _showMissedCallNotification(callId, pushMetaData, payload);
         return;
       }
 
@@ -104,6 +105,7 @@ class PushNotificationGateway {
 
   /// Extracts the call ID from the push payload and metadata.
   String? _extractCallId(Map<String, dynamic> payload, PushMetaData metadata) {
+    print('ZZ metadata: ${metadata.toJson()}');
     // First try to get the call ID from metadata
     String? callId = metadata.callId;
 

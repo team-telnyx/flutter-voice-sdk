@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_common/telnyx_common.dart' as telnyx;
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
@@ -109,57 +110,23 @@ class _CallControlsState extends State<CallControls> {
 
   @override
   Widget build(BuildContext context) {
-    final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-      (txClient) => txClient.callState,
-    );
+    final viewModel = context.watch<TelnyxClientViewModel>();
+    final activeCall = viewModel.activeCall;
+    final callState = activeCall?.currentState;
+    final isIdle = activeCall == null;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: <Widget>[
-        // Toggle section - only visible when idle
-        if (clientState == CallStateStatus.idle) ...[
-          DestinationToggle(
-            isPhoneNumber: _isPhoneNumber,
-            onToggleChanged: (value) {
-              setState(() {
-                _isPhoneNumber = value;
-                _destinationController.clear(); // Clear input when switching
-              });
-            },
-          ),
-          const SizedBox(height: spacingS),
-        ],
-        Padding(
-          padding: const EdgeInsets.all(spacingXS),
-          child: TextFormField(
-            readOnly: clientState != CallStateStatus.idle,
-            enabled: clientState == CallStateStatus.idle,
-            controller: _destinationController,
-            keyboardType: _isPhoneNumber
-                ? TextInputType.phone
-                : TextInputType.text,
-            inputFormatters: _isPhoneNumber
-                ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s\(\)]'))]
-                : [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[a-zA-Z0-9@\.\-_]'),
-                    ),
-                  ],
-            decoration: InputDecoration(
-              hintStyle: Theme.of(context).textTheme.labelSmall,
-              hintText: _isPhoneNumber ? '+E164 phone number' : 'SIP address',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(spacingS),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: active_text_field_color),
-                borderRadius: BorderRadius.circular(spacingS),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: spacingXXXXL),
-        if (clientState == CallStateStatus.idle) ...[
+    if (activeCall != null) {
+      print(
+          'CallControls rebuilding. Call ID: ${activeCall.callId}, State: $callState, Is Incoming: ${activeCall.isIncoming}');
+    } else {
+      print('CallControls rebuilding. No active call.');
+    }
+
+    // Determine the main controls to show
+    Widget mainControls;
+    if (isIdle) {
+      mainControls = Column(
+        children: [
           Center(
             child: CallButton(
               onPressed: () {
@@ -172,29 +139,82 @@ class _CallControlsState extends State<CallControls> {
           ),
           const SizedBox(height: spacingL),
           const Center(child: CallHistoryButton()),
-        ] else if (clientState == CallStateStatus.ringing)
-          Center(
-            child: DeclineButton(
-              onPressed: () {
-                context.read<TelnyxClientViewModel>().endCall();
-              },
+        ],
+      );
+    } else if (callState == telnyx.CallState.ringing &&
+        !activeCall.isIncoming) {
+      // Outgoing call is ringing
+      mainControls = Center(
+        child: DeclineButton(
+          onPressed: () => context.read<TelnyxClientViewModel>().endCall(),
+        ),
+      );
+    } else if (callState == telnyx.CallState.ringing &&
+        activeCall.isIncoming) {
+      // Incoming call invitation
+      mainControls = Center(
+        child: CallInvitation(
+          onAccept: () => context.read<TelnyxClientViewModel>().accept(),
+          onDecline: () => context.read<TelnyxClientViewModel>().endCall(),
+        ),
+      );
+    } else if (callState == telnyx.CallState.active ||
+        callState == telnyx.CallState.held) {
+      mainControls = Center(child: OnGoingCallControls());
+    } else {
+      // Default to loading dialog if no specific state matches
+      mainControls = Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        // Toggle and input field - only visible when idle
+        if (isIdle) ...[
+          DestinationToggle(
+            isPhoneNumber: _isPhoneNumber,
+            onToggleChanged: (value) {
+              setState(() {
+                _isPhoneNumber = value;
+                _destinationController.clear(); // Clear input when switching
+              });
+            },
+          ),
+          const SizedBox(height: spacingS),
+          Padding(
+            padding: const EdgeInsets.all(spacingXS),
+            child: TextFormField(
+              controller: _destinationController,
+              keyboardType:
+                  _isPhoneNumber ? TextInputType.phone : TextInputType.text,
+              inputFormatters: _isPhoneNumber
+                  ? [
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'[0-9+\-\s\(\)]'))
+                    ]
+                  : [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[a-zA-Z0-9@\.\-_]'),
+                      ),
+                    ],
+              decoration: InputDecoration(
+                hintStyle: Theme.of(context).textTheme.labelSmall,
+                hintText: _isPhoneNumber ? '+E164 phone number' : 'SIP address',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(spacingS),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: active_text_field_color),
+                  borderRadius: BorderRadius.circular(spacingS),
+                ),
+              ),
             ),
-          )
-        else if (clientState == CallStateStatus.ongoingInvitation)
-          Center(
-            child: CallInvitation(
-              onAccept: () {
-                context.read<TelnyxClientViewModel>().accept();
-              },
-              onDecline: () {
-                context.read<TelnyxClientViewModel>().endCall();
-              },
-            ),
-          )
-        else if (clientState == CallStateStatus.connectingToCall)
-          Center(child: CircularProgressIndicator())
-        else if (clientState == CallStateStatus.ongoingCall)
-          Center(child: OnGoingCallControls()),
+          ),
+        ],
+        const SizedBox(height: spacingXXXXL),
+        mainControls,
       ],
     );
   }

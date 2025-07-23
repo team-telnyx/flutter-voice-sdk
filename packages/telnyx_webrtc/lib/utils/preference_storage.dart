@@ -25,7 +25,11 @@ class PreferencesStorage {
 
   /// Save the push metadata to the shared preferences
   static void saveMetadata(String metaData) {
-    GlobalLogger().i('Save PushMetaData $metaData');
+    if (metaData.isEmpty) {
+      GlobalLogger().i('Clearing PushMetaData');
+    } else {
+      GlobalLogger().i('Saving PushMetaData $metaData');
+    }
     saveString(notificationKey, metaData);
   }
 

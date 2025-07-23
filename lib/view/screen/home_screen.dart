@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_common/telnyx_common.dart' as telnyx;
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
@@ -58,23 +59,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-      (txClient) => txClient.callState,
-    );
+    final viewModel = context.watch<TelnyxClientViewModel>();
+    final connectionState = viewModel.connectionState;
+    final activeCall = viewModel.activeCall;
+    final isConnecting = viewModel.isConnectingToCall;
 
     final profileProvider = context.watch<ProfileProvider>();
     final selectedProfile = profileProvider.selectedProfile;
 
-    final errorMessage = context.select<TelnyxClientViewModel, String?>(
-      (viewModel) => viewModel.errorDialogMessage,
-    );
+    final errorMessage = viewModel.errorDialogMessage;
 
     if (errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text("Error"),
+            title: const Text('Error'),
             content: Text(errorMessage),
             actions: [
               TextButton(
@@ -82,7 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   context.read<TelnyxClientViewModel>().clearErrorDialog();
                   Navigator.of(context).pop();
                 },
-                child: const Text("OK"),
+                child: const Text('OK'),
               ),
             ],
           ),
@@ -90,33 +90,75 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
 
+    // Determine the main view based on state
+    Widget mainView;
+    if (isConnecting) {
+      mainView = const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Connecting to call...', style: TextStyle(fontSize: 16)),
+          ],
+        ),
+      );
+    } else if (connectionState is telnyx.Connected) {
+      mainView = const CallControls();
+    } else {
+      mainView = const LoginControls();
+    }
+
+    // Determine the bottom navigation bar based on state
+    Widget? bottomNavBar;
+    if (connectionState is telnyx.Connected && activeCall == null) {
+      bottomNavBar = Padding(
+        padding: const EdgeInsets.all(spacingXXL),
+        child: BottomConnectionActionWidget(
+          buttonTitle: 'Disconnect',
+          onPressed: () => context.read<TelnyxClientViewModel>().disconnect(),
+        ),
+      );
+    } else if (connectionState is telnyx.Disconnected ||
+        connectionState is telnyx.ConnectionError ||
+        connectionState == null) {
+      bottomNavBar = Padding(
+        padding: const EdgeInsets.all(spacingXXL),
+        child: BottomConnectionActionWidget(
+          buttonTitle: 'Connect',
+          isLoading: viewModel.loggingIn,
+          onPressed: selectedProfile != null
+              ? () async {
+                  final config = await selectedProfile.toTelnyxConfig();
+                  if (config is TokenConfig) {
+                    viewModel.loginWithToken(config);
+                  } else if (config is CredentialConfig) {
+                    viewModel.login(config);
+                  }
+                }
+              : null,
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         actions: <Widget>[
-          // Show different menu options based on client state
-          if (clientState == CallStateStatus.idle)
+          // Show menu only when connected and idle, or when disconnected
+          if ((connectionState is telnyx.Connected && activeCall == null) ||
+              connectionState is! telnyx.Connected)
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Export Logs', 'Disable Push Notifications'}.map((
-                  String choice,
-                ) {
-                  return PopupMenuItem<String>(
-                    value: choice,
-                    child: Text(choice),
-                  );
-                }).toList();
-              },
-            )
-          else if (clientState == CallStateStatus.disconnected &&
-              selectedProfile != null)
-            PopupMenuButton<String>(
-              onSelected: handleOptionClick,
-              itemBuilder: (BuildContext context) {
-                final debugToggleText = selectedProfile.isDebug
-                    ? 'Disable Debugging'
-                    : 'Enable Debugging';
-                return {'Export Logs', debugToggleText}.map((String choice) {
+                final Set<String> choices = {'Export Logs'};
+                if (connectionState is telnyx.Connected) {
+                  choices.add('Disable Push Notifications');
+                } else if (selectedProfile != null) {
+                  choices.add(selectedProfile.isDebug
+                      ? 'Disable Debugging'
+                      : 'Enable Debugging');
+                }
+                return choices.map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
@@ -136,51 +178,12 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const ControlHeaders(),
               const SizedBox(height: spacingS),
-              if (clientState == CallStateStatus.disconnected)
-                const LoginControls()
-              else
-                const CallControls(),
+              mainView,
             ],
           ),
         ),
       ),
-      bottomNavigationBar: clientState == CallStateStatus.idle
-          ? Padding(
-              padding: const EdgeInsets.all(spacingXXL),
-              child: BottomConnectionActionWidget(
-                buttonTitle: 'Disconnect',
-                onPressed: () => {
-                  context.read<TelnyxClientViewModel>().disconnect(),
-                },
-              ),
-            )
-          : clientState == CallStateStatus.disconnected
-          ? // Connect Bottom Action widget positioned at the bottom
-            Consumer<TelnyxClientViewModel>(
-              builder: (context, viewModel, child) {
-                final profileProvider = context.watch<ProfileProvider>();
-                final selectedProfile = profileProvider.selectedProfile;
-                return Padding(
-                  padding: const EdgeInsets.all(spacingXXL),
-                  child: BottomConnectionActionWidget(
-                    buttonTitle: 'Connect',
-                    isLoading: viewModel.loggingIn,
-                    onPressed: selectedProfile != null
-                        ? () async {
-                            final config = await selectedProfile
-                                .toTelnyxConfig();
-                            if (config is TokenConfig) {
-                              viewModel.loginWithToken(config);
-                            } else if (config is CredentialConfig) {
-                              viewModel.login(config);
-                            }
-                          }
-                        : null,
-                  ),
-                );
-              },
-            )
-          : null,
+      bottomNavigationBar: bottomNavBar,
     );
   }
 }

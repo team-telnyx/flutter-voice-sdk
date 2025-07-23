@@ -24,6 +24,10 @@ dependencies:
   flutter_svg: ^2.0.17
   fluttertoast: ^8.2.11
   logger: ^2.5.0
+  telnyx_webrtc:
+    path: ./packages/telnyx_webrtc
+  telnyx_common:
+    path: ./packages/telnyx_common
 
 dev_dependencies:
   flutter_test:
@@ -31,8 +35,6 @@ dev_dependencies:
   integration_test:
     sdk: flutter
   patrol: ^3.14.0
-  telnyx_webrtc:
-    path: ./packages/telnyx_webrtc
 
 flutter:
   uses-material-design: true

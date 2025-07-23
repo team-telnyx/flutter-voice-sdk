@@ -34,8 +34,9 @@ class CallKitAdapterBridge extends CallKitAdapter {
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // Initialize the parent CallKitAdapter (sets up event listeners)
-    await super.initialize();
+    // Initialize ONLY the event handler (not the parent CallKitAdapter)
+    // This avoids the conflict between two event listeners
+    await _eventHandler.initialize();
 
     // Set up our event handler to coordinate with the new architecture
     _eventHandler.setEventCallbacks(
@@ -155,8 +156,9 @@ class CallKitAdapterBridge extends CallKitAdapter {
     // Clean up our resources first
     _initialized = false;
 
-    // Then dispose the parent
-    super.dispose();
+    // Dispose the event handler instead of calling super.dispose()
+    // since we're using the event handler directly
+    _eventHandler.dispose();
 
     print('CallKitAdapterBridge: Disposed');
   }

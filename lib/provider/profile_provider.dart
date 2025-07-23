@@ -19,9 +19,8 @@ class ProfileProvider with ChangeNotifier {
   Future<void> _loadProfiles() async {
     final prefs = await SharedPreferences.getInstance();
     final profilesJson = prefs.getStringList(_profilesKey) ?? [];
-    _profiles = profilesJson
-        .map((json) => Profile.fromJson(jsonDecode(json)))
-        .toList();
+    _profiles =
+        profilesJson.map((json) => Profile.fromJson(jsonDecode(json))).toList();
 
     final selectedProfileJson = prefs.getString(_selectedProfileKey);
     if (selectedProfileJson != null) {
@@ -32,9 +31,8 @@ class ProfileProvider with ChangeNotifier {
 
   Future<void> _saveProfiles() async {
     final prefs = await SharedPreferences.getInstance();
-    final profilesJson = _profiles
-        .map((profile) => jsonEncode(profile.toJson()))
-        .toList();
+    final profilesJson =
+        _profiles.map((profile) => jsonEncode(profile.toJson())).toList();
     await prefs.setStringList(_profilesKey, profilesJson);
 
     if (_selectedProfile != null) {

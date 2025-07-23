@@ -30,7 +30,7 @@ class ConfigHelper {
           notificationToken: notificationToken,
           logLevel: LogLevel.all,
           customLogger: CustomSDKLogger(),
-          debug: false,
+          debug: true, // Enable debug to get call quality metrics
           reconnectionTimeout: 30000,
           forceRelayCandidate: forceRelayCandidate,
         );
@@ -62,7 +62,7 @@ class ConfigHelper {
           notificationToken: notificationToken,
           logLevel: LogLevel.all,
           customLogger: CustomSDKLogger(),
-          debug: false,
+          debug: true, // Enable debug to get call quality metrics
           forceRelayCandidate: forceRelayCandidate,
         );
       }

@@ -104,9 +104,9 @@ class _ProfileSwitcherBottomSheetState
                       ElevatedButton(
                         onPressed:
                             context.watch<ProfileProvider>().selectedProfile !=
-                                null
-                            ? () => Navigator.pop(context)
-                            : null,
+                                    null
+                                ? () => Navigator.pop(context)
+                                : null,
                         child: const Text('Confirm'),
                       ),
                     ],

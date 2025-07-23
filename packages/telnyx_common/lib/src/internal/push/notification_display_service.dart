@@ -20,7 +20,7 @@ class NotificationConfig {
   final int callTimeoutSeconds;
 
   const NotificationConfig({
-    this.appName = 'Telnyx Flutter Voice',
+    this.appName = 'Call Received',
     this.defaultRingtone = 'system_ringtone_default',
     this.backgroundColor = '#0955fa',
     this.actionColor = '#4CAF50',
@@ -76,12 +76,14 @@ class NotificationDisplayService {
           FlutterLocalNotificationsPlugin();
 
       await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
-      
+
       print('NotificationDisplayService: Android notification channel created');
     } else {
-      print('NotificationDisplayService: iOS notification channels not required');
+      print(
+          'NotificationDisplayService: iOS notification channels not required');
     }
   }
 

@@ -22,6 +22,11 @@ class SessionManager {
   String? _sipCallerIDName;
   String? _sipCallerIDNumber;
 
+  // Store the configuration for push notification handling
+  Config? _storedConfig;
+
+  bool _handlingPushNotification = false;
+
   /// Creates a new SessionManager instance.
   SessionManager() {
     _setupSocketObservers();
@@ -43,6 +48,53 @@ class SessionManager {
   /// SIP caller ID number from the login configuration.
   String? get sipCallerIDNumber => _sipCallerIDNumber;
 
+  /// Current session ID (UUID) for this connection.
+  String get sessionId => _telnyxClient.sessid;
+
+  bool get isHandlingPushNotification => _handlingPushNotification;
+
+  set isHandlingPushNotification(bool value) {
+    _handlingPushNotification = value;
+  }
+
+  /// Disables push notifications for the current session.
+  void disablePushNotifications() {
+    _telnyxClient.disablePushNotifications();
+  }
+
+  /// Handles push notifications with the stored configuration.
+  void handlePushNotificationWithConfig(
+      PushMetaData pushMetaData, Config config) {
+    print('SessionManager: handlePushNotificationWithConfig called');
+    print('SessionManager: Push metadata: ${pushMetaData.toJson()}');
+    print('SessionManager: Config type: ${config.runtimeType}');
+    _handlingPushNotification = true;
+
+    try {
+      if (config is CredentialConfig) {
+        print(
+            'SessionManager: Calling TelnyxClient.handlePushNotification with CredentialConfig');
+        telnyxClient.handlePushNotification(
+          pushMetaData,
+          config,
+          null,
+        );
+      } else if (config is TokenConfig) {
+        print(
+            'SessionManager: Calling TelnyxClient.handlePushNotification with TokenConfig');
+        telnyxClient.handlePushNotification(
+          pushMetaData,
+          null,
+          config,
+        );
+      } else {
+        print('SessionManager: Unsupported config type: ${config.runtimeType}');
+      }
+    } catch (e) {
+      print('SessionManager: Error handling push notification: $e');
+    }
+  }
+
   /// Connects to the Telnyx platform using credential authentication.
   Future<void> connectWithCredential(CredentialConfig config) async {
     if (_disposed) throw StateError('SessionManager has been disposed');
@@ -53,6 +105,9 @@ class SessionManager {
       // Store caller ID information for later use
       _sipCallerIDName = config.sipCallerIDName;
       _sipCallerIDNumber = config.sipCallerIDNumber;
+
+      // Store the configuration for push notification handling
+      _storedConfig = config;
 
       final telnyxConfig = CredentialConfig(
         sipUser: config.sipUser,
@@ -88,6 +143,9 @@ class SessionManager {
       _sipCallerIDName = config.sipCallerIDName;
       _sipCallerIDNumber = config.sipCallerIDNumber;
 
+      // Store the configuration for push notification handling
+      _storedConfig = config;
+
       final telnyxConfig = TokenConfig(
         sipToken: config.sipToken,
         sipCallerIDName: config.sipCallerIDName,
@@ -117,9 +175,25 @@ class SessionManager {
     _updateState(const Connecting());
 
     try {
-      // The TelnyxClient should handle push metadata connection
-      // This is typically used for incoming calls from push notifications
-      _telnyxClient.handlePushNotification(pushMetaData, null, null);
+      // Use stored configuration for push notification handling
+      if (_storedConfig != null) {
+        if (_storedConfig is CredentialConfig) {
+          _telnyxClient.handlePushNotification(
+            pushMetaData,
+            _storedConfig as CredentialConfig,
+            null,
+          );
+        } else if (_storedConfig is TokenConfig) {
+          _telnyxClient.handlePushNotification(
+            pushMetaData,
+            null,
+            _storedConfig as TokenConfig,
+          );
+        }
+      } else {
+        // Fallback to the old behavior if no stored config
+        _telnyxClient.handlePushNotification(pushMetaData, null, null);
+      }
     } catch (error, stackTrace) {
       _updateState(ConnectionError(error, stackTrace));
     }
@@ -136,6 +210,9 @@ class SessionManager {
       // Clear stored caller ID information
       _sipCallerIDName = null;
       _sipCallerIDNumber = null;
+
+      // Clear stored configuration
+      _storedConfig = null;
     } catch (error, stackTrace) {
       _updateState(ConnectionError(error, stackTrace));
     }
@@ -181,5 +258,8 @@ class SessionManager {
     // Clear stored caller ID information
     _sipCallerIDName = null;
     _sipCallerIDNumber = null;
+
+    // Clear stored configuration
+    _storedConfig = null;
   }
 }
