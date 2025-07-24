@@ -119,9 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onPressed: () => context.read<TelnyxClientViewModel>().disconnect(),
         ),
       );
-    } else if (connectionState is telnyx.Disconnected ||
-        connectionState is telnyx.ConnectionError ||
-        connectionState == null) {
+    } else if (activeCall == null) {
       bottomNavBar = Padding(
         padding: const EdgeInsets.all(spacingXXL),
         child: BottomConnectionActionWidget(
