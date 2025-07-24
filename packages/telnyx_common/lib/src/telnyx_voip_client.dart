@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert'; // Added for jsonDecode
+import 'package:telnyx_common/telnyx_common.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
@@ -32,6 +33,7 @@ class TelnyxVoipClient {
 
   // Configuration
   final PushNotificationManagerConfig _pushConfig;
+  final bool _isBackgroundClient;
   bool _disposed = false;
 
   // Store configuration for push notification handling
@@ -50,19 +52,26 @@ class TelnyxVoipClient {
   /// [notificationConfig] - Optional configuration for notification display.
   ///
   /// [customTokenProvider] - Optional custom push token provider. If not provided,
-  /// push token functionality will be disabled. Applications should implement
-  /// PushTokenProvider to provide platform-specific token management.
+  /// push token functionality will be utilize the [DefaultPushTokenProvider].
+  ///
+  /// [isBackgroundClient] - Whether this is a temporary background client created
+  /// for handling push notifications when the app is terminated. Specifically around decline,
+  /// where you don't want the entire app to launch. Background clients
+  /// should be disposed after use, while main app clients should persist.
   TelnyxVoipClient({
     bool enableNativeUI = false,
     bool enableBackgroundHandling = true,
     NotificationConfig? notificationConfig,
     PushTokenProvider? customTokenProvider,
-  }) : _pushConfig = PushNotificationManagerConfig(
+    bool isBackgroundClient = false,
+  })  : _pushConfig = PushNotificationManagerConfig(
           enableNativeUI: enableNativeUI,
           enableBackgroundHandling: enableBackgroundHandling,
           notificationConfig: notificationConfig,
-          customTokenProvider: customTokenProvider,
-        ) {
+          customTokenProvider:
+              customTokenProvider ?? DefaultPushTokenProvider(),
+        ),
+        _isBackgroundClient = isBackgroundClient {
     _initializeComponents();
   }
 
@@ -195,7 +204,8 @@ class TelnyxVoipClient {
   /// Returns a Future that completes with the Call object once the
   /// invitation has been sent. The call's state can be monitored through
   /// the returned Call object's streams.
-  Future<Call> newCall({required String destination, bool debug = false}) async {
+  Future<Call> newCall(
+      {required String destination, bool debug = false}) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
 
     final call = await _callStateController.newCall(destination, debug);
@@ -300,7 +310,8 @@ class TelnyxVoipClient {
             print('TelnyxVoipClient: Answering call $callId from foreground');
             call.answer();
           } else {
-            print('TelnyxVoipClient: Call $callId not found or not in answerable state');
+            print(
+                'TelnyxVoipClient: Call $callId not found or not in answerable state');
           }
         },
         onCallDeclined: (callId) {
@@ -313,7 +324,8 @@ class TelnyxVoipClient {
             print('TelnyxVoipClient: Declining call $callId from foreground');
             call.hangup();
           } else {
-            print('TelnyxVoipClient: Call $callId not found or not in declinable state');
+            print(
+                'TelnyxVoipClient: Call $callId not found or not in declinable state');
           }
         },
         onCallEnded: (callId) {
@@ -355,7 +367,8 @@ class TelnyxVoipClient {
           print('TelnyxVoipClient: Answering foreground call $callId');
           call.answer();
         } else {
-          print('TelnyxVoipClient: Foreground call $callId not found or not in answerable state');
+          print(
+              'TelnyxVoipClient: Foreground call $callId not found or not in answerable state');
         }
       },
       onForegroundCallDeclined: (callId) {
@@ -368,7 +381,8 @@ class TelnyxVoipClient {
           print('TelnyxVoipClient: Declining foreground call $callId');
           call.hangup();
         } else {
-          print('TelnyxVoipClient: Foreground call $callId not found or not in declinable state');
+          print(
+              'TelnyxVoipClient: Foreground call $callId not found or not in declinable state');
         }
       },
       onForegroundCallEnded: (callId) {
@@ -453,11 +467,16 @@ class TelnyxVoipClient {
         print(
             'TelnyxVoipClient: Error processing push notification decline: $e');
       } finally {
-        // Regardless of success or failure, this background client's job is done.
-        // Dispose of it to close any open sockets.
-        print(
-            'TelnyxVoipClient: Disposing background client after decline action.');
-        dispose();
+        // Only dispose if this is a background client (created for terminated state)
+        // Main app clients should persist for future calls
+        if (_isBackgroundClient) {
+          print(
+              'TelnyxVoipClient: Disposing background client after decline action.');
+          dispose();
+        } else {
+          print(
+              'TelnyxVoipClient: Keeping main app client alive after decline action.');
+        }
       }
     }
   }

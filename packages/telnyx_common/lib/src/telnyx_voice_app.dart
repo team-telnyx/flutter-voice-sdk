@@ -204,6 +204,7 @@ class TelnyxVoiceApp extends StatefulWidget {
       enableNativeUI: true,
       enableBackgroundHandling: true,
       customTokenProvider: telnyx.DefaultPushTokenProvider(),
+      isBackgroundClient: true, // Mark as background client for proper disposal handling
     );
     return backgroundClient;
   }
