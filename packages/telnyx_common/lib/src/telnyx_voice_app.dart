@@ -204,7 +204,8 @@ class TelnyxVoiceApp extends StatefulWidget {
       enableNativeUI: true,
       enableBackgroundHandling: true,
       customTokenProvider: telnyx.DefaultPushTokenProvider(),
-      isBackgroundClient: true, // Mark as background client for proper disposal handling
+      isBackgroundClient:
+          true, // Mark as background client for proper disposal handling
     );
     return backgroundClient;
   }
@@ -318,7 +319,6 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
     if (kDebugMode) {
       print('[TelnyxVoiceApp] App resumed - checking reconnection needs');
     }
-
 
     // IMPORTANT: Check for push notifications first when resuming from background
     // This handles the case where the user accepted a call while the app was backgrounded

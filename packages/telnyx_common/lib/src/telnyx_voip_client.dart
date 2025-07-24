@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert'; // Added for jsonDecode
+import 'dart:io'; // Added for Platform.isIOS
 import 'package:telnyx_common/telnyx_common.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
@@ -412,25 +413,48 @@ class TelnyxVoipClient {
   void _handlePushNotificationAccepted(
       String callId, Map<String, dynamic> extra) async {
     print('TelnyxVoipClient: Push notification accepted for call $callId');
+    print('TelnyxVoipClient: Platform: ${Platform.isIOS ? 'iOS' : 'Android'}');
 
     // Update stored push data to indicate acceptance
     // The app launch flow will handle the actual connection and processing
-    final metadata = _extractMetadata(extra);
-    if (metadata != null) {
-      try {
-        // Update the stored push data with isAnswer = true
-        // This matches the old implementation approach
+    try {
+      if (Platform.isIOS) {
+        // iOS-specific logic: CallKit provides metadata as a Map that needs JSON encoding
+        final metadata = _extractMetadata(extra);
+        if (metadata != null) {
+          // Create the correct payload structure that TelnyxClient.setPushMetaData expects
+          // The method expects metadata to be a JSON string, not a Map object
+          final correctPayload = {
+            'metadata':
+                jsonEncode(metadata), // Convert metadata Map to JSON string
+          };
+
+          TelnyxClient.setPushMetaData(
+            correctPayload,
+            isAnswer: true,
+            isDecline: false,
+          );
+
+          print(
+              'TelnyxVoipClient: iOS - Updated stored push data with acceptance flag');
+        } else {
+          print(
+              'TelnyxVoipClient: iOS - WARNING: No metadata found, cannot update push data!');
+        }
+      } else {
+        // Android logic: Use the original approach that was working
+        // On Android, the extra structure should already be compatible with setPushMetaData
         TelnyxClient.setPushMetaData(
           extra,
-          isAnswer: true, // ← Key change: mark as accepted
+          isAnswer: true,
           isDecline: false,
         );
 
         print(
-            'TelnyxVoipClient: Updated stored push data with acceptance flag');
-      } catch (e) {
-        print('TelnyxVoipClient: Error updating stored push data: $e');
+            'TelnyxVoipClient: Android - Updated stored push data with acceptance flag');
       }
+    } catch (e) {
+      print('TelnyxVoipClient: Error updating stored push data: $e');
     }
 
     // DON'T attempt manual login here - let the app launch flow handle everything
@@ -515,7 +539,7 @@ class TelnyxVoipClient {
       return null;
     }
   }
-  
+
   /// Handles push token refresh.
   void _handleTokenRefresh(String newToken) {
     print(

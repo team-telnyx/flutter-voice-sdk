@@ -4,6 +4,7 @@ import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/entities/android_params.dart';
 import 'package:flutter_callkit_incoming/entities/ios_params.dart';
+import 'package:telnyx_common/src/utils.dart';
 
 /// Callback function types for CallKit events.
 typedef CallKitEventCallback = void Function(String callId);
@@ -54,6 +55,8 @@ class CallKitAdapter {
         extra: extra,
       );
 
+      BackgroundDetector.ignore =
+          true; // Ignore lifecycle events during call UI display
       await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
     } catch (error) {
       // Log error but don't throw to avoid breaking the call flow
