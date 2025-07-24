@@ -318,6 +318,11 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
       print('[TelnyxVoiceApp] App resumed - checking reconnection needs');
     }
 
+
+    // IMPORTANT: Check for push notifications first when resuming from background
+    // This handles the case where the user accepted a call while the app was backgrounded
+    await _checkForInitialPushNotification();
+
     // If we're ignoring (e.g., from push call), don't auto-reconnect
     if (BackgroundDetector.ignore) {
       if (kDebugMode) {

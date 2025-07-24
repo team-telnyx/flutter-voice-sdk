@@ -7,6 +7,7 @@ import 'notification_display_service.dart';
 import 'push_token_provider.dart';
 import 'default_push_token_provider.dart';
 import '../callkit/callkit_adapter_bridge.dart';
+import '../../utils/background_detector.dart';
 
 /// Configuration for the push notification manager.
 class PushNotificationManagerConfig {
@@ -409,6 +410,8 @@ class PushNotificationManager {
 
   // Event handlers for CallKitEventHandler callbacks
   void _handleCallAcceptEvent(String callId, Map<String, dynamic> extra) {
+    BackgroundDetector.ignore = true;
+    
     print('PushNotificationManager: _handleCallAcceptEvent called');
     print('PushNotificationManager: callId = $callId');
     print('PushNotificationManager: extra = $extra');

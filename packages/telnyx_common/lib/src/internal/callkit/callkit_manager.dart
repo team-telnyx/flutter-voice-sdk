@@ -99,8 +99,6 @@ class CallKitManager {
 
   /// Ends a call in the native UI.
   Future<void> endCall(String callId) async {
-    if (!_isCallActive(callId)) return;
-
     try {
       await _adapter?.endCall(callId);
     } finally {
