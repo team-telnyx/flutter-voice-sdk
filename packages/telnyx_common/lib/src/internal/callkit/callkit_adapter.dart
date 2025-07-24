@@ -223,6 +223,8 @@ class CallKitAdapter {
     if (_disposed) return;
     _disposed = true;
 
-    _callEventSubscription?.cancel();
+    if (_callEventSubscription != null) {
+      _callEventSubscription!.cancel();
+    }
   }
 }
