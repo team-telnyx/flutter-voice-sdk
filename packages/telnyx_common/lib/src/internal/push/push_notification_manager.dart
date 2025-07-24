@@ -124,7 +124,7 @@ class PushNotificationManager {
   Function(String callId, Map<String, dynamic> extra)?
       _onPushNotificationDeclined;
   Function(String token)? _onTokenRefresh;
-  
+
   // Action callbacks for foreground calls
   Function(String callId)? _onForegroundCallAccepted;
   Function(String callId)? _onForegroundCallDeclined;
@@ -378,10 +378,12 @@ class PushNotificationManager {
         'PushNotificationManager: Call accepted via CallKit bridge - $callId');
     // Call the foreground action callback if available
     if (_onForegroundCallAccepted != null) {
-      print('PushNotificationManager: Calling foreground call accepted callback');
+      print(
+          'PushNotificationManager: Calling foreground call accepted callback');
       _onForegroundCallAccepted!(callId);
     } else {
-      print('PushNotificationManager: No foreground call accepted callback available');
+      print(
+          'PushNotificationManager: No foreground call accepted callback available');
     }
   }
 
@@ -390,10 +392,12 @@ class PushNotificationManager {
         'PushNotificationManager: Call declined via CallKit bridge - $callId');
     // Call the foreground action callback if available
     if (_onForegroundCallDeclined != null) {
-      print('PushNotificationManager: Calling foreground call declined callback');
+      print(
+          'PushNotificationManager: Calling foreground call declined callback');
       _onForegroundCallDeclined!(callId);
     } else {
-      print('PushNotificationManager: No foreground call declined callback available');
+      print(
+          'PushNotificationManager: No foreground call declined callback available');
     }
   }
 
@@ -404,24 +408,29 @@ class PushNotificationManager {
       print('PushNotificationManager: Calling foreground call ended callback');
       _onForegroundCallEnded!(callId);
     } else {
-      print('PushNotificationManager: No foreground call ended callback available');
+      print(
+          'PushNotificationManager: No foreground call ended callback available');
     }
   }
 
   // Event handlers for CallKitEventHandler callbacks
   void _handleCallAcceptEvent(String callId, Map<String, dynamic> extra) {
     BackgroundDetector.ignore = true;
-    
+
     print('PushNotificationManager: _handleCallAcceptEvent called');
     print('PushNotificationManager: callId = $callId');
-    print('PushNotificationManager: extra = $extra');
+    print('PushNotificationManager: extra keys = ${extra.keys.toList()}');
+    print('PushNotificationManager: full extra = $extra');
 
+    print('PushNotificationManager: About to extract metadata...');
     final metadata = _eventHandler.extractMetadata(extra);
     print('PushNotificationManager: extracted metadata = $metadata');
+    print('PushNotificationManager: metadata extraction completed');
 
     if (metadata != null) {
       // This is a push notification call - process with metadata
-      print('PushNotificationManager: Processing push call accept with metadata');
+      print(
+          'PushNotificationManager: Processing push call accept with metadata');
       print(
           'PushNotificationManager: _onPushNotificationAccepted callback exists: ${_onPushNotificationAccepted != null}');
 
@@ -438,7 +447,8 @@ class PushNotificationManager {
       }
     } else {
       // This is a foreground call - directly handle the acceptance
-      print('PushNotificationManager: Processing foreground call accept (no metadata)');
+      print(
+          'PushNotificationManager: Processing foreground call accept (no metadata)');
       // The CallKit bridge callbacks will handle this
       _handleCallAccepted(callId);
     }
@@ -462,7 +472,8 @@ class PushNotificationManager {
       }
     } else {
       // This is a foreground call - directly handle the decline
-      print('PushNotificationManager: Processing foreground call decline (no metadata)');
+      print(
+          'PushNotificationManager: Processing foreground call decline (no metadata)');
       // The CallKit bridge callbacks will handle this
       _handleCallDeclined(callId);
     }

@@ -71,13 +71,15 @@ class _ProfileSwitcherBottomSheetState
             ),
           const SizedBox(height: spacingM),
           if (_isAddingProfile)
-            AddProfileForm(
-              onCancelPressed: () => {
-                setState(() {
-                  _isAddingProfile = false;
-                }),
-              },
-              existingProfile: _selectedProfile,
+            Expanded(
+              child: AddProfileForm(
+                onCancelPressed: () => {
+                  setState(() {
+                    _isAddingProfile = false;
+                  }),
+                },
+                existingProfile: _selectedProfile,
+              ),
             )
           else
             Flexible(
