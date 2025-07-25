@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
+
 import 'push_token_provider.dart';
 import 'firebase_push_token_provider.dart';
 import 'ios_push_token_provider.dart';
@@ -21,6 +23,11 @@ class DefaultPushTokenProvider implements PushTokenProvider {
   }
 
   void _initializeDelegate() {
+    if (kIsWeb) {
+      // Web does not support push tokens in this implementation
+      _delegate = _NoOpPushTokenProvider();
+      return;
+    }
     if (Platform.isIOS) {
       _delegate = IosPushTokenProvider();
     } else if (Platform.isAndroid) {

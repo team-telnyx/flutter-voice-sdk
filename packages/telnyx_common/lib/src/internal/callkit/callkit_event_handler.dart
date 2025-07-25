@@ -191,13 +191,30 @@ class CallKitEventHandler {
   /// Extracts and decodes metadata from CallKit event extra data.
   Map<String, dynamic>? extractMetadata(Map<String, dynamic> extra) {
     try {
-      final metadata = extra['metadata'];
+      // First, try to get metadata from the standard location
+      var metadata = extra['metadata'];
+
+      // On iOS, the push notification payload includes an 'aps' wrapper
+      // So if metadata is not found at extra['metadata'], check if it exists
+      // at the root level alongside 'aps'
+      if (metadata == null && extra.containsKey('aps')) {
+        // This is likely an iOS push notification with aps wrapper
+        // Look for metadata at the root level
+        final extraKeys = extra.keys.where((key) => key != 'aps').toList();
+        if (extraKeys.contains('metadata')) {
+          metadata = extra['metadata'];
+        }
+      }
+
       if (metadata == null) return null;
 
       if (metadata is String) {
         return jsonDecode(metadata) as Map<String, dynamic>;
       } else if (metadata is Map<String, dynamic>) {
         return metadata;
+      } else if (metadata is Map) {
+        // Handle case where metadata is Map but not the exact type (common on iOS)
+        return Map<String, dynamic>.from(metadata);
       }
       return null;
     } catch (e) {

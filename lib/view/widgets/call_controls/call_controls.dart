@@ -149,8 +149,7 @@ class _CallControlsState extends State<CallControls> {
           onPressed: () => context.read<TelnyxClientViewModel>().endCall(),
         ),
       );
-    } else if (callState == telnyx.CallState.ringing &&
-        activeCall.isIncoming) {
+    } else if (callState == telnyx.CallState.ringing && activeCall.isIncoming) {
       // Incoming call invitation
       mainControls = Center(
         child: CallInvitation(

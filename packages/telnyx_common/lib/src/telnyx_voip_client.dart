@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert'; // Added for jsonDecode
+import 'dart:io'; // Added for Platform.isIOS
+import 'package:telnyx_common/telnyx_common.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
@@ -32,6 +34,7 @@ class TelnyxVoipClient {
 
   // Configuration
   final PushNotificationManagerConfig _pushConfig;
+  final bool _isBackgroundClient;
   bool _disposed = false;
 
   // Store configuration for push notification handling
@@ -50,19 +53,26 @@ class TelnyxVoipClient {
   /// [notificationConfig] - Optional configuration for notification display.
   ///
   /// [customTokenProvider] - Optional custom push token provider. If not provided,
-  /// push token functionality will be disabled. Applications should implement
-  /// PushTokenProvider to provide platform-specific token management.
+  /// push token functionality will be utilize the [DefaultPushTokenProvider].
+  ///
+  /// [isBackgroundClient] - Whether this is a temporary background client created
+  /// for handling push notifications when the app is terminated. Specifically around decline,
+  /// where you don't want the entire app to launch. Background clients
+  /// should be disposed after use, while main app clients should persist.
   TelnyxVoipClient({
     bool enableNativeUI = false,
     bool enableBackgroundHandling = true,
     NotificationConfig? notificationConfig,
     PushTokenProvider? customTokenProvider,
-  }) : _pushConfig = PushNotificationManagerConfig(
+    bool isBackgroundClient = false,
+  })  : _pushConfig = PushNotificationManagerConfig(
           enableNativeUI: enableNativeUI,
           enableBackgroundHandling: enableBackgroundHandling,
           notificationConfig: notificationConfig,
-          customTokenProvider: customTokenProvider,
-        ) {
+          customTokenProvider:
+              customTokenProvider ?? DefaultPushTokenProvider(),
+        ),
+        _isBackgroundClient = isBackgroundClient {
     _initializeComponents();
   }
 
@@ -195,7 +205,8 @@ class TelnyxVoipClient {
   /// Returns a Future that completes with the Call object once the
   /// invitation has been sent. The call's state can be monitored through
   /// the returned Call object's streams.
-  Future<Call> newCall({required String destination, bool debug = false}) async {
+  Future<Call> newCall(
+      {required String destination, bool debug = false}) async {
     if (_disposed) throw StateError('TelnyxVoipClient has been disposed');
 
     final call = await _callStateController.newCall(destination, debug);
@@ -300,7 +311,8 @@ class TelnyxVoipClient {
             print('TelnyxVoipClient: Answering call $callId from foreground');
             call.answer();
           } else {
-            print('TelnyxVoipClient: Call $callId not found or not in answerable state');
+            print(
+                'TelnyxVoipClient: Call $callId not found or not in answerable state');
           }
         },
         onCallDeclined: (callId) {
@@ -313,7 +325,8 @@ class TelnyxVoipClient {
             print('TelnyxVoipClient: Declining call $callId from foreground');
             call.hangup();
           } else {
-            print('TelnyxVoipClient: Call $callId not found or not in declinable state');
+            print(
+                'TelnyxVoipClient: Call $callId not found or not in declinable state');
           }
         },
         onCallEnded: (callId) {
@@ -355,7 +368,8 @@ class TelnyxVoipClient {
           print('TelnyxVoipClient: Answering foreground call $callId');
           call.answer();
         } else {
-          print('TelnyxVoipClient: Foreground call $callId not found or not in answerable state');
+          print(
+              'TelnyxVoipClient: Foreground call $callId not found or not in answerable state');
         }
       },
       onForegroundCallDeclined: (callId) {
@@ -368,7 +382,8 @@ class TelnyxVoipClient {
           print('TelnyxVoipClient: Declining foreground call $callId');
           call.hangup();
         } else {
-          print('TelnyxVoipClient: Foreground call $callId not found or not in declinable state');
+          print(
+              'TelnyxVoipClient: Foreground call $callId not found or not in declinable state');
         }
       },
       onForegroundCallEnded: (callId) {
@@ -398,25 +413,48 @@ class TelnyxVoipClient {
   void _handlePushNotificationAccepted(
       String callId, Map<String, dynamic> extra) async {
     print('TelnyxVoipClient: Push notification accepted for call $callId');
+    print('TelnyxVoipClient: Platform: ${Platform.isIOS ? 'iOS' : 'Android'}');
 
     // Update stored push data to indicate acceptance
     // The app launch flow will handle the actual connection and processing
-    final metadata = _extractMetadata(extra);
-    if (metadata != null) {
-      try {
-        // Update the stored push data with isAnswer = true
-        // This matches the old implementation approach
+    try {
+      if (Platform.isIOS) {
+        // iOS-specific logic: CallKit provides metadata as a Map that needs JSON encoding
+        final metadata = _extractMetadata(extra);
+        if (metadata != null) {
+          // Create the correct payload structure that TelnyxClient.setPushMetaData expects
+          // The method expects metadata to be a JSON string, not a Map object
+          final correctPayload = {
+            'metadata':
+                jsonEncode(metadata), // Convert metadata Map to JSON string
+          };
+
+          TelnyxClient.setPushMetaData(
+            correctPayload,
+            isAnswer: true,
+            isDecline: false,
+          );
+
+          print(
+              'TelnyxVoipClient: iOS - Updated stored push data with acceptance flag');
+        } else {
+          print(
+              'TelnyxVoipClient: iOS - WARNING: No metadata found, cannot update push data!');
+        }
+      } else {
+        // Android logic: Use the original approach that was working
+        // On Android, the extra structure should already be compatible with setPushMetaData
         TelnyxClient.setPushMetaData(
           extra,
-          isAnswer: true, // ← Key change: mark as accepted
+          isAnswer: true,
           isDecline: false,
         );
 
         print(
-            'TelnyxVoipClient: Updated stored push data with acceptance flag');
-      } catch (e) {
-        print('TelnyxVoipClient: Error updating stored push data: $e');
+            'TelnyxVoipClient: Android - Updated stored push data with acceptance flag');
       }
+    } catch (e) {
+      print('TelnyxVoipClient: Error updating stored push data: $e');
     }
 
     // DON'T attempt manual login here - let the app launch flow handle everything
@@ -453,11 +491,16 @@ class TelnyxVoipClient {
         print(
             'TelnyxVoipClient: Error processing push notification decline: $e');
       } finally {
-        // Regardless of success or failure, this background client's job is done.
-        // Dispose of it to close any open sockets.
-        print(
-            'TelnyxVoipClient: Disposing background client after decline action.');
-        dispose();
+        // Only dispose if this is a background client (created for terminated state)
+        // Main app clients should persist for future calls
+        if (_isBackgroundClient) {
+          print(
+              'TelnyxVoipClient: Disposing background client after decline action.');
+          dispose();
+        } else {
+          print(
+              'TelnyxVoipClient: Keeping main app client alive after decline action.');
+        }
       }
     }
   }
@@ -465,13 +508,30 @@ class TelnyxVoipClient {
   /// Extracts metadata from CallKit extra data.
   Map<String, dynamic>? _extractMetadata(Map<String, dynamic> extra) {
     try {
-      final metadata = extra['metadata'];
+      // First, try to get metadata from the standard location
+      var metadata = extra['metadata'];
+
+      // On iOS, the push notification payload includes an 'aps' wrapper
+      // So if metadata is not found at extra['metadata'], check if it exists
+      // at the root level alongside 'aps'
+      if (metadata == null && extra.containsKey('aps')) {
+        // This is likely an iOS push notification with aps wrapper
+        // Look for metadata at the root level
+        final extraKeys = extra.keys.where((key) => key != 'aps').toList();
+        if (extraKeys.contains('metadata')) {
+          metadata = extra['metadata'];
+        }
+      }
+
       if (metadata == null) return null;
 
       if (metadata is String) {
         return jsonDecode(metadata) as Map<String, dynamic>;
       } else if (metadata is Map<String, dynamic>) {
         return metadata;
+      } else if (metadata is Map) {
+        // Handle case where metadata is Map but not the exact type (common on iOS)
+        return Map<String, dynamic>.from(metadata);
       }
       return null;
     } catch (e) {

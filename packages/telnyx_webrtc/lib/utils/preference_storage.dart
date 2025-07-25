@@ -19,7 +19,6 @@ class PreferencesStorage {
       );
       return null;
     }
-    saveMetadata('');
     return jsonDecode(metaData);
   }
 

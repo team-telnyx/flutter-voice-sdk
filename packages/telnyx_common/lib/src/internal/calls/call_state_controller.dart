@@ -272,7 +272,7 @@ class CallStateController {
 
       // Set CallKit as connected when call is answered
       await _callKitManager?.setCallConnected(activeCall.callId);
-      
+
       // On Android, show ongoing call notification for foreground calls
       if (!kIsWeb && Platform.isAndroid && activeCall.isIncoming) {
         // For incoming calls answered in foreground, we need to show ongoing notification
@@ -426,7 +426,7 @@ class CallStateController {
             callerName: call.callerName ?? 'Unknown Caller',
             callerNumber: call.callerNumber ?? 'Unknown Number',
           );
-          
+
           // Show ongoing call notification on Android
           // We use showOutgoingCall which creates an ongoing call notification
           await _callKitManager?.showOutgoingCall(
@@ -582,7 +582,7 @@ class CallStateController {
         call.updateHoldState(false);
         // Set CallKit as connected when call becomes active
         await _callKitManager?.setCallConnected(callId);
-        
+
         // On Android, ensure ongoing call notification is shown for incoming calls
         if (!kIsWeb && Platform.isAndroid && call.isIncoming) {
           await _callKitManager?.showOutgoingCall(

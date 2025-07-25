@@ -6,6 +6,7 @@ import 'package:flutter_callkit_incoming/entities/ios_params.dart';
 import 'package:flutter_callkit_incoming/entities/notification_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:telnyx_common/telnyx_common.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 
@@ -144,6 +145,8 @@ class NotificationDisplayService {
         ),
       );
 
+      BackgroundDetector.ignore =
+          true; // Ignore lifecycle events during call UI display
       await FlutterCallkitIncoming.showCallkitIncoming(callKitParams);
 
       print(

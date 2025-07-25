@@ -245,230 +245,236 @@ class _AddProfileFormState extends State<AddProfileForm> {
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: spacingS),
-          CredentialToggle(
-            isTokenLogin: _isTokenLogin,
-            onToggleChanged: (value) {
-              setState(() {
-                _isTokenLogin = value;
-              });
-            },
-          ),
-          const SizedBox(height: spacingM),
-          if (_isTokenLogin) ...[
-            CustomFormField(
-              title: 'Token',
-              controller: _tokenController,
-              hintText: 'Enter your token',
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter a token';
-                }
-                return null;
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: spacingS),
+            CredentialToggle(
+              isTokenLogin: _isTokenLogin,
+              onToggleChanged: (value) {
+                setState(() {
+                  _isTokenLogin = value;
+                });
               },
             ),
-          ] else ...[
+            const SizedBox(height: spacingM),
+            if (_isTokenLogin) ...[
+              CustomFormField(
+                title: 'Token',
+                controller: _tokenController,
+                hintText: 'Enter your token',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a token';
+                  }
+                  return null;
+                },
+              ),
+            ] else ...[
+              CustomFormField(
+                title: 'SIP Username',
+                controller: _sipUserController,
+                hintText: 'Enter your SIP username',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a SIP username';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: spacingS),
+              CustomFormField(
+                title: 'SIP Password',
+                controller: _sipPasswordController,
+                hintText: 'Enter your SIP password',
+                isPassword: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a SIP password';
+                  }
+                  return null;
+                },
+              ),
+            ],
+            const SizedBox(height: spacingS),
             CustomFormField(
-              title: 'SIP Username',
-              controller: _sipUserController,
-              hintText: 'Enter your SIP username',
+              title: 'Caller ID Name',
+              controller: _sipCallerIDNameController,
+              hintText: 'Enter your caller ID name',
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter a SIP username';
+                  return 'Please enter a caller ID name';
                 }
                 return null;
               },
             ),
             const SizedBox(height: spacingS),
             CustomFormField(
-              title: 'SIP Password',
-              controller: _sipPasswordController,
-              hintText: 'Enter your SIP password',
-              isPassword: true,
+              title: 'Caller ID Number',
+              controller: _sipCallerIDNumberController,
+              hintText: 'Enter your caller ID number',
+              keyboardType: TextInputType.phone,
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter a SIP password';
+                  return 'Please enter a caller ID number';
                 }
                 return null;
               },
             ),
-          ],
-          const SizedBox(height: spacingS),
-          CustomFormField(
-            title: 'Caller ID Name',
-            controller: _sipCallerIDNameController,
-            hintText: 'Enter your caller ID name',
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a caller ID name';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: spacingS),
-          CustomFormField(
-            title: 'Caller ID Number',
-            controller: _sipCallerIDNumberController,
-            hintText: 'Enter your caller ID number',
-            keyboardType: TextInputType.phone,
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter a caller ID number';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: spacingS),
-          // Region Selection
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: spacingXS),
-                child: Text(
-                  'Region',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-              ),
-              DropdownButtonFormField<Region>(
-                value: _selectedRegion,
-                decoration: InputDecoration(
-                  hintText: 'Select region',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+            const SizedBox(height: spacingS),
+            // Region Selection
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: spacingXS),
+                  child: Text(
+                    'Region',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
                   ),
                 ),
-                items: Region.values.map((Region region) {
-                  return DropdownMenuItem<Region>(
-                    value: region,
-                    child: Text(region.displayName),
-                  );
-                }).toList(),
-                onChanged: (Region? newValue) {
-                  if (newValue != null) {
-                    setState(() {
-                      _selectedRegion = newValue;
-                    });
-                  }
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: spacingS),
-          // Fallback Option
-          Row(
-            children: [
-              Checkbox(
-                value: _fallbackOnRegionFailure,
-                onChanged: (bool? value) {
-                  setState(() {
-                    _fallbackOnRegionFailure = value ?? true;
-                  });
-                },
-              ),
-              Expanded(
-                child: Text(
-                  'Allow Region Fallback',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: spacingS),
-          // Force Relay Candidates Option
-          Row(
-            children: [
-              Checkbox(
-                value: _forceRelayCandidate,
-                onChanged: (bool? value) {
-                  setState(() {
-                    _forceRelayCandidate = value ?? false;
-                  });
-                },
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Force Relay Candidates',
-                      style: Theme.of(context).textTheme.bodyMedium,
+                DropdownButtonFormField<Region>(
+                  value: _selectedRegion,
+                  decoration: InputDecoration(
+                    hintText: 'Select region',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    Text(
-                      'Forces TURN relay for all connections, preventing local network access prompts',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: spacingL),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              const Spacer(),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _resetForm();
-                  });
-                  widget.onCancelPressed();
-                },
-                child: const Text('Cancel'),
-              ),
-              const SizedBox(width: spacingM),
-              ElevatedButton(
-                onPressed: () {
-                  if (_formKey.currentState!.validate()) {
-                    final profile = Profile(
-                      isTokenLogin: _isTokenLogin,
-                      token: _tokenController.text,
-                      sipUser: _sipUserController.text,
-                      sipPassword: _sipPasswordController.text,
-                      sipCallerIDName: _sipCallerIDNameController.text,
-                      sipCallerIDNumber: _sipCallerIDNumberController.text,
-                      region: _selectedRegion,
-                      fallbackOnRegionFailure: _fallbackOnRegionFailure,
-                      forceRelayCandidate: _forceRelayCandidate,
+                  ),
+                  items: Region.values.map((Region region) {
+                    return DropdownMenuItem<Region>(
+                      value: region,
+                      child: Text(region.displayName),
                     );
-
-                    try {
-                      final provider = context.read<ProfileProvider>();
-                      if (widget.existingProfile != null) {
-                        // Update existing profile
-                        provider.updateProfile(
-                          widget.existingProfile!.sipCallerIDName,
-                          profile,
-                        );
-                      } else {
-                        // Add new profile
-                        provider.addProfile(profile);
-                      }
+                  }).toList(),
+                  onChanged: (Region? newValue) {
+                    if (newValue != null) {
                       setState(() {
-                        _resetForm();
+                        _selectedRegion = newValue;
                       });
-                      widget.onCancelPressed();
-                    } catch (e) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text(e.toString())));
                     }
-                  }
-                },
-                child: Text(widget.existingProfile != null ? 'Update' : 'Save'),
-              ),
-            ],
-          ),
-        ],
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: spacingS),
+            // Fallback Option
+            Row(
+              children: [
+                Checkbox(
+                  value: _fallbackOnRegionFailure,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      _fallbackOnRegionFailure = value ?? true;
+                    });
+                  },
+                ),
+                Expanded(
+                  child: Text(
+                    'Allow Region Fallback',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: spacingS),
+            // Force Relay Candidates Option
+            Row(
+              children: [
+                Checkbox(
+                  value: _forceRelayCandidate,
+                  onChanged: (bool? value) {
+                    setState(() {
+                      _forceRelayCandidate = value ?? false;
+                    });
+                  },
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Force Relay Candidates',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      Text(
+                        'Forces TURN relay for all connections, preventing local network access prompts',
+                        style: Theme.of(
+                          context,
+                        )
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: spacingL),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _resetForm();
+                    });
+                    widget.onCancelPressed();
+                  },
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: spacingM),
+                ElevatedButton(
+                  onPressed: () {
+                    if (_formKey.currentState!.validate()) {
+                      final profile = Profile(
+                        isTokenLogin: _isTokenLogin,
+                        token: _tokenController.text,
+                        sipUser: _sipUserController.text,
+                        sipPassword: _sipPasswordController.text,
+                        sipCallerIDName: _sipCallerIDNameController.text,
+                        sipCallerIDNumber: _sipCallerIDNumberController.text,
+                        region: _selectedRegion,
+                        fallbackOnRegionFailure: _fallbackOnRegionFailure,
+                        forceRelayCandidate: _forceRelayCandidate,
+                      );
+
+                      try {
+                        final provider = context.read<ProfileProvider>();
+                        if (widget.existingProfile != null) {
+                          // Update existing profile
+                          provider.updateProfile(
+                            widget.existingProfile!.sipCallerIDName,
+                            profile,
+                          );
+                        } else {
+                          // Add new profile
+                          provider.addProfile(profile);
+                        }
+                        setState(() {
+                          _resetForm();
+                        });
+                        widget.onCancelPressed();
+                      } catch (e) {
+                        ScaffoldMessenger.of(
+                          context,
+                        ).showSnackBar(SnackBar(content: Text(e.toString())));
+                      }
+                    }
+                  },
+                  child:
+                      Text(widget.existingProfile != null ? 'Update' : 'Save'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

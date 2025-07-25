@@ -204,6 +204,8 @@ class TelnyxVoiceApp extends StatefulWidget {
       enableNativeUI: true,
       enableBackgroundHandling: true,
       customTokenProvider: telnyx.DefaultPushTokenProvider(),
+      isBackgroundClient:
+          true, // Mark as background client for proper disposal handling
     );
     return backgroundClient;
   }
@@ -317,6 +319,10 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
     if (kDebugMode) {
       print('[TelnyxVoiceApp] App resumed - checking reconnection needs');
     }
+
+    // IMPORTANT: Check for push notifications first when resuming from background
+    // This handles the case where the user accepted a call while the app was backgrounded
+    await _checkForInitialPushNotification();
 
     // If we're ignoring (e.g., from push call), don't auto-reconnect
     if (BackgroundDetector.ignore) {
@@ -453,88 +459,6 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
     }
 
     return data;
-  }
-
-  /// Public method to reset background detector ignore (for call end cleanup)
-  static void resetBackgroundDetectorIgnore() {
-    BackgroundDetector.ignore = false;
-    if (kDebugMode) {
-      print('[TelnyxVoiceApp] Background detector ignore set to: false');
-    }
-  }
-
-  /// It automatically:
-  /// - Initializes Firebase in the background isolate
-  /// - Stores push data for app launch detection
-  /// - Creates a background TelnyxVoipClient instance
-  /// - Processes the push notification
-  /// - Shows native call UI via CallKit/ConnectionService
-  static Future<void> handleBackgroundPush(RemoteMessage message) async {
-    if (kDebugMode) {
-      print('[TelnyxVoiceApp] Background push received: ${message.data}');
-    }
-
-    try {
-      // Initialize Firebase in the background isolate
-      await _initializeFirebaseInIsolate();
-
-      // CRITICAL: Store push data for app launch detection (like old implementation)
-      // This ensures when app launches from terminated state, it can find the push data
-      TelnyxClient.setPushMetaData(
-        message.data,
-        isAnswer: false, // Will be set to true when user accepts via CallKit
-        isDecline: false,
-      );
-
-      if (kDebugMode) {
-        print('[TelnyxVoiceApp] Push data stored for app launch detection');
-      }
-
-      // Create a background client instance for push processing
-      final backgroundClient = await _createBackgroundClient();
-
-      // Process the push notification (shows CallKit UI)
-      await backgroundClient.handlePushNotification(message.data);
-
-      if (kDebugMode) {
-        print('[TelnyxVoiceApp] Background push processed successfully');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('[TelnyxVoiceApp] Error processing background push: $e');
-      }
-    }
-  }
-
-  /// Initializes Firebase in the background isolate.
-  static Future<void> _initializeFirebaseInIsolate() async {
-    try {
-      await Firebase.initializeApp();
-      if (kDebugMode) {
-        print('[TelnyxVoiceApp] Firebase initialized in background isolate');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('[TelnyxVoiceApp] Firebase background initialization failed: $e');
-      }
-    }
-  }
-
-  /// Creates a TelnyxVoipClient instance for background push processing.
-  static Future<TelnyxVoipClient> _createBackgroundClient() async {
-    // Create a background client with minimal configuration
-    // This client is only used for processing push notifications in the background
-    final backgroundClient = TelnyxVoipClient(
-      enableNativeUI: true, // Enable native UI for CallKit/ConnectionService
-      enableBackgroundHandling: true,
-      customTokenProvider: telnyx.DefaultPushTokenProvider(),
-    );
-
-    if (kDebugMode) {
-      print('[TelnyxVoiceApp] Background client created');
-    }
-
-    return backgroundClient;
   }
 
   @override
