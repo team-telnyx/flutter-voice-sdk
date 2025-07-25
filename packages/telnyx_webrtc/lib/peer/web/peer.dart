@@ -20,7 +20,9 @@ import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 
+/// Represents a peer in the WebRTC communication.
 class Peer {
+  /// The constructor for the Peer class.
   Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate);
 
   final TxSocket _socket;
@@ -60,6 +62,9 @@ class Peer {
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
   onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
+
+  /// Callback for call quality metrics updates.
+  CallQualityCallback? onCallQualityChange;
 
   /// Gets the SDP semantics based on the platform.
   /// Returns 'plan-b' for Windows and 'unified-plan' for other platforms.
@@ -566,7 +571,12 @@ class Peer {
     newSession.peerConnection = pc;
 
     // Start stats if debug is enabled
-    await startStats(callId, peerId, pc);
+    await startStats(
+      callId,
+      peerId,
+      pc,
+      onCallQualityChange: onCallQualityChange,
+    );
 
     return newSession;
   }
@@ -593,8 +603,9 @@ class Peer {
   Future<bool> startStats(
     String callId,
     String peerId,
-    RTCPeerConnection pc,
-  ) async {
+    RTCPeerConnection pc, {
+    CallQualityCallback? onCallQualityChange,
+  }) async {
     if (!_debug) {
       GlobalLogger().d(
         'Peer :: Stats manager will NOT start; debug mode not enabled.',
@@ -607,6 +618,7 @@ class Peer {
       callId,
       peerId,
       _txClient.isDebug(),
+      onCallQualityChange: onCallQualityChange,
     );
     await _statsManager?.startStatsReporting();
     GlobalLogger().d('Peer :: Stats Manager started for callId=$callId');
