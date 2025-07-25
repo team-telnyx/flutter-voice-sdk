@@ -14,8 +14,10 @@ import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_webrtc/model/verto/receive/receive_bye_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/receive/ai_conversation_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/anonymous_login_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
@@ -25,6 +27,7 @@ import 'package:telnyx_webrtc/utils/logging/default_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/preference_storage.dart';
+import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:telnyx_webrtc/utils/websocket_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
@@ -32,6 +35,7 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 
@@ -71,6 +75,9 @@ class TelnyxClient {
 
   // Map to track reconnection timers for each call
   final Map<String?, Timer> _reconnectionTimers = {};
+
+  // Current widget settings from AI conversation
+  WidgetSettings? _currentWidgetSettings;
 
   /// Default constructor for the TelnyxClient
   TelnyxClient() {
@@ -205,6 +212,9 @@ class TelnyxClient {
   /// The stored [TokenConfig] for the client - if no stored token is present, this will be null
   TokenConfig? get storedToken => _storedTokenConfig;
 
+  /// The current widget settings from AI conversation
+  WidgetSettings? get currentWidgetSettings => _currentWidgetSettings;
+
   /// Returns the forceRelayCandidate setting from the current config
   bool getForceRelayCandidate() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
@@ -298,8 +308,7 @@ class TelnyxClient {
     // Create a new timer
     _reconnectionTimers[call.callId] = Timer(
       Duration(
-        milliseconds:
-            _storedCredentialConfig?.reconnectionTimeout ??
+        milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
             _storedTokenConfig?.reconnectionTimeout ??
             Constants.reconnectionTimeout,
       ),
@@ -492,9 +501,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -535,9 +543,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -752,6 +759,7 @@ class TelnyxClient {
   @Deprecated(
     'Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)',
   )
+
   /// Connects to the WebSocket with a previously provided [Config]
   void connect() {
     GlobalLogger().i('connect()');
@@ -820,6 +828,7 @@ class TelnyxClient {
   @Deprecated(
     'telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()',
   )
+
   /// The current instance of [Call] associated with this client.
   ///
   /// This is deprecated. Use [newInvite] to create a new call or
@@ -971,6 +980,64 @@ class TelnyxClient {
     }
   }
 
+  /// Performs an anonymous login to the Telnyx backend for AI assistant connections.
+  ///
+  /// This method allows connecting to AI assistants without traditional authentication.
+  /// It takes the target ID, target type (defaults to 'ai_assistant'), and optional
+  /// target version ID.
+  ///
+  /// Parameters:
+  /// - [targetId]: The ID of the target (e.g., assistant ID)
+  /// - [targetType]: The type of target (defaults to 'ai_assistant')
+  /// - [targetVersionId]: Optional version ID of the target
+  /// - [userVariables]: Optional user variables to include
+  /// - [reconnection]: Whether this is a reconnection attempt (defaults to false)
+  Future<void> anonymousLogin({
+    required String targetId,
+    String targetType = 'ai_assistant',
+    String? targetVersionId,
+    Map<String, dynamic>? userVariables,
+    bool reconnection = false,
+  }) async {
+    final uuid = const Uuid().v4();
+
+    final versionData = await VersionUtils.getSDKVersion();
+    final userAgentData = await VersionUtils.getUserAgent();
+
+    final userAgent = UserAgent(
+      sdkVersion: versionData,
+      data: userAgentData,
+    );
+
+    final anonymousLoginParams = AnonymousLoginParams(
+      targetType: targetType,
+      targetId: targetId,
+      targetVersionId: targetVersionId,
+      userVariables: userVariables,
+      reconnection: reconnection,
+      userAgent: userAgent,
+      sessionId: sessid,
+    );
+
+    final anonymousLoginMessage = AnonymousLoginMessage(
+      id: uuid,
+      method: SocketMethod.anonymousLogin,
+      params: anonymousLoginParams,
+      jsonrpc: JsonRPCConstant.jsonrpc,
+    );
+
+    final String jsonAnonymousLoginMessage = jsonEncode(anonymousLoginMessage);
+    GlobalLogger().i('Anonymous Login Message $jsonAnonymousLoginMessage');
+
+    if (isConnected()) {
+      txSocket.send(jsonAnonymousLoginMessage);
+    } else {
+      _connectWithCallBack(null, () {
+        txSocket.send(jsonAnonymousLoginMessage);
+      });
+    }
+  }
+
   /// Disables push notifications for the currently authenticated user.
   ///
   /// This method requires a user to be logged in via [connectWithCredential] or
@@ -988,8 +1055,8 @@ class TelnyxClient {
           pushNotificationToken: config.notificationToken!,
           pushNotificationProvider:
               defaultTargetPlatform == TargetPlatform.android
-              ? 'android'
-              : 'ios',
+                  ? 'android'
+                  : 'ios',
         ),
       );
       final disablePushMessage = DisablePushMessage(
@@ -1353,24 +1420,22 @@ class TelnyxClient {
                         //sending attach Call
                         final String platform =
                             defaultTargetPlatform == TargetPlatform.android
-                            ? 'android'
-                            : 'ios';
-                        const String pushEnvironment = kDebugMode
-                            ? 'development'
-                            : 'production';
+                                ? 'android'
+                                : 'ios';
+                        const String pushEnvironment =
+                            kDebugMode ? 'development' : 'production';
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
-                              method: SocketMethod.attachCall,
-                              id: const Uuid().v4(),
-                              params: Params(
-                                userVariables: <dynamic, dynamic>{
-                                  'push_notification_environment':
-                                      pushEnvironment,
-                                  'push_notification_provider': platform,
-                                },
-                              ),
-                              jsonrpc: '2.0',
-                            );
+                          method: SocketMethod.attachCall,
+                          id: const Uuid().v4(),
+                          params: Params(
+                            userVariables: <dynamic, dynamic>{
+                              'push_notification_environment': pushEnvironment,
+                              'push_notification_provider': platform,
+                            },
+                          ),
+                          jsonrpc: '2.0',
+                        );
                         GlobalLogger().i(
                           'attachCallMessage :: ${attachCallMessage.toJson()}',
                         );
@@ -1720,12 +1785,49 @@ class TelnyxClient {
                   return;
                 }
 
+                // Send ringing acknowledgement
+                final ringingAckResult = RingingAckResult(
+                  method: SocketMethod.ringing,
+                );
+                final ringingAckMessage = RingingAckMessage(
+                  jsonrpc: JsonRPCConstant.jsonrpc,
+                  id: ringing.id,
+                  result: ringingAckResult,
+                );
+                final String jsonRingingAckMessage =
+                    jsonEncode(ringingAckMessage);
+                GlobalLogger().i(
+                    'Sending ringing acknowledgement: $jsonRingingAckMessage');
+                txSocket.send(jsonRingingAckMessage);
+
                 GlobalLogger().i(
                   'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}',
                 );
                 final message = TelnyxMessage(
                   socketMethod: SocketMethod.ringing,
                   message: ringing,
+                );
+                onSocketMessageReceived(message);
+                break;
+              }
+            case SocketMethod.aiConversation:
+              {
+                GlobalLogger().i('AI CONVERSATION RECEIVED :: $messageJson');
+                final ReceivedMessage aiConversation = ReceivedMessage.fromJson(
+                  jsonDecode(data.toString()),
+                );
+
+                // Store widget settings if available
+                if (aiConversation.aiConversationParams?.widgetSettings !=
+                    null) {
+                  _currentWidgetSettings =
+                      aiConversation.aiConversationParams!.widgetSettings;
+                  GlobalLogger().i('Widget settings updated');
+                }
+
+                final message = TelnyxMessage(
+                  socketMethod: SocketMethod.aiConversation,
+                  message: aiConversation,
                 );
                 onSocketMessageReceived(message);
                 break;

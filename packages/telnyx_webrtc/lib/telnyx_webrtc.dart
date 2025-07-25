@@ -17,6 +17,7 @@ export './model/verto/receive/login_result_message_body.dart';
 export './model/verto/receive/receive_bye_message_body.dart';
 export './model/verto/receive/received_message_body.dart';
 
+export './model/verto/send/anonymous_login_message.dart';
 export './model/verto/send/gateway_request_message_body.dart';
 export './model/verto/send/info_dtmf_message_body.dart';
 export './model/verto/send/invite_answer_message_body.dart';

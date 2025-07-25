@@ -63,6 +63,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   CallTerminationReason? _lastTerminationReason;
 
   String? _errorDialogMessage;
+
   String? get errorDialogMessage => _errorDialogMessage;
 
   void _setErrorDialog(String message) {
@@ -124,10 +125,12 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   /// State flow for inbound audio levels list
   final List<double> _inboundAudioLevels = [];
+
   List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
 
   /// State flow for outbound audio levels list
   final List<double> _outboundAudioLevels = [];
+
   List<double> get outboundAudioLevels =>
       List.unmodifiable(_outboundAudioLevels);
 
@@ -462,7 +465,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               if (_currentCallDestination != null &&
                   _currentCallDirection != null) {
                 final wasAnswered = _callState == CallStateStatus.ongoingCall;
-                _addCallToHistory(
+                await _addCallToHistory(
                   destination: _currentCallDestination!,
                   direction: _currentCallDirection!,
                   wasAnswered: wasAnswered,
@@ -475,7 +478,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               if (!kIsWeb && Platform.isIOS) {
                 if (callFromPush) {
                   // For iOS push calls, handle CallKit cleanup but avoid double resetCallInfo()
-                  FlutterCallkitIncoming.endCall(
+                  await FlutterCallkitIncoming.endCall(
                     currentCall?.callId ?? _incomingInvite!.callID!,
                   );
                   if (WidgetsBinding.instance.lifecycleState !=
@@ -507,6 +510,14 @@ class TelnyxClientViewModel with ChangeNotifier {
 
               // Call resetCallInfo() once at the end, after termination reason is set
               resetCallInfo();
+              break;
+            }
+          case SocketMethod.aiConversation:
+            {
+              logger.i(
+                'TelnyxClientViewModel.observeResponses :: Received AI Conversation message: ${message.message}',
+              );
+              // Handle AI conversation messages if needed
               break;
             }
         }
@@ -653,6 +664,28 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeResponses();
   }
 
+  void anonymousLogin({
+    required String targetId,
+    String targetType = 'ai_assistant',
+    String? targetVersionId,
+    Map<String, dynamic>? userVariables,
+    bool reconnection = false,
+  }) {
+    _loggingIn = true;
+    notifyListeners();
+
+    _localName = 'Anonymous User';
+    _localNumber = 'anonymous';
+    _telnyxClient.anonymousLogin(
+      targetId: targetId,
+      targetType: targetType,
+      targetVersionId: targetVersionId,
+      userVariables: userVariables,
+      reconnection: reconnection,
+    );
+    observeResponses();
+  }
+
   void call(String destination) {
     _currentCall = _telnyxClient.newInvite(
       _localName,
@@ -704,8 +737,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     if (!kIsWeb) {
       await FlutterCallkitIncoming.activeCalls().then((value) {
         logger.i(
-          'TelnyxClientViewModel.accept: ${value
-              .length} Active CallKit calls before accept $value',
+          'TelnyxClientViewModel.accept: ${value.length} Active CallKit calls before accept $value',
         );
       });
     }
