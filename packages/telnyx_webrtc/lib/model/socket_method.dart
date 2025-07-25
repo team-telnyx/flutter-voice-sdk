@@ -10,6 +10,7 @@ class SocketMethod {
   static const gatewayState = 'telnyx_rtc.gatewayState';
   static const ping = 'telnyx_rtc.ping';
   static const login = 'login';
+  static const anonymousLogin = 'anonymous_login';
   static const attachCall = 'telnyx_rtc.attachCalls';
   static const attach = 'telnyx_rtc.attach';
   static const disablePush = 'telnyx_rtc.disable_push_notification';

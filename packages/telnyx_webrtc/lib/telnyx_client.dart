@@ -16,6 +16,7 @@ import 'package:telnyx_webrtc/model/verto/receive/receive_bye_message_body.dart'
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/anonymous_login_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
@@ -967,6 +968,72 @@ class TelnyxClient {
     } else {
       _connectWithCallBack(null, () {
         txSocket.send(jsonLoginMessage);
+      });
+    }
+  }
+
+  /// Performs an anonymous login to the Telnyx backend for AI assistant connections.
+  ///
+  /// This method allows connecting to AI assistants without traditional authentication.
+  /// It takes the target ID, target type (defaults to 'ai_assistant'), and optional
+  /// target version ID.
+  ///
+  /// Parameters:
+  /// - [targetId]: The ID of the target (e.g., assistant ID)
+  /// - [targetType]: The type of target (defaults to 'ai_assistant')
+  /// - [targetVersionId]: Optional version ID of the target
+  /// - [userVariables]: Optional user variables to include
+  /// - [reconnection]: Whether this is a reconnection attempt (defaults to false)
+  void anonymousLogin({
+    required String targetId,
+    String targetType = 'ai_assistant',
+    String? targetVersionId,
+    Map<String, dynamic>? userVariables,
+    bool reconnection = false,
+  }) {
+    final uuid = const Uuid().v4();
+
+    // Get User-Agent information
+    String userAgentData = '';
+    if (kIsWeb) {
+      // For web, we can't access navigator.userAgent directly in Dart
+      // This would need to be passed from JavaScript if needed
+      userAgentData = 'Flutter Web SDK';
+    } else {
+      // For mobile platforms, construct a basic user agent
+      userAgentData = 'Flutter Mobile SDK';
+    }
+
+    final userAgent = UserAgent(
+      sdkVersion: '2.0.1', // Using the current package version
+      data: userAgentData,
+    );
+
+    final anonymousLoginParams = AnonymousLoginParams(
+      targetType: targetType,
+      targetId: targetId,
+      targetVersionId: targetVersionId,
+      userVariables: userVariables,
+      reconnection: reconnection,
+      userAgent: userAgent,
+      sessionId: sessid,
+    );
+
+    final anonymousLoginMessage = AnonymousLoginMessage(
+      id: uuid,
+      method: SocketMethod.anonymousLogin,
+      params: anonymousLoginParams,
+      jsonrpc: JsonRPCConstant.jsonrpc,
+    );
+
+    final String jsonAnonymousLoginMessage = jsonEncode(anonymousLoginMessage);
+    GlobalLogger().i('Anonymous Login Message $jsonAnonymousLoginMessage');
+
+    if (isConnected()) {
+      txSocket.send(jsonAnonymousLoginMessage);
+    } else {
+      _connectWithCallBack(null, () {
+        txSocket.send(jsonAnonymousLoginMessage);
       });
     }
   }

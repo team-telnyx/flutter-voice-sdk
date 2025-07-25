@@ -653,6 +653,28 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeResponses();
   }
 
+  void anonymousLogin({
+    required String targetId,
+    String targetType = 'ai_assistant',
+    String? targetVersionId,
+    Map<String, dynamic>? userVariables,
+    bool reconnection = false,
+  }) {
+    _loggingIn = true;
+    notifyListeners();
+
+    _localName = 'Anonymous User';
+    _localNumber = 'anonymous';
+    _telnyxClient.anonymousLogin(
+      targetId: targetId,
+      targetType: targetType,
+      targetVersionId: targetVersionId,
+      userVariables: userVariables,
+      reconnection: reconnection,
+    );
+    observeResponses();
+  }
+
   void call(String destination) {
     _currentCall = _telnyxClient.newInvite(
       _localName,
