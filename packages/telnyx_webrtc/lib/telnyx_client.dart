@@ -26,6 +26,7 @@ import 'package:telnyx_webrtc/utils/logging/default_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/preference_storage.dart';
+import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:telnyx_webrtc/utils/websocket_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter/foundation.dart';
@@ -984,28 +985,20 @@ class TelnyxClient {
   /// - [targetVersionId]: Optional version ID of the target
   /// - [userVariables]: Optional user variables to include
   /// - [reconnection]: Whether this is a reconnection attempt (defaults to false)
-  void anonymousLogin({
+  Future<void> anonymousLogin({
     required String targetId,
     String targetType = 'ai_assistant',
     String? targetVersionId,
     Map<String, dynamic>? userVariables,
     bool reconnection = false,
-  }) {
+  }) async {
     final uuid = const Uuid().v4();
 
-    // Get User-Agent information
-    String userAgentData = '';
-    if (kIsWeb) {
-      // For web, we can't access navigator.userAgent directly in Dart
-      // This would need to be passed from JavaScript if needed
-      userAgentData = 'Flutter Web SDK';
-    } else {
-      // For mobile platforms, construct a basic user agent
-      userAgentData = 'Flutter Mobile SDK';
-    }
+    final versionData = await VersionUtils.getSDKVersion();
+    final userAgentData = await VersionUtils.getUserAgent();
 
     final userAgent = UserAgent(
-      sdkVersion: '2.0.1', // Using the current package version
+      sdkVersion: versionData,
       data: userAgentData,
     );
 
