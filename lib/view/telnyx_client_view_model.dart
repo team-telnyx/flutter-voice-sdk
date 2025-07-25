@@ -701,11 +701,14 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i(
       'TelnyxClientViewModel.accept: Called. acceptFromPush: $acceptFromPush, _incomingInvite exists: ${_incomingInvite != null}, callState: $callState. pushData: $pushData',
     );
-    await FlutterCallkitIncoming.activeCalls().then((value) {
-      logger.i(
-        'TelnyxClientViewModel.accept: ${value.length} Active CallKit calls before accept $value',
-      );
-    });
+    if (!kIsWeb) {
+      await FlutterCallkitIncoming.activeCalls().then((value) {
+        logger.i(
+          'TelnyxClientViewModel.accept: ${value
+              .length} Active CallKit calls before accept $value',
+        );
+      });
+    }
 
     // Prevent processing if already connecting or ongoing
     // Note: connectingToCall check is important to prevent re-entry
