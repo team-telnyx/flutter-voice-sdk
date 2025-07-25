@@ -14,4 +14,5 @@ class SocketMethod {
   static const attachCall = 'telnyx_rtc.attachCalls';
   static const attach = 'telnyx_rtc.attach';
   static const disablePush = 'telnyx_rtc.disable_push_notification';
+  static const aiConversation = 'ai_conversation';
 }

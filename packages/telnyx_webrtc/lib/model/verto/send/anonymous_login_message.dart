@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 class AnonymousLoginMessage {
   String? id;
   String? jsonrpc;
