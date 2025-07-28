@@ -32,14 +32,48 @@ class AiConversationMessage {
 class AiConversationParams {
   String? type;
   WidgetSettings? widgetSettings;
+  // Fields for response.created
+  ResponseData? response;
+  // Fields for response.text.delta
+  int? contentIndex;
+  String? delta;
+  String? itemId;
+  int? outputIndex;
+  String? responseId;
+  // Fields for conversation.item.created
+  ConversationItem? item;
+  String? previousItemId;
 
-  AiConversationParams({this.type, this.widgetSettings});
+  AiConversationParams({
+    this.type,
+    this.widgetSettings,
+    this.response,
+    this.contentIndex,
+    this.delta,
+    this.itemId,
+    this.outputIndex,
+    this.responseId,
+    this.item,
+    this.previousItemId,
+  });
 
   AiConversationParams.fromJson(Map<String, dynamic> json) {
     type = json['type'];
     widgetSettings = json['widget_settings'] != null
         ? WidgetSettings.fromJson(json['widget_settings'])
         : null;
+    response = json['response'] != null
+        ? ResponseData.fromJson(json['response'])
+        : null;
+    contentIndex = json['content_index'];
+    delta = json['delta'];
+    itemId = json['item_id'];
+    outputIndex = json['output_index'];
+    responseId = json['response_id'];
+    item = json['item'] != null
+        ? ConversationItem.fromJson(json['item'])
+        : null;
+    previousItemId = json['previous_item_id'];
   }
 
   Map<String, dynamic> toJson() {
@@ -48,6 +82,16 @@ class AiConversationParams {
     if (widgetSettings != null) {
       data['widget_settings'] = widgetSettings!.toJson();
     }
+    if (response != null) {
+      data['response'] = response!.toJson();
+    }
+    if (contentIndex != null) data['content_index'] = contentIndex;
+    if (delta != null) data['delta'] = delta;
+    if (itemId != null) data['item_id'] = itemId;
+    if (outputIndex != null) data['output_index'] = outputIndex;
+    if (responseId != null) data['response_id'] = responseId;
+    if (item != null) data['item'] = item!.toJson();
+    if (previousItemId != null) data['previous_item_id'] = previousItemId;
     return data;
   }
 }
@@ -131,6 +175,88 @@ class AudioVisualizerConfig {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['color'] = color;
     data['preset'] = preset;
+    return data;
+  }
+}
+
+/// Response data for response.created messages
+class ResponseData {
+  String? id;
+  List<dynamic>? output;
+  String? status;
+
+  ResponseData({this.id, this.output, this.status});
+
+  ResponseData.fromJson(Map<String, dynamic> json) {
+    id = json['id'];
+    output = json['output'];
+    status = json['status'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['id'] = id;
+    data['output'] = output;
+    data['status'] = status;
+    return data;
+  }
+}
+
+/// Conversation item for conversation.item.created messages
+class ConversationItem {
+  List<ConversationContent>? content;
+  String? id;
+  String? role;
+  String? status;
+  String? type;
+
+  ConversationItem({this.content, this.id, this.role, this.status, this.type});
+
+  ConversationItem.fromJson(Map<String, dynamic> json) {
+    if (json['content'] != null) {
+      content = <ConversationContent>[];
+      json['content'].forEach((v) {
+        content!.add(ConversationContent.fromJson(v));
+      });
+    }
+    id = json['id'];
+    role = json['role'];
+    status = json['status'];
+    type = json['type'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    if (content != null) {
+      data['content'] = content!.map((v) => v.toJson()).toList();
+    }
+    data['id'] = id;
+    data['role'] = role;
+    data['status'] = status;
+    data['type'] = type;
+    return data;
+  }
+}
+
+/// Content within a conversation item
+class ConversationContent {
+  String? transcript;
+  String? type;
+  String? text;
+
+  ConversationContent({this.transcript, this.type, this.text});
+
+  ConversationContent.fromJson(Map<String, dynamic> json) {
+    transcript = json['transcript'];
+    type = json['type'];
+    text = json['text'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    if (transcript != null) data['transcript'] = transcript;
+    if (type != null) data['type'] = type;
+    if (text != null) data['text'] = text;
     return data;
   }
 }

@@ -10,7 +10,9 @@ import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_controls.d
 import 'package:telnyx_flutter_webrtc/view/widgets/common/bottom_action_widget.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
+import 'package:telnyx_flutter_webrtc/view/transcript_view.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/model/transcript_item.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,6 +56,60 @@ class _HomeScreenState extends State<HomeScreen> {
         Provider.of<ProfileProvider>(context, listen: false).toggleDebugMode();
         break;
     }
+  }
+
+  void _showTranscriptDialog(BuildContext context) async {
+    final transcript = context.read<TelnyxClientViewModel>().transcript;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).primaryColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8.0),
+                      topRight: Radius.circular(8.0),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Conversation Transcript',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Consumer<TelnyxClientViewModel>(
+                    builder: (context, viewModel, _) {
+                      return TranscriptView(transcript: viewModel.transcript);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -177,6 +233,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           }
                         : null,
                   ),
+                );
+              },
+            )
+          : null,
+      floatingActionButton: clientState == CallStateStatus.ongoingCall
+          ? Consumer<TelnyxClientViewModel>(
+              builder: (context, viewModel, _) {
+                return FloatingActionButton(
+                  onPressed: () => _showTranscriptDialog(context),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  child: Icon(
+                    Icons.chat_bubble_outline,
+                    color: Colors.white,
+                  ),
+                  tooltip: 'Show Transcript',
                 );
               },
             )

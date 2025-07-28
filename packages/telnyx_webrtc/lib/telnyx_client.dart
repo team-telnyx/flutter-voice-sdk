@@ -15,6 +15,7 @@ import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_webrtc/model/verto/receive/receive_bye_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/receive/ai_conversation_message.dart';
+import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/anonymous_login_message.dart';
@@ -45,6 +46,9 @@ typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 /// Callback for when the socket receives an error
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
+/// Callback for when transcript updates occur
+typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
+
 /// Represents the main entry point for interacting with the Telnyx RTC SDK.
 ///
 /// This class manages the WebSocket connection to the Telnyx backend, handles
@@ -60,6 +64,9 @@ class TelnyxClient {
 
   /// Callback for when the socket receives an error
   late OnSocketErrorReceived onSocketErrorReceived;
+
+  /// Callback for when transcript updates occur
+  OnTranscriptUpdate? onTranscriptUpdate;
 
   /// The path to the ringtone file (audio to play when receiving a call)
   String _ringtonePath = '';
@@ -78,6 +85,10 @@ class TelnyxClient {
 
   // Current widget settings from AI conversation
   WidgetSettings? _currentWidgetSettings;
+
+  // Transcript management
+  final List<TranscriptItem> _transcript = [];
+  final Map<String, StringBuffer> _assistantResponseBuffers = {};
 
   /// Default constructor for the TelnyxClient
   TelnyxClient() {
@@ -271,6 +282,16 @@ class TelnyxClient {
 
   /// Get the custom logger for the SDK
   CustomLogger get logger => _logger;
+
+  /// Gets the current conversation transcript
+  List<TranscriptItem> get transcript => List.unmodifiable(_transcript);
+
+  /// Clears the conversation transcript
+  void clearTranscript() {
+    _transcript.clear();
+    _assistantResponseBuffers.clear();
+    onTranscriptUpdate?.call(_transcript);
+  }
 
   void _handleNetworkLost() {
     for (var call in activeCalls().values) {
@@ -1825,6 +1846,9 @@ class TelnyxClient {
                   GlobalLogger().i('Widget settings updated');
                 }
 
+                // Process message for transcript extraction
+                _processAiConversationForTranscript(aiConversation.aiConversationParams);
+
                 final message = TelnyxMessage(
                   socketMethod: SocketMethod.aiConversation,
                   message: aiConversation,
@@ -1840,6 +1864,84 @@ class TelnyxClient {
         GlobalLogger().i('Received and ignored empty packet');
       }
     }
+  }
+
+  /// Process AI conversation messages for transcript extraction
+  void _processAiConversationForTranscript(AiConversationParams? params) {
+    if (params?.type == null) return;
+
+    switch (params!.type) {
+      case 'conversation.item.created':
+        _handleConversationItemCreated(params);
+        break;
+      case 'response.text.delta':
+        _handleResponseTextDelta(params);
+        break;
+      default:
+        // Other AI conversation message types are ignored for transcript
+        break;
+    }
+  }
+
+  /// Handle user speech transcript from conversation.item.created messages
+  void _handleConversationItemCreated(AiConversationParams params) {
+    if (params.item?.role != 'user' || params.item?.status != 'completed') {
+      return; // Only handle completed user messages
+    }
+
+    final content = params.item?.content
+        ?.where((c) => c.transcript != null)
+        .map((c) => c.transcript!)
+        .join(' ') ?? '';
+
+    if (content.isNotEmpty && params.item?.id != null) {
+      final transcriptItem = TranscriptItem(
+        id: params.item!.id!,
+        role: 'user',
+        content: content,
+        timestamp: DateTime.now(),
+      );
+
+      _transcript.add(transcriptItem);
+      onTranscriptUpdate?.call(List.unmodifiable(_transcript));
+    }
+  }
+
+  /// Handle AI response text deltas from response.text.delta messages
+  void _handleResponseTextDelta(AiConversationParams params) {
+    if (params.delta == null || params.itemId == null) return;
+
+    final itemId = params.itemId!;
+    final delta = params.delta!;
+
+    // Initialize buffer for this response if not exists
+    _assistantResponseBuffers.putIfAbsent(itemId, () => StringBuffer());
+    _assistantResponseBuffers[itemId]!.write(delta);
+
+    // Create or update transcript item for this response
+    final existingIndex = _transcript.indexWhere((item) => item.id == itemId);
+    final currentContent = _assistantResponseBuffers[itemId]!.toString();
+
+    if (existingIndex >= 0) {
+      // Update existing transcript item with accumulated content
+      _transcript[existingIndex] = TranscriptItem(
+        id: itemId,
+        role: 'assistant',
+        content: currentContent,
+        timestamp: _transcript[existingIndex].timestamp,
+      );
+    } else {
+      // Create new transcript item
+      final transcriptItem = TranscriptItem(
+        id: itemId,
+        role: 'assistant',
+        content: currentContent,
+        timestamp: DateTime.now(),
+      );
+      _transcript.add(transcriptItem);
+    }
+
+    onTranscriptUpdate?.call(List.unmodifiable(_transcript));
   }
 
   void _sendNoCallError() {

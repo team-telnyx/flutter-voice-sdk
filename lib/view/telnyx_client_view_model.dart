@@ -23,6 +23,7 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
+import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 
@@ -50,6 +51,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   TokenConfig? _tokenConfig;
   IncomingInviteParams? _incomingInvite;
   CallQualityMetrics? _callQualityMetrics;
+  List<TranscriptItem> _transcript = [];
 
   String _localName = '';
   String _localNumber = '';
@@ -137,6 +139,9 @@ class TelnyxClientViewModel with ChangeNotifier {
   /// Maximum number of audio levels to keep in memory
   static const int maxAudioLevels = 100;
 
+  /// Gets the current conversation transcript
+  List<TranscriptItem> get transcript => List.unmodifiable(_transcript);
+
   CallTerminationReason? get lastTerminationReason => _lastTerminationReason;
 
   void resetCallInfo() {
@@ -154,6 +159,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     // Clear audio level lists
     _inboundAudioLevels.clear();
     _outboundAudioLevels.clear();
+
+    // Clear transcript
+    _transcript.clear();
+    _telnyxClient.clearTranscript();
 
     // Reset call history tracking
     _currentCallDestination = null;
@@ -577,6 +586,11 @@ class TelnyxClientViewModel with ChangeNotifier {
               break;
             }
         }
+        notifyListeners();
+      }
+      // Observe Transcript Updates
+      ..onTranscriptUpdate = (List<TranscriptItem> transcriptItems) {
+        _transcript = transcriptItems;
         notifyListeners();
       };
   }
