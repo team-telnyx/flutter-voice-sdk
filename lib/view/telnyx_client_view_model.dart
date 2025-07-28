@@ -691,7 +691,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       _localName,
       _localNumber,
       destination,
-      'Fake State',
+      '',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
       debug: true,
     );

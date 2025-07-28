@@ -1345,7 +1345,7 @@ class TelnyxClient {
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
         GlobalLogger().i(
-          'Received WebSocket message :: ${data.toString().trim()}',
+          'TxSocket :: ${data.toString().trim()}',
         );
         if (data.toString().trim().contains('error')) {
           final errorJson = jsonEncode(data.toString());
