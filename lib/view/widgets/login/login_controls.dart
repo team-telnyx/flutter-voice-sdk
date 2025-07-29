@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/bottom_sheet/profile_switcher_bottom_sheet.dart';
-import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 
 class LoginControls extends StatefulWidget {
   const LoginControls({super.key});
@@ -25,48 +24,6 @@ class _LoginControlsState extends State<LoginControls> {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: const ProfileSwitcherBottomSheet(),
-      ),
-    );
-  }
-
-  void _showAnonymousLoginDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Anonymous Login'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter the AI Assistant ID to connect anonymously:'),
-            const SizedBox(height: spacingM),
-            TextField(
-              controller: _targetIdController,
-              decoration: const InputDecoration(
-                labelText: 'Assistant ID',
-                hintText: 'e.g., assistant_123',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (_targetIdController.text.isNotEmpty) {
-                context.read<TelnyxClientViewModel>().anonymousLogin(
-                  targetId: _targetIdController.text,
-                );
-                Navigator.of(context).pop();
-                _targetIdController.clear();
-              }
-            },
-            child: const Text('Connect'),
-          ),
-        ],
       ),
     );
   }
@@ -111,27 +68,6 @@ class _LoginControlsState extends State<LoginControls> {
                 ],
               ),
               const SizedBox(height: spacingL),
-              // Anonymous login section
-              Text('Anonymous Login', style: Theme.of(context).textTheme.labelMedium),
-              const SizedBox(height: spacingXS),
-              Text(
-                'Connect to AI assistants without authentication',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: spacingM),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _showAnonymousLoginDialog,
-                  icon: const Icon(Icons.smart_toy),
-                  label: const Text('Connect to AI Assistant'),
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(spacingM),
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
         ],
