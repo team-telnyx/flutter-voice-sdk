@@ -13,6 +13,58 @@ A high-level, state-agnostic, drop-in module for the Telnyx Flutter SDK that sim
 - **📞 Multiple Call Support**: Handle multiple simultaneous calls with ease
 - **🎛️ Call Controls**: Mute, hold, DTMF, and call transfer capabilities
 
+## What telnyx_common Handles For You
+
+Without the `telnyx_common` module, developers using the lower-level `telnyx_webrtc` package would need to manually implement:
+
+### 1. Background State Detection and Reconnection
+- Monitor app lifecycle changes using `WidgetsBindingObserver`
+- Detect when the app goes to background/foreground
+- Manually disconnect WebSocket connections when backgrounded
+- Store credentials securely for reconnection
+- Implement reconnection logic with proper error handling
+- Handle edge cases like calls during background transitions
+
+### 2. Push Notification Call Handling
+- Parse incoming push notification payloads
+- Extract call metadata from various push formats
+- Initialize WebRTC client in background isolate
+- Connect to Telnyx servers from push notification
+- Handle call state synchronization between isolates
+- Manage the complex flow of answering/declining from notifications
+
+### 3. Native Call UI Integration (CallKit/ConnectionService)
+- Implement platform channels for iOS CallKit (or Flutter library equivalent)
+- Implement platform channels for Android ConnectionService (or Flutter library equivalent)
+- Handle all CallKit delegate methods
+- Manage ConnectionService lifecycle
+- Synchronize native UI actions with WebRTC state
+- Handle audio session management
+- Deal with platform-specific quirks and edge cases
+
+### 4. Complex State Management
+- Track connection states across app lifecycle
+- Manage multiple simultaneous calls
+- Handle state transitions during network changes
+- Implement proper cleanup on errors
+- Coordinate between push notifications and active sessions
+
+### 5. Platform-Specific Push Token Management
+- Implement Firebase Cloud Messaging for Android
+- Implement PushKit for iOS VoIP notifications
+- Handle token refresh and registration
+- Manage different token types per platform
+- Coordinate token updates with Telnyx backend
+
+### 6. Error Recovery and Edge Cases
+- Network disconnection during calls
+- App termination during active calls
+- Push notifications while app is already connected
+- Race conditions between user actions and push events
+- Memory management in background isolates
+
+The `telnyx_common` module handles all of this complexity for you with a simple, unified API!
+
 ## Installation
 
 Add `telnyx_common` to your `pubspec.yaml`:
@@ -202,34 +254,93 @@ class MyApp extends StatelessWidget {
 
 2. **Update AppDelegate**
    
-   Modify `ios/Runner/AppDelegate.swift` to handle CallKit events:
+   Modify `ios/Runner/AppDelegate.swift` to handle VoIP push notifications and CallKit:
    ```swift
    import UIKit
+   import AVFAudio
+   import CallKit
+   import PushKit
    import Flutter
    import flutter_callkit_incoming
+   import WebRTC
    
-   @UIApplicationMain
-   @objc class AppDelegate: FlutterAppDelegate {
+   @main
+   @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
+     
      override func application(
        _ application: UIApplication,
        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
      ) -> Bool {
        GeneratedPluginRegistrant.register(with: self)
+       
+       // Setup VoIP push notifications
+       let mainQueue = DispatchQueue.main
+       let voipRegistry: PKPushRegistry = PKPushRegistry(queue: mainQueue)
+       voipRegistry.delegate = self
+       voipRegistry.desiredPushTypes = [PKPushType.voIP]
+       
+       // Configure WebRTC audio session
+       RTCAudioSession.sharedInstance().useManualAudio = true
+       RTCAudioSession.sharedInstance().isAudioEnabled = false
+       
        return super.application(application, didFinishLaunchingWithOptions: launchOptions)
      }
      
-     override func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-         guard let handle = userActivity.startCallHandle else {
-             return false
-         }
+     // MARK: - PKPushRegistryDelegate for VoIP Push
+     
+     func pushRegistry(_ registry: PKPushRegistry, didUpdate credentials: PKPushCredentials, for type: PKPushType) {
+       let deviceToken = credentials.token.map { String(format: "%02x", $0) }.joined()
+       // Token is automatically passed to Flutter
+       SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP(deviceToken)
+     }
+     
+     func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
+       guard type == .voIP else { return }
+       
+       // Parse Telnyx push notification
+       if let metadata = payload.dictionaryPayload["metadata"] as? [String: Any] {
+         let callID = (metadata["call_id"] as? String) ?? UUID().uuidString
+         let callerName = (metadata["caller_name"] as? String) ?? ""
+         let callerNumber = (metadata["caller_number"] as? String) ?? ""
          
-         guard let uuid = UUID(uuidString: userActivity.uuid) else {
-             return false
-         }
+         let data = flutter_callkit_incoming.Data(id: callID, nameCaller: callerName, handle: callerNumber, type: 0)
+         data.extra = payload.dictionaryPayload as NSDictionary
+         data.uuid = callID
          
-         FlutterCallkitIncomingPlugin.sharedInstance?.startCall(uuid, handle: handle, localizedCallerName: userActivity.localizedCallerName)
+         // Show CallKit UI
+         SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
          
-         return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
+         completion()
+       }
+     }
+     
+     // MARK: - CallKit Audio Session Management
+     
+     func didActivateAudioSession(_ audioSession: AVAudioSession) {
+       RTCAudioSession.sharedInstance().audioSessionDidActivate(audioSession)
+       RTCAudioSession.sharedInstance().isAudioEnabled = true
+     }
+     
+     func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
+       RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
+       RTCAudioSession.sharedInstance().isAudioEnabled = false
+     }
+     
+     // MARK: - CallKit Action Handlers (Required by CallkitIncomingAppDelegate)
+     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
+       action.fulfill()
+     }
+     
+     func onDecline(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
+       action.fulfill()
+     }
+     
+     func onEnd(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
+       action.fulfill()
+     }
+     
+     func onTimeOut(_ call: flutter_callkit_incoming.Call) {
+       // Handle timeout
      }
    }
    ```
@@ -324,47 +435,59 @@ if (activeCall != null) {
 
 ### Push Notification Handling
 
-```dart
-// In your main.dart
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
-  await Firebase.initializeApp();
-  
-  // Set up background message handler
-  FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
-  
-  runApp(MyApp());
-}
+**Important:** When using `TelnyxVoiceApp`, push notifications are handled automatically for you. You don't need to implement any custom push notification handling code - the SDK takes care of everything including:
 
+- Processing incoming call notifications
+- Displaying native call UI (CallKit on iOS, ConnectionService on Android)
+- Handling call acceptance/rejection from the native UI
+- Managing the app lifecycle when calls arrive
+
+The only requirements are:
+
+1. **Provide the push token** when logging in via the [CredentialConfig](#2-authentication) or [TokenConfig](#2-authentication):
+   ```dart
+   // For iOS (VoIP push token)
+   final config = CredentialConfig(
+     sipUser: 'your_user',
+     sipPassword: 'your_password',
+     sipCallerIDName: 'Your Name',
+     sipCallerIDNumber: 'Your Number',
+     pushDeviceToken: 'your_ios_voip_push_token',  // Required for push notifications
+   );
+   
+   // For Android (FCM token)
+   final config = CredentialConfig(
+     sipUser: 'your_user',
+     sipPassword: 'your_password',
+     sipCallerIDName: 'Your Name',
+     sipCallerIDNumber: 'Your Number',
+     pushDeviceToken: 'your_fcm_token',  // Required for push notifications
+   );
+   ```
+
+2. **For Android only:** Provide a background message handler when initializing the SDK with the `@pragma('vm:entry-point')` annotation:
+
+```dart
 @pragma('vm:entry-point')
-Future<void> _backgroundHandler(RemoteMessage message) async {
-  // Handle background push notifications
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // TelnyxVoiceApp handles the actual processing
   await TelnyxVoiceApp.handleBackgroundPush(message);
 }
 
-// In your app
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  late TelnyxVoipClient voipClient;
-  
-  @override
-  void initState() {
-    super.initState();
-    voipClient = TelnyxVoipClient(enableNativeUI: true);
-    
-    // Handle foreground push notifications
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      voipClient.handlePushNotification(message.data);
-    });
-  }
+void main() async {
+  runApp(await TelnyxVoiceApp.initializeAndCreate(
+    voipClient: myVoipClient,
+    backgroundMessageHandler: _firebaseMessagingBackgroundHandler,
+    child: MyApp(),
+  ));
 }
 ```
+
+That's it! The SDK will automatically:
+- Connect to Telnyx when a push notification arrives
+- Display the incoming call UI
+- Handle user actions (answer/decline)
+- Manage the call state
 
 ## API Reference
 
@@ -400,15 +523,44 @@ TelnyxVoipClient({
 A wrapper widget that handles complete SDK lifecycle management.
 
 #### Static Methods
+
+##### initializeAndCreate()
+
+This is the recommended way to initialize the Telnyx Voice SDK in your app. It handles all common SDK initialization boilerplate including Firebase setup, background handlers, and dependency configuration.
+
 ```dart
 static Future<Widget> initializeAndCreate({
   required TelnyxVoipClient voipClient,
   required Widget child,
   Future<void> Function(RemoteMessage)? backgroundMessageHandler,
   FirebaseOptions? firebaseOptions,
-  // ... other optional parameters
+  VoidCallback? onPushNotificationProcessingStarted,
+  VoidCallback? onPushNotificationProcessingCompleted,
+  void Function(AppLifecycleState state)? onAppLifecycleStateChanged,
+  bool enableAutoReconnect = true,
+  bool skipWebBackgroundDetection = true,
 })
 ```
+
+**Parameters:**
+
+- **`voipClient`** *(required)*: The `TelnyxVoipClient` instance that will be managed by this widget. This should be created with your desired configuration before calling this method.
+
+- **`child`** *(required)*: The main widget of your application (typically `MyApp()`). This will be wrapped by the `TelnyxVoiceApp` widget.
+
+- **`backgroundMessageHandler`**: A top-level function that handles background push notifications when the app is terminated. This function must be annotated with `@pragma('vm:entry-point')` to work properly. If not provided, background push notifications won't be handled when the app is terminated.
+
+- **`firebaseOptions`**: Optional Firebase configuration options. If not provided, the SDK will attempt to use the default Firebase options generated by the FlutterFire CLI (from `firebase_options.dart`).
+
+- **`onPushNotificationProcessingStarted`**: Callback triggered when the SDK begins processing an initial push notification upon app launch. Useful for showing a loading state while the SDK connects and handles the incoming call.
+
+- **`onPushNotificationProcessingCompleted`**: Callback triggered when the SDK completes processing an initial push notification. This is the recommended place to start listening to state changes in your app, as the SDK will be fully initialized.
+
+- **`onAppLifecycleStateChanged`**: Optional callback for custom handling of app lifecycle state changes (foreground, background, etc.). Called in addition to the SDK's built-in lifecycle management.
+
+- **`enableAutoReconnect`** *(default: true)*: When enabled, the SDK automatically reconnects to the Telnyx server when the app returns to the foreground. Disable this if you want to manage connections manually.
+
+- **`skipWebBackgroundDetection`** *(default: true)*: Whether to skip background detection logic on web platforms, as web apps don't have the same background/foreground lifecycle as mobile apps.
 
 ### Call
 
@@ -458,33 +610,6 @@ Represents an individual call with reactive state management.
    - Check foreground service permissions (Android)
    - Ensure `enableBackgroundHandling: true`
 
-### Debug Logging
-
-Enable verbose logging for debugging:
-
-```dart
-final voipClient = TelnyxVoipClient(
-  enableNativeUI: true,
-  // Add debug configuration
-);
-
-// Enable debug logging in your config
-final config = CredentialConfig(
-  sipUser: 'your_user',
-  sipPassword: 'your_password',
-  sipCallerIDName: 'Your Name',
-  sipCallerIDNumber: 'Your Number',
-  debug: true,  // Enable debug logging
-  logLevel: LogLevel.debug,
-);
-```
-
-## Examples
-
-Check out the [example directory](example/) for complete implementation examples:
-
-- **Headless Example**: Basic usage without UI dependencies
-- **Full App Example**: Complete app with native UI integration
 
 ## Support
 
