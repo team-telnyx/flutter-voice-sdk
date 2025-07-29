@@ -12,8 +12,6 @@ class LoginControls extends StatefulWidget {
 }
 
 class _LoginControlsState extends State<LoginControls> {
-  final TextEditingController _targetIdController = TextEditingController();
-
   void _showProfileSwitcher() {
     showModalBottomSheet(
       context: context,
@@ -26,12 +24,6 @@ class _LoginControlsState extends State<LoginControls> {
         child: const ProfileSwitcherBottomSheet(),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _targetIdController.dispose();
-    super.dispose();
   }
 
   @override
@@ -67,7 +59,6 @@ class _LoginControlsState extends State<LoginControls> {
                   ),
                 ],
               ),
-              const SizedBox(height: spacingL),
             ],
           ),
         ],
