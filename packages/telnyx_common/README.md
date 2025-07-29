@@ -1,134 +1,501 @@
 
+# Telnyx Common
 
-# **Project Plan: telnyx\_common Flutter Module**
+A high-level, state-agnostic, drop-in module for the Telnyx Flutter SDK that simplifies WebRTC voice calling integration. This package provides a streamlined interface for handling background state management, push notifications, native call UI, and call state management, eliminating the most complex parts of implementing the Telnyx Voice SDK.
 
-## **I. Executive Summary & Strategic Context**
+## Features
 
-### **Project Objective**
+- **🚀 Drop-in Integration**: Simple, high-level API that abstracts away WebRTC complexity
+- **📱 Native Call UI**: Automatic integration with iOS CallKit and Android ConnectionService
+- **🔔 Push Notifications**: Comprehensive push notification handling for incoming calls
+- **🔄 State Management Agnostic**: Uses Dart Streams, works with any state management solution
+- **🌐 Background Handling**: Automatic background/foreground lifecycle management
+- **📞 Multiple Call Support**: Handle multiple simultaneous calls with ease
+- **🎛️ Call Controls**: Mute, hold, DTMF, and call transfer capabilities
 
-This document outlines a comprehensive project plan for the design, development, and deployment of telnyx\_common, a new high-level, state-agnostic, drop-in module for the Telnyx Flutter SDK. The primary objective is to create an abstraction layer that mirrors the architectural success and developer-friendly nature of the existing Android telnyx\_common module.1 This new module will encapsulate the complexities of the core
+## Installation
 
-flutter-voice-sdk, handling session management, call state transitions, push notification processing, and native call UI integration. The goal is to provide Flutter developers with a streamlined, powerful, and reliable solution for integrating Telnyx's real-time communication capabilities into their applications.
+Add `telnyx_common` to your `pubspec.yaml`:
 
-### **Value Proposition**
+```yaml
+dependencies:
+  telnyx_common: ^0.1.0
+```
 
-The creation of the telnyx\_common module represents a significant strategic investment in the Flutter developer ecosystem. Historically, there has been clear developer interest in a more integrated Telnyx solution for Flutter, dating back several years.2 By providing this module, Telnyx can address this demand and establish a stronger foothold in a large and rapidly growing cross-platform development community. The value proposition is fourfold:
+## Quick Start
 
-* **Accelerated Development:** The module will handle the vast majority of boilerplate code associated with WebRTC integration. By abstracting away low-level socket message handling 3, credential management 4, and the intricacies of native call UI plugins 5, it will drastically reduce the time-to-market for developers building voice-enabled applications.
-* **Increased Reliability:** Real-time communication is fraught with edge cases, particularly concerning background execution on Android and audio session management on iOS.1 This module will provide a pre-vetted, robust implementation that addresses these common pitfalls, leading to more stable and reliable applications for end-users.
-* **Enhanced Developer Experience (DX):** The module will offer a clean, intuitive, and well-documented API that aligns with modern Flutter development practices. Its state-agnostic design ensures that it can be seamlessly integrated into projects using any state management library (e.g., BLoC, Provider, Riverpod), empowering developers without imposing a rigid architectural framework.
-* **Market Expansion:** Lowering the barrier to entry makes the Telnyx platform more attractive to a wider audience. A simplified integration process will encourage more developers, from independent creators to large enterprises, to choose Telnyx for their communication needs, thereby driving adoption and growth.
+### 1. Basic Setup
 
-### **Key Deliverables**
+```dart
+import 'package:telnyx_common/telnyx_common.dart';
 
-The successful completion of this project will result in the following key deliverables:
+// Create a TelnyxVoipClient instance
+final voipClient = TelnyxVoipClient(
+  enableNativeUI: true,  // Enable CallKit/ConnectionService
+  enableBackgroundHandling: true,  // Handle background state
+);
 
-1. **A new, publicly published Dart package:** telnyx\_common, available on pub.dev for easy inclusion in any Flutter project.
-2. **Comprehensive Quickstart Guide and API Reference:** A complete set of documentation, modeled on the successful Android quickstart guide 1, that walks developers through setup, authentication, and core use cases. This will be supplemented by auto-generated API reference documentation.
-3. **A Canonical Sample Application:** A fully functional sample application will be developed alongside the module. This application will demonstrate best-practice integration of telnyx\_common, serving as a practical, copy-paste-ready reference for developers.
+// Listen to connection state changes
+voipClient.connectionState.listen((state) {
+  print('Connection state: $state');
+});
 
-### **High-Level Recommendation**
+// Listen to call state changes
+voipClient.calls.listen((calls) {
+  print('Active calls: ${calls.length}');
+});
+```
 
-Based on the clear market demand, the proven success of the architectural model on Android, and the significant strategic benefits to Telnyx, it is formally recommended to proceed with this project. Allocating the necessary resources for the phased development cycle outlined in this document will yield a high-value asset that strengthens the Telnyx product offering and fosters a vibrant developer community around the Flutter SDK.
+### 2. Authentication
 
-## **II. Architectural Precedent: Deconstruction of the Android telnyx\_common Module**
+```dart
+// Using SIP credentials
+final credentialConfig = CredentialConfig(
+  sipUser: 'your_sip_user',
+  sipPassword: 'your_sip_password',
+  sipCallerIDName: 'Your Name',
+  sipCallerIDNumber: 'Your Number',
+);
 
-To design a successful Flutter module, it is imperative to first understand the principles that made its Android counterpart effective. The Android telnyx\_common module is more than a collection of helper functions; it is a well-defined system that serves as a blueprint for our Flutter architecture.1 A deconstruction of its components reveals a robust pattern of interaction and state management.
+await voipClient.login(credentialConfig);
 
-### **Core Principle: Separation of Concerns**
+// Or using a token
+final tokenConfig = TokenConfig(
+  sipToken: 'your_sip_token',
+  sipCallerIDName: 'Your Name',
+  sipCallerIDNumber: 'Your Number',
+);
 
-The fundamental strength of the Android architecture lies in its clear separation of responsibilities among its key components. This separation ensures that each part of the system has a single, well-defined purpose, making the overall architecture easier to understand, maintain, and extend. Replicating this principle is paramount.
+await voipClient.loginWithToken(tokenConfig);
+```
 
-* **Data/Logic Layer (TelnyxViewModel):** This component serves as the primary interface for the application's UI. It acts as a Façade, exposing high-level methods for actions (e.g., authentication, call management) and providing observable state to the UI. It abstracts the underlying telnyx\_rtc module, shielding the developer from its complexity.1 This component is the direct inspiration for the proposed  
-  TelnyxVoipClient in the Flutter architecture.
-* **OS Integration Layer (CallForegroundService):** This component's sole responsibility is to satisfy a critical Android operating system requirement: maintaining a process in the foreground to prevent it from being killed during an active call. It manages a persistent notification and ensures audio priority when the app is minimized.1 This establishes a non-negotiable requirement for an equivalent background execution management mechanism in the Flutter module to ensure call stability on Android.
-* **Notification Layer (CallNotificationService, MyFirebaseMessagingService):** This layer is responsible for all user-facing notifications. The MyFirebaseMessagingService intercepts incoming Firebase Cloud Messaging (FCM) push notifications, parses the call metadata, and triggers the display of an incoming call UI. The CallNotificationService manages the creation and state of notifications for incoming, ongoing, and missed calls, and handles user interactions like answering or rejecting from the notification itself.1 This proves the necessity of a dedicated and unified push and notification handling gateway in the Flutter module.
+### 3. Making Calls
 
-### **The Implicit State Machine**
+```dart
+// Make an outgoing call
+final call = await voipClient.newCall(destination: '+1234567890');
 
-A deeper analysis of how these Android components interact reveals that they collectively implement a robust, event-driven state machine. The module is not merely a passive library; it actively manages the call state through a predictable sequence of events and transitions. Understanding this flow is the key to replicating its reliability.
+// Listen to call state changes
+call.callState.listen((state) {
+  switch (state) {
+    case CallState.ringing:
+      print('Call is ringing...');
+      break;
+    case CallState.active:
+      print('Call is active');
+      break;
+    case CallState.ended:
+      print('Call ended');
+      break;
+  }
+});
+```
 
-Consider the lifecycle of an incoming call:
+### 4. Handling Incoming Calls
 
-1. The process begins with an external trigger: an FCM push notification arrives, intercepted by MyFirebaseMessagingService.1 This is the entry point for a call when the app is in the background or terminated.
-2. The push service does not directly handle the call. Instead, it triggers a state change, commanding the CallNotificationService to display a system-level incoming call notification, giving the user the option to accept or reject.
-3. The user's interaction with this notification (e.g., tapping "Accept") is captured by the CallNotificationReceiver. This user input is the next event that drives the state machine.
-4. The receiver then communicates this intent to the TelnyxViewModel. The ViewModel, in turn, initiates the connection to the Telnyx backend and uses the core SDK to formally accept the invitation.3
-5. Upon successful connection and acceptance, the ViewModel triggers the final critical state change: it commands the CallForegroundService to start, ensuring the call will persist if the user navigates away from the app.1
+```dart
+// Incoming calls automatically appear in the calls stream
+voipClient.calls.listen((calls) {
+  for (final call in calls) {
+    if (call.isIncoming && call.currentState == CallState.ringing) {
+      // Show your custom UI or let native UI handle it
+      print('Incoming call from: ${call.callerNumber}');
+      
+      // Answer the call
+      await call.answer();
+      
+      // Or decline the call
+      await call.decline();
+    }
+  }
+});
+```
 
-This sequence demonstrates that the system is fundamentally a state machine driven by a chain of external (push notifications, user input) and internal (SDK socket events) triggers. A naive replication that simply creates four equivalent Dart classes would miss this crucial interactive logic. Therefore, the proposed Flutter architecture will be designed around an explicit, centralized state controller to make these transitions predictable, testable, and robust.
+## Advanced Usage with TelnyxVoiceApp
 
-## **III. Proposed Flutter telnyx\_common Architecture**
+For complete lifecycle management, use the `TelnyxVoiceApp` wrapper widget:
 
-Building upon the successful patterns of the Android module and tailored for the Flutter ecosystem, the proposed architecture for telnyx\_common is designed for simplicity, robustness, and flexibility. It centers around a single public-facing class, supported by a set of private, specialized internal components that manage the complexities of the communication lifecycle.
+```dart
+import 'package:flutter/material.dart';
+import 'package:telnyx_common/telnyx_common.dart';
 
-### 
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Create your VoIP client
+  final voipClient = TelnyxVoipClient(
+    enableNativeUI: true,
+    enableBackgroundHandling: true,
+  );
+  
+  // Initialize and run the app with TelnyxVoiceApp
+  runApp(await TelnyxVoiceApp.initializeAndCreate(
+    voipClient: voipClient,
+    backgroundMessageHandler: _backgroundHandler,
+    child: MyApp(),
+  ));
+}
 
-### **Architectural Diagram Overview**
+// Background push notification handler
+@pragma('vm:entry-point')
+Future<void> _backgroundHandler(RemoteMessage message) async {
+  await TelnyxVoiceApp.handleBackgroundPush(message);
+}
 
-The architecture can be visualized as a series of concentric layers. At the center is the low-level TelnyxClient from the core SDK. This is wrapped by our internal components: \_SessionManager, \_CallStateController. This core logic interacts with the outside world through two adapters: the \_CallKitAdapter for the native UI and the \_PushNotificationGateway for push messages. The entire system is exposed to the developer through a single, clean interface: the TelnyxVoipClient.
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'My Voice App',
+      home: MyHomePage(),
+    );
+  }
+}
+```
 
-### 
+## Platform Setup
 
-### **The TelnyxVoipClient (Public Façade)**
+### Android Setup
 
-The TelnyxVoipClient will be the single, public-facing class that developers instantiate and interact with. It serves as the Façade for the entire module, providing a simplified API that completely hides the underlying complexity.
+1. **Add Firebase Configuration**
+   
+   Add your `google-services.json` file to `android/app/`:
+   ```
+   android/
+     app/
+       google-services.json  # Add this file
+   ```
 
-* **Description:** This class is the Flutter equivalent of the Android TelnyxViewModel.1 It is the sole entry point for developers using the  
-  telnyx\_common package.
-* **Responsibility:** Its primary responsibility is to expose simple, high-level methods (e.g., login, newCall) and streams of observable state (e.g., connectionState, activeCall). It orchestrates the internal components to fulfill developer requests, abstracting away the details of the core TelnyxClient 4, raw socket messages 3, and the  
-  flutter\_callkit\_incoming plugin.5
-* **State Management Agnosticism:** This is a cornerstone of the design. The TelnyxVoipClient will not use or depend on any specific state management library. Instead, all observable state will be exposed via Dart's native Stream\<T\>. This allows developers to listen to these streams and integrate them into their chosen state management solution (Provider, BLoC, Riverpod, GetX, etc.) in a natural, idiomatic way.
+2. **Update AndroidManifest.xml**
+   
+   Add the following permissions and services to `android/app/src/main/AndroidManifest.xml`:
+   ```xml
+   <uses-permission android:name="android.permission.RECORD_AUDIO" />
+   <uses-permission android:name="android.permission.INTERNET" />
+   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+   <uses-permission android:name="android.permission.WAKE_LOCK" />
+   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+   <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+   
+   <!-- Inside <application> tag -->
+   <service
+       android:name="com.hiennv.flutter_callkit_incoming.CallkitIncomingBroadcastReceiver"
+       android:enabled="true"
+       android:exported="true" />
+   ```
 
+### iOS Setup
 
-### **Internal Component Design (Private Implementation)**
+1. **Update Info.plist**
+   
+   Add the following to `ios/Runner/Info.plist`:
+   ```xml
+   <key>NSMicrophoneUsageDescription</key>
+   <string>This app needs microphone access to make voice calls</string>
+   
+   <key>UIBackgroundModes</key>
+   <array>
+       <string>audio</string>
+       <string>voip</string>
+   </array>
+   ```
 
-The power and reliability of the module reside in its internal components, each with a distinct and encapsulated responsibility.
+2. **Update AppDelegate**
+   
+   Modify `ios/Runner/AppDelegate.swift` to handle CallKit events:
+   ```swift
+   import UIKit
+   import Flutter
+   import flutter_callkit_incoming
+   
+   @UIApplicationMain
+   @objc class AppDelegate: FlutterAppDelegate {
+     override func application(
+       _ application: UIApplication,
+       didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+     ) -> Bool {
+       GeneratedPluginRegistrant.register(with: self)
+       return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+     }
+     
+     override func application(_ application: UIApplication, continue userActivity: NSUserActivity, restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
+         guard let handle = userActivity.startCallHandle else {
+             return false
+         }
+         
+         guard let uuid = UUID(uuidString: userActivity.uuid) else {
+             return false
+         }
+         
+         FlutterCallkitIncomingPlugin.sharedInstance?.startCall(uuid, handle: handle, localizedCallerName: userActivity.localizedCallerName)
+         
+         return super.application(application, continue: userActivity, restorationHandler: restorationHandler)
+     }
+   }
+   ```
 
-#### **\_SessionManager**
+3. **Add Entitlements**
+   
+   Create or update `ios/Runner/Runner.entitlements`:
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+       <key>com.apple.developer.pushkit.unrestricted-voip</key>
+       <true/>
+   </dict>
+   </plist>
+   ```
 
-* **Responsibility:** This component is responsible for the lifecycle of the low-level TelnyxClient instance provided by the core SDK.4 It will manage the  
-  connectWithToken and connectWithCredential methods, listen for low-level connection events and socket errors 8, and monitor the gateway registration status. Its primary function is to translate these low-level, often noisy events into a clean, high-level  
-  ConnectionState enum (e.g., disconnected, connecting, connected, error), which is then exposed through the TelnyxVoipClient.
+## Common Usage Patterns
 
-#### **\_CallStateController**
+### State Management Integration
 
-* **Responsibility:** This class is the heart of the module and serves as the explicit state machine. It subscribes to the TelnyxClient.onSocketMessageReceived callback 4 and is the single source of truth for all call-related state. It maintains a map of active calls and is responsible for translating raw socket messages like  
-  INVITE, BYE, and ANSWER 3 into a structured  
-  Call object that has a clear CallState enum (e.g., ringing, active, held, ended). All actions that modify a call's state (e.g., answering, hanging up, muting) are routed through this controller.
+The package works with any state management solution:
 
-#### **\_CallKitAdapter**
+```dart
+// With Provider
+class CallProvider extends ChangeNotifier {
+  final TelnyxVoipClient _voipClient;
+  List<Call> _calls = [];
+  
+  CallProvider(this._voipClient) {
+    _voipClient.calls.listen((calls) {
+      _calls = calls;
+      notifyListeners();
+    });
+  }
+  
+  List<Call> get calls => _calls;
+}
 
-* **Responsibility:** This component is a dedicated adapter layer that encapsulates all interactions with the flutter\_callkit\_incoming package.5 It is responsible for invoking platform-specific methods like  
-  showCallkitIncoming, endCall, and startCall. Crucially, it also listens for events originating from the native call UI, such as onAccept, onDecline, and onEnd, and translates these UI events into commands for the \_CallStateController.
-* **Decoupling and Risk Management:** The decision to create a dedicated adapter is a strategic one. The changelog for the flutter\_callkit\_incoming package reveals a history of significant updates and bug fixes, particularly around audio session handling and background execution.6 This identifies it as a potentially volatile third-party dependency. By isolating all interactions with this package inside an adapter, the core logic of the  
-  \_CallStateController remains completely decoupled from it. If the package's API changes, is deprecated, or needs to be replaced, only the \_CallKitAdapter needs to be rewritten. The core business logic of the SDK remains untouched, making the system more resilient to external changes and significantly easier to test in isolation.
+// With BLoC
+class CallBloc extends Bloc<CallEvent, CallState> {
+  final TelnyxVoipClient voipClient;
+  
+  CallBloc(this.voipClient) : super(CallInitial()) {
+    voipClient.calls.listen((calls) {
+      add(CallsUpdated(calls));
+    });
+  }
+}
 
-#### **\_PushNotificationGateway**
+// With Riverpod
+final voipClientProvider = Provider<TelnyxVoipClient>((ref) {
+  return TelnyxVoipClient(enableNativeUI: true);
+});
 
-* **Responsibility:** This component provides a simple, unified entry point for push notification payloads. Developers will call a single method on the TelnyxVoipClient from their push handling code, passing in the raw payload. The \_PushNotificationGateway will parse this payload, extract the necessary Telnyx call metadata 1, and command the  
-  \_CallKitAdapter to display the native incoming call UI. It will contain the logic to correctly initiate this flow whether the notification is received in the foreground (FirebaseMessaging.onMessage) or when the app is in the background or terminated (FirebaseMessaging.onBackgroundMessage).7
+final callsProvider = StreamProvider<List<Call>>((ref) {
+  final client = ref.watch(voipClientProvider);
+  return client.calls;
+});
+```
 
-## **IV. Core Interaction Flows: Implementation Sequences**
+### Call Controls
 
-The following sequences describe the step-by-step collaboration of the internal components for key use cases. These narratives will serve as the blueprint for implementation and testing.
+```dart
+// Get the active call
+final activeCall = voipClient.currentActiveCall;
 
-### **Sequence 1: Outgoing Call Initiation**
+if (activeCall != null) {
+  // Mute/unmute
+  await activeCall.toggleMute();
+  
+  // Hold/unhold
+  await activeCall.toggleHold();
+  
+  // Send DTMF tones
+  await activeCall.dtmf('1');
+  
+  // Hang up
+  await activeCall.hangup();
+  
+  // Listen to call properties
+  activeCall.isMuted.listen((muted) {
+    print('Call muted: $muted');
+  });
+  
+  activeCall.isHeld.listen((held) {
+    print('Call held: $held');
+  });
+}
+```
 
-1. **UI Action:** The developer's UI code invokes telnyxVoipClient.newCall(destination: '...').
-2. **Façade to Controller:** The TelnyxVoipClient immediately delegates this request to the \_CallStateController.
-3. **State Update & Core SDK Action:** The \_CallStateController creates a new Call object with an initial state of initiating and adds it to the calls stream, causing any listening UI to update. It then invokes the low-level telnyxClient.call.newInvite(...) method from the core SDK to send the invitation to the Telnyx backend.3
-4. **Native UI Display:** Concurrently, the \_CallStateController commands the \_CallKitAdapter to display the native outgoing call UI by calling FlutterCallkitIncoming.startCall.5
-5. **Call Answered:** When the remote party answers, the Telnyx backend sends an ANSWER socket message.3 The  
-   \_CallStateController receives this, finds the corresponding Call object, and transitions its state to active.
-6. **Background Persistence:** Upon the state transitioning to active, \_CallKitAdapter should be used to keep the call active, even when the app is in the background.
+### Push Notification Handling
 
-### **Sequence 2: Incoming Call via Push Notification (Terminated App State)**
+```dart
+// In your main.dart
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
+  await Firebase.initializeApp();
+  
+  // Set up background message handler
+  FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
+  
+  runApp(MyApp());
+}
 
-1. **System Trigger:** An incoming call push notification arrives from FCM/APNS. The mobile OS wakes the application in a background state.
-2. **Developer Hook:** The developer's pre-configured background message handler (e.g., FirebaseMessaging.onBackgroundMessage) is executed. As per the documentation, this handler will contain a single line: telnyxVoipClient.handlePushNotification(payload).
-3. **Push Processing:** The \_PushNotificationGateway receives the payload, parses it, and extracts the caller's information and Telnyx metadata.
-4. **Native UI Display:** The gateway commands the \_CallKitAdapter to invoke FlutterCallkitIncoming.showCallkitIncoming(...).5 The native OS call UI is displayed (CallKit on iOS, a full-screen activity on Android), and the device begins ringing. The application now waits for user input.
+@pragma('vm:entry-point')
+Future<void> _backgroundHandler(RemoteMessage message) async {
+  // Handle background push notifications
+  await TelnyxVoiceApp.handleBackgroundPush(message);
+}
+
+// In your app
+class MyApp extends StatefulWidget {
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late TelnyxVoipClient voipClient;
+  
+  @override
+  void initState() {
+    super.initState();
+    voipClient = TelnyxVoipClient(enableNativeUI: true);
+    
+    // Handle foreground push notifications
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      voipClient.handlePushNotification(message.data);
+    });
+  }
+}
+```
+
+## API Reference
+
+### TelnyxVoipClient
+
+The main interface for the telnyx_common module.
+
+#### Constructor
+```dart
+TelnyxVoipClient({
+  bool enableNativeUI = true,
+  bool enableBackgroundHandling = true,
+  PushTokenProvider? customTokenProvider,
+  bool isBackgroundClient = false,
+})
+```
+
+#### Methods
+- `Future<void> login(CredentialConfig config)` - Login with SIP credentials
+- `Future<void> loginWithToken(TokenConfig config)` - Login with SIP token
+- `Future<Call> newCall({required String destination})` - Make a new call
+- `Future<void> handlePushNotification(Map<String, dynamic> payload)` - Handle push notification
+- `Future<void> logout()` - Logout and disconnect
+- `void dispose()` - Clean up resources
+
+#### Streams
+- `Stream<ConnectionState> connectionState` - Connection state changes
+- `Stream<List<Call>> calls` - All active calls
+- `Stream<Call?> activeCall` - Currently active call
+
+### TelnyxVoiceApp
+
+A wrapper widget that handles complete SDK lifecycle management.
+
+#### Static Methods
+```dart
+static Future<Widget> initializeAndCreate({
+  required TelnyxVoipClient voipClient,
+  required Widget child,
+  Future<void> Function(RemoteMessage)? backgroundMessageHandler,
+  FirebaseOptions? firebaseOptions,
+  // ... other optional parameters
+})
+```
+
+### Call
+
+Represents an individual call with reactive state management.
+
+#### Properties
+- `String callId` - Unique call identifier
+- `bool isIncoming` - Whether this is an incoming call
+- `String? destination` - Call destination (for outgoing calls)
+- `String? callerNumber` - Caller number (for incoming calls)
+- `CallState currentState` - Current call state
+
+#### Streams
+- `Stream<CallState> callState` - Call state changes
+- `Stream<bool> isMuted` - Mute state changes
+- `Stream<bool> isHeld` - Hold state changes
+
+#### Methods
+- `Future<void> answer()` - Answer the call
+- `Future<void> decline()` - Decline the call
+- `Future<void> hangup()` - Hang up the call
+- `Future<void> toggleMute()` - Toggle mute state
+- `Future<void> toggleHold()` - Toggle hold state
+- `Future<void> dtmf(String tone)` - Send DTMF tone
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Calls not connecting**
+   - Verify your SIP credentials or token
+   - Check network connectivity
+   - Ensure proper Firebase configuration
+
+2. **Push notifications not working**
+   - Verify `google-services.json` is properly added
+   - Check Firebase project configuration
+   - Ensure background message handler is registered
+
+3. **Native UI not showing**
+   - Verify CallKit entitlements on iOS
+   - Check AndroidManifest.xml permissions on Android
+   - Ensure `enableNativeUI: true` in TelnyxVoipClient
+
+4. **Background calls failing**
+   - Verify background modes in Info.plist (iOS)
+   - Check foreground service permissions (Android)
+   - Ensure `enableBackgroundHandling: true`
+
+### Debug Logging
+
+Enable verbose logging for debugging:
+
+```dart
+final voipClient = TelnyxVoipClient(
+  enableNativeUI: true,
+  // Add debug configuration
+);
+
+// Enable debug logging in your config
+final config = CredentialConfig(
+  sipUser: 'your_user',
+  sipPassword: 'your_password',
+  sipCallerIDName: 'Your Name',
+  sipCallerIDNumber: 'Your Number',
+  debug: true,  // Enable debug logging
+  logLevel: LogLevel.debug,
+);
+```
+
+## Examples
+
+Check out the [example directory](example/) for complete implementation examples:
+
+- **Headless Example**: Basic usage without UI dependencies
+- **Full App Example**: Complete app with native UI integration
+
+## Support
+
+For issues and questions:
+- [GitHub Issues](https://github.com/team-telnyx/flutter-voice-sdk/issues)
+- [Telnyx Documentation](https://developers.telnyx.com/)
+- [Flutter Voice SDK Documentation](https://github.com/team-telnyx/flutter-voice-sdk)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.ve UI Display:** The gateway commands the \_CallKitAdapter to invoke FlutterCallkitIncoming.showCallkitIncoming(...).5 The native OS call UI is displayed (CallKit on iOS, a full-screen activity on Android), and the device begins ringing. The application now waits for user input.
 5. **Path A: User Accepts the Call**
     * The \_CallKitAdapter's onAccept event listener, provided by flutter\_callkit\_incoming, fires.
     * The adapter notifies the \_CallStateController of the accepted call's UUID.
