@@ -11,6 +11,7 @@ import 'package:telnyx_webrtc/model/verto/send/send_bye_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/info_dtmf_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/modify_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/conversation_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
     if (dart.library.html) 'package:telnyx_webrtc/peer/web/peer.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
@@ -458,6 +459,41 @@ class Call {
 
     final String jsonModifyMessage = jsonEncode(modifyMessage);
     txSocket.send(jsonModifyMessage);
+  }
+
+  /// AI Assistant Conversation Method.
+  /// Sends a conversation message to an assistant agent.
+  void sendConversationMessage(String message) {
+    final uuid = const Uuid().v4();
+    final messageId = const Uuid().v4();
+
+    final conversationItem = ConversationItemData(
+      id: messageId,
+      type: 'message',
+      role: 'user',
+      content: [
+        ConversationContentData(
+          type: 'input_text',
+          text: message,
+        ),
+      ],
+    );
+
+    final conversationParams = ConversationMessageParams(
+      type: 'conversation.item.create',
+      previousItemId: null,
+      item: conversationItem,
+    );
+
+    final conversationMessage = ConversationMessage(
+      id: uuid,
+      jsonrpc: JsonRPCConstant.jsonrpc,
+      method: SocketMethod.aiConversation,
+      params: conversationParams,
+    );
+
+    final String jsonConversationMessage = jsonEncode(conversationMessage);
+    txSocket.send(jsonConversationMessage);
   }
 
   /// Plays an audio file from the assets directory.
