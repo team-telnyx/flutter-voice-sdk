@@ -1,4 +1,4 @@
-/// Represents a single item in a conversation transcript
+/// Represents a single item in a conversation transcript with the AI assistant or user.
 class TranscriptItem {
   /// Unique identifier for the transcript item
   final String id;

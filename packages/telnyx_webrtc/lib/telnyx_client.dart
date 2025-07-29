@@ -66,6 +66,7 @@ class TelnyxClient {
   late OnSocketErrorReceived onSocketErrorReceived;
 
   /// Callback for when transcript updates occur
+  /// Note: this is only relevant for Assistant AI conversations
   OnTranscriptUpdate? onTranscriptUpdate;
 
   /// The path to the ringtone file (audio to play when receiving a call)
@@ -1006,6 +1007,8 @@ class TelnyxClient {
   /// This method allows connecting to AI assistants without traditional authentication.
   /// It takes the target ID, target type (defaults to 'ai_assistant'), and optional
   /// target version ID.
+  ///
+  /// Note: Any call, no matter the destination, after this login will be directed to the AI agent specified by the target ID.
   ///
   /// Parameters:
   /// - [targetId]: The ID of the target (e.g., assistant ID)
