@@ -47,6 +47,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _speakerPhone = false;
   bool _mute = false;
   bool _hold = false;
+  bool _isAssistantMode = false;
 
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
@@ -101,6 +102,10 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool get holdState {
     return _hold;
+  }
+
+  bool get isAssistantMode {
+    return _isAssistantMode;
   }
 
   String get sessionId {
@@ -654,6 +659,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.disconnected;
     _loggingIn = false;
     _registered = false;
+    _isAssistantMode = false;
     notifyListeners();
   }
 
@@ -687,6 +693,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     bool reconnection = false,
   }) {
     _loggingIn = true;
+    _isAssistantMode = true;
     notifyListeners();
 
     _localName = 'Anonymous User';
@@ -732,6 +739,14 @@ class TelnyxClientViewModel with ChangeNotifier {
     }
 
     observeCurrentCall();
+  }
+
+  void sendConversationMessage(String message) {
+    try {
+      currentCall?.sendConversationMessage(message);
+    } catch (e) {
+      logger.e('Error sending conversation message: $e');
+    }
   }
 
   bool waitingForInvite = false;
