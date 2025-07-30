@@ -26,6 +26,7 @@ import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
+import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 enum CallStateStatus {
   disconnected,
@@ -696,6 +697,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       targetVersionId: targetVersionId,
       userVariables: userVariables,
       reconnection: reconnection,
+      logLevel: LogLevel.all,
     );
     observeResponses();
   }

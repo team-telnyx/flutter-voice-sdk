@@ -1022,9 +1022,12 @@ class TelnyxClient {
     String? targetVersionId,
     Map<String, dynamic>? userVariables,
     bool reconnection = false,
+    LogLevel logLevel = LogLevel.none,
   }) async {
     final uuid = const Uuid().v4();
 
+    setLogLevel(logLevel);
+    
     final versionData = await VersionUtils.getSDKVersion();
     final userAgentData = await VersionUtils.getUserAgent();
 
