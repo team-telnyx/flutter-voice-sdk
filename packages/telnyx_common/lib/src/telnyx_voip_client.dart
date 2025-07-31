@@ -384,6 +384,8 @@ class TelnyxVoipClient {
             call.hangup();
           }
         },
+        // NEW: Add push notification callback for terminated state handling
+        onPushNotificationAccepted: _handlePushNotificationAccepted,
       );
     }
 
