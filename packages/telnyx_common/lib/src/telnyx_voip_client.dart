@@ -537,6 +537,30 @@ class TelnyxVoipClient {
                 'TelnyxVoipClient: iOS - Stored payload keys: ${correctPayload.keys.toList()}');
             print(
                 'TelnyxVoipClient: iOS - Stored metadata type: ${correctPayload['metadata'].runtimeType}');
+
+            // CRITICAL: Automatically connect using stored config for terminated state
+            // This is the missing piece that makes locked screen calls work
+            print(
+                'TelnyxVoipClient: iOS - Attempting automatic connection for terminated state...');
+            final config = await ConfigHelper.getConfig();
+            if (config != null) {
+              print(
+                  'TelnyxVoipClient: iOS - Found stored config, initiating connection...');
+              _storedConfig = config;
+
+              // Create push metadata from the extracted metadata
+              final pushMetaData = PushMetaData.fromJson(metadata);
+              pushMetaData.isAnswer = true;
+
+              // Connect with push metadata to handle the incoming call
+              _sessionManager.handlePushNotificationWithConfig(
+                  pushMetaData, config);
+              print(
+                  'TelnyxVoipClient: iOS - Connection initiated with push metadata');
+            } else {
+              print(
+                  'TelnyxVoipClient: iOS - WARNING: No stored config found for automatic connection!');
+            }
           } else {
             print(
                 'TelnyxVoipClient: iOS - WARNING: No metadata found, cannot process push notification!');
