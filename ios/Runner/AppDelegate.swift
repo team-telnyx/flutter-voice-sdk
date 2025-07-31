@@ -9,23 +9,26 @@ import WebRTC
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
-        print("[iOS_PUSH_DEBUG] AppDelegate - onAccept called by CallKit for call ID: \\(call.uuid)")
+        print("[PUSH-DIAG] AppDelegate - onAccept called by CallKit for call ID: \\(call.uuid)")
+        print("[PUSH-DIAG] AppDelegate - Call object: \\(call)")
+        print("[PUSH-DIAG] AppDelegate - Call extra: \\(call.extra ?? [:])")
         action.fulfill()
         
     }
     
     func onDecline(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
-        print("onRunner ::  Decline")
+        print("[PUSH-DIAG] AppDelegate - onDecline called by CallKit for call ID: \\(call.uuid)")
+        print("[PUSH-DIAG] AppDelegate - Call extra: \\(call.extra ?? [:])")
         action.fulfill()
     }
     
     func onEnd(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
-        print("onRunner ::  End")
+        print("[PUSH-DIAG] AppDelegate - onEnd called by CallKit for call ID: \\(call.uuid)")
         action.fulfill()
     }
     
     func onTimeOut(_ call: flutter_callkit_incoming.Call) {
-        print("onRunner ::  TimeOut")
+        print("[PUSH-DIAG] AppDelegate - onTimeOut called by CallKit for call ID: \\(call.uuid)")
     }
     
     func didActivateAudioSession(_ audioSession: AVAudioSession) {
@@ -99,10 +102,13 @@ import WebRTC
         
         // Handle incoming pushes
         func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
-            print("[iOS_PUSH_DEBUG] AppDelegate - didReceiveIncomingPushWith payload: \\(payload.dictionaryPayload)")
+            print("[PUSH-DIAG] AppDelegate - ==================== INCOMING PUSH NOTIFICATION ====================")
+            print("[PUSH-DIAG] AppDelegate - didReceiveIncomingPushWith payload: \\(payload.dictionaryPayload)")
             guard type == .voIP else { return }
             
             if let metadata = payload.dictionaryPayload["metadata"] as? [String: Any] {
+                print("[PUSH-DIAG] AppDelegate - Metadata found in payload: \\(metadata)")
+                
                 var callID = UUID.init().uuidString
                 if let newCallId = (metadata["call_id"] as? String),
                    !newCallId.isEmpty {
@@ -111,13 +117,17 @@ import WebRTC
                 let callerName = (metadata["caller_name"] as? String) ?? ""
                 let callerNumber = (metadata["caller_number"] as? String) ?? ""
                 
+                print("[PUSH-DIAG] AppDelegate - Extracted data: callID=\\(callID), callerName=\\(callerName), callerNumber=\\(callerNumber)")
+                
                 let id = payload.dictionaryPayload["call_id"] as? String ??  UUID().uuidString
                 let isVideo = payload.dictionaryPayload["isVideo"] as? Bool ?? false
                 
                 let data = flutter_callkit_incoming.Data(id: id, nameCaller: callerName, handle: callerNumber, type: isVideo ? 1 : 0)
                 data.extra = payload.dictionaryPayload as NSDictionary
                 data.normalHandle = 1
-                print("\(callerName)")
+                
+                print("[PUSH-DIAG] AppDelegate - Setting data.extra to full payload: \\(payload.dictionaryPayload)")
+                print("[PUSH-DIAG] AppDelegate - data.extra keys: \\(data.extra?.allKeys ?? [])")
               
                 
                 let caller = callerName.isEmpty ? (callerNumber.isEmpty ? "Unknown" : callerNumber) : callerName
@@ -127,11 +137,18 @@ import WebRTC
                 //data.iconName = ...
                 data.uuid = uuid!.uuidString
                 data.nameCaller = caller
-                print("[iOS_PUSH_DEBUG] AppDelegate - Before SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming. Data: \\(data)")
+                
+                print("[PUSH-DIAG] AppDelegate - Final CallKit data object:")
+                print("[PUSH-DIAG] AppDelegate - data.uuid: \\(data.uuid)")
+                print("[PUSH-DIAG] AppDelegate - data.nameCaller: \\(data.nameCaller)")
+                print("[PUSH-DIAG] AppDelegate - data.handle: \\(data.handle)")
+                print("[PUSH-DIAG] AppDelegate - data.extra: \\(data.extra ?? [:])")
+                
+                print("[PUSH-DIAG] AppDelegate - Calling showCallkitIncoming...")
                 SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                   print("[iOS_PUSH_DEBUG] AppDelegate - Calling completion() for didReceiveIncomingPushWith")
+                   print("[PUSH-DIAG] AppDelegate - Calling completion() for didReceiveIncomingPushWith")
                    completion()
                 }
             }

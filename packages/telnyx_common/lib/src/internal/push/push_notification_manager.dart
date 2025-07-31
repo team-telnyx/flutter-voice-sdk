@@ -417,38 +417,43 @@ class PushNotificationManager {
   void _handleCallAcceptEvent(String callId, Map<String, dynamic> extra) {
     BackgroundDetector.ignore = true;
 
-    print('PushNotificationManager: _handleCallAcceptEvent called');
-    print('PushNotificationManager: callId = $callId');
-    print('PushNotificationManager: extra keys = ${extra.keys.toList()}');
-    print('PushNotificationManager: full extra = $extra');
+    // [PUSH-DIAG] Log accept event processing
+    print('[PUSH-DIAG] PushManager: _handleCallAcceptEvent called');
+    print('[PUSH-DIAG] PushManager: callId=$callId');
+    print('[PUSH-DIAG] PushManager: extra.keys=${extra.keys.toList()}');
+    print('[PUSH-DIAG] PushManager: full extra=$extra');
 
-    print('PushNotificationManager: About to extract metadata...');
+    print('[PUSH-DIAG] PushManager: About to extract metadata...');
     final metadata = _eventHandler.extractMetadata(extra);
-    print('PushNotificationManager: extracted metadata = $metadata');
-    print('PushNotificationManager: metadata extraction completed');
+    print('[PUSH-DIAG] PushManager: extracted metadata=$metadata');
+    print('[PUSH-DIAG] PushManager: Metadata found=${metadata != null}');
+    print(
+        '[PUSH-DIAG] PushManager: Has push callback=${_onPushNotificationAccepted != null}');
+    print(
+        '[PUSH-DIAG] PushManager: Has foreground callback=${_onForegroundCallAccepted != null}');
 
     if (metadata != null) {
       // This is a push notification call - process with metadata
       print(
-          'PushNotificationManager: Processing push call accept with metadata');
+          '[PUSH-DIAG] PushManager: Decision=PUSH - Processing push call accept with metadata');
       print(
-          'PushNotificationManager: _onPushNotificationAccepted callback exists: ${_onPushNotificationAccepted != null}');
+          '[PUSH-DIAG] PushManager: _onPushNotificationAccepted callback exists: ${_onPushNotificationAccepted != null}');
 
       // Call the acceptance callback if provided
       if (_onPushNotificationAccepted != null) {
         print(
-            'PushNotificationManager: Calling _onPushNotificationAccepted callback');
+            '[PUSH-DIAG] PushManager: Calling _onPushNotificationAccepted callback');
         _onPushNotificationAccepted?.call(callId, extra);
         print(
-            'PushNotificationManager: _onPushNotificationAccepted callback completed');
+            '[PUSH-DIAG] PushManager: _onPushNotificationAccepted callback completed');
       } else {
         print(
-            'PushNotificationManager: No _onPushNotificationAccepted callback available');
+            '[PUSH-DIAG] PushManager: ERROR - No _onPushNotificationAccepted callback available!');
       }
     } else {
       // This is a foreground call - directly handle the acceptance
       print(
-          'PushNotificationManager: Processing foreground call accept (no metadata)');
+          '[PUSH-DIAG] PushManager: Decision=FOREGROUND - Processing foreground call accept (no metadata)');
       // The CallKit bridge callbacks will handle this
       _handleCallAccepted(callId);
     }

@@ -42,6 +42,9 @@ class TelnyxVoipClient {
   PushMetaData? _storedPushMetaData;
   Map<String, dynamic>? _storedPushPayload;
 
+  // Flag to track if we're waiting for an invite after accepting from terminated state
+  bool _waitingForInvite = false;
+
   /// Creates a new TelnyxVoipClient instance.
   ///
   /// [enableNativeUI] - Whether to enable native call UI integration.
@@ -193,6 +196,7 @@ class TelnyxVoipClient {
     _storedConfig = null;
     _storedPushMetaData = null;
     _storedPushPayload = null;
+    _waitingForInvite = false;
 
     await _sessionManager.disconnect();
   }
@@ -298,15 +302,56 @@ class TelnyxVoipClient {
       callKitManager: _callKitManager,
     );
 
+    // Set up callbacks for waiting for invite logic
+    _callStateController.setWaitingForInviteCallbacks(
+      isWaitingForInvite: () => _waitingForInvite,
+      onInviteAutoAccepted: () {
+        print(
+            'TelnyxVoipClient: Invite auto-accepted from terminated state, resetting waiting flag');
+        _waitingForInvite = false;
+      },
+    );
+
     // Now initialize CallKit manager with callbacks that can access _callStateController
     if (_callKitManager != null) {
       _callKitManager!.initialize(
         onCallAccepted: (callId) {
-          print('TelnyxVoipClient: Call accepted from CallKit - $callId');
+          // [PUSH-DIAG] Log CallKit acceptance event
+          print(
+              '[PUSH-DIAG] VoipClient: CallKit onCallAccepted fired for $callId');
+          print(
+              '[PUSH-DIAG] VoipClient: Current calls count=${currentCalls.length}');
+
+          // [PUSH-DIAG] Check if push data exists in SharedPreferences
+          TelnyxClient.getPushData().then((storedData) {
+            print(
+                '[PUSH-DIAG] VoipClient: Checking SharedPreferences for existing push data...');
+            print(
+                '[PUSH-DIAG] VoipClient: StoredPushData exists=${storedData != null}');
+            if (storedData != null) {
+              print(
+                  '[PUSH-DIAG] VoipClient: StoredPushData.keys=${storedData.keys.toList()}');
+              print('[PUSH-DIAG] VoipClient: StoredPushData=$storedData');
+            }
+          });
+
           // Handle foreground call acceptance directly
           final call = _callStateController.currentCalls
               .where((c) => c.callId == callId)
               .firstOrNull;
+
+          print(
+              '[PUSH-DIAG] VoipClient: Found call with matching ID=${call != null}');
+          if (call != null) {
+            print(
+                '[PUSH-DIAG] VoipClient: Call is incoming=${call.isIncoming}');
+            print('[PUSH-DIAG] VoipClient: Call state=${call.currentState}');
+            print(
+                '[PUSH-DIAG] VoipClient: Can answer=${call.currentState.canAnswer}');
+          }
+          print(
+              '[PUSH-DIAG] VoipClient: Found answerable call=${call != null && call.isIncoming && call.currentState.canAnswer}');
+
           if (call != null && call.isIncoming && call.currentState.canAnswer) {
             print('TelnyxVoipClient: Answering call $callId from foreground');
             call.answer();
@@ -410,39 +455,101 @@ class TelnyxVoipClient {
   }
 
   /// Handles when a push notification is accepted via CallKit.
+  ///
+  /// This method follows the pattern from the old working implementation:
+  /// 1. First check if there's an existing answerable incoming call
+  /// 2. If yes, answer it directly (like old txClientViewModel.accept())
+  /// 3. If no, fall back to push metadata processing for app launch
   void _handlePushNotificationAccepted(
       String callId, Map<String, dynamic> extra) async {
+    // [PUSH-DIAG] Log push notification acceptance
+    print('[PUSH-DIAG] VoipClient: _handlePushNotificationAccepted CALLED');
+    print('[PUSH-DIAG] VoipClient: callId=$callId');
+    print('[PUSH-DIAG] VoipClient: extra.keys=${extra.keys.toList()}');
+    print(
+        '[PUSH-DIAG] VoipClient: Platform=${Platform.isIOS ? 'iOS' : 'Android'}');
+    print('[PUSH-DIAG] VoipClient: Current calls count=${currentCalls.length}');
+    print(
+        '[PUSH-DIAG] VoipClient: Current waiting for invite flag=$_waitingForInvite');
+
+    print(
+        'TelnyxVoipClient: ==================== PUSH NOTIFICATION ACCEPTED ====================');
     print('TelnyxVoipClient: Push notification accepted for call $callId');
     print('TelnyxVoipClient: Platform: ${Platform.isIOS ? 'iOS' : 'Android'}');
+    print('TelnyxVoipClient: Current calls count: ${currentCalls.length}');
+    print(
+        'TelnyxVoipClient: Current waiting for invite flag: $_waitingForInvite');
 
-    // Update stored push data to indicate acceptance
-    // The app launch flow will handle the actual connection and processing
     try {
       if (Platform.isIOS) {
-        // iOS-specific logic: CallKit provides metadata as a Map that needs JSON encoding
-        final metadata = _extractMetadata(extra);
-        if (metadata != null) {
-          // Create the correct payload structure that TelnyxClient.setPushMetaData expects
-          // The method expects metadata to be a JSON string, not a Map object
-          final correctPayload = {
-            'metadata':
-                jsonEncode(metadata), // Convert metadata Map to JSON string
-          };
+        // iOS-specific logic: Follow the old working implementation pattern
+        // Step 1: Check if we have an existing answerable incoming call (like old implementation)
+        final existingIncomingCall = currentCalls
+            .where((call) => call.isIncoming && call.currentState.canAnswer)
+            .firstOrNull;
 
-          TelnyxClient.setPushMetaData(
-            correctPayload,
-            isAnswer: true,
-            isDecline: false,
-          );
-
+        if (existingIncomingCall != null) {
+          // Path A: We have an existing incoming call - answer it directly
+          // This handles the case where the app is backgrounded or connection exists
           print(
-              'TelnyxVoipClient: iOS - Updated stored push data with acceptance flag');
+              'TelnyxVoipClient: iOS - Found existing answerable incoming call ${existingIncomingCall.callId}. Answering directly.');
+          await existingIncomingCall.answer();
+          print(
+              'TelnyxVoipClient: iOS - Successfully answered existing incoming call');
         } else {
+          // Path B: No existing call - process as push notification with metadata
+          // This handles the case where the app is terminated and needs to launch
           print(
-              'TelnyxVoipClient: iOS - WARNING: No metadata found, cannot update push data!');
+              'TelnyxVoipClient: iOS - No existing answerable call found. Processing as push notification.');
+          final metadata = _extractMetadata(extra);
+          print(
+              '[PUSH-DIAG] VoipClient: Metadata extracted=${metadata != null}');
+          if (metadata != null) {
+            print(
+                '[PUSH-DIAG] VoipClient: Metadata keys=${metadata.keys.toList()}');
+            print(
+                'TelnyxVoipClient: iOS - Metadata present. Storing push data with acceptance flag. Metadata: $metadata');
+
+            // Create the correct payload structure that TelnyxClient.setPushMetaData expects
+            // The method expects metadata to be a JSON string, not a Map object
+            final correctPayload = {
+              'metadata':
+                  jsonEncode(metadata), // Convert metadata Map to JSON string
+            };
+
+            TelnyxClient.setPushMetaData(
+              correctPayload,
+              isAnswer: true,
+              isDecline: false,
+            );
+
+            // CRITICAL: Set waiting for invite flag for terminated state auto-acceptance
+            // This matches the old working implementation pattern
+            _waitingForInvite = true;
+            print(
+                'TelnyxVoipClient: iOS - Set waiting for invite flag to true for terminated state acceptance');
+
+            print(
+                'TelnyxVoipClient: iOS - Updated stored push data with acceptance flag');
+            print(
+                'TelnyxVoipClient: iOS - Stored payload keys: ${correctPayload.keys.toList()}');
+            print(
+                'TelnyxVoipClient: iOS - Stored metadata type: ${correctPayload['metadata'].runtimeType}');
+          } else {
+            print(
+                'TelnyxVoipClient: iOS - WARNING: No metadata found, cannot process push notification!');
+            // Attempt fallback: try to answer any existing call as last resort
+            final anyIncomingCall =
+                currentCalls.where((call) => call.isIncoming).firstOrNull;
+            if (anyIncomingCall != null) {
+              print(
+                  'TelnyxVoipClient: iOS - Fallback: attempting to answer any incoming call ${anyIncomingCall.callId}');
+              await anyIncomingCall.answer();
+            }
+          }
         }
       } else {
-        // Android logic: Use the original approach that was working
+        // Android logic: Keep the existing approach that works
         // On Android, the extra structure should already be compatible with setPushMetaData
         TelnyxClient.setPushMetaData(
           extra,
@@ -451,16 +558,18 @@ class TelnyxVoipClient {
         );
 
         print(
-            'TelnyxVoipClient: Android - Updated stored push data with acceptance flag');
+            'TelnyxVoipClient: Android - Updated stored push data with acceptance flag (unchanged)');
       }
     } catch (e) {
-      print('TelnyxVoipClient: Error updating stored push data: $e');
+      print(
+          'TelnyxVoipClient: Error processing push notification acceptance: $e');
     }
 
-    // DON'T attempt manual login here - let the app launch flow handle everything
-    // This was the core issue causing duplicate login attempts
+    print('TelnyxVoipClient: Push notification acceptance processed');
     print(
-        'TelnyxVoipClient: Push notification acceptance processed - app launch will handle connection');
+        'TelnyxVoipClient: Final waiting for invite flag: $_waitingForInvite');
+    print(
+        'TelnyxVoipClient: ==================== PUSH ACCEPTANCE COMPLETE ====================');
   }
 
   /// Handles when a push notification is declined via CallKit.
@@ -564,5 +673,6 @@ class TelnyxVoipClient {
     _storedConfig = null;
     _storedPushMetaData = null;
     _storedPushPayload = null;
+    _waitingForInvite = false;
   }
 }

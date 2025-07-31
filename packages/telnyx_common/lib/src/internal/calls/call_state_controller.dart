@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, VoidCallback;
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/call.dart' as telnyx_call;
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
@@ -26,6 +26,10 @@ class CallStateController {
   final TelnyxClient _telnyxClient;
   final SessionManager _sessionManager;
   final CallKitManager? _callKitManager;
+
+  // Callback to check if we're waiting for an invite after accepting from terminated state
+  bool Function()? _isWaitingForInvite;
+  VoidCallback? _onInviteAutoAccepted;
 
   final StreamController<List<Call>> _callsController =
       StreamController<List<Call>>.broadcast();
@@ -74,6 +78,15 @@ class CallStateController {
               call.currentState == CallState.reconnecting,
         )
         .firstOrNull;
+  }
+
+  /// Sets callbacks for handling waiting for invite logic.
+  void setWaitingForInviteCallbacks({
+    bool Function()? isWaitingForInvite,
+    VoidCallback? onInviteAutoAccepted,
+  }) {
+    _isWaitingForInvite = isWaitingForInvite;
+    _onInviteAutoAccepted = onInviteAutoAccepted;
   }
 
   /// Initiates a new outgoing call.
@@ -175,7 +188,11 @@ class CallStateController {
         break;
 
       case SocketMethod.invite:
-        print('ZZZ - handling invite message: ${message.message}');
+        print(
+            '[PUSH-DIAG] CallStateController: ==================== INCOMING INVITE ====================');
+        print('[PUSH-DIAG] CallStateController: Invite received on socket');
+        print(
+            '[PUSH-DIAG] CallStateController: Current waiting for invite flag: ${_isWaitingForInvite?.call() ?? false}');
         _handleIncomingInvite(message.message.inviteParams);
         break;
 
@@ -203,8 +220,18 @@ class CallStateController {
 
     final callId = inviteParams!.callID!;
 
+    // [PUSH-DIAG] Log invite details
+    print(
+        '[PUSH-DIAG] CallStateController: Processing invite for callId=$callId');
+    print(
+        '[PUSH-DIAG] CallStateController: Caller=${inviteParams.callerIdName} / ${inviteParams.callerIdNumber}');
+
     // Check if we already have this call (avoid duplicates)
-    if (_calls.containsKey(callId)) return;
+    if (_calls.containsKey(callId)) {
+      print(
+          '[PUSH-DIAG] CallStateController: Duplicate invite - call already exists, ignoring');
+      return;
+    }
 
     // Store the original invite parameters with SDP data
     _originalInviteParams[callId] = inviteParams;
@@ -229,12 +256,48 @@ class CallStateController {
       onAction: _handleCallAction,
     );
 
+    // Check if we're waiting for an invite after accepting from terminated state
+    final isWaitingForInvite = _isWaitingForInvite?.call() ?? false;
+
+    // [PUSH-DIAG] Log decision flow
+    print(
+        '[PUSH-DIAG] CallStateController: isHandlingPushNotification=${_sessionManager.isHandlingPushNotification}');
+    print(
+        '[PUSH-DIAG] CallStateController: isWaitingForInvite=$isWaitingForInvite');
+
     if (_sessionManager.isHandlingPushNotification) {
       // This is from a push notification that was already accepted
+      print(
+          '[PUSH-DIAG] CallStateController: Decision=PUSH_ALREADY_ACCEPTED - Setting call to active');
       call.updateState(CallState.active);
       _sessionManager.isHandlingPushNotification = false;
+    } else if (isWaitingForInvite) {
+      // We're waiting for this invite after accepting from terminated state - auto-accept
+      print(
+          '[PUSH-DIAG] CallStateController: Decision=WAITING_FOR_INVITE - Auto-accepting call');
+      print(
+          'CallStateController: Invite received while waiting for terminated state acceptance. Auto-accepting call $callId');
+      call.updateState(CallState.ringing); // Set to ringing first
+
+      // Set background detector to ignore so app doesn't disconnect during call
+      BackgroundDetector.ignore = true;
+
+      // Notify the VoipClient that we're auto-accepting and reset the waiting flag
+      _onInviteAutoAccepted?.call();
+
+      // Auto-accept the call immediately
+      try {
+        await call.answer();
+        print(
+            '[PUSH-DIAG] CallStateController: Successfully auto-accepted call $callId from terminated state');
+      } catch (e) {
+        print('CallStateController: Error auto-accepting call $callId: $e');
+        call.updateState(CallState.error);
+      }
     } else {
       // This is a new incoming call in foreground - show CallKit UI
+      print(
+          '[PUSH-DIAG] CallStateController: Decision=FOREGROUND - Showing CallKit UI');
       call.updateState(CallState.ringing);
 
       // Set background detector to ignore so app doesn't disconnect during call
@@ -250,6 +313,13 @@ class CallStateController {
     }
     _calls[callId] = call;
     _notifyCallsChanged();
+
+    print(
+        '[PUSH-DIAG] CallStateController: Incoming invite handling complete for call $callId');
+    print(
+        '[PUSH-DIAG] CallStateController: Final call state: ${call.currentState}');
+    print(
+        '[PUSH-DIAG] CallStateController: ==================== INVITE HANDLING COMPLETE ====================');
   }
 
   /// Handles answer messages from the socket.

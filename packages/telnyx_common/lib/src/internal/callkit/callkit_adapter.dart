@@ -150,6 +150,22 @@ class CallKitAdapter {
     final callId = event.body['id'] as String?;
     if (callId == null) return;
 
+    // [PUSH-DIAG] Log raw event data
+    print('[PUSH-DIAG] CallKitAdapter: Event=${event.event}, callId=$callId');
+    print('[PUSH-DIAG] CallKitAdapter: event.body=${event.body}');
+    print(
+        '[PUSH-DIAG] CallKitAdapter: event.body.runtimeType=${event.body.runtimeType}');
+
+    // Check if event.body contains 'extra' field
+    if (event.body.containsKey('extra')) {
+      print(
+          '[PUSH-DIAG] CallKitAdapter: event.body[extra]=${event.body['extra']}');
+      print(
+          '[PUSH-DIAG] CallKitAdapter: event.body[extra].runtimeType=${event.body['extra'].runtimeType}');
+    } else {
+      print('[PUSH-DIAG] CallKitAdapter: No "extra" field in event.body');
+    }
+
     switch (event.event) {
       case Event.actionCallAccept:
         onCallAccepted(callId);

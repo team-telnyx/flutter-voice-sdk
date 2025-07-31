@@ -65,6 +65,15 @@ class CallKitEventHandler {
       final callId = event.body?['id']?.toString() ?? '';
       final extra = _safeConvertToStringDynamicMap(event.body?['extra']);
 
+      // [PUSH-DIAG] Log raw event data
+      print('[PUSH-DIAG] CallKitEventHandler: Raw event received');
+      print('[PUSH-DIAG] CallKitEventHandler: event.event=${event.event}');
+      print('[PUSH-DIAG] CallKitEventHandler: event.body=${event.body}');
+      print(
+          '[PUSH-DIAG] CallKitEventHandler: event.body.runtimeType=${event.body?.runtimeType}');
+      print('[PUSH-DIAG] CallKitEventHandler: callId=$callId');
+      print('[PUSH-DIAG] CallKitEventHandler: extra after conversion=$extra');
+
       print(
           'CallKitEventHandler: Received event ${event.event} for call $callId');
 
@@ -130,6 +139,21 @@ class CallKitEventHandler {
     if (_disposed) return;
 
     try {
+      // [PUSH-DIAG] Log accept event details
+      print('[PUSH-DIAG] CallKitEventHandler: Accept event for $callId');
+      print(
+          '[PUSH-DIAG] CallKitEventHandler: extra.keys=${extra.keys.toList()}');
+      print('[PUSH-DIAG] CallKitEventHandler: extra=$extra');
+
+      // Try to extract metadata
+      final metadata = extractMetadata(extra);
+      print(
+          '[PUSH-DIAG] CallKitEventHandler: Metadata extraction result=$metadata');
+      print(
+          '[PUSH-DIAG] CallKitEventHandler: Metadata extraction result is null=${metadata == null}');
+      print(
+          '[PUSH-DIAG] CallKitEventHandler: Decision=${metadata != null ? "PUSH" : "FOREGROUND"}');
+
       print('CallKitEventHandler: Processing call accept for $callId');
       _onCallAccept?.call(callId, extra);
     } catch (e) {
