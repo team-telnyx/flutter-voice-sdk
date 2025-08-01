@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart'; // For debugPrint
 import 'callkit_adapter.dart';
 import 'callkit_event_handler.dart';
 
@@ -70,37 +71,37 @@ class CallKitManager {
       onCallEnd: _handleCallEndWithMetadata,
       onCallTimeout: _handleCallTimeoutWithMetadata,
       onCallIncoming: (callId, extra) {
-        print('CallKitManager: Incoming call event for $callId');
+        debugPrint('CallKitManager: Incoming call event for $callId');
       },
     );
 
     _initialized = true;
-    print('CallKitManager: Initialized with unified event handling');
+    debugPrint('CallKitManager: Initialized with unified event handling');
   }
 
   /// Handles call accept events with smart routing based on metadata presence.
   void _handleCallAcceptWithMetadata(String callId, Map<String, dynamic> extra) {
-    print('[PUSH-DIAG] CallKitManager: Accept event received for $callId');
-    print('[PUSH-DIAG] CallKitManager: extra.keys=${extra.keys.toList()}');
+    debugPrint('[PUSH-DIAG] CallKitManager: Accept event received for $callId');
+    debugPrint('[PUSH-DIAG] CallKitManager: extra.keys=${extra.keys.toList()}');
     
     // Extract metadata to determine routing
     final metadata = _eventHandler?.extractMetadata(extra);
-    print('[PUSH-DIAG] CallKitManager: Metadata extracted=${metadata != null}');
+    debugPrint('[PUSH-DIAG] CallKitManager: Metadata extracted=${metadata != null}');
     
     if (metadata != null && _onPushNotificationAccepted != null) {
       // Route to push notification handling (terminated state)
-      print('[PUSH-DIAG] CallKitManager: Routing to push notification handler');
+      debugPrint('[PUSH-DIAG] CallKitManager: Routing to push notification handler');
       _onPushNotificationAccepted!(callId, extra);
     } else {
       // Route to standard foreground handling
-      print('[PUSH-DIAG] CallKitManager: Routing to foreground call handler');
+      debugPrint('[PUSH-DIAG] CallKitManager: Routing to foreground call handler');
       _onCallAccepted?.call(callId);
     }
   }
 
   /// Handles call decline events with smart routing.
   void _handleCallDeclineWithMetadata(String callId, Map<String, dynamic> extra) {
-    print('CallKitManager: Decline event received for $callId');
+    debugPrint('CallKitManager: Decline event received for $callId');
     
     // For decline, we can route to both paths if needed
     // but typically foreground decline is sufficient
@@ -109,13 +110,13 @@ class CallKitManager {
 
   /// Handles call end events with smart routing.
   void _handleCallEndWithMetadata(String callId, Map<String, dynamic> extra) {
-    print('CallKitManager: End event received for $callId');
+    debugPrint('CallKitManager: End event received for $callId');
     _onCallEnded?.call(callId);
   }
 
   /// Handles call timeout events.
   void _handleCallTimeoutWithMetadata(String callId, Map<String, dynamic> extra) {
-    print('CallKitManager: Timeout event received for $callId - treating as decline');
+    debugPrint('CallKitManager: Timeout event received for $callId - treating as decline');
     _onCallDeclined?.call(callId);
   }
 
@@ -138,7 +139,7 @@ class CallKitManager {
         extra: extra,
       );
     } catch (e) {
-      print('CallKitManager: Error showing incoming call: $e');
+      debugPrint('CallKitManager: Error showing incoming call: $e');
       _activeCalls.remove(callId);
     }
   }
@@ -162,7 +163,7 @@ class CallKitManager {
         extra: extra,
       );
     } catch (e) {
-      print('CallKitManager: Error showing outgoing call: $e');
+      debugPrint('CallKitManager: Error showing outgoing call: $e');
       _activeCalls.remove(callId);
     }
   }
@@ -174,7 +175,7 @@ class CallKitManager {
     try {
       await _adapter?.setCallConnected(callId);
     } catch (e) {
-      print('CallKitManager: Error setting call connected: $e');
+      debugPrint('CallKitManager: Error setting call connected: $e');
     }
   }
 
@@ -209,7 +210,7 @@ class CallKitManager {
     try {
       return await _adapter?.getActiveCalls() ?? [];
     } catch (e) {
-      print('CallKitManager: Error getting active calls: $e');
+      debugPrint('CallKitManager: Error getting active calls: $e');
       return [];
     }
   }
@@ -220,7 +221,7 @@ class CallKitManager {
 
     // Prevent duplicate UI for the same call
     if (_activeCalls.contains(callId)) {
-      print('CallKitManager: Call UI already shown for $callId');
+      debugPrint('CallKitManager: Call UI already shown for $callId');
       return false;
     }
 

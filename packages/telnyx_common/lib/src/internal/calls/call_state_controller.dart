@@ -188,10 +188,10 @@ class CallStateController {
         break;
 
       case SocketMethod.invite:
-        print(
+        debugPrint(
             '[PUSH-DIAG] CallStateController: ==================== INCOMING INVITE ====================');
-        print('[PUSH-DIAG] CallStateController: Invite received on socket');
-        print(
+        debugPrint('[PUSH-DIAG] CallStateController: Invite received on socket');
+        debugPrint(
             '[PUSH-DIAG] CallStateController: Current waiting for invite flag: ${_isWaitingForInvite?.call() ?? false}');
         _handleIncomingInvite(message.message.inviteParams);
         break;
@@ -221,14 +221,14 @@ class CallStateController {
     final callId = inviteParams!.callID!;
 
     // [PUSH-DIAG] Log invite details
-    print(
+    debugPrint(
         '[PUSH-DIAG] CallStateController: Processing invite for callId=$callId');
-    print(
+    debugPrint(
         '[PUSH-DIAG] CallStateController: Caller=${inviteParams.callerIdName} / ${inviteParams.callerIdNumber}');
 
     // Check if we already have this call (avoid duplicates)
     if (_calls.containsKey(callId)) {
-      print(
+      debugPrint(
           '[PUSH-DIAG] CallStateController: Duplicate invite - call already exists, ignoring');
       return;
     }
@@ -260,22 +260,22 @@ class CallStateController {
     final isWaitingForInvite = _isWaitingForInvite?.call() ?? false;
 
     // [PUSH-DIAG] Log decision flow
-    print(
+    debugPrint(
         '[PUSH-DIAG] CallStateController: isHandlingPushNotification=${_sessionManager.isHandlingPushNotification}');
-    print(
+    debugPrint(
         '[PUSH-DIAG] CallStateController: isWaitingForInvite=$isWaitingForInvite');
 
     if (_sessionManager.isHandlingPushNotification) {
       // This is from a push notification that was already accepted
-      print(
+      debugPrint(
           '[PUSH-DIAG] CallStateController: Decision=PUSH_ALREADY_ACCEPTED - Setting call to active');
       call.updateState(CallState.active);
       _sessionManager.isHandlingPushNotification = false;
     } else if (isWaitingForInvite) {
       // We're waiting for this invite after accepting from terminated state - auto-accept
-      print(
+      debugPrint(
           '[PUSH-DIAG] CallStateController: Decision=WAITING_FOR_INVITE - Auto-accepting call');
-      print(
+      debugPrint(
           'CallStateController: Invite received while waiting for terminated state acceptance. Auto-accepting call $callId');
       call.updateState(CallState.ringing); // Set to ringing first
 
@@ -288,15 +288,15 @@ class CallStateController {
       // Auto-accept the call immediately
       try {
         await call.answer();
-        print(
+        debugPrint(
             '[PUSH-DIAG] CallStateController: Successfully auto-accepted call $callId from terminated state');
       } catch (e) {
-        print('CallStateController: Error auto-accepting call $callId: $e');
+        debugPrint('CallStateController: Error auto-accepting call $callId: $e');
         call.updateState(CallState.error);
       }
     } else {
       // This is a new incoming call in foreground - show CallKit UI
-      print(
+      debugPrint(
           '[PUSH-DIAG] CallStateController: Decision=FOREGROUND - Showing CallKit UI');
       call.updateState(CallState.ringing);
 
@@ -314,11 +314,11 @@ class CallStateController {
     _calls[callId] = call;
     _notifyCallsChanged();
 
-    print(
+    debugPrint(
         '[PUSH-DIAG] CallStateController: Incoming invite handling complete for call $callId');
-    print(
+    debugPrint(
         '[PUSH-DIAG] CallStateController: Final call state: ${call.currentState}');
-    print(
+    debugPrint(
         '[PUSH-DIAG] CallStateController: ==================== INVITE HANDLING COMPLETE ====================');
   }
 
