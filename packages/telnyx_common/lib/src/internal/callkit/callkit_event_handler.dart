@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:flutter_callkit_incoming/entities/entities.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 
@@ -35,9 +36,10 @@ class CallKitEventHandler {
 
     try {
       await _setupCallKitEventListener();
-      print('CallKitEventHandler: Initialized with CallKit event listener');
+      debugPrint(
+          'CallKitEventHandler: Initialized with CallKit event listener');
     } catch (e) {
-      print('CallKitEventHandler: Error during initialization: $e');
+      debugPrint('CallKitEventHandler: Error during initialization: $e');
     }
   }
 
@@ -65,7 +67,17 @@ class CallKitEventHandler {
       final callId = event.body?['id']?.toString() ?? '';
       final extra = _safeConvertToStringDynamicMap(event.body?['extra']);
 
-      print(
+      // [PUSH-DIAG] Log raw event data
+      debugPrint('[PUSH-DIAG] CallKitEventHandler: Raw event received');
+      debugPrint('[PUSH-DIAG] CallKitEventHandler: event.event=${event.event}');
+      debugPrint('[PUSH-DIAG] CallKitEventHandler: event.body=${event.body}');
+      debugPrint(
+          '[PUSH-DIAG] CallKitEventHandler: event.body.runtimeType=${event.body?.runtimeType}');
+      debugPrint('[PUSH-DIAG] CallKitEventHandler: callId=$callId');
+      debugPrint(
+          '[PUSH-DIAG] CallKitEventHandler: extra after conversion=$extra');
+
+      debugPrint(
           'CallKitEventHandler: Received event ${event.event} for call $callId');
 
       switch (event.event) {
@@ -85,7 +97,7 @@ class CallKitEventHandler {
           await _handleCallIncoming(callId, extra);
           break;
         default:
-          print('CallKitEventHandler: Unhandled event: ${event.event}');
+          debugPrint('CallKitEventHandler: Unhandled event: ${event.event}');
       }
     });
   }
@@ -114,13 +126,14 @@ class CallKitEventHandler {
         });
         return result;
       } catch (e) {
-        print('CallKitEventHandler: Error converting map: $e');
+        debugPrint('CallKitEventHandler: Error converting map: $e');
         return <String, dynamic>{};
       }
     }
 
     // If it's not a map at all, return empty map
-    print('CallKitEventHandler: Expected Map but got ${value.runtimeType}');
+    debugPrint(
+        'CallKitEventHandler: Expected Map but got ${value.runtimeType}');
     return <String, dynamic>{};
   }
 
@@ -130,10 +143,25 @@ class CallKitEventHandler {
     if (_disposed) return;
 
     try {
-      print('CallKitEventHandler: Processing call accept for $callId');
+      // [PUSH-DIAG] Log accept event details
+      debugPrint('[PUSH-DIAG] CallKitEventHandler: Accept event for $callId');
+      debugPrint(
+          '[PUSH-DIAG] CallKitEventHandler: extra.keys=${extra.keys.toList()}');
+      debugPrint('[PUSH-DIAG] CallKitEventHandler: extra=$extra');
+
+      // Try to extract metadata
+      final metadata = extractMetadata(extra);
+      debugPrint(
+          '[PUSH-DIAG] CallKitEventHandler: Metadata extraction result=$metadata');
+      debugPrint(
+          '[PUSH-DIAG] CallKitEventHandler: Metadata extraction result is null=${metadata == null}');
+      debugPrint(
+          '[PUSH-DIAG] CallKitEventHandler: Decision=${metadata != null ? "PUSH" : "FOREGROUND"}');
+
+      debugPrint('CallKitEventHandler: Processing call accept for $callId');
       _onCallAccept?.call(callId, extra);
     } catch (e) {
-      print('CallKitEventHandler: Error handling call accept: $e');
+      debugPrint('CallKitEventHandler: Error handling call accept: $e');
     }
   }
 
@@ -143,10 +171,10 @@ class CallKitEventHandler {
     if (_disposed) return;
 
     try {
-      print('CallKitEventHandler: Processing call decline for $callId');
+      debugPrint('CallKitEventHandler: Processing call decline for $callId');
       _onCallDecline?.call(callId, extra);
     } catch (e) {
-      print('CallKitEventHandler: Error handling call decline: $e');
+      debugPrint('CallKitEventHandler: Error handling call decline: $e');
     }
   }
 
@@ -155,10 +183,10 @@ class CallKitEventHandler {
     if (_disposed) return;
 
     try {
-      print('CallKitEventHandler: Processing call end for $callId');
+      debugPrint('CallKitEventHandler: Processing call end for $callId');
       _onCallEnd?.call(callId, extra);
     } catch (e) {
-      print('CallKitEventHandler: Error handling call end: $e');
+      debugPrint('CallKitEventHandler: Error handling call end: $e');
     }
   }
 
@@ -168,10 +196,10 @@ class CallKitEventHandler {
     if (_disposed) return;
 
     try {
-      print('CallKitEventHandler: Processing call timeout for $callId');
+      debugPrint('CallKitEventHandler: Processing call timeout for $callId');
       _onCallTimeout?.call(callId, extra);
     } catch (e) {
-      print('CallKitEventHandler: Error handling call timeout: $e');
+      debugPrint('CallKitEventHandler: Error handling call timeout: $e');
     }
   }
 
@@ -181,10 +209,10 @@ class CallKitEventHandler {
     if (_disposed) return;
 
     try {
-      print('CallKitEventHandler: Processing incoming call for $callId');
+      debugPrint('CallKitEventHandler: Processing incoming call for $callId');
       _onCallIncoming?.call(callId, extra);
     } catch (e) {
-      print('CallKitEventHandler: Error handling incoming call: $e');
+      debugPrint('CallKitEventHandler: Error handling incoming call: $e');
     }
   }
 
@@ -218,7 +246,7 @@ class CallKitEventHandler {
       }
       return null;
     } catch (e) {
-      print('CallKitEventHandler: Error extracting metadata: $e');
+      debugPrint('CallKitEventHandler: Error extracting metadata: $e');
       return null;
     }
   }
@@ -238,6 +266,6 @@ class CallKitEventHandler {
     _onCallTimeout = null;
     _onCallIncoming = null;
 
-    print('CallKitEventHandler: Disposed');
+    debugPrint('CallKitEventHandler: Disposed');
   }
 }

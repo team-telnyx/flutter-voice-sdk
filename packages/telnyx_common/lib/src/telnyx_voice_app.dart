@@ -131,7 +131,7 @@ class TelnyxVoiceApp extends StatefulWidget {
     }
 
     if (kDebugMode) {
-      print('[TelnyxVoiceApp] SDK initialization complete');
+      debugPrint('[TelnyxVoiceApp] SDK initialization complete');
     }
 
     return TelnyxVoiceApp(
@@ -149,7 +149,7 @@ class TelnyxVoiceApp extends StatefulWidget {
   /// Handles background push notifications in the background isolate.
   static Future<void> handleBackgroundPush(RemoteMessage message) async {
     if (kDebugMode) {
-      print('[TelnyxVoiceApp] Background push received: ${message.data}');
+      debugPrint('[TelnyxVoiceApp] Background push received: ${message.data}');
     }
 
     try {
@@ -161,11 +161,11 @@ class TelnyxVoiceApp extends StatefulWidget {
       await backgroundClient.handlePushNotification(message.data);
 
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Background push processed successfully');
+        debugPrint('[TelnyxVoiceApp] Background push processed successfully');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Error processing background push: $e');
+        debugPrint('[TelnyxVoiceApp] Error processing background push: $e');
       }
     }
   }
@@ -175,11 +175,11 @@ class TelnyxVoiceApp extends StatefulWidget {
     try {
       await Firebase.initializeApp(options: options);
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Firebase initialized successfully');
+        debugPrint('[TelnyxVoiceApp] Firebase initialized successfully');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Firebase initialization failed: $e');
+        debugPrint('[TelnyxVoiceApp] Firebase initialization failed: $e');
       }
     }
   }
@@ -189,11 +189,11 @@ class TelnyxVoiceApp extends StatefulWidget {
     try {
       await Firebase.initializeApp();
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Firebase initialized in background isolate');
+        debugPrint('[TelnyxVoiceApp] Firebase initialized in background isolate');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Firebase background initialization failed: $e');
+        debugPrint('[TelnyxVoiceApp] Firebase background initialization failed: $e');
       }
     }
   }
@@ -289,14 +289,14 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
     // Check if we should ignore background detection (e.g., during active calls)
     if (BackgroundDetector.ignore) {
       if (kDebugMode) {
-        print(
+        debugPrint(
             '[TelnyxVoiceApp] Background detector ignore flag set - skipping disconnection');
       }
       return;
     }
 
     if (kDebugMode) {
-      print(
+      debugPrint(
           '[TelnyxVoiceApp] App backgrounded - disconnecting (matching old BackgroundDetector behavior)');
     }
 
@@ -305,11 +305,11 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
       await widget.voipClient.logout();
 
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Successfully disconnected on background');
+        debugPrint('[TelnyxVoiceApp] Successfully disconnected on background');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Error disconnecting on background: $e');
+        debugPrint('[TelnyxVoiceApp] Error disconnecting on background: $e');
       }
     }
   }
@@ -317,7 +317,7 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
   /// Handle app resuming from background
   void _handleAppResumed() async {
     if (kDebugMode) {
-      print('[TelnyxVoiceApp] App resumed - checking reconnection needs');
+      debugPrint('[TelnyxVoiceApp] App resumed - checking reconnection needs');
     }
 
     // IMPORTANT: Check for push notifications first when resuming from background
@@ -327,7 +327,7 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
     // If we're ignoring (e.g., from push call), don't auto-reconnect
     if (BackgroundDetector.ignore) {
       if (kDebugMode) {
-        print(
+        debugPrint(
             '[TelnyxVoiceApp] Background detector ignore flag set - skipping reconnection');
       }
       return;
@@ -337,7 +337,7 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
     final currentConnectionState = _currentConnectionState;
 
     if (kDebugMode) {
-      print(
+      debugPrint(
           '[TelnyxVoiceApp] Current connection state: $currentConnectionState');
     }
 
@@ -351,7 +351,7 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
   Future<void> _attemptAutoReconnection() async {
     try {
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Attempting auto-reconnection...');
+        debugPrint('[TelnyxVoiceApp] Attempting auto-reconnection...');
       }
 
       // Try to get stored config and reconnect
@@ -359,12 +359,12 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
       final success = await widget.voipClient.loginFromStoredConfig();
 
       if (kDebugMode) {
-        print(
+        debugPrint(
             '[TelnyxVoiceApp] Auto-reconnection ${success ? 'successful' : 'failed'}');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('[TelnyxVoiceApp] Auto-reconnection error: $e');
+        debugPrint('[TelnyxVoiceApp] Auto-reconnection error: $e');
       }
     }
   }
@@ -385,7 +385,7 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
             await FirebaseMessaging.instance.getInitialMessage();
         if (initialMessage != null) {
           if (kDebugMode) {
-            print(
+            debugPrint(
                 '[TelnyxVoiceApp] Found initial Firebase message: ${initialMessage.data}');
           }
           pushData = _convertFirebaseMessageToPushData(initialMessage);
@@ -397,7 +397,7 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
         final storedPushData = await TelnyxClient.getPushData();
         if (storedPushData != null && storedPushData.isNotEmpty) {
           if (kDebugMode) {
-            print('[TelnyxVoiceApp] Found stored push data: $storedPushData');
+            debugPrint('[TelnyxVoiceApp] Found stored push data: $storedPushData');
           }
           pushData = storedPushData;
         }
@@ -406,13 +406,13 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
       // Process the push notification if found
       if (pushData != null) {
         if (kDebugMode) {
-          print('[TelnyxVoiceApp] Processing initial push notification...');
+          debugPrint('[TelnyxVoiceApp] Processing initial push notification...');
         }
 
         // Set the ignore flag to prevent auto-reconnection during push call
         BackgroundDetector.ignore = true;
         if (kDebugMode) {
-          print('[TelnyxVoiceApp] Background detector ignore set to: true');
+          debugPrint('[TelnyxVoiceApp] Background detector ignore set to: true');
         }
 
         // The gateway expects the original payload structure with a "metadata" key.
@@ -424,16 +424,16 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
         await widget.voipClient.handlePushNotification(formattedPushData);
 
         if (kDebugMode) {
-          print('[TelnyxVoiceApp] Initial push notification processed');
+          debugPrint('[TelnyxVoiceApp] Initial push notification processed');
         }
       } else {
         if (kDebugMode) {
-          print('[TelnyxVoiceApp] No initial push data found');
+          debugPrint('[TelnyxVoiceApp] No initial push data found');
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        print(
+        debugPrint(
             '[TelnyxVoiceApp] Error processing initial push notification: $e');
       }
     } finally {
@@ -453,7 +453,7 @@ class _TelnyxVoiceAppState extends State<TelnyxVoiceApp>
         data['metadata'] = jsonDecode(data['metadata']);
       } catch (e) {
         if (kDebugMode) {
-          print('[TelnyxVoiceApp] Failed to parse metadata JSON: $e');
+          debugPrint('[TelnyxVoiceApp] Failed to parse metadata JSON: $e');
         }
       }
     }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
@@ -65,14 +66,14 @@ class SessionManager {
   /// Handles push notifications with the stored configuration.
   void handlePushNotificationWithConfig(
       PushMetaData pushMetaData, Config config) {
-    print('SessionManager: handlePushNotificationWithConfig called');
-    print('SessionManager: Push metadata: ${pushMetaData.toJson()}');
-    print('SessionManager: Config type: ${config.runtimeType}');
+    debugPrint('SessionManager: handlePushNotificationWithConfig called');
+    debugPrint('SessionManager: Push metadata: ${pushMetaData.toJson()}');
+    debugPrint('SessionManager: Config type: ${config.runtimeType}');
     _handlingPushNotification = true;
 
     try {
       if (config is CredentialConfig) {
-        print(
+        debugPrint(
             'SessionManager: Calling TelnyxClient.handlePushNotification with CredentialConfig');
         telnyxClient.handlePushNotification(
           pushMetaData,
@@ -80,7 +81,7 @@ class SessionManager {
           null,
         );
       } else if (config is TokenConfig) {
-        print(
+        debugPrint(
             'SessionManager: Calling TelnyxClient.handlePushNotification with TokenConfig');
         telnyxClient.handlePushNotification(
           pushMetaData,
@@ -88,10 +89,10 @@ class SessionManager {
           config,
         );
       } else {
-        print('SessionManager: Unsupported config type: ${config.runtimeType}');
+        debugPrint('SessionManager: Unsupported config type: ${config.runtimeType}');
       }
     } catch (e) {
-      print('SessionManager: Error handling push notification: $e');
+      debugPrint('SessionManager: Error handling push notification: $e');
     }
   }
 
