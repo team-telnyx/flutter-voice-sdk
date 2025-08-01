@@ -39,7 +39,6 @@ import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
-import 'package:telnyx_webrtc/ai_assistant_manager.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -59,7 +58,7 @@ typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
 ///
 /// Callbacks like [onSocketMessageReceived] and [onSocketErrorReceived] must be
 /// implemented to handle events and errors from the socket.
-class TelnyxClient implements AIAssistantManagerDelegate {
+class TelnyxClient {
   /// Callback for when the socket receives a message
   late OnSocketMessageReceived onSocketMessageReceived;
 
@@ -85,14 +84,15 @@ class TelnyxClient implements AIAssistantManagerDelegate {
   // Map to track reconnection timers for each call
   final Map<String?, Timer> _reconnectionTimers = {};
 
-  // AI Assistant Manager for handling AI-related functionality
-  late AIAssistantManager _aiAssistantManager;
+  // Current widget settings from AI conversation
+  WidgetSettings? _currentWidgetSettings;
+
+  // Transcript management
+  final List<TranscriptItem> _transcript = [];
+  final Map<String, StringBuffer> _assistantResponseBuffers = {};
 
   /// Default constructor for the TelnyxClient
   TelnyxClient() {
-    // Initialize AI Assistant Manager with this client as delegate
-    _aiAssistantManager = AIAssistantManager(delegate: this);
-    
     onSocketMessageReceived = (TelnyxMessage message) {
       switch (message.socketMethod) {
         case SocketMethod.invite:
@@ -225,7 +225,7 @@ class TelnyxClient implements AIAssistantManagerDelegate {
   TokenConfig? get storedToken => _storedTokenConfig;
 
   /// The current widget settings from AI conversation
-  WidgetSettings? get currentWidgetSettings => _aiAssistantManager.currentWidgetSettings;
+  WidgetSettings? get currentWidgetSettings => _currentWidgetSettings;
 
   /// Returns the forceRelayCandidate setting from the current config
   bool getForceRelayCandidate() {
@@ -285,33 +285,13 @@ class TelnyxClient implements AIAssistantManagerDelegate {
   CustomLogger get logger => _logger;
 
   /// Gets the current conversation transcript
-  List<TranscriptItem> get transcript => _aiAssistantManager.transcript;
+  List<TranscriptItem> get transcript => List.unmodifiable(_transcript);
 
   /// Clears the conversation transcript
   void clearTranscript() {
-    _aiAssistantManager.clearTranscript();
-  }
-
-  /// Gets the current AI assistant connection status
-  bool get isConnectedToAssistant => _aiAssistantManager.isConnectedToAssistant;
-
-  /// Gets the current target ID for AI assistant
-  String? get currentTargetId => _aiAssistantManager.currentTargetId;
-
-  /// Gets the current target type for AI assistant
-  String? get currentTargetType => _aiAssistantManager.currentTargetType;
-
-  /// Gets the current target version ID for AI assistant
-  String? get currentTargetVersionId => _aiAssistantManager.currentTargetVersionId;
-
-  /// Disconnects from the current AI assistant
-  void disconnectFromAssistant() {
-    _aiAssistantManager.disconnect();
-  }
-
-  /// Gets the AI assistant connection status as a string
-  String getAiAssistantConnectionStatus() {
-    return _aiAssistantManager.getConnectionStatus();
+    _transcript.clear();
+    _assistantResponseBuffers.clear();
+    onTranscriptUpdate?.call(_transcript);
   }
 
   void _handleNetworkLost() {
@@ -1044,16 +1024,45 @@ class TelnyxClient implements AIAssistantManagerDelegate {
     bool reconnection = false,
     LogLevel logLevel = LogLevel.none,
   }) async {
+    final uuid = const Uuid().v4();
+
     setLogLevel(logLevel);
     
-    await _aiAssistantManager.anonymousLogin(
-      targetId: targetId,
+    final versionData = await VersionUtils.getSDKVersion();
+    final userAgentData = await VersionUtils.getUserAgent();
+
+    final userAgent = UserAgent(
+      sdkVersion: versionData,
+      data: userAgentData,
+    );
+
+    final anonymousLoginParams = AnonymousLoginParams(
       targetType: targetType,
+      targetId: targetId,
       targetVersionId: targetVersionId,
       userVariables: userVariables,
       reconnection: reconnection,
-      logLevel: logLevel,
+      userAgent: userAgent,
+      sessionId: sessid,
     );
+
+    final anonymousLoginMessage = AnonymousLoginMessage(
+      id: uuid,
+      method: SocketMethod.anonymousLogin,
+      params: anonymousLoginParams,
+      jsonrpc: JsonRPCConstant.jsonrpc,
+    );
+
+    final String jsonAnonymousLoginMessage = jsonEncode(anonymousLoginMessage);
+    GlobalLogger().i('Anonymous Login Message $jsonAnonymousLoginMessage');
+
+    if (isConnected()) {
+      txSocket.send(jsonAnonymousLoginMessage);
+    } else {
+      _connectWithCallBack(null, () {
+        txSocket.send(jsonAnonymousLoginMessage);
+      });
+    }
   }
 
   /// Disables push notifications for the currently authenticated user.
@@ -1835,10 +1844,16 @@ class TelnyxClient implements AIAssistantManagerDelegate {
                   jsonDecode(data.toString()),
                 );
 
-                // Process AI conversation message through AIAssistantManager
-                if (aiConversation.aiConversationParams != null) {
-                  _aiAssistantManager.processAiConversationMessage(aiConversation.aiConversationParams!);
+                // Store widget settings if available
+                if (aiConversation.aiConversationParams?.widgetSettings !=
+                    null) {
+                  _currentWidgetSettings =
+                      aiConversation.aiConversationParams!.widgetSettings;
+                  GlobalLogger().i('Widget settings updated');
                 }
+
+                // Process message for transcript extraction
+                _processAiConversationForTranscript(aiConversation.aiConversationParams);
 
                 final message = TelnyxMessage(
                   socketMethod: SocketMethod.aiConversation,
@@ -1857,7 +1872,83 @@ class TelnyxClient implements AIAssistantManagerDelegate {
     }
   }
 
+  /// Process AI conversation messages for transcript extraction
+  void _processAiConversationForTranscript(AiConversationParams? params) {
+    if (params?.type == null) return;
 
+    switch (params!.type) {
+      case 'conversation.item.created':
+        _handleConversationItemCreated(params);
+        break;
+      case 'response.text.delta':
+        _handleResponseTextDelta(params);
+        break;
+      default:
+        // Other AI conversation message types are ignored for transcript
+        break;
+    }
+  }
+
+  /// Handle user speech transcript from conversation.item.created messages
+  void _handleConversationItemCreated(AiConversationParams params) {
+    if (params.item?.role != 'user' || params.item?.status != 'completed') {
+      return; // Only handle completed user messages
+    }
+
+    final content = params.item?.content
+        ?.where((c) => c.transcript != null)
+        .map((c) => c.transcript!)
+        .join(' ') ?? '';
+
+    if (content.isNotEmpty && params.item?.id != null) {
+      final transcriptItem = TranscriptItem(
+        id: params.item!.id!,
+        role: 'user',
+        content: content,
+        timestamp: DateTime.now(),
+      );
+
+      _transcript.add(transcriptItem);
+      onTranscriptUpdate?.call(List.unmodifiable(_transcript));
+    }
+  }
+
+  /// Handle AI response text deltas from response.text.delta messages
+  void _handleResponseTextDelta(AiConversationParams params) {
+    if (params.delta == null || params.itemId == null) return;
+
+    final itemId = params.itemId!;
+    final delta = params.delta!;
+
+    // Initialize buffer for this response if not exists
+    _assistantResponseBuffers.putIfAbsent(itemId, () => StringBuffer());
+    _assistantResponseBuffers[itemId]!.write(delta);
+
+    // Create or update transcript item for this response
+    final existingIndex = _transcript.indexWhere((item) => item.id == itemId);
+    final currentContent = _assistantResponseBuffers[itemId]!.toString();
+
+    if (existingIndex >= 0) {
+      // Update existing transcript item with accumulated content
+      _transcript[existingIndex] = TranscriptItem(
+        id: itemId,
+        role: 'assistant',
+        content: currentContent,
+        timestamp: _transcript[existingIndex].timestamp,
+      );
+    } else {
+      // Create new transcript item
+      final transcriptItem = TranscriptItem(
+        id: itemId,
+        role: 'assistant',
+        content: currentContent,
+        timestamp: DateTime.now(),
+      );
+      _transcript.add(transcriptItem);
+    }
+
+    onTranscriptUpdate?.call(List.unmodifiable(_transcript));
+  }
 
   void _sendNoCallError() {
     final error = TelnyxSocketError(
@@ -1895,45 +1986,5 @@ class TelnyxClient implements AIAssistantManagerDelegate {
     _connectRetryCounter = 0;
     _waitingForReg = true;
     gatewayState = GatewayState.idle;
-  }
-
-  // AIAssistantManagerDelegate implementation
-  
-  @override
-  void onAiConversationReceived(AiConversationParams params) {
-    // This is handled by the AIAssistantManager, but we can add additional logic here if needed
-    GlobalLogger().i('TelnyxClient: AI conversation received via delegate: ${params.type}');
-  }
-  
-  @override
-  void onTranscriptUpdated(List<TranscriptItem> transcript) {
-    // Forward transcript updates to the original callback
-    onTranscriptUpdate?.call(transcript);
-  }
-  
-  @override
-  void onWidgetSettingsUpdate(WidgetSettings settings) {
-    // Additional widget settings handling can be added here if needed
-    GlobalLogger().i('TelnyxClient: Widget settings updated via delegate');
-  }
-  
-  @override
-  void sendMessage(String message) {
-    txSocket.send(message);
-  }
-  
-  @override
-  bool isConnected() {
-    return txSocket.isConnected();
-  }
-  
-  @override
-  void connectWithCallback(void Function()? callback, void Function() onConnected) {
-    _connectWithCallBack(callback, onConnected);
-  }
-  
-  @override
-  String? getSessionId() {
-    return sessid;
   }
 }
