@@ -1845,6 +1845,30 @@ class TelnyxClient implements AIAssistantManagerDelegate {
     }
   }
 
+  // AIAssistantManagerDelegate implementation
+  @override
+  void sendMessage(String message) {
+    txSocket.send(message);
+  }
+
+  @override
+  bool isConnected() {
+    return txSocket.isConnected();
+  }
+
+  @override
+  void connectWithCallback(void Function()? callback, void Function() onConnected) {
+    _connectWithCallBack(callback, onConnected);
+  }
+
+  @override
+  String? get sessionId => sessid;
+
+  @override
+  void setLogLevel(LogLevel logLevel) {
+    GlobalLogger().setLogLevel(logLevel);
+  }
+
   void _sendNoCallError() {
     final error = TelnyxSocketError(
       errorCode: 404,
@@ -1881,29 +1905,5 @@ class TelnyxClient implements AIAssistantManagerDelegate {
     _connectRetryCounter = 0;
     _waitingForReg = true;
     gatewayState = GatewayState.idle;
-  }
-
-  // AIAssistantManagerDelegate implementation
-  @override
-  void sendMessage(String message) {
-    txSocket.send(message);
-  }
-
-  @override
-  bool isAssistantConnected() {
-    return _connected;
-  }
-
-  @override
-  void connectWithCallback(void Function()? callback, void Function() onConnected) {
-    _connectWithCallBack(null, onConnected);
-  }
-
-  @override
-  String? get sessionId => sessid;
-
-  @override
-  void setAssistantLogLevel(LogLevel logLevel) {
-    _logger.setLogLevel(logLevel);
   }
 }
