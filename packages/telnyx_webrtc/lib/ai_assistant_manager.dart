@@ -11,7 +11,7 @@ import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 
 /// Callback for when transcript updates occur
-typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
+typedef OnAITranscriptUpdate = void Function(List<TranscriptItem> transcript);
 
 /// Delegate protocol for AIAssistantManager to communicate with TelnyxClient
 abstract class AIAssistantManagerDelegate {
@@ -19,7 +19,7 @@ abstract class AIAssistantManagerDelegate {
   void sendMessage(String message);
   
   /// Check if the socket is connected
-  bool isConnected();
+  bool isAssistantConnected();
   
   /// Connect with a callback to execute after connection
   void connectWithCallback(void Function()? callback, void Function() onConnected);
@@ -28,7 +28,7 @@ abstract class AIAssistantManagerDelegate {
   String? get sessionId;
   
   /// Set the log level
-  void setLogLevel(LogLevel logLevel);
+  void setAssistantLogLevel(LogLevel logLevel);
 }
 
 /// Manager class for AI Assistant functionality
@@ -37,7 +37,7 @@ class AIAssistantManager {
   final AIAssistantManagerDelegate _delegate;
   
   /// Callback for when transcript updates occur
-  OnTranscriptUpdate? onTranscriptUpdate;
+  OnAITranscriptUpdate? onTranscriptUpdate;
   
   /// Current conversation transcript
   final List<TranscriptItem> _transcript = [];
@@ -94,7 +94,7 @@ class AIAssistantManager {
   }) async {
     final uuid = const Uuid().v4();
 
-    _delegate.setLogLevel(logLevel);
+    _delegate.setAssistantLogLevel(logLevel);
     
     // Store current connection state
     _currentTargetId = targetId;
@@ -129,7 +129,7 @@ class AIAssistantManager {
     final String jsonAnonymousLoginMessage = jsonEncode(anonymousLoginMessage);
     GlobalLogger().i('Anonymous Login Message $jsonAnonymousLoginMessage');
 
-    if (_delegate.isConnected()) {
+    if (_delegate.isAssistantConnected()) {
       _delegate.sendMessage(jsonAnonymousLoginMessage);
     } else {
       _delegate.connectWithCallback(null, () {
