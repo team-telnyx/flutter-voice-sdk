@@ -702,6 +702,32 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeResponses();
   }
 
+  /// Gets the current AI assistant connection status
+  bool get isConnectedToAssistant => _telnyxClient.isConnectedToAssistant;
+
+  /// Gets the current target ID for AI assistant
+  String? get currentTargetId => _telnyxClient.currentTargetId;
+
+  /// Gets the current target type for AI assistant
+  String? get currentTargetType => _telnyxClient.currentTargetType;
+
+  /// Gets the current target version ID for AI assistant
+  String? get currentTargetVersionId => _telnyxClient.currentTargetVersionId;
+
+  /// Gets the current widget settings from AI conversation
+  get currentWidgetSettings => _telnyxClient.currentWidgetSettings;
+
+  /// Disconnects from the current AI assistant
+  void disconnectFromAssistant() {
+    _telnyxClient.disconnectFromAssistant();
+    notifyListeners();
+  }
+
+  /// Gets the AI assistant connection status as a string
+  String getAiAssistantConnectionStatus() {
+    return _telnyxClient.getAiAssistantConnectionStatus();
+  }
+
   void call(String destination) {
     _currentCall = _telnyxClient.newInvite(
       _localName,
