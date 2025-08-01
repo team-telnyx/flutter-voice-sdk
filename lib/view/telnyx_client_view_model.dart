@@ -23,8 +23,10 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
+import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
+import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 enum CallStateStatus {
   disconnected,
@@ -45,11 +47,13 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _speakerPhone = false;
   bool _mute = false;
   bool _hold = false;
+  bool _isAssistantMode = false;
 
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
   IncomingInviteParams? _incomingInvite;
   CallQualityMetrics? _callQualityMetrics;
+  List<TranscriptItem> _transcript = [];
 
   String _localName = '';
   String _localNumber = '';
@@ -63,6 +67,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   CallTerminationReason? _lastTerminationReason;
 
   String? _errorDialogMessage;
+
   String? get errorDialogMessage => _errorDialogMessage;
 
   void _setErrorDialog(String message) {
@@ -99,6 +104,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _hold;
   }
 
+  bool get isAssistantMode {
+    return _isAssistantMode;
+  }
+
   String get sessionId {
     return _telnyxClient.sessid;
   }
@@ -124,15 +133,20 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   /// State flow for inbound audio levels list
   final List<double> _inboundAudioLevels = [];
+
   List<double> get inboundAudioLevels => List.unmodifiable(_inboundAudioLevels);
 
   /// State flow for outbound audio levels list
   final List<double> _outboundAudioLevels = [];
+
   List<double> get outboundAudioLevels =>
       List.unmodifiable(_outboundAudioLevels);
 
   /// Maximum number of audio levels to keep in memory
   static const int maxAudioLevels = 100;
+
+  /// Gets the current conversation transcript
+  List<TranscriptItem> get transcript => List.unmodifiable(_transcript);
 
   CallTerminationReason? get lastTerminationReason => _lastTerminationReason;
 
@@ -151,6 +165,10 @@ class TelnyxClientViewModel with ChangeNotifier {
     // Clear audio level lists
     _inboundAudioLevels.clear();
     _outboundAudioLevels.clear();
+
+    // Clear transcript
+    _transcript.clear();
+    _telnyxClient.clearTranscript();
 
     // Reset call history tracking
     _currentCallDestination = null;
@@ -462,7 +480,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               if (_currentCallDestination != null &&
                   _currentCallDirection != null) {
                 final wasAnswered = _callState == CallStateStatus.ongoingCall;
-                _addCallToHistory(
+                await _addCallToHistory(
                   destination: _currentCallDestination!,
                   direction: _currentCallDirection!,
                   wasAnswered: wasAnswered,
@@ -475,7 +493,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               if (!kIsWeb && Platform.isIOS) {
                 if (callFromPush) {
                   // For iOS push calls, handle CallKit cleanup but avoid double resetCallInfo()
-                  FlutterCallkitIncoming.endCall(
+                  await FlutterCallkitIncoming.endCall(
                     currentCall?.callId ?? _incomingInvite!.callID!,
                   );
                   if (WidgetsBinding.instance.lifecycleState !=
@@ -507,6 +525,14 @@ class TelnyxClientViewModel with ChangeNotifier {
 
               // Call resetCallInfo() once at the end, after termination reason is set
               resetCallInfo();
+              break;
+            }
+          case SocketMethod.aiConversation:
+            {
+              logger.i(
+                'TelnyxClientViewModel.observeResponses :: Received AI Conversation message: ${message.message}',
+              );
+              // Handle AI conversation messages if needed
               break;
             }
         }
@@ -566,6 +592,11 @@ class TelnyxClientViewModel with ChangeNotifier {
               break;
             }
         }
+        notifyListeners();
+      }
+      // Observe Transcript Updates
+      ..onTranscriptUpdate = (List<TranscriptItem> transcriptItems) {
+        _transcript = transcriptItems;
         notifyListeners();
       };
   }
@@ -628,6 +659,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.disconnected;
     _loggingIn = false;
     _registered = false;
+    _isAssistantMode = false;
     notifyListeners();
   }
 
@@ -653,12 +685,36 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeResponses();
   }
 
+  void anonymousLogin({
+    required String targetId,
+    String targetType = 'ai_assistant',
+    String? targetVersionId,
+    Map<String, dynamic>? userVariables,
+    bool reconnection = false,
+  }) {
+    _loggingIn = true;
+    _isAssistantMode = true;
+    notifyListeners();
+
+    _localName = 'Anonymous User';
+    _localNumber = 'anonymous';
+    _telnyxClient.anonymousLogin(
+      targetId: targetId,
+      targetType: targetType,
+      targetVersionId: targetVersionId,
+      userVariables: userVariables,
+      reconnection: reconnection,
+      logLevel: LogLevel.all,
+    );
+    observeResponses();
+  }
+
   void call(String destination) {
     _currentCall = _telnyxClient.newInvite(
       _localName,
       _localNumber,
       destination,
-      'Fake State',
+      '',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
       debug: true,
     );
@@ -685,6 +741,14 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeCurrentCall();
   }
 
+  void sendConversationMessage(String message) {
+    try {
+      currentCall?.sendConversationMessage(message);
+    } catch (e) {
+      logger.e('Error sending conversation message: $e');
+    }
+  }
+
   bool waitingForInvite = false;
 
   /// Returns the stored CredentialConfig or TokenConfig, preferring Credential.
@@ -704,8 +768,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     if (!kIsWeb) {
       await FlutterCallkitIncoming.activeCalls().then((value) {
         logger.i(
-          'TelnyxClientViewModel.accept: ${value
-              .length} Active CallKit calls before accept $value',
+          'TelnyxClientViewModel.accept: ${value.length} Active CallKit calls before accept $value',
         );
       });
     }
