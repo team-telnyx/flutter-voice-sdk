@@ -44,6 +44,14 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        
+        <!-- OngoingNotificationService for flutter_callkit_incoming -->
+        <service
+            android:name="com.hiennv.flutter_callkit_incoming.OngoingNotificationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall|microphone" />
+        
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

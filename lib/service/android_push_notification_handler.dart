@@ -333,6 +333,14 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
           txClientViewModel.endCall();
           break;
 
+        case Event.actionCallStart:
+          _logger.i(
+            '[PushNotificationHandler-Android] actionCallStart: Outgoing call started event from CallKit.',
+          );
+          // This event is triggered when an outgoing call is initiated
+          // No specific action needed here as the call is already being handled by the view model
+          break;
+
         default:
           _logger.i(
             '[PushNotificationHandler-Android] Unhandled CallKit event in foreground: ${event.event}',
