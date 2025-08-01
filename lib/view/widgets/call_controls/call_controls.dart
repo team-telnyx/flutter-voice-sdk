@@ -112,12 +112,15 @@ class _CallControlsState extends State<CallControls> {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
       (txClient) => txClient.callState,
     );
+    final isAssistantMode = context.select<TelnyxClientViewModel, bool>(
+      (txClient) => txClient.isAssistantMode,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        // Toggle section - only visible when idle
-        if (clientState == CallStateStatus.idle) ...[
+        // Toggle section - only visible when idle and not in assistant mode
+        if (clientState == CallStateStatus.idle && !isAssistantMode) ...[
           DestinationToggle(
             isPhoneNumber: _isPhoneNumber,
             onToggleChanged: (value) {
@@ -129,46 +132,70 @@ class _CallControlsState extends State<CallControls> {
           ),
           const SizedBox(height: spacingS),
         ],
-        Padding(
-          padding: const EdgeInsets.all(spacingXS),
-          child: TextFormField(
-            readOnly: clientState != CallStateStatus.idle,
-            enabled: clientState == CallStateStatus.idle,
-            controller: _destinationController,
-            keyboardType: _isPhoneNumber
-                ? TextInputType.phone
-                : TextInputType.text,
-            inputFormatters: _isPhoneNumber
-                ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s\(\)]'))]
-                : [
-                    FilteringTextInputFormatter.allow(
-                      RegExp(r'[a-zA-Z0-9@\.\-_]'),
-                    ),
-                  ],
-            decoration: InputDecoration(
-              hintStyle: Theme.of(context).textTheme.labelSmall,
-              hintText: _isPhoneNumber ? '+E164 phone number' : 'SIP address',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(spacingS),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: active_text_field_color),
-                borderRadius: BorderRadius.circular(spacingS),
+        // Show text field only when not in assistant mode
+        if (!isAssistantMode) ...[
+          Padding(
+            padding: const EdgeInsets.all(spacingXS),
+            child: TextFormField(
+              readOnly: clientState != CallStateStatus.idle,
+              enabled: clientState == CallStateStatus.idle,
+              controller: _destinationController,
+              keyboardType: _isPhoneNumber
+                  ? TextInputType.phone
+                  : TextInputType.text,
+              inputFormatters: _isPhoneNumber
+                  ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s\(\)]'))]
+                  : [
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'[a-zA-Z0-9@\.\-_]'),
+                      ),
+                    ],
+              decoration: InputDecoration(
+                hintStyle: Theme.of(context).textTheme.labelSmall,
+                hintText: _isPhoneNumber ? '+E164 phone number' : 'SIP address',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(spacingS),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: active_text_field_color),
+                  borderRadius: BorderRadius.circular(spacingS),
+                ),
               ),
             ),
           ),
-        ),
+        ],
         const SizedBox(height: spacingXXXXL),
         if (clientState == CallStateStatus.idle) ...[
           Center(
-            child: CallButton(
-              onPressed: () {
-                final destination = _destinationController.text;
-                if (destination.isNotEmpty) {
-                  context.read<TelnyxClientViewModel>().call(destination);
-                }
-              },
-            ),
+            child: isAssistantMode
+                ? ElevatedButton.icon(
+                    onPressed: () {
+                      context.read<TelnyxClientViewModel>().call('assistant');
+                    },
+                    icon: const Icon(Icons.phone, color: Colors.white),
+                    label: const Text(
+                      'Dial the connected Assistant',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: spacingL,
+                        vertical: spacingM,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(spacingS),
+                      ),
+                    ),
+                  )
+                : CallButton(
+                    onPressed: () {
+                      final destination = _destinationController.text;
+                      if (destination.isNotEmpty) {
+                        context.read<TelnyxClientViewModel>().call(destination);
+                      }
+                    },
+                  ),
           ),
           const SizedBox(height: spacingL),
           const Center(child: CallHistoryButton()),
