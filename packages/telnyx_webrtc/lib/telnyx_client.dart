@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:telnyx_webrtc/ai_assistant_manager.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
@@ -19,6 +18,7 @@ import 'package:telnyx_webrtc/model/verto/receive/ai_conversation_message.dart';
 import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_webrtc/model/verto/send/gateway_request_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/anonymous_login_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
@@ -58,15 +58,16 @@ typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
 ///
 /// Callbacks like [onSocketMessageReceived] and [onSocketErrorReceived] must be
 /// implemented to handle events and errors from the socket.
-class TelnyxClient implements AIAssistantManagerDelegate {
+class TelnyxClient {
   /// Callback for when the socket receives a message
   late OnSocketMessageReceived onSocketMessageReceived;
 
   /// Callback for when the socket receives an error
   late OnSocketErrorReceived onSocketErrorReceived;
 
-  /// AI Assistant Manager for handling AI-related functionality
-  late AIAssistantManager _aiAssistantManager;
+  /// Callback for when transcript updates occur
+  /// Note: this is only relevant for Assistant AI conversations
+  OnTranscriptUpdate? onTranscriptUpdate;
 
   /// The path to the ringtone file (audio to play when receiving a call)
   String _ringtonePath = '';
@@ -86,9 +87,12 @@ class TelnyxClient implements AIAssistantManagerDelegate {
   // Current widget settings from AI conversation
   WidgetSettings? _currentWidgetSettings;
 
+  // Transcript management
+  final List<TranscriptItem> _transcript = [];
+  final Map<String, StringBuffer> _assistantResponseBuffers = {};
+
   /// Default constructor for the TelnyxClient
   TelnyxClient() {
-    _aiAssistantManager = AIAssistantManager(this);
     onSocketMessageReceived = (TelnyxMessage message) {
       switch (message.socketMethod) {
         case SocketMethod.invite:
@@ -281,21 +285,13 @@ class TelnyxClient implements AIAssistantManagerDelegate {
   CustomLogger get logger => _logger;
 
   /// Gets the current conversation transcript
-  List<TranscriptItem> get transcript => _aiAssistantManager.transcript;
+  List<TranscriptItem> get transcript => List.unmodifiable(_transcript);
 
   /// Clears the conversation transcript
   void clearTranscript() {
-    _aiAssistantManager.clearTranscript();
-  }
-
-  /// Gets the AI Assistant Manager
-  AIAssistantManager get aiAssistantManager => _aiAssistantManager;
-
-  /// Callback for when transcript updates occur
-  /// Note: this is only relevant for Assistant AI conversations
-  OnTranscriptUpdate? get onTranscriptUpdate => _aiAssistantManager.onTranscriptUpdate;
-  set onTranscriptUpdate(OnTranscriptUpdate? callback) {
-    _aiAssistantManager.onTranscriptUpdate = callback;
+    _transcript.clear();
+    _assistantResponseBuffers.clear();
+    onTranscriptUpdate?.call(_transcript);
   }
 
   void _handleNetworkLost() {
@@ -1028,14 +1024,45 @@ class TelnyxClient implements AIAssistantManagerDelegate {
     bool reconnection = false,
     LogLevel logLevel = LogLevel.none,
   }) async {
-    return _aiAssistantManager.anonymousLogin(
-      targetId: targetId,
+    final uuid = const Uuid().v4();
+
+    setLogLevel(logLevel);
+    
+    final versionData = await VersionUtils.getSDKVersion();
+    final userAgentData = await VersionUtils.getUserAgent();
+
+    final userAgent = UserAgent(
+      sdkVersion: versionData,
+      data: userAgentData,
+    );
+
+    final anonymousLoginParams = AnonymousLoginParams(
       targetType: targetType,
+      targetId: targetId,
       targetVersionId: targetVersionId,
       userVariables: userVariables,
       reconnection: reconnection,
-      logLevel: logLevel,
+      userAgent: userAgent,
+      sessionId: sessid,
     );
+
+    final anonymousLoginMessage = AnonymousLoginMessage(
+      id: uuid,
+      method: SocketMethod.anonymousLogin,
+      params: anonymousLoginParams,
+      jsonrpc: JsonRPCConstant.jsonrpc,
+    );
+
+    final String jsonAnonymousLoginMessage = jsonEncode(anonymousLoginMessage);
+    GlobalLogger().i('Anonymous Login Message $jsonAnonymousLoginMessage');
+
+    if (isConnected()) {
+      txSocket.send(jsonAnonymousLoginMessage);
+    } else {
+      _connectWithCallBack(null, () {
+        txSocket.send(jsonAnonymousLoginMessage);
+      });
+    }
   }
 
   /// Disables push notifications for the currently authenticated user.
@@ -1826,7 +1853,7 @@ class TelnyxClient implements AIAssistantManagerDelegate {
                 }
 
                 // Process message for transcript extraction
-                _aiAssistantManager.processAiConversationMessage(aiConversation.aiConversationParams);
+                _processAiConversationForTranscript(aiConversation.aiConversationParams);
 
                 final message = TelnyxMessage(
                   socketMethod: SocketMethod.aiConversation,
@@ -1845,28 +1872,82 @@ class TelnyxClient implements AIAssistantManagerDelegate {
     }
   }
 
-  // AIAssistantManagerDelegate implementation
-  @override
-  void sendMessage(String message) {
-    txSocket.send(message);
+  /// Process AI conversation messages for transcript extraction
+  void _processAiConversationForTranscript(AiConversationParams? params) {
+    if (params?.type == null) return;
+
+    switch (params!.type) {
+      case 'conversation.item.created':
+        _handleConversationItemCreated(params);
+        break;
+      case 'response.text.delta':
+        _handleResponseTextDelta(params);
+        break;
+      default:
+        // Other AI conversation message types are ignored for transcript
+        break;
+    }
   }
 
-  @override
-  bool isConnected() {
-    return txSocket.isConnected();
+  /// Handle user speech transcript from conversation.item.created messages
+  void _handleConversationItemCreated(AiConversationParams params) {
+    if (params.item?.role != 'user' || params.item?.status != 'completed') {
+      return; // Only handle completed user messages
+    }
+
+    final content = params.item?.content
+        ?.where((c) => c.transcript != null)
+        .map((c) => c.transcript!)
+        .join(' ') ?? '';
+
+    if (content.isNotEmpty && params.item?.id != null) {
+      final transcriptItem = TranscriptItem(
+        id: params.item!.id!,
+        role: 'user',
+        content: content,
+        timestamp: DateTime.now(),
+      );
+
+      _transcript.add(transcriptItem);
+      onTranscriptUpdate?.call(List.unmodifiable(_transcript));
+    }
   }
 
-  @override
-  void connectWithCallback(void Function()? callback, void Function() onConnected) {
-    _connectWithCallBack(callback, onConnected);
-  }
+  /// Handle AI response text deltas from response.text.delta messages
+  void _handleResponseTextDelta(AiConversationParams params) {
+    if (params.delta == null || params.itemId == null) return;
 
-  @override
-  String? get sessionId => sessid;
+    final itemId = params.itemId!;
+    final delta = params.delta!;
 
-  @override
-  void setLogLevel(LogLevel logLevel) {
-    GlobalLogger().setLogLevel(logLevel);
+    // Initialize buffer for this response if not exists
+    _assistantResponseBuffers.putIfAbsent(itemId, () => StringBuffer());
+    _assistantResponseBuffers[itemId]!.write(delta);
+
+    // Create or update transcript item for this response
+    final existingIndex = _transcript.indexWhere((item) => item.id == itemId);
+    final currentContent = _assistantResponseBuffers[itemId]!.toString();
+
+    if (existingIndex >= 0) {
+      // Update existing transcript item with accumulated content
+      _transcript[existingIndex] = TranscriptItem(
+        id: itemId,
+        role: 'assistant',
+        content: currentContent,
+        timestamp: _transcript[existingIndex].timestamp,
+      );
+    } else {
+      // Create new transcript item
+      final transcriptItem = TranscriptItem(
+        id: itemId,
+        role: 'assistant',
+        content: currentContent,
+        timestamp: DateTime.now(),
+      );
+      _transcript.add(transcriptItem);
+    }
+
+    onTranscriptUpdate?.call(List.unmodifiable(_transcript));
   }
 
   void _sendNoCallError() {

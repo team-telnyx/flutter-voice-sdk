@@ -27,8 +27,3 @@ export './model/verto/send/modify_message_body.dart';
 export './model/verto/send/send_bye_message_body.dart';
 
 export './peer/peer.dart';
-
-export './ai_assistant_manager.dart';
-export './call.dart';
-export './telnyx_client.dart';
-export './model/transcript_item.dart';
