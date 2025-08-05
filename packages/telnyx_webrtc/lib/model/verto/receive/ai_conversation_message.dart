@@ -215,9 +215,18 @@ class ConversationItem {
   ConversationItem.fromJson(Map<String, dynamic> json) {
     if (json['content'] != null) {
       content = <ConversationContent>[];
-      json['content'].forEach((v) {
-        content!.add(ConversationContent.fromJson(v));
-      });
+      if (json['content'] is String) {
+        // Handle string content (from server responses)
+        content!.add(ConversationContent(
+          text: json['content'] as String,
+          type: 'text',
+        ));
+      } else if (json['content'] is List) {
+        // Handle array content (existing behavior)
+        json['content'].forEach((v) {
+          content!.add(ConversationContent.fromJson(v));
+        });
+      }
     }
     id = json['id'];
     role = json['role'];

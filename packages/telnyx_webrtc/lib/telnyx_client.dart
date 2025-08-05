@@ -1896,8 +1896,8 @@ class TelnyxClient {
     }
 
     final content = params.item?.content
-        ?.where((c) => c.transcript != null)
-        .map((c) => c.transcript!)
+        ?.where((c) => c.transcript != null || c.text != null)
+        .map((c) => c.transcript ?? c.text ?? '')
         .join(' ') ?? '';
 
     if (content.isNotEmpty && params.item?.id != null) {
