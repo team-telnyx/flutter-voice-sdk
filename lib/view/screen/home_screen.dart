@@ -20,10 +20,18 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _targetIdController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     askForNotificationPermission();
+  }
+
+  @override
+  void dispose() {
+    _targetIdController.dispose();
+    super.dispose();
   }
 
   Future<void> askForNotificationPermission() async {
@@ -36,6 +44,58 @@ class _HomeScreenState extends State<HomeScreen> {
         await Permission.notification.request();
       }
     }
+  }
+
+  void _showAssistantLoginDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Assistant Login'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Enter the Assistant Target ID:'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _targetIdController,
+                decoration: const InputDecoration(
+                  labelText: 'Target ID',
+                  hintText: 'e.g., assistant-123',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final targetId = _targetIdController.text.trim();
+                if (targetId.isNotEmpty) {
+                  Navigator.of(context).pop();
+                  Provider.of<TelnyxClientViewModel>(context, listen: false)
+                      .anonymousLogin(targetId: targetId);
+                  _targetIdController.clear();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid Target ID'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('Connect'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void handleOptionClick(String value) {
@@ -52,6 +112,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Enable Debugging':
       case 'Disable Debugging':
         Provider.of<ProfileProvider>(context, listen: false).toggleDebugMode();
+        break;
+      case 'Assistant Login':
+        _showAssistantLoginDialog();
         break;
     }
   }
@@ -116,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 final debugToggleText = selectedProfile.isDebug
                     ? 'Disable Debugging'
                     : 'Enable Debugging';
-                return {'Export Logs', debugToggleText}.map((String choice) {
+                return {'Export Logs', debugToggleText, 'Assistant Login'}.map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
@@ -155,32 +218,32 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           : clientState == CallStateStatus.disconnected
-          ? // Connect Bottom Action widget positioned at the bottom
-            Consumer<TelnyxClientViewModel>(
-              builder: (context, viewModel, child) {
-                final profileProvider = context.watch<ProfileProvider>();
-                final selectedProfile = profileProvider.selectedProfile;
-                return Padding(
-                  padding: const EdgeInsets.all(spacingXXL),
-                  child: BottomConnectionActionWidget(
-                    buttonTitle: 'Connect',
-                    isLoading: viewModel.loggingIn,
-                    onPressed: selectedProfile != null
-                        ? () async {
-                            final config = await selectedProfile
-                                .toTelnyxConfig();
-                            if (config is TokenConfig) {
-                              viewModel.loginWithToken(config);
-                            } else if (config is CredentialConfig) {
-                              viewModel.login(config);
-                            }
-                          }
-                        : null,
-                  ),
-                );
-              },
-            )
-          : null,
+              ? // Connect Bottom Action widget positioned at the bottom
+              Consumer<TelnyxClientViewModel>(
+                  builder: (context, viewModel, child) {
+                    final profileProvider = context.watch<ProfileProvider>();
+                    final selectedProfile = profileProvider.selectedProfile;
+                    return Padding(
+                      padding: const EdgeInsets.all(spacingXXL),
+                      child: BottomConnectionActionWidget(
+                        buttonTitle: 'Connect',
+                        isLoading: viewModel.loggingIn,
+                        onPressed: selectedProfile != null
+                            ? () async {
+                                final config =
+                                    await selectedProfile.toTelnyxConfig();
+                                if (config is TokenConfig) {
+                                  viewModel.loginWithToken(config);
+                                } else if (config is CredentialConfig) {
+                                  viewModel.login(config);
+                                }
+                              }
+                            : null,
+                      ),
+                    );
+                  },
+                )
+              : null,
     );
   }
 }

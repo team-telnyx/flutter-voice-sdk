@@ -14,7 +14,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   firebase_messaging: ^15.2.5
   firebase_core: ^3.13.0
-  flutter_callkit_incoming: ^2.5.2
+  flutter_callkit_incoming: ^2.5.5
   flutter_local_notifications: ^19.1.0
   shared_preferences: ^2.2.3
   permission_handler: ^11.3.1
@@ -24,6 +24,7 @@ dependencies:
   flutter_svg: ^2.0.17
   fluttertoast: ^8.2.11
   logger: ^2.5.0
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:
