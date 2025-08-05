@@ -17,7 +17,7 @@ dependencies:
   flutter_callkit_incoming: ^2.5.5
   flutter_local_notifications: ^19.1.0
   shared_preferences: ^2.2.3
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.1
   connectivity_plus: ^6.1.0
   path_provider: ^2.1.5
   provider: ^6.1.2
