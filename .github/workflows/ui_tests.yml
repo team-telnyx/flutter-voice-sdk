@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # 1) Check out repo
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       # 2a) Create google-services.json if you have it in a secret
       - name: Create google-services.json
