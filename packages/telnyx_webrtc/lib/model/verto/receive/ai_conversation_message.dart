@@ -217,10 +217,9 @@ class ConversationItem {
       content = <ConversationContent>[];
       if (json['content'] is String) {
         // Handle string content (from server responses)
-        content!.add(ConversationContent(
-          text: json['content'] as String,
-          type: 'text',
-        ));
+        content!.add(
+          ConversationContent(text: json['content'] as String, type: 'text'),
+        );
       } else if (json['content'] is List) {
         // Handle array content (existing behavior)
         json['content'].forEach((v) {

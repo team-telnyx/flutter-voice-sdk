@@ -330,7 +330,8 @@ class TelnyxClient {
     // Create a new timer
     _reconnectionTimers[call.callId] = Timer(
       Duration(
-        milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
+        milliseconds:
+            _storedCredentialConfig?.reconnectionTimeout ??
             _storedTokenConfig?.reconnectionTimeout ??
             Constants.reconnectionTimeout,
       ),
@@ -523,8 +524,9 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider:
-          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
+          ? 'android'
+          : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -565,8 +567,9 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider:
-          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
+          ? 'android'
+          : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -781,7 +784,6 @@ class TelnyxClient {
   @Deprecated(
     'Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)',
   )
-
   /// Connects to the WebSocket with a previously provided [Config]
   void connect() {
     GlobalLogger().i('connect()');
@@ -850,7 +852,6 @@ class TelnyxClient {
   @Deprecated(
     'telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()',
   )
-
   /// The current instance of [Call] associated with this client.
   ///
   /// This is deprecated. Use [newInvite] to create a new call or
@@ -1027,14 +1028,11 @@ class TelnyxClient {
     final uuid = const Uuid().v4();
 
     setLogLevel(logLevel);
-    
+
     final versionData = await VersionUtils.getSDKVersion();
     final userAgentData = await VersionUtils.getUserAgent();
 
-    final userAgent = UserAgent(
-      sdkVersion: versionData,
-      data: userAgentData,
-    );
+    final userAgent = UserAgent(sdkVersion: versionData, data: userAgentData);
 
     final anonymousLoginParams = AnonymousLoginParams(
       targetType: targetType,
@@ -1082,8 +1080,8 @@ class TelnyxClient {
           pushNotificationToken: config.notificationToken!,
           pushNotificationProvider:
               defaultTargetPlatform == TargetPlatform.android
-                  ? 'android'
-                  : 'ios',
+              ? 'android'
+              : 'ios',
         ),
       );
       final disablePushMessage = DisablePushMessage(
@@ -1371,9 +1369,7 @@ class TelnyxClient {
 
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
-        GlobalLogger().i(
-          'TxSocket :: ${data.toString().trim()}',
-        );
+        GlobalLogger().i('TxSocket :: ${data.toString().trim()}');
         if (data.toString().trim().contains('error')) {
           final errorJson = jsonEncode(data.toString());
           _logger.log(
@@ -1447,22 +1443,24 @@ class TelnyxClient {
                         //sending attach Call
                         final String platform =
                             defaultTargetPlatform == TargetPlatform.android
-                                ? 'android'
-                                : 'ios';
-                        const String pushEnvironment =
-                            kDebugMode ? 'development' : 'production';
+                            ? 'android'
+                            : 'ios';
+                        const String pushEnvironment = kDebugMode
+                            ? 'development'
+                            : 'production';
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
-                          method: SocketMethod.attachCall,
-                          id: const Uuid().v4(),
-                          params: Params(
-                            userVariables: <dynamic, dynamic>{
-                              'push_notification_environment': pushEnvironment,
-                              'push_notification_provider': platform,
-                            },
-                          ),
-                          jsonrpc: '2.0',
-                        );
+                              method: SocketMethod.attachCall,
+                              id: const Uuid().v4(),
+                              params: Params(
+                                userVariables: <dynamic, dynamic>{
+                                  'push_notification_environment':
+                                      pushEnvironment,
+                                  'push_notification_provider': platform,
+                                },
+                              ),
+                              jsonrpc: '2.0',
+                            );
                         GlobalLogger().i(
                           'attachCallMessage :: ${attachCallMessage.toJson()}',
                         );
@@ -1821,10 +1819,12 @@ class TelnyxClient {
                   id: ringing.id,
                   result: ringingAckResult,
                 );
-                final String jsonRingingAckMessage =
-                    jsonEncode(ringingAckMessage);
+                final String jsonRingingAckMessage = jsonEncode(
+                  ringingAckMessage,
+                );
                 GlobalLogger().i(
-                    'Sending ringing acknowledgement: $jsonRingingAckMessage');
+                  'Sending ringing acknowledgement: $jsonRingingAckMessage',
+                );
                 txSocket.send(jsonRingingAckMessage);
 
                 GlobalLogger().i(
@@ -1853,7 +1853,9 @@ class TelnyxClient {
                 }
 
                 // Process message for transcript extraction
-                _processAiConversationForTranscript(aiConversation.aiConversationParams);
+                _processAiConversationForTranscript(
+                  aiConversation.aiConversationParams,
+                );
 
                 final message = TelnyxMessage(
                   socketMethod: SocketMethod.aiConversation,
@@ -1895,10 +1897,12 @@ class TelnyxClient {
       return; // Only handle completed user messages
     }
 
-    final content = params.item?.content
-        ?.where((c) => c.transcript != null || c.text != null)
-        .map((c) => c.transcript ?? c.text ?? '')
-        .join(' ') ?? '';
+    final content =
+        params.item?.content
+            ?.where((c) => c.transcript != null || c.text != null)
+            .map((c) => c.transcript ?? c.text ?? '')
+            .join(' ') ??
+        '';
 
     if (content.isNotEmpty && params.item?.id != null) {
       final transcriptItem = TranscriptItem(

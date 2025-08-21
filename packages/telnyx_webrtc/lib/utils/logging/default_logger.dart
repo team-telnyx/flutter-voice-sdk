@@ -14,10 +14,33 @@ class DefaultLogger implements CustomLogger {
 
   @override
   void log(LogLevel level, String message) {
-    if (_logLevel.index <= level.index) {
+    if (_shouldLog(level)) {
       if (kDebugMode) {
         print('${level.name.toUpperCase()}: $message');
       }
     }
+  }
+
+  /// Determines if a log message should be printed based on the current log level
+  bool _shouldLog(LogLevel level) {
+    // If log level is set to none, don't log anything
+    if (_logLevel == LogLevel.none) {
+      return false;
+    }
+
+    // If log level is set to all, log everything
+    if (_logLevel == LogLevel.all) {
+      return true;
+    }
+
+    // For other levels, compare priorities
+    // Log if the message level priority is greater than or equal to the set log level priority
+    // Higher priority numbers mean more restrictive (less verbose)
+    if (level.priority != null && _logLevel.priority != null) {
+      return level.priority! >= _logLevel.priority!;
+    }
+
+    // Handle edge cases where priority might be null
+    return false;
   }
 }

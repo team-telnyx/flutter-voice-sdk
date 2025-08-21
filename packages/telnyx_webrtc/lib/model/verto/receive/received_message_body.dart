@@ -46,7 +46,8 @@ class ReceivedMessage {
     byeParams = json['params'] != null
         ? ReceiveByeParams.fromJson(json['params'])
         : null;
-    aiConversationParams = json['params'] != null && json['method'] == 'ai_conversation'
+    aiConversationParams =
+        json['params'] != null && json['method'] == 'ai_conversation'
         ? AiConversationParams.fromJson(json['params'])
         : null;
     if (json['params'] != null && json['params']['dialogParams'] != null) {
