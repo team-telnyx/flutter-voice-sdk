@@ -471,12 +471,7 @@ class Call {
       id: messageId,
       type: 'message',
       role: 'user',
-      content: [
-        ConversationContentData(
-          type: 'input_text',
-          text: message,
-        ),
-      ],
+      content: [ConversationContentData(type: 'input_text', text: message)],
     );
 
     final conversationParams = ConversationMessageParams(
