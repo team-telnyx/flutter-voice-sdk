@@ -70,6 +70,7 @@ class DialogParams {
   List<dynamic>? userVariables;
   bool? video;
   Map<String, String>? customHeaders = {};
+  List<Map<String, dynamic>>? preferredCodecs;
 
   DialogParams({
     this.attach,
@@ -85,6 +86,7 @@ class DialogParams {
     this.userVariables,
     this.video,
     this.customHeaders,
+    this.preferredCodecs,
   });
 
   DialogParams.fromJson(Map<String, dynamic> json) {
@@ -110,6 +112,9 @@ class DialogParams {
         customHeaders![v['name']] = v['value'];
       });
     }
+    if (json['preferred_codecs'] != null) {
+      preferredCodecs = List<Map<String, dynamic>>.from(json['preferred_codecs']);
+    }
     video = json['video'];
   }
 
@@ -134,6 +139,9 @@ class DialogParams {
         headers.add(CustomHeader(name: key, value: value));
       });
       data['custom_headers'] = headers.map((e) => e.toJson()).toList();
+    }
+    if (preferredCodecs != null) {
+      data['preferred_codecs'] = preferredCodecs;
     }
     data['video'] = video;
     return data;

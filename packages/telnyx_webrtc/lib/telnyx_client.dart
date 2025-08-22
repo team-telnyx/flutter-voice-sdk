@@ -39,6 +39,8 @@ import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
+import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -292,6 +294,34 @@ class TelnyxClient {
     _transcript.clear();
     _assistantResponseBuffers.clear();
     onTranscriptUpdate?.call(_transcript);
+  }
+
+  /// Gets the list of supported audio codecs available on the client
+  /// 
+  /// Returns a [Future<List<AudioCodec>>] containing the available audio codecs
+  /// that can be used for calls. This method queries the WebRTC capabilities
+  /// to determine which codecs are supported by the current platform.
+  Future<List<AudioCodec>> getSupportedAudioCodecs() async {
+    try {
+      // Get the capabilities for the audio sender
+      final capabilities = await RTCRtpSender.getCapabilities('audio');
+      
+      if (capabilities.codecs != null) {
+        return capabilities.codecs!.map((codec) {
+          return AudioCodec(
+            mimeType: codec.mimeType,
+            clockRate: codec.clockRate,
+            channels: codec.channels,
+            sdpFmtpLine: codec.sdpFmtpLine,
+          );
+        }).toList();
+      }
+      
+      return [];
+    } catch (e) {
+      GlobalLogger().e('Error getting supported audio codecs: $e');
+      return [];
+    }
   }
 
   void _handleNetworkLost() {
@@ -1111,6 +1141,7 @@ class TelnyxClient {
   /// - [clientState]: A custom string that can be used to store and retrieve state
   ///   between applications. It is passed to the remote party.
   /// - [customHeaders]: Optional custom SIP headers to add to the INVITE message.
+  /// - [preferredCodecs]: Optional list of preferred audio codecs in order of preference.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
   ///
   /// Returns a [Call] object representing the new outgoing call.
@@ -1120,6 +1151,7 @@ class TelnyxClient {
     String destinationNumber,
     String clientState, {
     Map<String, String> customHeaders = const {},
+    List<AudioCodec>? preferredCodecs,
     bool debug = false,
   }) {
     final Call inviteCall = _createCall()
@@ -1139,6 +1171,12 @@ class TelnyxClient {
       this,
       getForceRelayCandidate(),
     );
+    // Convert AudioCodec objects to Map format for the peer connection
+    List<Map<String, dynamic>>? codecMaps;
+    if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
+      codecMaps = preferredCodecs.map((codec) => codec.toJson()).toList();
+    }
+
     inviteCall.peerConnection?.invite(
       callerName,
       callerNumber,
@@ -1147,6 +1185,7 @@ class TelnyxClient {
       inviteCall.callId!,
       inviteCall.sessid,
       customHeaders,
+      preferredCodecs: codecMaps,
     );
 
     if (debug) {

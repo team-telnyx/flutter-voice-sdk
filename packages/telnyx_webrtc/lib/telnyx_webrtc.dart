@@ -2,6 +2,7 @@ library;
 
 export './config/telnyx_config.dart';
 
+export './model/audio_codec.dart';
 export './model/call_state.dart';
 export './model/call_termination_reason.dart';
 export './model/gateway_state.dart';

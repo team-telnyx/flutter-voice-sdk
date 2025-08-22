@@ -153,6 +153,7 @@ class Peer {
   /// [callId] The unique ID of the call.
   /// [telnyxSessionId] The Telnyx session ID.
   /// [customHeaders] Custom headers to include in the invite.
+  /// [preferredCodecs] Optional list of preferred audio codecs.
   void invite(
     String callerName,
     String callerNumber,
@@ -160,8 +161,9 @@ class Peer {
     String clientState,
     String callId,
     String telnyxSessionId,
-    Map<String, String> customHeaders,
-  ) async {
+    Map<String, String> customHeaders, {
+    List<Map<String, dynamic>>? preferredCodecs,
+  }) async {
     final sessionId = _selfId;
 
     final Session session = await _createSession(
@@ -184,6 +186,7 @@ class Peer {
       callId,
       telnyxSessionId,
       customHeaders,
+      preferredCodecs,
     );
     onCallStateChange?.call(session, CallState.newCall);
   }
@@ -198,6 +201,7 @@ class Peer {
     String callId,
     String sessionId,
     Map<String, String> customHeaders,
+    List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
       final RTCSessionDescription s = await session.peerConnection!.createOffer(
@@ -238,6 +242,7 @@ class Peer {
           userVariables: [],
           video: false,
           customHeaders: customHeaders,
+          preferredCodecs: preferredCodecs,
         );
         final inviteParams = InviteParams(
           dialogParams: dialogParams,

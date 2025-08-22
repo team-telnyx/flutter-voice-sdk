@@ -24,6 +24,7 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/transcript_item.dart';
+import 'package:telnyx_webrtc/model/audio_codec.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
@@ -48,6 +49,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _mute = false;
   bool _hold = false;
   bool _isAssistantMode = false;
+  List<AudioCodec> _supportedCodecs = [];
+  List<AudioCodec> _preferredCodecs = [];
 
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
@@ -107,6 +110,9 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool get isAssistantMode {
     return _isAssistantMode;
   }
+
+  List<AudioCodec> get supportedCodecs => _supportedCodecs;
+  List<AudioCodec> get preferredCodecs => _preferredCodecs;
 
   String get sessionId {
     return _telnyxClient.sessid;
@@ -386,6 +392,8 @@ class TelnyxClientViewModel with ChangeNotifier {
               if (callState != CallStateStatus.connectingToCall) {
                 callState = CallStateStatus.idle;
               }
+              // Load supported codecs after successful registration
+              loadSupportedCodecs();
               break;
             }
           case SocketMethod.invite:
@@ -716,12 +724,19 @@ class TelnyxClientViewModel with ChangeNotifier {
       destination,
       '',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
+      preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
       debug: true,
     );
 
     logger.i(
       'TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}',
     );
+    
+    if (_preferredCodecs.isNotEmpty) {
+      logger.i(
+        'TelnyxClientViewModel.call: Using preferred codecs: ${_preferredCodecs.map((c) => c.mimeType).join(', ')}',
+      );
+    }
 
     // Track outgoing call for history
     _currentCallDestination = destination;
@@ -925,5 +940,53 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   void disablePushNotifications() {
     _telnyxClient.disablePushNotifications();
+  }
+
+  /// Loads the supported audio codecs from the WebRTC capabilities
+  Future<void> loadSupportedCodecs() async {
+    try {
+      _supportedCodecs = await _telnyxClient.getSupportedAudioCodecs();
+      logger.i(
+        'TelnyxClientViewModel.loadSupportedCodecs: Loaded ${_supportedCodecs.length} supported codecs',
+      );
+      for (final codec in _supportedCodecs) {
+        logger.d('Supported codec: ${codec.mimeType} - ${codec.clockRate}Hz - ${codec.channels} channels');
+      }
+      notifyListeners();
+    } catch (e) {
+      logger.e('TelnyxClientViewModel.loadSupportedCodecs: Error loading codecs: $e');
+    }
+  }
+
+  /// Sets the preferred audio codecs for outgoing calls
+  void setPreferredCodecs(List<AudioCodec> codecs) {
+    _preferredCodecs = List.from(codecs);
+    logger.i(
+      'TelnyxClientViewModel.setPreferredCodecs: Set ${_preferredCodecs.length} preferred codecs: ${_preferredCodecs.map((c) => c.mimeType).join(', ')}',
+    );
+    notifyListeners();
+  }
+
+  /// Adds a codec to the preferred codecs list
+  void addPreferredCodec(AudioCodec codec) {
+    if (!_preferredCodecs.any((c) => c.mimeType == codec.mimeType && c.clockRate == codec.clockRate)) {
+      _preferredCodecs.add(codec);
+      logger.i('TelnyxClientViewModel.addPreferredCodec: Added ${codec.mimeType} to preferred codecs');
+      notifyListeners();
+    }
+  }
+
+  /// Removes a codec from the preferred codecs list
+  void removePreferredCodec(AudioCodec codec) {
+    _preferredCodecs.removeWhere((c) => c.mimeType == codec.mimeType && c.clockRate == codec.clockRate);
+    logger.i('TelnyxClientViewModel.removePreferredCodec: Removed ${codec.mimeType} from preferred codecs');
+    notifyListeners();
+  }
+
+  /// Clears all preferred codecs
+  void clearPreferredCodecs() {
+    _preferredCodecs.clear();
+    logger.i('TelnyxClientViewModel.clearPreferredCodecs: Cleared all preferred codecs');
+    notifyListeners();
   }
 }
