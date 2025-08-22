@@ -66,7 +66,7 @@ class Peer {
 
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
 
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
@@ -223,8 +223,8 @@ class Peer {
 
       String? sdpUsed = '';
       await session.peerConnection?.getLocalDescription().then(
-        (value) => sdpUsed = value?.sdp.toString(),
-      );
+            (value) => sdpUsed = value?.sdp.toString(),
+          );
 
       Timer(const Duration(milliseconds: 500), () async {
         final userAgent = await VersionUtils.getUserAgent();
@@ -271,8 +271,8 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(sdp, 'answer'),
-    );
+          RTCSessionDescription(sdp, 'answer'),
+        );
   }
 
   /// Accepts an incoming call.
@@ -293,8 +293,9 @@ class Peer {
     String callId,
     IncomingInviteParams invite,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    List<Map<String, dynamic>>? preferredCodecs,
+  }) async {
     final sessionId = _selfId;
     final Session session = await _createSession(
       null,
@@ -319,6 +320,7 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
+      preferredCodecs,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -334,6 +336,7 @@ class Peer {
     String callId,
     Map<String, String> customHeaders,
     bool isAttach,
+    List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
@@ -345,7 +348,7 @@ class Peer {
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
                 candidateString.contains('stun.telnyx.com') ||
-                candidateString.contains('turn.telnyx.com');
+                    candidateString.contains('turn.telnyx.com');
 
             if (isValidCandidate) {
               GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
@@ -364,8 +367,8 @@ class Peer {
         }
       };
 
-      final RTCSessionDescription s = await session.peerConnection!
-          .createAnswer(_dcConstraints);
+      final RTCSessionDescription s =
+          await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
       // Start ICE candidate gathering and wait for negotiation to complete
@@ -373,8 +376,8 @@ class Peer {
       _setOnNegotiationComplete(() async {
         String? sdpUsed = '';
         await session.peerConnection?.getLocalDescription().then(
-          (value) => sdpUsed = value?.sdp.toString(),
-        );
+              (value) => sdpUsed = value?.sdp.toString(),
+            );
 
         final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -391,6 +394,7 @@ class Peer {
           userVariables: [],
           video: false,
           customHeaders: customHeaders,
+          preferredCodecs: preferredCodecs,
         );
         final inviteParams = InviteParams(
           dialogParams: dialogParams,
@@ -490,8 +494,7 @@ class Peer {
       );
       if (candidate.candidate != null) {
         final candidateString = candidate.candidate.toString();
-        final isValidCandidate =
-            candidateString.contains('stun.telnyx.com') ||
+        final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
             candidateString.contains('turn.telnyx.com');
 
         if (isValidCandidate) {
@@ -671,9 +674,8 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastCandidateTime!)
-            .inMilliseconds;
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );

@@ -332,8 +332,8 @@ class _AddProfileFormState extends State<AddProfileForm> {
                 child: Text(
                   'Region',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+                        fontWeight: FontWeight.w500,
+                      ),
                 ),
               ),
               DropdownButtonFormField<Region>(

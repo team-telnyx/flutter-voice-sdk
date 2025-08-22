@@ -39,12 +39,14 @@ void main() {
 
       final json = codec.toJson();
 
-      expect(json, equals({
-        'mimeType': 'audio/opus',
-        'clockRate': 48000,
-        'channels': 2,
-        'sdpFmtpLine': 'minptime=10;useinbandfec=1',
-      }));
+      expect(
+          json,
+          equals({
+            'mimeType': 'audio/opus',
+            'clockRate': 48000,
+            'channels': 2,
+            'sdpFmtpLine': 'minptime=10;useinbandfec=1',
+          }));
     });
 
     test('should serialize to JSON with null values omitted', () {
@@ -55,10 +57,12 @@ void main() {
 
       final json = codec.toJson();
 
-      expect(json, equals({
-        'mimeType': 'audio/PCMU',
-        'clockRate': 8000,
-      }));
+      expect(
+          json,
+          equals({
+            'mimeType': 'audio/PCMU',
+            'clockRate': 8000,
+          }));
       expect(json.containsKey('channels'), isFalse);
       expect(json.containsKey('sdpFmtpLine'), isFalse);
     });

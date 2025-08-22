@@ -7,6 +7,7 @@ import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_controls.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/codec_selector_dialog.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/common/bottom_action_widget.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
@@ -100,6 +101,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void handleOptionClick(String value) {
     switch (value) {
+      case 'Audio Codecs':
+        _showCodecSelectorDialog();
+        break;
       case 'Export Logs':
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
@@ -117,6 +121,15 @@ class _HomeScreenState extends State<HomeScreen> {
         _showAssistantLoginDialog();
         break;
     }
+  }
+
+  void _showCodecSelectorDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return const CodecSelectorDialog();
+      },
+    );
   }
 
   @override
@@ -161,7 +174,11 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {'Export Logs', 'Disable Push Notifications'}.map((
+                return {
+                  'Audio Codecs',
+                  'Export Logs',
+                  'Disable Push Notifications'
+                }.map((
                   String choice,
                 ) {
                   return PopupMenuItem<String>(
@@ -179,7 +196,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 final debugToggleText = selectedProfile.isDebug
                     ? 'Disable Debugging'
                     : 'Enable Debugging';
-                return {'Export Logs', debugToggleText, 'Assistant Login'}.map((String choice) {
+                return {'Export Logs', debugToggleText, 'Assistant Login'}
+                    .map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),

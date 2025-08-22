@@ -245,10 +245,8 @@ class WebRTCStatsReporter {
       Map<String, dynamic>? succeededConnection;
       final statsObject = {};
 
-      final timestamp = DateTime.now()
-          .toUtc()
-          .millisecondsSinceEpoch
-          .toDouble();
+      final timestamp =
+          DateTime.now().toUtc().millisecondsSinceEpoch.toDouble();
 
       final Map<String, dynamic> localCandidates = {};
       final Map<String, dynamic> remoteCandidates = {};
@@ -556,8 +554,8 @@ class WebRTCStatsReporter {
                     (inboundValues['packetsLost'] as num?)?.toDouble() ?? 0;
                 final totalPackets =
                     (inboundValues['totalPacketsReceived'] as num?)
-                        ?.toDouble() ??
-                    1;
+                            ?.toDouble() ??
+                        1;
                 if (totalPackets > 0) {
                   packetLoss = packetsLost / (totalPackets + packetsLost);
                 }
@@ -579,7 +577,7 @@ class WebRTCStatsReporter {
                 remoteInboundValues['kind'] == 'audio') {
               rtt =
                   (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ??
-                  0;
+                      0;
               remoteInboundAudioStats = Map<String, dynamic>.from(
                 remoteInboundValues,
               );
