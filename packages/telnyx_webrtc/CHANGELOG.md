@@ -1,3 +1,17 @@
+## [3.0.0](https://pub.dev/packages/telnyx_webrtc/versions/3.0.0) (2025-08-25)
+### Enhancement
+
+- Added support for AI Agent Usage.
+  - Login to your specific AI agent by providing the agent ID from the portal to the anonymous login method.
+  - Any call made via the newInvite method will be routed to the AI agent.
+  - Transcription and AI responses will be available via the onTranscriptUpdate callback
+- Added PreferredCodec parameter to the newInvite and acceptCall methods to allow users to specify their preferred audio codec for the call. Note that if the chosen codec is not supported, the call will default to the first codec supported in the SDP. 
+  - You can retrieve the list of supported codecs via the getSupportedAudioCodecs method on the TelnyxClient class, however for now these are static and it is possible that some devices may not support all codecs listed - the SDK will fallback to a supported codec in this case.
+  
+### Bug Fixing
+- Fixed an issue where log levels were not being respected with the default logger (Specifically the NONE log level). Now, the default logger will respect the log level set in the Config class.
+- Fixed an issue where, for Android, the default speakerphone state was enabled when a call was initiated. Now, the speakerphone will only be enabled if the user explicitly enables it.
+
 ## [2.0.1](https://pub.dev/packages/telnyx_webrtc/versions/2.0.1) (2025-06-26)
 ### Enhancement
 
