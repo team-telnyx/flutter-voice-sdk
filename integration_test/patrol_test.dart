@@ -58,15 +58,15 @@ void main() {
       // 4. Retrieve credentials from environment variables
       final username = const String.fromEnvironment(
         'APP_LOGIN_USER',
-        defaultValue: 'OliverEthanZimmerman',
+        defaultValue: 'User',
       );
       final password = const String.fromEnvironment(
         'APP_LOGIN_PASSWORD',
-        defaultValue: 'Welcome@6',
+        defaultValue: 'Password',
       );
       final number = const String.fromEnvironment(
         'APP_LOGIN_NUMBER',
-        defaultValue: '+18004377950',
+        defaultValue: '+0000000000',
       );
 
       // 5. Fill in SIP details in the bottom sheet
