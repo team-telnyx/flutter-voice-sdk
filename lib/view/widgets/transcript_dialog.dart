@@ -81,12 +81,12 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
           child: Consumer<TelnyxClientViewModel>(
             builder: (context, viewModel, child) {
               final transcript = viewModel.transcript;
-              
+
               // Auto-scroll when new messages arrive
               if (transcript.isNotEmpty) {
                 _scrollToBottom();
               }
-              
+
               return ListView.builder(
                 controller: _scrollController,
                 padding: const EdgeInsets.all(16),
@@ -142,11 +142,12 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
 
   Widget _buildTranscriptItem(TranscriptItem item) {
     final isUser = item.role == 'user';
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!isUser) ...[
             CircleAvatar(
@@ -202,7 +203,7 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
   String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
-    
+
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inHours < 1) {

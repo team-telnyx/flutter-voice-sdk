@@ -140,11 +140,13 @@ class _CallControlsState extends State<CallControls> {
               readOnly: clientState != CallStateStatus.idle,
               enabled: clientState == CallStateStatus.idle,
               controller: _destinationController,
-              keyboardType: _isPhoneNumber
-                  ? TextInputType.phone
-                  : TextInputType.text,
+              keyboardType:
+                  _isPhoneNumber ? TextInputType.phone : TextInputType.text,
               inputFormatters: _isPhoneNumber
-                  ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s\(\)]'))]
+                  ? [
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'[0-9+\-\s\(\)]'))
+                    ]
                   : [
                       FilteringTextInputFormatter.allow(
                         RegExp(r'[a-zA-Z0-9@\.\-_]'),

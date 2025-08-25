@@ -184,26 +184,23 @@ class _MyAppState extends State<MyApp> {
     // Platform-specific logic for handling initial push data when app starts.
     // For Android, this checks if the app was launched from a terminated state by a notification.
     // For iOS, this is less critical as CallKit events usually drive the flow after launch.
-    PlatformPushService.handler
-        .getInitialPushData()
-        .then((data) {
-          if (data != null) {
-            final Map<dynamic, dynamic> mutablePayload = Map.from(data);
-            final answer = mutablePayload['isAnswer'] = true;
-            PlatformPushService.handler.processIncomingCallAction(
-              data,
-              isAnswer: answer,
-              isDecline: !answer,
-            );
-          } else {
-            logger.i('[_MyAppState] Android: No initial push data found.');
-          }
-        })
-        .catchError((e) {
-          logger.e(
-            '[_MyAppState] Android: Error fetching initial push data: $e',
-          );
-        });
+    PlatformPushService.handler.getInitialPushData().then((data) {
+      if (data != null) {
+        final Map<dynamic, dynamic> mutablePayload = Map.from(data);
+        final answer = mutablePayload['isAnswer'] = true;
+        PlatformPushService.handler.processIncomingCallAction(
+          data,
+          isAnswer: answer,
+          isDecline: !answer,
+        );
+      } else {
+        logger.i('[_MyAppState] Android: No initial push data found.');
+      }
+    }).catchError((e) {
+      logger.e(
+        '[_MyAppState] Android: Error fetching initial push data: $e',
+      );
+    });
   }
 
   @override

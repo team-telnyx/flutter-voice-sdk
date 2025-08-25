@@ -285,18 +285,18 @@ class Call {
     final (causeCode, causeName) = switch (callState) {
       // When Active or Connecting, use NORMAL_CLEARING
       CallState.active => (
-        CauseCode.NORMAL_CLEARING.value,
-        CauseCode.NORMAL_CLEARING.name,
-      ),
+          CauseCode.NORMAL_CLEARING.value,
+          CauseCode.NORMAL_CLEARING.name,
+        ),
       CallState.connecting => (
-        CauseCode.NORMAL_CLEARING.value,
-        CauseCode.NORMAL_CLEARING.name,
-      ),
+          CauseCode.NORMAL_CLEARING.value,
+          CauseCode.NORMAL_CLEARING.name,
+        ),
       // When Ringing (i.e. Rejecting an incoming call), use USER_BUSY
       CallState.ringing => (
-        CauseCode.USER_BUSY.value,
-        CauseCode.USER_BUSY.name,
-      ),
+          CauseCode.USER_BUSY.value,
+          CauseCode.USER_BUSY.name,
+        ),
       // Default to NORMAL_CLEARING for other states
       _ => (CauseCode.NORMAL_CLEARING.value, CauseCode.NORMAL_CLEARING.name),
     };

@@ -144,8 +144,7 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
     try {
       await flutterLocalNotificationsPlugin
           .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin
-          >()
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
       _logger.i(
         '[PushNotificationHandler-Android] High importance notification channel created/updated.',
@@ -397,8 +396,8 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
   @override
   Future<Map<String, dynamic>?> getInitialPushData() async {
     _logger.i('[PushNotificationHandler-Android] getInitialPushData');
-    final RemoteMessage? initialMessage = await FirebaseMessaging.instance
-        .getInitialMessage();
+    final RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) {
       _logger.i(
         '[PushNotificationHandler-Android] getInitialPushData: Found initial message: ${initialMessage.data}',

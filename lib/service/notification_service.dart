@@ -111,8 +111,8 @@ class NotificationService {
       // Use a default map if metadata is missing or invalid
       final Map<String, dynamic> metadataMap =
           message.data.containsKey('metadata')
-          ? jsonDecode(message.data['metadata'] ?? '{}')
-          : {};
+              ? jsonDecode(message.data['metadata'] ?? '{}')
+              : {};
       final metadata = PushMetaData.fromJson(metadataMap);
 
       // Check for the actual call ID from Telnyx metadata (using camelCase)
@@ -187,7 +187,7 @@ class NotificationService {
     required String callId,
     required String callerName,
     required String
-    handle, // This is the destination number for an outgoing call
+        handle, // This is the destination number for an outgoing call
     Map<String, dynamic> extra = const {}, // Optional extra data
   }) async {
     final logger = Logger()
@@ -225,8 +225,8 @@ class NotificationService {
     try {
       final Map<String, dynamic> metadataMap =
           message.data.containsKey('metadata')
-          ? jsonDecode(message.data['metadata'] ?? '{}')
-          : {};
+              ? jsonDecode(message.data['metadata'] ?? '{}')
+              : {};
       final metadata = PushMetaData.fromJson(metadataMap);
       final String? telnyxCallId = _extractCallId(
         metadataMap,

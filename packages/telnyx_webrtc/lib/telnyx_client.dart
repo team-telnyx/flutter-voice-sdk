@@ -39,6 +39,8 @@ import 'package:telnyx_webrtc/model/verto/send/pong_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
+import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -294,6 +296,70 @@ class TelnyxClient {
     onTranscriptUpdate?.call(_transcript);
   }
 
+  /// Gets the list of supported audio codecs available on the client
+  ///
+  /// Returns a [List<AudioCodec>] containing commonly supported audio codecs
+  /// for WebRTC calls. This method returns a predefined list of standard codecs
+  /// that are widely supported across WebRTC implementations.
+  ///
+  /// Note: This is a temporary implementation until flutter_webrtc adds support
+  /// for RTCRtpSender.getCapabilities(). The returned codecs are standard WebRTC
+  /// audio codecs that should work on most platforms.
+  ///
+  /// You can still pass the desired codec/s via the [newInvite] method when creating a call. The codecs passed are in order of preference.
+  /// If the codec/s passed are not supported it will default to a supported codec.
+  ///
+  /// See: https://github.com/flutter-webrtc/flutter-webrtc/issues/930
+  List<AudioCodec> getSupportedAudioCodecs() {
+    // Return a list of audio codecs supported by the Telnyx backend
+    // These codecs are confirmed to be supported by the Telnyx platform
+    return [
+      // Opus - Primary codec for WebRTC, excellent quality and compression
+      AudioCodec(
+        mimeType: 'audio/opus',
+        clockRate: 48000,
+        channels: 2,
+        sdpFmtpLine: 'minptime=10;useinbandfec=1',
+      ),
+      // G722 - Wideband codec for better quality than G.711
+      AudioCodec(
+        mimeType: 'audio/G722',
+        clockRate: 8000,
+        channels: 1,
+      ),
+      // PCMU (G.711 μ-law) - Standard codec
+      AudioCodec(
+        mimeType: 'audio/PCMU',
+        clockRate: 8000,
+        channels: 1,
+      ),
+      // PCMA (G.711 A-law) - Standard codec
+      AudioCodec(
+        mimeType: 'audio/PCMA',
+        clockRate: 8000,
+        channels: 1,
+      ),
+      // G729 - Low bitrate codec
+      AudioCodec(
+        mimeType: 'audio/G729',
+        clockRate: 8000,
+        channels: 1,
+      ),
+      // AMR-WB - Adaptive Multi-Rate Wideband codec
+      AudioCodec(
+        mimeType: 'audio/AMR-WB',
+        clockRate: 16000,
+        channels: 1,
+      ),
+      // Telephone-event - For DTMF support
+      AudioCodec(
+        mimeType: 'audio/telephone-event',
+        clockRate: 8000,
+        channels: 1,
+      ),
+    ];
+  }
+
   void _handleNetworkLost() {
     for (var call in activeCalls().values) {
       call.callHandler.onCallStateChanged.call(
@@ -330,8 +396,7 @@ class TelnyxClient {
     // Create a new timer
     _reconnectionTimers[call.callId] = Timer(
       Duration(
-        milliseconds:
-            _storedCredentialConfig?.reconnectionTimeout ??
+        milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
             _storedTokenConfig?.reconnectionTimeout ??
             Constants.reconnectionTimeout,
       ),
@@ -524,9 +589,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -567,9 +631,8 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'ios',
+      pushNotificationProvider:
+          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -784,6 +847,7 @@ class TelnyxClient {
   @Deprecated(
     'Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)',
   )
+
   /// Connects to the WebSocket with a previously provided [Config]
   void connect() {
     GlobalLogger().i('connect()');
@@ -852,6 +916,7 @@ class TelnyxClient {
   @Deprecated(
     'telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()',
   )
+
   /// The current instance of [Call] associated with this client.
   ///
   /// This is deprecated. Use [newInvite] to create a new call or
@@ -1080,8 +1145,8 @@ class TelnyxClient {
           pushNotificationToken: config.notificationToken!,
           pushNotificationProvider:
               defaultTargetPlatform == TargetPlatform.android
-              ? 'android'
-              : 'ios',
+                  ? 'android'
+                  : 'ios',
         ),
       );
       final disablePushMessage = DisablePushMessage(
@@ -1111,6 +1176,9 @@ class TelnyxClient {
   /// - [clientState]: A custom string that can be used to store and retrieve state
   ///   between applications. It is passed to the remote party.
   /// - [customHeaders]: Optional custom SIP headers to add to the INVITE message.
+  /// - [preferredCodecs]: Optional list of preferred audio codecs in order of preference.
+  ///   If any codec in the list is not supported by the platform or remote party,
+  ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
   ///
   /// Returns a [Call] object representing the new outgoing call.
@@ -1120,6 +1188,7 @@ class TelnyxClient {
     String destinationNumber,
     String clientState, {
     Map<String, String> customHeaders = const {},
+    List<AudioCodec>? preferredCodecs,
     bool debug = false,
   }) {
     final Call inviteCall = _createCall()
@@ -1139,6 +1208,12 @@ class TelnyxClient {
       this,
       getForceRelayCandidate(),
     );
+    // Convert AudioCodec objects to Map format for the peer connection
+    List<Map<String, dynamic>>? codecMaps;
+    if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
+      codecMaps = preferredCodecs.map((codec) => codec.toJson()).toList();
+    }
+
     inviteCall.peerConnection?.invite(
       callerName,
       callerNumber,
@@ -1147,6 +1222,7 @@ class TelnyxClient {
       inviteCall.callId!,
       inviteCall.sessid,
       customHeaders,
+      preferredCodecs: codecMaps,
     );
 
     if (debug) {
@@ -1168,6 +1244,9 @@ class TelnyxClient {
   /// - [clientState]: A custom string for application-specific state.
   /// - [isAttach]: Set to true if this is a call being re-attached (e.g., after network reconnection).
   /// - [customHeaders]: Optional custom SIP headers to add to the response.
+  /// - [preferredCodecs]: Optional list of preferred audio codecs in order of preference.
+  ///   If any codec in the list is not supported by the platform or remote party,
+  ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
   ///
   /// Returns the [Call] object associated with the accepted call.
@@ -1178,6 +1257,7 @@ class TelnyxClient {
     String clientState, {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
+    List<AudioCodec>? preferredCodecs,
     bool debug = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
@@ -1198,6 +1278,12 @@ class TelnyxClient {
       getForceRelayCandidate(),
     );
 
+    // Convert AudioCodec objects to Map format for the peer connection
+    List<Map<String, dynamic>>? codecMaps;
+    if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
+      codecMaps = preferredCodecs.map((codec) => codec.toJson()).toList();
+    }
+
     // Set up the session with the callback if debug is enabled
     answerCall.peerConnection?.accept(
       callerName,
@@ -1208,6 +1294,7 @@ class TelnyxClient {
       invite,
       customHeaders,
       isAttach,
+      preferredCodecs: codecMaps,
     );
     answerCall.callHandler.changeState(CallState.connecting);
     if (debug) {
@@ -1443,24 +1530,22 @@ class TelnyxClient {
                         //sending attach Call
                         final String platform =
                             defaultTargetPlatform == TargetPlatform.android
-                            ? 'android'
-                            : 'ios';
-                        const String pushEnvironment = kDebugMode
-                            ? 'development'
-                            : 'production';
+                                ? 'android'
+                                : 'ios';
+                        const String pushEnvironment =
+                            kDebugMode ? 'development' : 'production';
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
-                              method: SocketMethod.attachCall,
-                              id: const Uuid().v4(),
-                              params: Params(
-                                userVariables: <dynamic, dynamic>{
-                                  'push_notification_environment':
-                                      pushEnvironment,
-                                  'push_notification_provider': platform,
-                                },
-                              ),
-                              jsonrpc: '2.0',
-                            );
+                          method: SocketMethod.attachCall,
+                          id: const Uuid().v4(),
+                          params: Params(
+                            userVariables: <dynamic, dynamic>{
+                              'push_notification_environment': pushEnvironment,
+                              'push_notification_provider': platform,
+                            },
+                          ),
+                          jsonrpc: '2.0',
+                        );
                         GlobalLogger().i(
                           'attachCallMessage :: ${attachCallMessage.toJson()}',
                         );
@@ -1897,8 +1982,7 @@ class TelnyxClient {
       return; // Only handle completed user messages
     }
 
-    final content =
-        params.item?.content
+    final content = params.item?.content
             ?.where((c) => c.transcript != null || c.text != null)
             .map((c) => c.transcript ?? c.text ?? '')
             .join(' ') ??
