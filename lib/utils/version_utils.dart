@@ -1,5 +1,4 @@
 import 'package:flutter/services.dart';
-import 'dart:convert';
 
 class VersionUtils {
   static String? _appVersion;

@@ -173,16 +173,16 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
                       color: isUser ? Colors.white : Colors.black87,
                     ),
                   ),
-                  if (item.timestamp != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatTimestamp(item.timestamp!),
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: isUser ? Colors.white70 : Colors.grey[600],
-                      ),
+                  ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    _formatTimestamp(item.timestamp),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isUser ? Colors.white70 : Colors.grey[600],
                     ),
-                  ],
+                  ),
+                ],
                 ],
               ),
             ),
