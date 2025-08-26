@@ -245,10 +245,11 @@ class _AddProfileFormState extends State<AddProfileForm> {
   Widget build(BuildContext context) {
     return Form(
       key: _formKey,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           const SizedBox(height: spacingS),
           CredentialToggle(
             isTokenLogin: _isTokenLogin,
@@ -469,6 +470,7 @@ class _AddProfileFormState extends State<AddProfileForm> {
             ],
           ),
         ],
+        ),
       ),
     );
   }
