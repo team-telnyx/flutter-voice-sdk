@@ -146,7 +146,14 @@ class TelnyxClient {
   /// Timeout duration for pending answer from push (10 seconds)
   static const Duration _pushAnswerTimeoutDuration = Duration(seconds: 10);
 
+  /// Controls whether the client should automatically attempt to reconnect
+  /// when the socket connection fails or network connectivity is restored.
+  /// This value is set from the CredentialConfig or TokenConfig during login.
   bool _autoReconnectLogin = true;
+  
+  /// Tracks the number of connection retry attempts made.
+  /// This counter is incremented with each reconnection attempt and reset
+  /// when a successful connection is established or when the retry limit is reached.
   int _connectRetryCounter = 0;
 
   /// The current gateway state for the socket connection
@@ -242,6 +249,19 @@ class TelnyxClient {
   /// Returns whether or not debug is enabled for the client
   bool isDebug() {
     return _debug;
+  }
+
+  /// Returns whether autoReconnect is enabled for the client
+  /// When enabled, the client will automatically attempt to reconnect
+  /// when the socket connection fails or network connectivity is restored
+  bool isAutoReconnectEnabled() {
+    return _autoReconnectLogin;
+  }
+
+  /// Returns the current connection retry counter
+  /// This shows how many reconnection attempts have been made
+  int getConnectionRetryCount() {
+    return _connectRetryCounter;
   }
 
   /// Returns the current Gateway state for the socket connection
@@ -370,7 +390,21 @@ class TelnyxClient {
   }
 
   void _handleNetworkReconnection(NetworkReason reason) {
+    // Check if autoReconnect is enabled before attempting network reconnection
+    if (!_autoReconnectLogin) {
+      GlobalLogger().i('AutoReconnect is disabled, not attempting network reconnection');
+      for (var call in activeCalls().values) {
+        call.callHandler.onCallStateChanged.call(
+          CallState.dropped.withNetworkReason(NetworkReason.networkLost),
+        );
+        call.endCall();
+      }
+      return;
+    }
+
+    GlobalLogger().i('Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)');
     _reconnectToSocket();
+    
     for (var call in activeCalls().values) {
       if (call.callState.isDropped) {
         call.callHandler.onCallStateChanged.call(
@@ -890,19 +924,38 @@ class TelnyxClient {
     }
   }
 
+  /// Reconnects to the socket using stored configuration
+  /// This method is used for both network-based reconnections and gateway failures
+  /// It respects the autoReconnect settings and provides better logging
   void _reconnectToSocket() {
+    GlobalLogger().i('Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)');
+    
     _isAttaching = true;
     Timer(Duration(milliseconds: Constants.gatewayResponseDelay), () {
       _isAttaching = false;
     });
 
     txSocket.close();
-    // Delay to allow connection
-    Timer(const Duration(seconds: 1), () {
+    
+    // Delay to allow connection with exponential backoff for retries
+    final delayMs = _connectRetryCounter > 0 
+        ? Constants.reconnectTimer * (1 << (_connectRetryCounter - 1))
+        : 1000;
+    
+    Timer(Duration(milliseconds: delayMs), () {
       if (_storedCredentialConfig != null) {
+        GlobalLogger().i('Reconnecting with credential config');
         connectWithCredential(_storedCredentialConfig!);
       } else if (_storedTokenConfig != null) {
+        GlobalLogger().i('Reconnecting with token config');
         connectWithToken(_storedTokenConfig!);
+      } else {
+        GlobalLogger().e('No stored configuration available for socket reconnection');
+        final error = TelnyxSocketError(
+          errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+          errorMessage: 'No stored configuration available for socket reconnection',
+        );
+        onSocketErrorReceived(error);
       }
     });
   }
@@ -2111,15 +2164,44 @@ class TelnyxClient {
 
   /// Attempts to reconnect to the socket using the stored configuration
   /// This method is called when gateway registration fails and autoReconnect is enabled
+  /// It respects the _autoReconnectLogin setting and _connectRetryCounter limits
   void _attemptReconnection() {
+    // Check if autoReconnect is enabled
+    if (!_autoReconnectLogin) {
+      GlobalLogger().i('AutoReconnect is disabled, not attempting reconnection');
+      final error = TelnyxSocketError(
+        errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+        errorMessage: 'AutoReconnect is disabled',
+      );
+      onSocketErrorReceived(error);
+      return;
+    }
+
+    // Check if we've exceeded the retry limit
+    if (_connectRetryCounter >= Constants.retryConnectTime) {
+      GlobalLogger().e('Maximum reconnection attempts reached ($_connectRetryCounter/${Constants.retryConnectTime})');
+      final error = TelnyxSocketError(
+        errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+        errorMessage: 'Maximum reconnection attempts reached',
+      );
+      onSocketErrorReceived(error);
+      return;
+    }
+
+    GlobalLogger().i('Attempting reconnection $_connectRetryCounter/${Constants.retryConnectTime} (autoReconnect: $_autoReconnectLogin)');
+    
     // Add a small delay before attempting reconnection to avoid overwhelming the server
-    Timer(Duration(milliseconds: Constants.reconnectTimer), () {
+    // Use exponential backoff: base delay * (2 ^ retry_count)
+    final delayMs = Constants.reconnectTimer * (1 << (_connectRetryCounter - 1));
+    Timer(Duration(milliseconds: delayMs), () {
       if (_storedCredentialConfig != null) {
-        GlobalLogger().i('Attempting reconnection with credential config');
-        connectWithCredential(_storedCredentialConfig!);
+        GlobalLogger().i('Attempting reconnection with credential config (attempt $_connectRetryCounter)');
+        // Use the existing _reconnectToSocket method for consistency
+        _reconnectToSocket();
       } else if (_storedTokenConfig != null) {
-        GlobalLogger().i('Attempting reconnection with token config');
-        connectWithToken(_storedTokenConfig!);
+        GlobalLogger().i('Attempting reconnection with token config (attempt $_connectRetryCounter)');
+        // Use the existing _reconnectToSocket method for consistency
+        _reconnectToSocket();
       } else {
         GlobalLogger().e('No stored configuration available for reconnection');
         final error = TelnyxSocketError(

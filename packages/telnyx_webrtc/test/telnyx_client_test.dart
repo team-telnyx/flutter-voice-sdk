@@ -155,4 +155,53 @@ void main() {
       });
     },
   );
+
+  test('verify autoReconnect is enabled by default', () {
+    final telnyxClient = TelnyxClient();
+    expect(telnyxClient.isAutoReconnectEnabled(), true);
+  });
+
+  test('verify connection retry counter starts at 0', () {
+    final telnyxClient = TelnyxClient();
+    expect(telnyxClient.getConnectionRetryCount(), 0);
+  });
+
+  test('verify autoReconnect setting is respected from CredentialConfig', () {
+    final telnyxClient = TelnyxClient();
+    
+    final credentialConfig = CredentialConfig(
+      sipUser: 'test',
+      sipPassword: 'test',
+      sipCallerIDName: 'test',
+      sipCallerIDNumber: 'test',
+      notificationToken: 'test',
+      autoReconnect: false, // Disable autoReconnect
+      logLevel: LogLevel.info,
+      debug: false,
+    );
+
+    telnyxClient.connectWithCredential(credentialConfig);
+    
+    // After connecting with config, autoReconnect should be disabled
+    expect(telnyxClient.isAutoReconnectEnabled(), false);
+  });
+
+  test('verify autoReconnect setting is respected from TokenConfig', () {
+    final telnyxClient = TelnyxClient();
+    
+    final tokenConfig = TokenConfig(
+      sipToken: 'test-token',
+      sipCallerIDName: 'test',
+      sipCallerIDNumber: 'test',
+      notificationToken: 'test',
+      autoReconnect: true, // Enable autoReconnect
+      logLevel: LogLevel.info,
+      debug: false,
+    );
+
+    telnyxClient.connectWithToken(tokenConfig);
+    
+    // After connecting with config, autoReconnect should be enabled
+    expect(telnyxClient.isAutoReconnectEnabled(), true);
+  });
 }

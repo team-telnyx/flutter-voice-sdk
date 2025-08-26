@@ -119,6 +119,16 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _telnyxClient.sessid;
   }
 
+  /// Returns whether autoReconnect is enabled for the client
+  bool get isAutoReconnectEnabled {
+    return _telnyxClient.isAutoReconnectEnabled();
+  }
+
+  /// Returns the current connection retry count
+  int get connectionRetryCount {
+    return _telnyxClient.getConnectionRetryCount();
+  }
+
   CallStateStatus _callState = CallStateStatus.disconnected;
 
   CallStateStatus get callState => _callState;
