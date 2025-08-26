@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 
 class AudioWaveform extends StatelessWidget {
   final String label;

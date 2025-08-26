@@ -1,6 +1,8 @@
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
+/// Helper class for parsing various WebRTC statistics and states.
 class StatParsingHelpers {
+  /// Parses a candidate pair statistics map and extracts relevant fields.
   Map<String, dynamic> parseCandidatePair(Map<String, dynamic> candidate) {
     return {
       'id': candidate['id'],
@@ -13,6 +15,7 @@ class StatParsingHelpers {
     };
   }
 
+  /// Parses a RTCIceCandidate to extract the username fragment (ufrag).
   String? parseUsernameFragment(RTCIceCandidate candidate) {
     if (candidate.candidate == null || candidate.candidate!.isEmpty) {
       return null;
@@ -22,6 +25,7 @@ class StatParsingHelpers {
     return match?.group(1);
   }
 
+  /// Parses the RTCSignalingState to a human-readable string.
   String parseSignalingStateChange(RTCSignalingState signalingState) {
     switch (signalingState) {
       case RTCSignalingState.RTCSignalingStateStable:
@@ -36,11 +40,10 @@ class StatParsingHelpers {
         return 'have-remote-pr-answer';
       case RTCSignalingState.RTCSignalingStateClosed:
         return 'closed';
-      default:
-        return 'unknown';
     }
   }
 
+  /// Parses the RTCIceGatheringState to a human-readable string.
   String parseIceGatheringStateChange(RTCIceGatheringState gatheringState) {
     switch (gatheringState) {
       case RTCIceGatheringState.RTCIceGatheringStateNew:
@@ -49,11 +52,10 @@ class StatParsingHelpers {
         return 'gathering';
       case RTCIceGatheringState.RTCIceGatheringStateComplete:
         return 'complete';
-      default:
-        return 'unknown';
     }
   }
 
+  /// Parses the RTCIceConnectionState to a human-readable string.
   String parseIceConnectionStateChange(
     RTCIceConnectionState iceConnectionState,
   ) {
@@ -74,11 +76,10 @@ class StatParsingHelpers {
         return 'closed';
       case RTCIceConnectionState.RTCIceConnectionStateCount:
         return 'count';
-      default:
-        return 'unknown';
     }
   }
 
+  /// Parses the RTCPeerConnectionState to a human-readable string.
   String parseConnectionStateChange(RTCPeerConnectionState connectionState) {
     switch (connectionState) {
       case RTCPeerConnectionState.RTCPeerConnectionStateNew:
@@ -93,11 +94,10 @@ class StatParsingHelpers {
         return 'failed';
       case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
         return 'closed';
-      default:
-        return 'unknown';
     }
   }
 
+  /// Constructs a peer connection configuration map from the given configuration.
   Map<String, dynamic> getPeerConfiguration(
     Map<String, dynamic> configuration,
   ) {

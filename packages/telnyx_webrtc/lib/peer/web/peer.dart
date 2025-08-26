@@ -709,12 +709,4 @@ class Peer {
     _negotiationTimer?.cancel();
     _negotiationTimer = null;
   }
-
-  /// Cleans up resources when the peer is no longer needed
-  void _release() {
-    _stopNegotiationTimer();
-    if (_sessions.isNotEmpty) {
-      _cleanSessions();
-    }
-  }
 }

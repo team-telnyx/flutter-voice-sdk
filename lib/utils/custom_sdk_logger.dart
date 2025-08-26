@@ -101,8 +101,6 @@ class CustomLogFilter extends LogFilter {
             event.level == Level.error;
       case LogLevel.all:
         return true;
-      default:
-        return false;
     }
   }
 }

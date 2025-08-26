@@ -1,5 +1,5 @@
-import 'package:uuid/uuid.dart';
-
+/// Model class for ConversationMessage
+/// This represents the structure of a conversation message for a Telnyx AI Agent
 class ConversationMessage {
   String? id;
   String? jsonrpc;
@@ -29,6 +29,8 @@ class ConversationMessage {
   }
 }
 
+/// Model class for ConversationMessageParams
+/// This represents the parameters of a conversation message
 class ConversationMessageParams {
   String? type;
   String? previousItemId;
@@ -55,6 +57,8 @@ class ConversationMessageParams {
   }
 }
 
+/// Model class for ConversationItemData
+/// This represents an item in the conversation, such as a message from the user or the AI agent
 class ConversationItemData {
   String? id;
   String? type;
@@ -87,6 +91,8 @@ class ConversationItemData {
   }
 }
 
+/// Model class for ConversationContentData
+/// This represents the content of a conversation item, such as text
 class ConversationContentData {
   String? type;
   String? text;
