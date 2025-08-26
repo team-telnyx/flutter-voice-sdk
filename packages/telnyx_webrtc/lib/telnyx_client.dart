@@ -1564,11 +1564,45 @@ class TelnyxClient {
                     );
                     gatewayState = GatewayState.failed;
                     _invalidateGatewayResponseTimer();
-                    final error = TelnyxSocketError(
-                      errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
-                      errorMessage: TelnyxErrorConstants.gatewayFailedError,
+                    
+                    // Attempt reconnection if autoReconnect is enabled and retry limit not reached
+                    if (_autoReconnectLogin && _connectRetryCounter < Constants.retryConnectTime) {
+                      _connectRetryCounter++;
+                      GlobalLogger().i(
+                        'Attempting reconnection :: attempt $_connectRetryCounter / ${Constants.retryConnectTime}',
+                      );
+                      _attemptReconnection();
+                    } else {
+                      final error = TelnyxSocketError(
+                        errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+                        errorMessage: TelnyxErrorConstants.gatewayFailedError,
+                      );
+                      onSocketErrorReceived(error);
+                    }
+                    break;
+                  }
+                case GatewayState.failWait:
+                  {
+                    GlobalLogger().i(
+                      'GATEWAY FAIL_WAIT :: ${stateMessage.toString()}',
                     );
-                    onSocketErrorReceived(error);
+                    gatewayState = GatewayState.failWait;
+                    
+                    // Attempt reconnection if autoReconnect is enabled and retry limit not reached
+                    if (_autoReconnectLogin && _connectRetryCounter < Constants.retryConnectTime) {
+                      _connectRetryCounter++;
+                      GlobalLogger().i(
+                        'Attempting reconnection :: attempt $_connectRetryCounter / ${Constants.retryConnectTime}',
+                      );
+                      _attemptReconnection();
+                    } else {
+                      _invalidateGatewayResponseTimer();
+                      final error = TelnyxSocketError(
+                        errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+                        errorMessage: 'Gateway registration has received fail wait response',
+                      );
+                      onSocketErrorReceived(error);
+                    }
                     break;
                   }
                 case GatewayState.unreged:
@@ -2073,5 +2107,27 @@ class TelnyxClient {
     _connectRetryCounter = 0;
     _waitingForReg = true;
     gatewayState = GatewayState.idle;
+  }
+
+  /// Attempts to reconnect to the socket using the stored configuration
+  /// This method is called when gateway registration fails and autoReconnect is enabled
+  void _attemptReconnection() {
+    // Add a small delay before attempting reconnection to avoid overwhelming the server
+    Timer(Duration(milliseconds: Constants.reconnectTimer), () {
+      if (_storedCredentialConfig != null) {
+        GlobalLogger().i('Attempting reconnection with credential config');
+        connectWithCredential(_storedCredentialConfig!);
+      } else if (_storedTokenConfig != null) {
+        GlobalLogger().i('Attempting reconnection with token config');
+        connectWithToken(_storedTokenConfig!);
+      } else {
+        GlobalLogger().e('No stored configuration available for reconnection');
+        final error = TelnyxSocketError(
+          errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+          errorMessage: 'No stored configuration available for reconnection',
+        );
+        onSocketErrorReceived(error);
+      }
+    });
   }
 }
