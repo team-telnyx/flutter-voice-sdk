@@ -40,7 +40,8 @@ class _ControlHeadersState extends State<ControlHeaders> {
             Text('Socket', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: spacingS),
             SocketConnectivityStatus(
-              isConnected: txClient.registered,
+              isConnected: txClient.connected,
+              isRegistered: txClient.registered,
               autoReconnectEnabled: txClient.isAutoReconnectEnabled,
               retryCount: txClient.connectionRetryCount,
             ),
@@ -67,18 +68,35 @@ class _ControlHeadersState extends State<ControlHeaders> {
 
 class SocketConnectivityStatus extends StatelessWidget {
   final bool isConnected;
+  final bool isRegistered;
   final bool autoReconnectEnabled;
   final int retryCount;
 
   const SocketConnectivityStatus({
     super.key,
     required this.isConnected,
+    required this.isRegistered,
     required this.autoReconnectEnabled,
     required this.retryCount,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Determine the connection state and color
+    String connectionStatus;
+    Color statusColor;
+
+    if (!isConnected) {
+      connectionStatus = 'Disconnected';
+      statusColor = Colors.red;
+    } else if (isConnected && !isRegistered) {
+      connectionStatus = 'Connected (Registering...)';
+      statusColor = Colors.orange;
+    } else {
+      connectionStatus = 'Client-ready';
+      statusColor = Colors.green;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -88,38 +106,12 @@ class SocketConnectivityStatus extends StatelessWidget {
               width: spacingS,
               height: spacingS,
               decoration: BoxDecoration(
-                color: isConnected ? Colors.green : Colors.red,
+                color: statusColor,
                 borderRadius: BorderRadius.circular(5),
               ),
             ),
             const SizedBox(width: spacingS),
-            Text(isConnected ? 'Client-ready' : 'Disconnected'),
-          ],
-        ),
-        const SizedBox(height: spacingXS),
-        Row(
-          children: [
-            Icon(
-              autoReconnectEnabled ? Icons.refresh : Icons.refresh_outlined,
-              size: 16,
-              color: autoReconnectEnabled ? Colors.green : Colors.grey,
-            ),
-            const SizedBox(width: spacingXS),
-            Text(
-              'AutoReconnect: ${autoReconnectEnabled ? 'ON' : 'OFF'}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: autoReconnectEnabled ? Colors.green : Colors.grey,
-              ),
-            ),
-            if (retryCount > 0) ...[
-              const SizedBox(width: spacingS),
-              Text(
-                '(Retries: $retryCount)',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.orange,
-                ),
-              ),
-            ],
+            Text(connectionStatus),
           ],
         ),
       ],

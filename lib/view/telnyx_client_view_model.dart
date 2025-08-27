@@ -43,6 +43,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   final TelnyxClient _telnyxClient = TelnyxClient();
 
   bool _registered = false;
+  bool _connected = false;
   bool _loggingIn = false;
   bool callFromPush = false;
   bool _speakerPhone = false;
@@ -85,6 +86,10 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool get registered {
     return _registered;
+  }
+
+  bool get connected {
+    return _connected;
   }
 
   bool get loggingIn {
@@ -383,6 +388,15 @@ class TelnyxClientViewModel with ChangeNotifier {
   void observeResponses() {
     // Observe Socket Messages Received
     _telnyxClient
+      ..onConnectionStateChanged = (bool isConnected) {
+        logger.i(
+          'TxClientViewModel :: Connection state changed: $isConnected',
+        );
+        if (_connected != isConnected) {
+          _connected = isConnected;
+          notifyListeners();
+        }
+      }
       ..onSocketMessageReceived = (TelnyxMessage message) async {
         logger.i(
           'TxClientViewModel :: observeResponses :: Socket :: ${message.message}',
@@ -397,6 +411,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               }
 
               _registered = true;
+              // Connection state is now managed by onConnectionStateChanged callback
               logger.i(
                 'TxClientViewModel :: observeResponses : Registered :: $_registered',
               );
@@ -577,12 +592,14 @@ class TelnyxClientViewModel with ChangeNotifier {
                 '${error.errorMessage} :: The token is invalid or expired',
               );
               _loggingIn = false;
+              _registered = false;
               break;
             }
           case -32001:
             {
               //Todo handle credential error (try again, sign user out and move to login screen, etc)
               _loggingIn = false;
+              _registered = false;
               logger.i('${error.errorMessage} :: The Credential is invalid');
               break;
             }
@@ -600,6 +617,8 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 '${error.errorMessage} :: It is taking too long to register with the gateway',
               );
+              _connected = false;
+              _registered = false;
               break;
             }
           case -32004:
@@ -608,6 +627,8 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 '${error.errorMessage} :: Registration with the gateway has failed',
               );
+              _connected = false;
+              _registered = false;
               break;
             }
         }
@@ -678,6 +699,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.disconnected;
     _loggingIn = false;
     _registered = false;
+    _connected = false; // Will be updated by onConnectionStateChanged callback
     _isAssistantMode = false;
     notifyListeners();
   }
