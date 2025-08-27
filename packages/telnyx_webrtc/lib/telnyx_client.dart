@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
+import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -51,7 +52,7 @@ typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
 
 /// Callback for when connection state changes
-typedef OnConnectionStateChanged = void Function(bool connected);
+typedef OnConnectionStateChanged = void Function(ConnectionStatus status);
 
 /// Represents the main entry point for interacting with the Telnyx RTC SDK.
 ///
@@ -134,6 +135,7 @@ class TelnyxClient {
 
   bool _closed = false;
   bool _connected = false;
+  ConnectionStatus _connectionStatus = ConnectionStatus.disconnected;
 
   /// The current session ID related to this client
   String sessid = const Uuid().v4();
@@ -250,6 +252,11 @@ class TelnyxClient {
   /// Returns whether or not the client is connected to the socket connection
   bool isConnected() {
     return _connected;
+  }
+
+  /// Returns the current connection status
+  ConnectionStatus getConnectionStatus() {
+    return _connectionStatus;
   }
 
   /// Returns whether or not debug is enabled for the client
@@ -393,7 +400,25 @@ class TelnyxClient {
   void _updateConnectionState(bool connected) {
     if (_connected != connected) {
       _connected = connected;
-      onConnectionStateChanged?.call(_connected);
+      _updateConnectionStatus();
+    }
+  }
+
+  /// Updates the connection status based on current connection and registration states
+  void _updateConnectionStatus() {
+    ConnectionStatus newStatus;
+
+    if (!_connected) {
+      newStatus = ConnectionStatus.disconnected;
+    } else if (_connected && !_registered) {
+      newStatus = ConnectionStatus.connected;
+    } else {
+      newStatus = ConnectionStatus.clientReady;
+    }
+
+    if (_connectionStatus != newStatus) {
+      _connectionStatus = newStatus;
+      onConnectionStateChanged?.call(_connectionStatus);
     }
   }
 
@@ -949,6 +974,12 @@ class TelnyxClient {
   /// This method is used for both network-based reconnections and gateway failures
   /// It respects the autoReconnect settings and provides better logging
   void _reconnectToSocket() {
+    // Set reconnecting status
+    if (_connectionStatus != ConnectionStatus.reconnecting) {
+      _connectionStatus = ConnectionStatus.reconnecting;
+      onConnectionStateChanged?.call(_connectionStatus);
+    }
+
     GlobalLogger().i(
         'Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)');
 
@@ -1423,6 +1454,7 @@ class TelnyxClient {
     _closed = true;
     _updateConnectionState(false);
     _registered = false;
+    _updateConnectionStatus();
     try {
       txSocket.close();
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -1446,6 +1478,7 @@ class TelnyxClient {
     _closed = true;
     _updateConnectionState(false);
     _registered = false;
+    _updateConnectionStatus();
     _onClose(true, 0, 'Client send disconnect');
     try {
       txSocket.close();
@@ -1631,6 +1664,7 @@ class TelnyxClient {
                         clearPushMetaData();
                       }
                       _registered = true;
+                      _updateConnectionStatus();
                     }
                     break;
                   }
@@ -2193,6 +2227,12 @@ class TelnyxClient {
   /// This method is called when gateway registration fails and autoReconnect is enabled
   /// It respects the _autoReconnectLogin setting and _connectRetryCounter limits
   void _attemptReconnection() {
+    // Set reconnecting status
+    if (_connectionStatus != ConnectionStatus.reconnecting) {
+      _connectionStatus = ConnectionStatus.reconnecting;
+      onConnectionStateChanged?.call(_connectionStatus);
+    }
+
     // Check if autoReconnect is enabled
     if (!_autoReconnectLogin) {
       GlobalLogger()

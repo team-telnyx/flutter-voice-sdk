@@ -20,6 +20,7 @@ import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
@@ -44,6 +45,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool _registered = false;
   bool _connected = false;
+  ConnectionStatus _connectionStatus = ConnectionStatus.disconnected;
   bool _loggingIn = false;
   bool callFromPush = false;
   bool _speakerPhone = false;
@@ -90,6 +92,10 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool get connected {
     return _connected;
+  }
+
+  ConnectionStatus get connectionStatus {
+    return _connectionStatus;
   }
 
   bool get loggingIn {
@@ -388,12 +394,15 @@ class TelnyxClientViewModel with ChangeNotifier {
   void observeResponses() {
     // Observe Socket Messages Received
     _telnyxClient
-      ..onConnectionStateChanged = (bool isConnected) {
+      ..onConnectionStateChanged = (ConnectionStatus status) {
         logger.i(
-          'TxClientViewModel :: Connection state changed: $isConnected',
+          'TxClientViewModel :: Connection state changed: $status',
         );
-        if (_connected != isConnected) {
-          _connected = isConnected;
+        if (_connectionStatus != status) {
+          _connectionStatus = status;
+          // Update the legacy _connected field for backward compatibility
+          _connected = status == ConnectionStatus.connected ||
+              status == ConnectionStatus.clientReady;
           notifyListeners();
         }
       }

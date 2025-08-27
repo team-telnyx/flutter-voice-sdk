@@ -4,6 +4,7 @@ import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
+import 'package:telnyx_webrtc/model/connection_status.dart';
 
 class ControlHeaders extends StatefulWidget {
   const ControlHeaders({super.key});
@@ -40,8 +41,7 @@ class _ControlHeadersState extends State<ControlHeaders> {
             Text('Socket', style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: spacingS),
             SocketConnectivityStatus(
-              isConnected: txClient.connected,
-              isRegistered: txClient.registered,
+              connectionStatus: txClient.connectionStatus,
               autoReconnectEnabled: txClient.isAutoReconnectEnabled,
               retryCount: txClient.connectionRetryCount,
             ),
@@ -67,34 +67,42 @@ class _ControlHeadersState extends State<ControlHeaders> {
 }
 
 class SocketConnectivityStatus extends StatelessWidget {
-  final bool isConnected;
-  final bool isRegistered;
+  final ConnectionStatus connectionStatus;
   final bool autoReconnectEnabled;
   final int retryCount;
 
   const SocketConnectivityStatus({
     super.key,
-    required this.isConnected,
-    required this.isRegistered,
+    required this.connectionStatus,
     required this.autoReconnectEnabled,
     required this.retryCount,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Determine the connection state and color
-    String connectionStatus;
+    // Determine the connection state and color based on ConnectionStatus enum
+    String connectionStatusText;
     Color statusColor;
 
-    if (!isConnected) {
-      connectionStatus = 'Disconnected';
-      statusColor = Colors.red;
-    } else if (isConnected && !isRegistered) {
-      connectionStatus = 'Connected (Registering...)';
-      statusColor = Colors.orange;
-    } else {
-      connectionStatus = 'Client-ready';
-      statusColor = Colors.green;
+    switch (connectionStatus) {
+      case ConnectionStatus.disconnected:
+        connectionStatusText = 'Disconnected';
+        statusColor = Colors.red;
+        break;
+      case ConnectionStatus.connected:
+        connectionStatusText = 'Connected (Registering...)';
+        statusColor = Colors.orange;
+        break;
+      case ConnectionStatus.reconnecting:
+        connectionStatusText = retryCount > 0
+            ? 'Reconnecting... (${retryCount})'
+            : 'Reconnecting...';
+        statusColor = Colors.yellow;
+        break;
+      case ConnectionStatus.clientReady:
+        connectionStatusText = 'Client-ready';
+        statusColor = Colors.green;
+        break;
     }
 
     return Column(
@@ -111,7 +119,7 @@ class SocketConnectivityStatus extends StatelessWidget {
               ),
             ),
             const SizedBox(width: spacingS),
-            Text(connectionStatus),
+            Text(connectionStatusText),
           ],
         ),
       ],
