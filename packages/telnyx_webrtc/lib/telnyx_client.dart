@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
+import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -50,6 +51,9 @@ typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 /// Callback for when transcript updates occur
 typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
 
+/// Callback for when connection state changes
+typedef OnConnectionStateChanged = void Function(ConnectionStatus status);
+
 /// Represents the main entry point for interacting with the Telnyx RTC SDK.
 ///
 /// This class manages the WebSocket connection to the Telnyx backend, handles
@@ -69,6 +73,9 @@ class TelnyxClient {
   /// Callback for when transcript updates occur
   /// Note: this is only relevant for Assistant AI conversations
   OnTranscriptUpdate? onTranscriptUpdate;
+
+  /// Callback for when connection state changes
+  OnConnectionStateChanged? onConnectionStateChanged;
 
   /// The path to the ringtone file (audio to play when receiving a call)
   String _ringtonePath = '';
@@ -128,6 +135,7 @@ class TelnyxClient {
 
   bool _closed = false;
   bool _connected = false;
+  ConnectionStatus _connectionStatus = ConnectionStatus.disconnected;
 
   /// The current session ID related to this client
   String sessid = const Uuid().v4();
@@ -146,7 +154,14 @@ class TelnyxClient {
   /// Timeout duration for pending answer from push (10 seconds)
   static const Duration _pushAnswerTimeoutDuration = Duration(seconds: 10);
 
+  /// Controls whether the client should automatically attempt to reconnect
+  /// when the socket connection fails or network connectivity is restored.
+  /// This value is set from the CredentialConfig or TokenConfig during login.
   bool _autoReconnectLogin = true;
+
+  /// Tracks the number of connection retry attempts made.
+  /// This counter is incremented with each reconnection attempt and reset
+  /// when a successful connection is established or when the retry limit is reached.
   int _connectRetryCounter = 0;
 
   /// The current gateway state for the socket connection
@@ -239,9 +254,27 @@ class TelnyxClient {
     return _connected;
   }
 
+  /// Returns the current connection status
+  ConnectionStatus getConnectionStatus() {
+    return _connectionStatus;
+  }
+
   /// Returns whether or not debug is enabled for the client
   bool isDebug() {
     return _debug;
+  }
+
+  /// Returns whether autoReconnect is enabled for the client
+  /// When enabled, the client will automatically attempt to reconnect
+  /// when the socket connection fails or network connectivity is restored
+  bool isAutoReconnectEnabled() {
+    return _autoReconnectLogin;
+  }
+
+  /// Returns the current connection retry counter
+  /// This shows how many reconnection attempts have been made
+  int getConnectionRetryCount() {
+    return _connectRetryCounter;
   }
 
   /// Returns the current Gateway state for the socket connection
@@ -253,7 +286,11 @@ class TelnyxClient {
     Connectivity().onConnectivityChanged.listen((
       List<ConnectivityResult> connectivityResult,
     ) {
-      if (activeCalls().isEmpty || _isAttaching) return;
+      GlobalLogger().i(
+        'Connectivity changed: ${connectivityResult.join(", ")}',
+      );
+
+      if (_isAttaching) return;
 
       if (connectivityResult.contains(ConnectivityResult.none)) {
         GlobalLogger().i('No available network types');
@@ -264,7 +301,7 @@ class TelnyxClient {
       if (connectivityResult.contains(ConnectivityResult.mobile) ||
           connectivityResult.contains(ConnectivityResult.wifi)) {
         GlobalLogger().i('Network available: ${connectivityResult.join(", ")}');
-        if (activeCalls().isNotEmpty && !_isAttaching) {
+        if (!_isAttaching) {
           _handleNetworkReconnection(NetworkReason.networkSwitch);
         }
       }
@@ -359,7 +396,34 @@ class TelnyxClient {
     ];
   }
 
+  /// Helper method to update connection state and notify listener
+  void _updateConnectionState(bool connected) {
+    if (_connected != connected) {
+      _connected = connected;
+      _updateConnectionStatus();
+    }
+  }
+
+  /// Updates the connection status based on current connection and registration states
+  void _updateConnectionStatus() {
+    ConnectionStatus newStatus;
+
+    if (!_connected) {
+      newStatus = ConnectionStatus.disconnected;
+    } else if (_connected && !_registered) {
+      newStatus = ConnectionStatus.connected;
+    } else {
+      newStatus = ConnectionStatus.clientReady;
+    }
+
+    if (_connectionStatus != newStatus) {
+      _connectionStatus = newStatus;
+      onConnectionStateChanged?.call(_connectionStatus);
+    }
+  }
+
   void _handleNetworkLost() {
+    _updateConnectionState(false);
     for (var call in activeCalls().values) {
       call.callHandler.onCallStateChanged.call(
         CallState.dropped.withNetworkReason(NetworkReason.networkLost),
@@ -370,7 +434,23 @@ class TelnyxClient {
   }
 
   void _handleNetworkReconnection(NetworkReason reason) {
+    // Check if autoReconnect is enabled before attempting network reconnection
+    if (!_autoReconnectLogin) {
+      GlobalLogger()
+          .i('AutoReconnect is disabled, not attempting network reconnection');
+      for (var call in activeCalls().values) {
+        call.callHandler.onCallStateChanged.call(
+          CallState.dropped.withNetworkReason(NetworkReason.networkLost),
+        );
+        call.endCall();
+      }
+      return;
+    }
+
+    GlobalLogger().i(
+        'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)');
     _reconnectToSocket();
+
     for (var call in activeCalls().values) {
       if (call.callState.isDropped) {
         call.callHandler.onCallStateChanged.call(
@@ -712,7 +792,7 @@ class TelnyxClient {
         ..connect()
         ..onOpen = () {
           _closed = false;
-          _connected = true;
+          _updateConnectionState(true);
           GlobalLogger().i(
             'TelnyxClient._connectWithCallBack (via _onOpen): Web Socket is now connected',
           );
@@ -724,13 +804,13 @@ class TelnyxClient {
         }
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          _connected = false;
+          _updateConnectionState(false);
           final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         };
     } catch (e, string) {
       GlobalLogger().e('${e.toString()} :: $string');
-      _connected = false;
+      _updateConnectionState(false);
       GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
     }
   }
@@ -762,7 +842,7 @@ class TelnyxClient {
       txSocket
         ..onOpen = () {
           _closed = false;
-          _connected = true;
+          _updateConnectionState(true);
           _isRegionFallbackAttempt =
               false; // Reset fallback flag on successful connection
           GlobalLogger().i(
@@ -776,14 +856,14 @@ class TelnyxClient {
         }
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          _connected = false;
+          _updateConnectionState(false);
           final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
       GlobalLogger().e(e.toString());
-      _connected = false;
+      _updateConnectionState(false);
       GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
     }
   }
@@ -817,7 +897,7 @@ class TelnyxClient {
       txSocket
         ..onOpen = () {
           _closed = false;
-          _connected = true;
+          _updateConnectionState(true);
           _isRegionFallbackAttempt =
               false; // Reset fallback flag on successful connection
           GlobalLogger().i(
@@ -831,14 +911,14 @@ class TelnyxClient {
         }
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          _connected = false;
+          _updateConnectionState(false);
           bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
       GlobalLogger().e(e.toString());
-      _connected = false;
+      _updateConnectionState(false);
       GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
     }
   }
@@ -869,7 +949,7 @@ class TelnyxClient {
       txSocket
         ..onOpen = () {
           _closed = false;
-          _connected = true;
+          _updateConnectionState(true);
           GlobalLogger().i('Web Socket is now connected');
           _onOpen();
         }
@@ -878,31 +958,59 @@ class TelnyxClient {
         }
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          _connected = false;
+          _updateConnectionState(false);
           bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
     } catch (e) {
       GlobalLogger().e(e.toString());
-      _connected = false;
+      _updateConnectionState(false);
       GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
     }
   }
 
+  /// Reconnects to the socket using stored configuration
+  /// This method is used for both network-based reconnections and gateway failures
+  /// It respects the autoReconnect settings and provides better logging
   void _reconnectToSocket() {
+    // Set reconnecting status
+    if (_connectionStatus != ConnectionStatus.reconnecting) {
+      _connectionStatus = ConnectionStatus.reconnecting;
+      onConnectionStateChanged?.call(_connectionStatus);
+    }
+
+    GlobalLogger().i(
+        'Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)');
+
     _isAttaching = true;
     Timer(Duration(milliseconds: Constants.gatewayResponseDelay), () {
       _isAttaching = false;
     });
 
     txSocket.close();
-    // Delay to allow connection
-    Timer(const Duration(seconds: 1), () {
+
+    // Delay to allow connection with exponential backoff for retries
+    final delayMs = _connectRetryCounter > 0
+        ? Constants.reconnectTimer * (1 << (_connectRetryCounter - 1))
+        : 1000;
+
+    Timer(Duration(milliseconds: delayMs), () {
       if (_storedCredentialConfig != null) {
+        GlobalLogger().i('Reconnecting with credential config');
         connectWithCredential(_storedCredentialConfig!);
       } else if (_storedTokenConfig != null) {
+        GlobalLogger().i('Reconnecting with token config');
         connectWithToken(_storedTokenConfig!);
+      } else {
+        GlobalLogger()
+            .e('No stored configuration available for socket reconnection');
+        final error = TelnyxSocketError(
+          errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+          errorMessage:
+              'No stored configuration available for socket reconnection',
+        );
+        onSocketErrorReceived(error);
       }
     });
   }
@@ -1344,8 +1452,9 @@ class TelnyxClient {
     }
     // Don't wait for the WebSocket 'close' event, do it now.
     _closed = true;
-    _connected = false;
+    _updateConnectionState(false);
     _registered = false;
+    _updateConnectionStatus();
     try {
       txSocket.close();
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -1367,8 +1476,9 @@ class TelnyxClient {
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
     _closed = true;
-    _connected = false;
+    _updateConnectionState(false);
     _registered = false;
+    _updateConnectionStatus();
     _onClose(true, 0, 'Client send disconnect');
     try {
       txSocket.close();
@@ -1554,6 +1664,7 @@ class TelnyxClient {
                         clearPushMetaData();
                       }
                       _registered = true;
+                      _updateConnectionStatus();
                     }
                     break;
                   }
@@ -1564,11 +1675,48 @@ class TelnyxClient {
                     );
                     gatewayState = GatewayState.failed;
                     _invalidateGatewayResponseTimer();
-                    final error = TelnyxSocketError(
-                      errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
-                      errorMessage: TelnyxErrorConstants.gatewayFailedError,
+
+                    // Attempt reconnection if autoReconnect is enabled and retry limit not reached
+                    if (_autoReconnectLogin &&
+                        _connectRetryCounter < Constants.retryConnectTime) {
+                      _connectRetryCounter++;
+                      GlobalLogger().i(
+                        'Attempting reconnection :: attempt $_connectRetryCounter / ${Constants.retryConnectTime}',
+                      );
+                      _attemptReconnection();
+                    } else {
+                      final error = TelnyxSocketError(
+                        errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+                        errorMessage: TelnyxErrorConstants.gatewayFailedError,
+                      );
+                      onSocketErrorReceived(error);
+                    }
+                    break;
+                  }
+                case GatewayState.failWait:
+                  {
+                    GlobalLogger().i(
+                      'GATEWAY FAIL_WAIT :: ${stateMessage.toString()}',
                     );
-                    onSocketErrorReceived(error);
+                    gatewayState = GatewayState.failWait;
+
+                    // Attempt reconnection if autoReconnect is enabled and retry limit not reached
+                    if (_autoReconnectLogin &&
+                        _connectRetryCounter < Constants.retryConnectTime) {
+                      _connectRetryCounter++;
+                      GlobalLogger().i(
+                        'Attempting reconnection :: attempt $_connectRetryCounter / ${Constants.retryConnectTime}',
+                      );
+                      _attemptReconnection();
+                    } else {
+                      _invalidateGatewayResponseTimer();
+                      final error = TelnyxSocketError(
+                        errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+                        errorMessage:
+                            'Gateway registration has received fail wait response',
+                      );
+                      onSocketErrorReceived(error);
+                    }
                     break;
                   }
                 case GatewayState.unreged:
@@ -2073,5 +2221,68 @@ class TelnyxClient {
     _connectRetryCounter = 0;
     _waitingForReg = true;
     gatewayState = GatewayState.idle;
+  }
+
+  /// Attempts to reconnect to the socket using the stored configuration
+  /// This method is called when gateway registration fails and autoReconnect is enabled
+  /// It respects the _autoReconnectLogin setting and _connectRetryCounter limits
+  void _attemptReconnection() {
+    // Set reconnecting status
+    if (_connectionStatus != ConnectionStatus.reconnecting) {
+      _connectionStatus = ConnectionStatus.reconnecting;
+      onConnectionStateChanged?.call(_connectionStatus);
+    }
+
+    // Check if autoReconnect is enabled
+    if (!_autoReconnectLogin) {
+      GlobalLogger()
+          .i('AutoReconnect is disabled, not attempting reconnection');
+      final error = TelnyxSocketError(
+        errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+        errorMessage: 'AutoReconnect is disabled',
+      );
+      onSocketErrorReceived(error);
+      return;
+    }
+
+    // Check if we've exceeded the retry limit
+    if (_connectRetryCounter >= Constants.retryConnectTime) {
+      GlobalLogger().e(
+          'Maximum reconnection attempts reached ($_connectRetryCounter/${Constants.retryConnectTime})');
+      final error = TelnyxSocketError(
+        errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+        errorMessage: 'Maximum reconnection attempts reached',
+      );
+      onSocketErrorReceived(error);
+      return;
+    }
+
+    GlobalLogger().i(
+        'Attempting reconnection $_connectRetryCounter/${Constants.retryConnectTime} (autoReconnect: $_autoReconnectLogin)');
+
+    // Add a small delay before attempting reconnection to avoid overwhelming the server
+    // Use exponential backoff: base delay * (2 ^ retry_count)
+    final delayMs =
+        Constants.reconnectTimer * (1 << (_connectRetryCounter - 1));
+    Timer(Duration(milliseconds: delayMs), () {
+      if (_storedCredentialConfig != null) {
+        GlobalLogger().i(
+            'Attempting reconnection with credential config (attempt $_connectRetryCounter)');
+        // Use the existing _reconnectToSocket method for consistency
+        _reconnectToSocket();
+      } else if (_storedTokenConfig != null) {
+        GlobalLogger().i(
+            'Attempting reconnection with token config (attempt $_connectRetryCounter)');
+        // Use the existing _reconnectToSocket method for consistency
+        _reconnectToSocket();
+      } else {
+        GlobalLogger().e('No stored configuration available for reconnection');
+        final error = TelnyxSocketError(
+          errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
+          errorMessage: 'No stored configuration available for reconnection',
+        );
+        onSocketErrorReceived(error);
+      }
+    });
   }
 }

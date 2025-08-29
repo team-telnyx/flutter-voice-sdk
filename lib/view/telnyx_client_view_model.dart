@@ -20,6 +20,7 @@ import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
@@ -43,6 +44,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   final TelnyxClient _telnyxClient = TelnyxClient();
 
   bool _registered = false;
+  bool _connected = false;
+  ConnectionStatus _connectionStatus = ConnectionStatus.disconnected;
   bool _loggingIn = false;
   bool callFromPush = false;
   bool _speakerPhone = false;
@@ -87,6 +90,14 @@ class TelnyxClientViewModel with ChangeNotifier {
     return _registered;
   }
 
+  bool get connected {
+    return _connected;
+  }
+
+  ConnectionStatus get connectionStatus {
+    return _connectionStatus;
+  }
+
   bool get loggingIn {
     return _loggingIn;
   }
@@ -117,6 +128,16 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   String get sessionId {
     return _telnyxClient.sessid;
+  }
+
+  /// Returns whether autoReconnect is enabled for the client
+  bool get isAutoReconnectEnabled {
+    return _telnyxClient.isAutoReconnectEnabled();
+  }
+
+  /// Returns the current connection retry count
+  int get connectionRetryCount {
+    return _telnyxClient.getConnectionRetryCount();
   }
 
   CallStateStatus _callState = CallStateStatus.disconnected;
@@ -373,6 +394,18 @@ class TelnyxClientViewModel with ChangeNotifier {
   void observeResponses() {
     // Observe Socket Messages Received
     _telnyxClient
+      ..onConnectionStateChanged = (ConnectionStatus status) {
+        logger.i(
+          'TxClientViewModel :: Connection state changed: $status',
+        );
+        if (_connectionStatus != status) {
+          _connectionStatus = status;
+          // Update the legacy _connected field for backward compatibility
+          _connected = status == ConnectionStatus.connected ||
+              status == ConnectionStatus.clientReady;
+          notifyListeners();
+        }
+      }
       ..onSocketMessageReceived = (TelnyxMessage message) async {
         logger.i(
           'TxClientViewModel :: observeResponses :: Socket :: ${message.message}',
@@ -387,6 +420,7 @@ class TelnyxClientViewModel with ChangeNotifier {
               }
 
               _registered = true;
+              // Connection state is now managed by onConnectionStateChanged callback
               logger.i(
                 'TxClientViewModel :: observeResponses : Registered :: $_registered',
               );
@@ -567,12 +601,14 @@ class TelnyxClientViewModel with ChangeNotifier {
                 '${error.errorMessage} :: The token is invalid or expired',
               );
               _loggingIn = false;
+              _registered = false;
               break;
             }
           case -32001:
             {
               //Todo handle credential error (try again, sign user out and move to login screen, etc)
               _loggingIn = false;
+              _registered = false;
               logger.i('${error.errorMessage} :: The Credential is invalid');
               break;
             }
@@ -590,6 +626,8 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 '${error.errorMessage} :: It is taking too long to register with the gateway',
               );
+              _connected = false;
+              _registered = false;
               break;
             }
           case -32004:
@@ -598,6 +636,8 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 '${error.errorMessage} :: Registration with the gateway has failed',
               );
+              _connected = false;
+              _registered = false;
               break;
             }
         }
@@ -668,6 +708,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     callState = CallStateStatus.disconnected;
     _loggingIn = false;
     _registered = false;
+    _connected = false; // Will be updated by onConnectionStateChanged callback
     _isAssistantMode = false;
     notifyListeners();
   }
