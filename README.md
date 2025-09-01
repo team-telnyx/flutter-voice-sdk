@@ -5,6 +5,44 @@
 
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
+## Table of Contents
+
+- [Features](#features)
+- [Usage](#usage)
+  - [SIP Credentials](#sip-credentials)
+  - [Platform Specific Configuration](#platform-specific-configuration)
+    - [Android](#android)
+    - [iOS](#ios)
+- [Basic Usage](#basic-usage)
+  - [Telnyx Client](#telnyx-client)
+  - [Logging Configuration](#logging-configuration)
+  - [Logging into Telnyx Client](#logging-into-telnyx-client)
+  - [Creating a call invitation](#creating-a-call-invitation)
+  - [Accepting a call](#accepting-a-call)
+  - [Decline / End Call](#decline--end-call)
+  - [DTMF (Dual Tone Multi Frequency)](#dtmf-dual-tone-multi-frequency)
+  - [Mute a call](#mute-a-call)
+  - [Toggle loud speaker](#toggle-loud-speaker)
+  - [Put a call on hold](#put-a-call-on-hold)
+- [Call Quality Metrics](#call-quality-metrics)
+  - [Enabling Call Quality Metrics](#enabling-call-quality-metrics)
+  - [CallQualityMetrics Properties](#callqualitymetrics-properties)
+  - [CallQuality Enum](#callquality-enum)
+- [Advanced Usage - Push Notifications](#advanced-usage---push-notifications)
+  - [Adding push notifications - Android platform](#adding-push-notifications---android-platform)
+  - [Best Practices for Push Notifications on Android](#best-practices-for-push-notifications-on-android)
+  - [Adding push notifications - iOS platform](#adding-push-notifications---ios-platform)
+  - [Handling Late Notifications](#handling-late-notifications)
+  - [Best Practices for Push Notifications on iOS](#best-practices-for-push-notifications-on-ios)
+  - [New Push Notification Features](#new-push-notification-features)
+- [AI Agent Usage](#ai-agent-usage)
+  - [1. Logging in to communicate with the AI Agent](#1-logging-in-to-communicate-with-the-ai-agent)
+  - [2. Starting a Conversation with the AI Assistant](#2-starting-a-conversation-with-the-ai-assistant)
+  - [3. Receiving Transcript Updates](#3-receiving-transcript-updates)
+  - [4. Sending a text message to the AI Agent](#4-sending-a-text-message-to-the-ai-agent)
+- [Additional Resources](#additional-resources)
+- [License](#license)
+
 ## Features
 - [x] Create / Receive calls
 - [x] Hold calls

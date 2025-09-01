@@ -7,6 +7,32 @@ For the example app implementation please visit this [root repository](https://g
 
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
+## Table of Contents
+
+- [Features](#features)
+- [Usage](#usage)
+  - [SIP Credentials](#sip-credentials)
+  - [Platform Specific Configuration](#platform-specific-configuration)
+    - [Android](#android)
+    - [iOS](#ios)
+  - [Telnyx Client](#telnyx-client)
+  - [Logging into Telnyx Client](#logging-into-telnyx-client)
+  - [Adding push notifications - Android platform](#adding-push-notifications---android-platform)
+  - [Adding push notifications - iOS platform](#adding-push-notifications---ios-platform)
+  - [Creating a call invitation](#creating-a-call-invitation)
+  - [Accepting a call](#accepting-a-call)
+  - [Decline / End Call](#decline--end-call)
+  - [DTMF (Dual Tone Multi Frequency)](#dtmf-dual-tone-multi-frequency)
+  - [Mute a call](#mute-a-call)
+  - [Toggle loud speaker](#toggle-loud-speaker)
+  - [Put a call on hold](#put-a-call-on-hold)
+- [AI Agent Usage](#ai-agent-usage)
+  - [1. Logging in to communicate with the AI Agent](#1-logging-in-to-communicate-with-the-ai-agent)
+  - [2. Starting a Conversation with the AI Assistant](#2-starting-a-conversation-with-the-ai-assistant)
+  - [3. Receiving Transcript Updates](#3-receiving-transcript-updates)
+  - [4. Sending a text message to the AI Agent](#4-sending-a-text-message-to-the-ai-agent)
+- [License](#license)
+
 ## Features
 - [x] Create / Receive calls
 - [x] Hold calls
