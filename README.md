@@ -624,6 +624,135 @@ This timeout mechanism activates automatically when:
 
 No additional code is required to use this feature - it's handled automatically by the SDK.
 
+## AI Agent Usage
+The Flutter Voice SDK supports [Voice AI Agent](https://telnyx.com/products/voice-ai-agents) implementations. 
+
+To get started, follow the steps [described here](https://telnyx.com/resources/ai-assistant-builder) to build your first AI Assistant. 
+
+Once your AI Agent is up and running, you can use the SDK to communicate with your AI Agent with the following steps:
+
+### 1. Logging in to communicate with the AI Agent.
+
+To connect with an AI Assistant, you can use the `anonymousLogin` method. This allows you to establish a connection without traditional authentication credentials.
+
+This method takes a `targetId` which is the ID of your AI assistant, and an optional `targetVersionId`. If a `targetVersionId` is not provided, the SDK will use the latest version available. 
+
+**Note:** After a successful `anonymousLogin`, any subsequent call, regardless of the destination, will be directed to the specified AI Assistant.
+
+Here's an example of how to use it:
+
+```dart
+try {
+  await _telnyxClient.anonymousLogin(
+    targetId: 'your_assistant_id',
+    // targetType: 'ai_assistant', // This is the default value
+    // targetVersionId: 'your_assistant_version_id' // Optional
+  );
+  // You are now connected and can make a call to the AI Assistant.
+} catch (e) {
+  // Handle login error
+}
+```
+
+Once connected, you can use the standard `newInvite` method to start a conversation with the AI Assistant.
+
+### 2. Starting a Conversation with the AI Assistant
+
+After a successful `anonymousLogin`, you can initiate a call to your AI Assistant using the `newInvite` method. Because the session is now locked to the AI Assistant, the `destinationNumber` parameter in the `newInvite` method will be ignored. Any values provided for `callerName` and `callerNumber` will be passed on, but the call will always be routed to the AI Assistant specified during the login.
+
+Here is an example of how to start the call:
+
+```dart
+// After a successful anonymousLogin...
+
+_telnyxClient.newInvite(
+  'Your Name',
+  'Your Number',
+  '', // Destination is ignored, can be an empty string
+  'Your custom state'
+);
+```
+
+The call will be automatically answered by the AI Assistant. From this point on, the call flow is handled in the same way as any other answered call, allowing you to use standard call control methods like `endCall`, `mute`, etc.
+
+### 3. Receiving Transcript Updates
+
+During an AI Assistant conversation, the SDK provides real-time transcript updates that include both the caller's speech and the AI Assistant's responses. This allows you to display a live conversation transcript in your application.
+
+To receive transcript updates, set up the `onTranscriptUpdate` callback on your `TelnyxClient` instance:
+
+```dart
+_telnyxClient.onTranscriptUpdate = (List<TranscriptItem> transcript) {
+  // Handle the updated transcript
+  for (var item in transcript) {
+    print('${item.role}: ${item.content}');
+    // item.role will be either 'user' or 'assistant'
+    // item.content contains the spoken text
+    // item.timestamp contains when the message was received
+  }
+  
+  // Update your UI to display the conversation
+  setState(() {
+    _conversationTranscript = transcript;
+  });
+};
+```
+
+The `TranscriptItem` contains the following properties:
+- `id`: Unique identifier for the transcript item
+- `role`: Either 'user' (for the caller) or 'assistant' (for the AI Agent)
+- `content`: The transcribed text content
+- `timestamp`: When the transcript item was created
+
+You can also manually retrieve the current transcript at any time:
+
+```dart
+List<TranscriptItem> currentTranscript = _telnyxClient.transcript;
+```
+
+To clear the transcript (for example, when starting a new conversation):
+
+```dart
+_telnyxClient.clearTranscript();
+```
+
+**Note:** Transcript updates are only available during AI Assistant conversations initiated through `anonymousLogin`. Regular calls between users do not provide transcript functionality.
+
+### 4. Sending a text message to the AI Agent
+
+In addition to voice conversation, you can send text messages directly to the AI Agent during an active call. This allows for mixed-mode communication where users can both speak and type messages to the AI Assistant.
+
+To send a text message to the AI Agent, use the `sendConversationMessage` method on the active call instance:
+
+```dart
+// Get the active call instance (after successfully connecting and calling)
+Call? activeCall = _telnyxClient.calls.values.firstOrNull;
+
+if (activeCall != null) {
+  // Send a text message to the AI Agent
+  activeCall.sendConversationMessage("Hello, can you help me with my account?");
+}
+```
+
+You can also retrieve the call by its ID if you have it:
+
+```dart
+// If you have the call ID
+String callId = "your-call-id";
+Call? call = _telnyxClient.getCallOrNull(callId);
+
+if (call != null) {
+  call.sendConversationMessage("I need assistance with billing.");
+}
+```
+
+**Important Notes:**
+- The `sendConversationMessage` method is only available during AI Assistant conversations
+- Text messages sent this way will appear in the transcript updates alongside spoken conversation
+- The AI Agent will process and respond to text messages just like spoken input
+- You must have an active call established before sending text messages
+
+This feature enables rich conversational experiences where users can seamlessly switch between voice and text communication with the AI Assistant.
 
 ## Additional Resources
 - [Official SDK Documentation](https://developers.telnyx.com/docs/voice/webrtc/flutter-sdk)
