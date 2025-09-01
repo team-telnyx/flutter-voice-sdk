@@ -99,6 +99,6 @@ try {
 ## Next Steps
 
 After successful anonymous login:
-1. [Start a conversation](starting-conversations.md) using `newInvite()`
-2. [Set up transcript updates](transcript-updates.md) to receive real-time conversation data
-3. [Send text messages](text-messaging.md) during active calls
+1. [Start a conversation](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/starting-conversations) using `newInvite()`
+2. [Set up transcript updates](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/transcript-updates) to receive real-time conversation data
+3. [Send text messages](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/text-messaging) during active calls

@@ -454,5 +454,4 @@ If sent messages don't appear in the transcript:
 
 ## Next Steps
 
-- [View complete example](complete-example.md) for full AI Agent implementation
-- [Learn about transcript updates](transcript-updates.md) to handle responses
+- [Learn about transcript updates](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/transcript-updates) to handle responses

@@ -10,11 +10,10 @@ Once your AI Agent is up and running, you can use the SDK to communicate with yo
 
 This directory contains detailed documentation for AI Agent integration:
 
-- [Anonymous Login](anonymous-login.md) - How to connect to AI assistants without traditional authentication
-- [Starting Conversations](starting-conversations.md) - How to initiate calls with AI assistants
-- [Transcript Updates](transcript-updates.md) - Real-time conversation transcripts
-- [Text Messaging](text-messaging.md) - Send text messages to AI agents during calls
-- [Complete Example](complete-example.md) - Full implementation example
+- [Anonymous Login](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/anonymous-login) - How to connect to AI assistants without traditional authentication
+- [Starting Conversations](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/starting-conversations) - How to initiate calls with AI assistants
+- [Transcript Updates](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/transcript-updates) - Real-time conversation transcripts
+- [Text Messaging](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/text-messaging) - Send text messages to AI agents during calls
 
 ## Quick Start
 

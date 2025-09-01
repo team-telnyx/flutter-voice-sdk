@@ -294,5 +294,4 @@ If some messages are missing from the transcript:
 
 ## Next Steps
 
-- [Send text messages](text-messaging.md) to the AI agent during calls
-- [View complete example](complete-example.md) for full implementation
+- [Send text messages](https://developers.telnyx.com/development/webrtc/flutter-sdk/ai-agent/text-messaging) to the AI agent during calls
