@@ -7,7 +7,12 @@ import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 // Mock custom logger for testing
 class MockCustomLogger implements CustomLogger {
   @override
-  void log(String message, LogLevel level) {
+  void setLogLevel(LogLevel level) {
+    // Mock implementation
+  }
+
+  @override
+  void log(LogLevel level, String message) {
     // Mock implementation
   }
 }
