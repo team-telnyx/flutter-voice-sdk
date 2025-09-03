@@ -5,6 +5,16 @@
 
 Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
 
+## Quick Start with Telnyx Common (Beta)
+
+**Looking for a faster implementation?** Check out [Telnyx Common](https://github.com/team-telnyx/flutter-voice-commons) - available on [pub.dev](https://pub.dev/packages/telnyx_common).
+
+Telnyx Common is a comprehensive Flutter package that abstracts away the complexity of implementing WebRTC voice calling functionality. It sits on top of the lower-level `telnyx_webrtc` package and provides a unified, easy-to-use API for developers who want to integrate voice calling capabilities into their Flutter applications without dealing with the intricate details of WebRTC, push notifications, and platform-specific implementations.
+
+This is the quickest way to implement the SDK with minimal setup and configuration.
+
+> **Note:** Telnyx Common is currently in beta. While it significantly simplifies implementation, you may encounter some limitations or changes as the library evolves.
+
 ## Table of Contents
 
 - [Features](#features)
