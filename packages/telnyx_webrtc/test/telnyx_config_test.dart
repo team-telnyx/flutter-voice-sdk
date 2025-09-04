@@ -6,9 +6,16 @@ import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 
 // Mock custom logger for testing
 class MockCustomLogger implements CustomLogger {
+  LogLevel _logLevel = LogLevel.none;
+
   @override
-  void log(String message, LogLevel level) {
+  void log(LogLevel level, String message) {
     // Mock implementation
+  }
+
+  @override
+  void setLogLevel(LogLevel level) {
+    _logLevel = level;
   }
 }
 
@@ -49,7 +56,7 @@ void main() {
         ringTonePath: '/path/to/ringtone.mp3',
         ringbackPath: '/path/to/ringback.mp3',
         reconnectionTimeout: 30,
-        region: Region.us,
+        region: Region.auto,
         fallbackOnRegionFailure: false,
         forceRelayCandidate: true,
       );
@@ -64,7 +71,7 @@ void main() {
       expect(config.ringTonePath, equals('/path/to/ringtone.mp3'));
       expect(config.ringbackPath, equals('/path/to/ringback.mp3'));
       expect(config.reconnectionTimeout, equals(30));
-      expect(config.region, equals(Region.us));
+      expect(config.region, equals(Region.auto));
       expect(config.fallbackOnRegionFailure, isFalse);
       expect(config.forceRelayCandidate, isTrue);
     });
@@ -129,26 +136,26 @@ void main() {
           sipCallerIDName: 'Test',
           sipCallerIDNumber: '+123',
           debug: true,
-          region: Region.us,
+          region: Region.usCentral,
         ),
         Config(
           sipCallerIDName: 'Test',
           sipCallerIDNumber: '+123',
           debug: true,
-          region: Region.europe,
+          region: Region.eu,
         ),
         Config(
           sipCallerIDName: 'Test',
           sipCallerIDNumber: '+123',
           debug: true,
-          region: Region.australia,
+          region: Region.apac,
         ),
       ];
 
       expect(configs[0].region, equals(Region.auto));
-      expect(configs[1].region, equals(Region.us));
-      expect(configs[2].region, equals(Region.europe));
-      expect(configs[3].region, equals(Region.australia));
+      expect(configs[1].region, equals(Region.usCentral));
+      expect(configs[2].region, equals(Region.eu));
+      expect(configs[3].region, equals(Region.apac));
     });
   });
 
@@ -159,6 +166,8 @@ void main() {
         sipCallerIDName: 'Test User',
         sipCallerIDNumber: '+1234567890',
         debug: true,
+        logLevel: LogLevel.all,
+        customLogger: MockCustomLogger(),
       );
 
       expect(config.sipToken, equals('test_token_123'));
@@ -181,7 +190,7 @@ void main() {
         ringTonePath: '/ringtone.wav',
         ringbackPath: '/ringback.wav',
         reconnectionTimeout: 45,
-        region: Region.europe,
+        region: Region.eu,
         fallbackOnRegionFailure: true,
         forceRelayCandidate: false,
       );
@@ -197,7 +206,7 @@ void main() {
       expect(config.ringTonePath, equals('/ringtone.wav'));
       expect(config.ringbackPath, equals('/ringback.wav'));
       expect(config.reconnectionTimeout, equals(45));
-      expect(config.region, equals(Region.europe));
+      expect(config.region, equals(Region.eu));
       expect(config.fallbackOnRegionFailure, isTrue);
       expect(config.forceRelayCandidate, isFalse);
     });
@@ -211,6 +220,8 @@ void main() {
         sipCallerIDName: 'Test User',
         sipCallerIDNumber: '+1234567890',
         debug: true,
+        logLevel: LogLevel.all,
+        customLogger: MockCustomLogger(),
       );
 
       expect(config.sipUser, equals('test_user'));
@@ -235,7 +246,7 @@ void main() {
         ringTonePath: '/custom_ringtone.mp3',
         ringbackPath: '/custom_ringback.mp3',
         reconnectionTimeout: 60,
-        region: Region.australia,
+        region: Region.apac,
         fallbackOnRegionFailure: false,
         forceRelayCandidate: true,
       );
@@ -252,7 +263,7 @@ void main() {
       expect(config.ringTonePath, equals('/custom_ringtone.mp3'));
       expect(config.ringbackPath, equals('/custom_ringback.mp3'));
       expect(config.reconnectionTimeout, equals(60));
-      expect(config.region, equals(Region.australia));
+      expect(config.region, equals(Region.apac));
       expect(config.fallbackOnRegionFailure, isFalse);
       expect(config.forceRelayCandidate, isTrue);
     });

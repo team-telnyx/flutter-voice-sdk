@@ -25,7 +25,6 @@ One of the most common issues is that the FCM token is not being passed correctl
 - Make sure you're retrieving the FCM token as shown in the [App Setup](https://developers.telnyx.com/docs/voice/webrtc/flutter-sdk/push-notification/app-setup) guide
 - Ensure the token is passed to the `connect()` method within the `TelnyxConfig` object
 - Verify that the token is not null or empty before passing it
-
 ### 2. Incorrect google-services.json Configuration
 
 If your Firebase configuration file is incorrect or outdated, push notifications will not work properly.
