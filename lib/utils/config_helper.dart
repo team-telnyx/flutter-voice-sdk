@@ -17,7 +17,6 @@ class ConfigHelper {
       final sipNumber = prefs.getString('sipNumber');
       final notificationToken = prefs.getString('notificationToken');
       final forceRelayCandidate = prefs.getBool('forceRelayCandidate') ?? false;
-      final useTrickleIce = prefs.getBool('useTrickleIce') ?? false;
 
       if (sipUser != null &&
           sipPassword != null &&
@@ -34,7 +33,6 @@ class ConfigHelper {
           debug: false,
           reconnectionTimeout: 30000,
           forceRelayCandidate: forceRelayCandidate,
-          useTrickleIce: useTrickleIce,
         );
       }
     } catch (e) {
@@ -55,7 +53,6 @@ class ConfigHelper {
       final sipNumber = prefs.getString('sipNumber');
       final notificationToken = prefs.getString('notificationToken');
       final forceRelayCandidate = prefs.getBool('forceRelayCandidate') ?? false;
-      final useTrickleIce = prefs.getBool('useTrickleIce') ?? false;
 
       if (token != null && sipName != null && sipNumber != null) {
         return TokenConfig(
@@ -67,7 +64,6 @@ class ConfigHelper {
           customLogger: CustomSDKLogger(),
           debug: false,
           forceRelayCandidate: forceRelayCandidate,
-          useTrickleIce: useTrickleIce,
         );
       }
     } catch (e) {

@@ -119,7 +119,8 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'Enable Trickle ICE':
       case 'Disable Trickle ICE':
-        Provider.of<ProfileProvider>(context, listen: false).toggleTrickleIce();
+        Provider.of<TelnyxClientViewModel>(context, listen: false)
+            .toggleTrickleIce();
         break;
       case 'Assistant Login':
         _showAssistantLoginDialog();
@@ -144,6 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final profileProvider = context.watch<ProfileProvider>();
     final selectedProfile = profileProvider.selectedProfile;
+
+    final clientViewModel = context.watch<TelnyxClientViewModel>();
+    final useTrickleIce = clientViewModel.useTrickleIce;
 
     final errorMessage = context.select<TelnyxClientViewModel, String?>(
       (viewModel) => viewModel.errorDialogMessage,
@@ -178,10 +182,14 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
+                final trickleIceToggleText = useTrickleIce
+                    ? 'Disable Trickle ICE'
+                    : 'Enable Trickle ICE';
                 return {
                   'Audio Codecs',
                   'Export Logs',
-                  'Disable Push Notifications'
+                  'Disable Push Notifications',
+                  trickleIceToggleText,
                 }.map((
                   String choice,
                 ) {
@@ -200,10 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 final debugToggleText = selectedProfile.isDebug
                     ? 'Disable Debugging'
                     : 'Enable Debugging';
-                final trickleIceToggleText = selectedProfile.useTrickleIce
-                    ? 'Disable Trickle ICE'
-                    : 'Enable Trickle ICE';
-                return {'Export Logs', debugToggleText, trickleIceToggleText, 'Assistant Login'}
+                return {'Export Logs', debugToggleText, 'Assistant Login'}
                     .map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,

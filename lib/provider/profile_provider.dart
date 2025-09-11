@@ -124,26 +124,4 @@ class ProfileProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-
-  Future<void> toggleTrickleIce() async {
-    if (_selectedProfile != null) {
-      final updatedProfile = _selectedProfile!.copyWith(
-        useTrickleIce: !_selectedProfile!.useTrickleIce,
-      );
-
-      // Update the profile in the list
-      final index = _profiles.indexWhere(
-        (p) => p.sipCallerIDName == _selectedProfile!.sipCallerIDName,
-      );
-      if (index != -1) {
-        _profiles[index] = updatedProfile;
-      }
-
-      // Update the selected profile
-      _selectedProfile = updatedProfile;
-
-      await _saveProfiles();
-      notifyListeners();
-    }
-  }
 }
