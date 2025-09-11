@@ -764,6 +764,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void call(String destination) {
+    final profile = Provider.of<ProfileProvider>(context, listen: false).selectedProfile;
     _currentCall = _telnyxClient.newInvite(
       _localName,
       _localNumber,
@@ -772,6 +773,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
       preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
       debug: true,
+      useTrickleIce: profile.useTrickleIce,
     );
 
     logger.i(
@@ -881,6 +883,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         );
       }
 
+      final profile = Provider.of<ProfileProvider>(context, listen: false).selectedProfile;
       _currentCall = _telnyxClient.acceptCall(
         invite,
         _localName,
@@ -889,6 +892,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         customHeaders: {},
         preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
         debug: true,
+        useTrickleIce: profile.useTrickleIce,
       );
       observeCurrentCall();
 

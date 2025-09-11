@@ -249,11 +249,7 @@ class TelnyxClient {
     return config?.forceRelayCandidate ?? false;
   }
 
-  /// Returns the useTrickleIce setting from the current config
-  bool getUseTrickleIce() {
-    final config = _storedCredentialConfig ?? _storedTokenConfig;
-    return config?.useTrickleIce ?? false;
-  }
+
 
   /// Returns whether or not the client is connected to the socket connection
   bool isConnected() {
@@ -1303,6 +1299,7 @@ class TelnyxClient {
     Map<String, String> customHeaders = const {},
     List<AudioCodec>? preferredCodecs,
     bool debug = false,
+    bool useTrickleIce = false,
   }) {
     final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
@@ -1320,7 +1317,7 @@ class TelnyxClient {
       debug || _debug,
       this,
       getForceRelayCandidate(),
-      getUseTrickleIce(),
+      useTrickleIce,
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1373,6 +1370,7 @@ class TelnyxClient {
     Map<String, String> customHeaders = const {},
     List<AudioCodec>? preferredCodecs,
     bool debug = false,
+    bool useTrickleIce = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -1390,7 +1388,7 @@ class TelnyxClient {
       debug || _debug,
       this,
       getForceRelayCandidate(),
-      getUseTrickleIce(),
+      useTrickleIce,
     );
 
     // Convert AudioCodec objects to Map format for the peer connection
