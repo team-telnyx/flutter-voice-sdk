@@ -117,6 +117,10 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Disable Debugging':
         Provider.of<ProfileProvider>(context, listen: false).toggleDebugMode();
         break;
+      case 'Enable Trickle ICE':
+      case 'Disable Trickle ICE':
+        Provider.of<ProfileProvider>(context, listen: false).toggleTrickleIce();
+        break;
       case 'Assistant Login':
         _showAssistantLoginDialog();
         break;
@@ -196,7 +200,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 final debugToggleText = selectedProfile.isDebug
                     ? 'Disable Debugging'
                     : 'Enable Debugging';
-                return {'Export Logs', debugToggleText, 'Assistant Login'}
+                final trickleIceToggleText = selectedProfile.useTrickleIce
+                    ? 'Disable Trickle ICE'
+                    : 'Enable Trickle ICE';
+                return {'Export Logs', debugToggleText, trickleIceToggleText, 'Assistant Login'}
                     .map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,

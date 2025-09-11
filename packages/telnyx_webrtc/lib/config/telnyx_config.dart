@@ -19,6 +19,7 @@ class Config {
     this.region = Region.auto,
     this.fallbackOnRegionFailure = true,
     this.forceRelayCandidate = false,
+    this.useTrickleIce = false,
   });
 
   /// Name associated with the SIP account
@@ -65,6 +66,13 @@ class Config {
   ///   as all media will be relayed through TURN servers.
   /// - Important: This setting is disabled by default to maintain optimal call quality.
   final bool forceRelayCandidate;
+
+  /// Controls whether the SDK should use Trickle ICE for peer connections.
+  /// When enabled, ICE candidates are sent individually as they are discovered,
+  /// allowing for faster call establishment. When disabled, the SDK waits for
+  /// all ICE candidates to be gathered before sending the offer/answer.
+  /// - Note: This setting is disabled by default to maintain compatibility.
+  final bool useTrickleIce;
 }
 
 /// Creates an instance of CredentialConfig which can be used to log in
@@ -80,6 +88,7 @@ class Config {
 /// [ringbackPath] is the path to the ringback file (audio to play when calling)
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+/// [useTrickleIce] controls whether the SDK should use Trickle ICE for peer connections (default: false)
 class CredentialConfig extends Config {
   /// Creates an instance of CredentialConfig which can be used to log in
   ///
@@ -109,6 +118,7 @@ class CredentialConfig extends Config {
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
+    super.useTrickleIce = false,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -131,6 +141,7 @@ class CredentialConfig extends Config {
 /// [ringbackPath] is the path to the ringback file (audio to play when calling)
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+/// [useTrickleIce] controls whether the SDK should use Trickle ICE for peer connections (default: false)
 class TokenConfig extends Config {
   /// Creates an instance of TokenConfig which can be used to log in
   ///
@@ -159,6 +170,7 @@ class TokenConfig extends Config {
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
+    super.useTrickleIce = false,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API

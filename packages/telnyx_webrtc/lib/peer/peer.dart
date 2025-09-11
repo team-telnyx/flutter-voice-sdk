@@ -6,6 +6,8 @@ import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/candidate_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/end_of_candidates_message_body.dart';
 import 'package:telnyx_webrtc/peer/session.dart';
 import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
@@ -26,7 +28,7 @@ class Peer {
   RTCPeerConnection? peerConnection;
 
   /// The constructor for the Peer class.
-  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate);
+  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate, this._useTrickleIce);
 
   final String _selfId = randomNumeric(6);
 
@@ -34,6 +36,7 @@ class Peer {
   final TelnyxClient _txClient;
   final bool _debug;
   final bool _forceRelayCandidate;
+  final bool _useTrickleIce;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -499,8 +502,14 @@ class Peer {
 
         if (isValidCandidate) {
           GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
-          // Add valid candidates
-          await peerConnection?.addCandidate(candidate);
+          
+          if (_useTrickleIce) {
+            // Send candidate immediately via trickle ICE
+            _sendTrickleCandidate(candidate, callId);
+          } else {
+            // Add valid candidates for traditional ICE gathering
+            await peerConnection?.addCandidate(candidate);
+          }
         } else {
           GlobalLogger().i(
             'Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
@@ -508,6 +517,10 @@ class Peer {
         }
       } else {
         GlobalLogger().i('Peer :: onIceCandidate: complete!');
+        if (_useTrickleIce) {
+          // Send end of candidates signal
+          _sendEndOfCandidates(callId);
+        }
       }
     };
 
@@ -693,5 +706,52 @@ class Peer {
   void _stopNegotiationTimer() {
     _negotiationTimer?.cancel();
     _negotiationTimer = null;
+  }
+
+  /// Sends a trickle ICE candidate to the remote peer
+  void _sendTrickleCandidate(RTCIceCandidate candidate, String callId) {
+    try {
+      final candidateParams = CandidateParams(
+        dialogParams: CandidateDialogParams(callID: callId),
+        candidate: candidate.candidate,
+        sdpMid: candidate.sdpMid,
+        sdpMLineIndex: candidate.sdpMLineIndex,
+      );
+
+      final candidateMessage = CandidateMessage(
+        id: const Uuid().v4(),
+        jsonrpc: JsonRPCConstant.jsonrpc,
+        method: SocketMethod.candidate,
+        params: candidateParams,
+      );
+
+      final String jsonCandidateMessage = jsonEncode(candidateMessage);
+      GlobalLogger().i('Peer :: Sending trickle ICE candidate: ${candidate.candidate}');
+      _send(jsonCandidateMessage);
+    } catch (e) {
+      GlobalLogger().e('Peer :: Error sending trickle ICE candidate: $e');
+    }
+  }
+
+  /// Sends end of candidates signal to the remote peer
+  void _sendEndOfCandidates(String callId) {
+    try {
+      final endOfCandidatesParams = EndOfCandidatesParams(
+        dialogParams: EndOfCandidatesDialogParams(callID: callId),
+      );
+
+      final endOfCandidatesMessage = EndOfCandidatesMessage(
+        id: const Uuid().v4(),
+        jsonrpc: JsonRPCConstant.jsonrpc,
+        method: SocketMethod.endOfCandidates,
+        params: endOfCandidatesParams,
+      );
+
+      final String jsonEndOfCandidatesMessage = jsonEncode(endOfCandidatesMessage);
+      GlobalLogger().i('Peer :: Sending end of candidates signal');
+      _send(jsonEndOfCandidatesMessage);
+    } catch (e) {
+      GlobalLogger().e('Peer :: Error sending end of candidates: $e');
+    }
   }
 }

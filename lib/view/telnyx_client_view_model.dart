@@ -379,6 +379,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     if (config.notificationToken != null) {
       await prefs.setString('notificationToken', config.notificationToken!);
     }
+    await prefs.setBool('forceRelayCandidate', config.forceRelayCandidate);
+    await prefs.setBool('useTrickleIce', config.useTrickleIce);
   }
 
   Future<void> _clearConfigForAutoLogin() async {
@@ -389,6 +391,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     await prefs.remove('sipName');
     await prefs.remove('sipNumber');
     await prefs.remove('notificationToken');
+    await prefs.remove('forceRelayCandidate');
+    await prefs.remove('useTrickleIce');
   }
 
   void observeResponses() {
