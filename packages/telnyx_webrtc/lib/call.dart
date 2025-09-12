@@ -241,6 +241,7 @@ class Call {
   /// @param isAttach Whether this is an attach operation
   /// @param customHeaders Optional custom SIP headers
   /// @param debug Whether to enable call quality metrics (default: false)
+  /// @param useTrickleIce Whether to use trickle ICE for faster call setup (default: false)
   Call acceptCall(
     IncomingInviteParams invite,
     String callerName,
@@ -249,6 +250,7 @@ class Call {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
     bool debug = false,
+    bool useTrickleIce = false,
   }) {
     // Store the session information for later use
     sessionCallerName = callerName;
@@ -265,6 +267,7 @@ class Call {
       customHeaders: customHeaders,
       isAttach: isAttach,
       debug: debug,
+      useTrickleIce: useTrickleIce,
     );
   }
 

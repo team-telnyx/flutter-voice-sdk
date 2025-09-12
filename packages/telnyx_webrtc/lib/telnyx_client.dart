@@ -249,8 +249,6 @@ class TelnyxClient {
     return config?.forceRelayCandidate ?? false;
   }
 
-
-
   /// Returns whether or not the client is connected to the socket connection
   bool isConnected() {
     return _connected;
@@ -1289,6 +1287,10 @@ class TelnyxClient {
   ///   If any codec in the list is not supported by the platform or remote party,
   ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
+  /// - [useTrickleIce]: When true, enables trickle ICE for the call. Trickle ICE allows
+  ///   ICE candidates to be sent incrementally as they are discovered, rather than
+  ///   waiting for all candidates to be gathered before sending the SDP. This can
+  ///   significantly reduce call setup time. Defaults to false.
   ///
   /// Returns a [Call] object representing the new outgoing call.
   Call newInvite(
@@ -1359,6 +1361,10 @@ class TelnyxClient {
   ///   If any codec in the list is not supported by the platform or remote party,
   ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
+  /// - [useTrickleIce]: When true, enables trickle ICE for the call. Trickle ICE allows
+  ///   ICE candidates to be sent incrementally as they are discovered, rather than
+  ///   waiting for all candidates to be gathered before sending the SDP. This can
+  ///   significantly reduce call setup time. Defaults to false.
   ///
   /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
@@ -2100,6 +2106,64 @@ class TelnyxClient {
                   message: aiConversation,
                 );
                 onSocketMessageReceived(message);
+                break;
+              }
+            case SocketMethod.candidate:
+              {
+                GlobalLogger()
+                    .i('TRICKLE ICE CANDIDATE RECEIVED :: $messageJson');
+                final Map<String, dynamic> candidateData =
+                    jsonDecode(data.toString());
+
+                // Extract candidate information
+                final String? callId = candidateData['params']?['callID'];
+                final String? candidateStr =
+                    candidateData['params']?['candidate'];
+                final String? sdpMid = candidateData['params']?['sdpMid'];
+                final int? sdpMLineIndex =
+                    candidateData['params']?['sdpMLineIndex'];
+
+                if (callId != null && candidateStr != null) {
+                  // Find the call and add the remote candidate
+                  final Call? call = calls[callId];
+                  if (call != null && call.peerConnection != null) {
+                    // Add remote candidate to peer connection
+                    call.peerConnection!.handleRemoteCandidate(
+                      callId,
+                      candidateStr,
+                      sdpMid ?? '0',
+                      sdpMLineIndex ?? 0,
+                    );
+                  } else {
+                    GlobalLogger()
+                        .w('Received candidate for unknown call: $callId');
+                  }
+                }
+                break;
+              }
+            case SocketMethod.endOfCandidates:
+              {
+                GlobalLogger().i('END OF CANDIDATES RECEIVED :: $messageJson');
+                final Map<String, dynamic> endData =
+                    jsonDecode(data.toString());
+
+                // Extract call ID
+                final String? callId =
+                    endData['params']?['dialogParams']?['callID'];
+
+                if (callId != null) {
+                  // Find the call and signal end of candidates
+                  final Call? call = calls[callId];
+                  if (call != null) {
+                    GlobalLogger()
+                        .i('End of candidates signaled for call: $callId');
+                    // The peer connection will handle this internally
+                    // No specific action needed as WebRTC handles this automatically
+                  } else {
+                    GlobalLogger().w(
+                        'Received endOfCandidates for unknown call: $callId');
+                  }
+                }
                 break;
               }
           }
