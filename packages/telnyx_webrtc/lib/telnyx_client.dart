@@ -2157,8 +2157,6 @@ class TelnyxClient {
                   if (call != null) {
                     GlobalLogger()
                         .i('End of candidates signaled for call: $callId');
-                    // The peer connection will handle this internally
-                    // No specific action needed as WebRTC handles this automatically
                   } else {
                     GlobalLogger().w(
                         'Received endOfCandidates for unknown call: $callId');
