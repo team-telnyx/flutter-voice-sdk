@@ -49,7 +49,7 @@ class Peer {
   /// Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 500; // 500ms timeout for negotiation
+  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
   Function()? _onNegotiationComplete;
 
   // Add trickle ICE end-of-candidates timer fields
@@ -343,9 +343,9 @@ class Peer {
         // Send INVITE immediately for trickle ICE
         await sendInvite();
       } else {
-        // Wait for ICE gathering to complete for regular ICE
-        await Future.delayed(const Duration(milliseconds: 500));
-        Timer(const Duration(milliseconds: 500), sendInvite);
+        // Traditional ICE gathering - use negotiation timer
+        _lastCandidateTime = DateTime.now();
+        _setOnNegotiationComplete(sendInvite);
       }
     } catch (e) {
       GlobalLogger().e('Peer :: _createOffer error: $e');

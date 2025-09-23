@@ -49,7 +49,7 @@ class Peer {
   // Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 500; // 500ms timeout for negotiation
+  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
   Function()? _onNegotiationComplete;
 
   // Add trickle ICE end-of-candidates timer fields
@@ -225,18 +225,20 @@ class Peer {
       // With trickle ICE, create offer without waiting for ICE gathering
       if (_useTrickleIce) {
         // Create offer with proper constraints but don't wait for ICE candidate gathering
-        final RTCSessionDescription s = await session.peerConnection!.createOffer(
+        final RTCSessionDescription s =
+            await session.peerConnection!.createOffer(
           _dcConstraints,
         );
-        
+
         // For trickle ICE, we set the local description but don't wait for candidates
         await session.peerConnection!.setLocalDescription(s);
-        
+
         // Get the SDP immediately - it should not contain candidates yet
         String? sdpUsed = s.sdp;
-        
+
         // Add trickle ICE capability to SDP
-        sdpUsed = SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
+        sdpUsed =
+            SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
 
         final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -270,12 +272,14 @@ class Peer {
         );
 
         final String jsonInviteMessage = jsonEncode(inviteMessage);
-        GlobalLogger()
-            .i('Peer :: Sending INVITE with trickle ICE enabled (no candidate gathering)');
+        GlobalLogger().i(
+          'Peer :: Sending INVITE with trickle ICE enabled (no candidate gathering)',
+        );
         _send(jsonInviteMessage);
       } else {
-        // Traditional ICE gathering - wait for candidates
-        final RTCSessionDescription s = await session.peerConnection!.createOffer(
+        // Traditional ICE gathering - use negotiation timer
+        final RTCSessionDescription s =
+            await session.peerConnection!.createOffer(
           _dcConstraints,
         );
         await session.peerConnection!.setLocalDescription(s);
@@ -290,14 +294,13 @@ class Peer {
           session.remoteCandidates.clear();
         }
 
-        await Future.delayed(const Duration(milliseconds: 500));
+        _lastCandidateTime = DateTime.now();
+        _setOnNegotiationComplete(() async {
+          String? sdpUsed = '';
+          await session.peerConnection?.getLocalDescription().then(
+                (value) => sdpUsed = value?.sdp.toString(),
+              );
 
-        String? sdpUsed = '';
-        await session.peerConnection?.getLocalDescription().then(
-              (value) => sdpUsed = value?.sdp.toString(),
-            );
-
-        Timer(const Duration(milliseconds: 500), () async {
           final userAgent = await VersionUtils.getUserAgent();
           final dialogParams = DialogParams(
             attach: false,
@@ -330,7 +333,6 @@ class Peer {
           );
 
           final String jsonInviteMessage = jsonEncode(inviteMessage);
-
           _send(jsonInviteMessage);
         });
       }
@@ -487,15 +489,16 @@ class Peer {
         // With trickle ICE, create answer without waiting for ICE gathering
         final RTCSessionDescription s =
             await session.peerConnection!.createAnswer(_dcConstraints);
-        
+
         // For trickle ICE, we set the local description but don't wait for candidates
         await session.peerConnection!.setLocalDescription(s);
-        
+
         // Get the SDP immediately - it should not contain candidates yet
         String? sdpUsed = s.sdp;
-        
+
         // Add trickle ICE capability to SDP
-        sdpUsed = SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
+        sdpUsed =
+            SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
 
         final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -940,8 +943,6 @@ class Peer {
       );
     }
   }
-
-  
 
   /// Sends a trickle ICE candidate to the remote peer
   void _sendTrickleCandidate(RTCIceCandidate candidate, String callId) {

@@ -124,8 +124,9 @@ class Call {
   /// - Represents states like: newCall, ringing, connecting, active, held, done, etc.
   late CallState callState;
 
-  /// AudioService instance to handle audio playback
-  final audioService = AudioService();
+  /// AudioService instance to handle audio playback (lazy initialized)
+  AudioService get audioService => _audioService ??= AudioService();
+  AudioService? _audioService;
 
   /// Debug mode flag to enable call quality metrics
   final bool debug;
