@@ -572,22 +572,6 @@ class Peer {
           );
         });
       }
-      } else {
-        // For regular ICE, start candidate gathering and wait for negotiation to complete
-        _lastCandidateTime = DateTime.now();
-        _setOnNegotiationComplete(() async {
-          await _sendAnswerMessage(
-            session,
-            callId,
-            callerNumber,
-            destinationNumber,
-            clientState,
-            customHeaders,
-            isAttach,
-            preferredCodecs,
-          );
-        });
-      }
     } catch (e) {
       GlobalLogger().e('Peer :: _createAnswer error: $e');
     }
