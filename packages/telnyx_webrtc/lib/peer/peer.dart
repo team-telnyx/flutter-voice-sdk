@@ -17,6 +17,7 @@ import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
+import 'package:telnyx_webrtc/utils/sdp_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
@@ -221,30 +222,21 @@ class Peer {
     List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
-      final RTCSessionDescription s = await session.peerConnection!.createOffer(
-        _dcConstraints,
-      );
-      await session.peerConnection!.setLocalDescription(s);
-
-      if (session.remoteCandidates.isNotEmpty) {
-        for (var candidate in session.remoteCandidates) {
-          if (candidate.candidate != null) {
-            GlobalLogger().i('adding $candidate');
-            await session.peerConnection?.addCandidate(candidate);
-          }
-        }
-        session.remoteCandidates.clear();
-      }
-
-      // With trickle ICE, send offer immediately without waiting for candidates
+      // With trickle ICE, create offer without waiting for ICE gathering
       if (_useTrickleIce) {
-        String? sdpUsed = '';
-        await session.peerConnection?.getLocalDescription().then(
-              (value) => sdpUsed = value?.sdp.toString(),
-            );
-
+        // Create offer with proper constraints but don't wait for ICE candidate gathering
+        final RTCSessionDescription s = await session.peerConnection!.createOffer(
+          _dcConstraints,
+        );
+        
+        // For trickle ICE, we set the local description but don't wait for candidates
+        await session.peerConnection!.setLocalDescription(s);
+        
+        // Get the SDP immediately - it should not contain candidates yet
+        String? sdpUsed = s.sdp;
+        
         // Add trickle ICE capability to SDP
-        sdpUsed = _addTrickleIceToSdp(sdpUsed ?? '');
+        sdpUsed = SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
 
         final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -279,10 +271,25 @@ class Peer {
 
         final String jsonInviteMessage = jsonEncode(inviteMessage);
         GlobalLogger()
-            .i('Peer :: Sending INVITE with trickle ICE enabled (immediate)');
+            .i('Peer :: Sending INVITE with trickle ICE enabled (no candidate gathering)');
         _send(jsonInviteMessage);
       } else {
         // Traditional ICE gathering - wait for candidates
+        final RTCSessionDescription s = await session.peerConnection!.createOffer(
+          _dcConstraints,
+        );
+        await session.peerConnection!.setLocalDescription(s);
+
+        if (session.remoteCandidates.isNotEmpty) {
+          for (var candidate in session.remoteCandidates) {
+            if (candidate.candidate != null) {
+              GlobalLogger().i('adding $candidate');
+              await session.peerConnection?.addCandidate(candidate);
+            }
+          }
+          session.remoteCandidates.clear();
+        }
+
         await Future.delayed(const Duration(milliseconds: 500));
 
         String? sdpUsed = '';
@@ -476,19 +483,19 @@ class Peer {
         }
       };
 
-      final RTCSessionDescription s =
-          await session.peerConnection!.createAnswer(_dcConstraints);
-      await session.peerConnection!.setLocalDescription(s);
-
       if (_useTrickleIce) {
-        // With trickle ICE, send answer immediately without waiting for candidates
-        String? sdpUsed = '';
-        await session.peerConnection?.getLocalDescription().then(
-              (value) => sdpUsed = value?.sdp.toString(),
-            );
-
+        // With trickle ICE, create answer without waiting for ICE gathering
+        final RTCSessionDescription s =
+            await session.peerConnection!.createAnswer(_dcConstraints);
+        
+        // For trickle ICE, we set the local description but don't wait for candidates
+        await session.peerConnection!.setLocalDescription(s);
+        
+        // Get the SDP immediately - it should not contain candidates yet
+        String? sdpUsed = s.sdp;
+        
         // Add trickle ICE capability to SDP
-        sdpUsed = _addTrickleIceToSdp(sdpUsed ?? '');
+        sdpUsed = SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
 
         final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -527,6 +534,10 @@ class Peer {
         _send(jsonAnswerMessage);
       } else {
         // Traditional ICE gathering - wait for candidates
+        final RTCSessionDescription s =
+            await session.peerConnection!.createAnswer(_dcConstraints);
+        await session.peerConnection!.setLocalDescription(s);
+
         _lastCandidateTime = DateTime.now();
         _setOnNegotiationComplete(() async {
           String? sdpUsed = '';
@@ -930,45 +941,7 @@ class Peer {
     }
   }
 
-  /// Adds trickle ICE capability to the SDP
-  String _addTrickleIceToSdp(String sdp) {
-    if (!_useTrickleIce) {
-      return sdp;
-    }
-
-    // Check if ice-options:trickle already exists
-    if (sdp.contains('a=ice-options:trickle')) {
-      return sdp;
-    }
-
-    // Find the first media line (m=) and add ice-options after it
-    final lines = sdp.split('\r\n');
-    final modifiedLines = <String>[];
-    bool addedTrickleIce = false;
-
-    for (int i = 0; i < lines.length; i++) {
-      modifiedLines.add(lines[i]);
-
-      // Add ice-options:trickle after the first m= line
-      if (!addedTrickleIce && lines[i].startsWith('m=')) {
-        // Look for the next line that starts with 'a=' and add before it
-        // or add immediately after the m= line
-        int insertIndex = i + 1;
-        while (
-            insertIndex < lines.length && lines[insertIndex].startsWith('c=')) {
-          modifiedLines.add(lines[insertIndex]);
-          insertIndex++;
-          i++;
-        }
-        modifiedLines.add('a=ice-options:trickle');
-        addedTrickleIce = true;
-      }
-    }
-
-    final modifiedSdp = modifiedLines.join('\r\n');
-    GlobalLogger().i('Peer :: Added trickle ICE to SDP');
-    return modifiedSdp;
-  }
+  
 
   /// Sends a trickle ICE candidate to the remote peer
   void _sendTrickleCandidate(RTCIceCandidate candidate, String callId) {
