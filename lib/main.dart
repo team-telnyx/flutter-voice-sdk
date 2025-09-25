@@ -28,7 +28,8 @@ final txClientViewModel = TelnyxClientViewModel();
 void _endActiveCallOnTermination() {
   try {
     if (txClientViewModel.currentCall != null) {
-      logger.i('[_endActiveCallOnTermination] Active call detected, ending gracefully');
+      logger.i(
+          '[_endActiveCallOnTermination] Active call detected, ending gracefully');
       txClientViewModel.endCall();
     } else {
       logger.i('[_endActiveCallOnTermination] No active call to end');
@@ -98,7 +99,7 @@ Future<void> main() async {
           'Caught Flutter error: ${details.exception}',
           stackTrace: details.stack,
         );
-        
+
         // End any active call before clearing push data
         _endActiveCallOnTermination();
         PlatformPushService.handler.clearPushData();
@@ -107,7 +108,7 @@ Future<void> main() async {
       // Catch other platform errors (e.g., Dart errors outside Flutter)
       PlatformDispatcher.instance.onError = (error, stack) {
         logger.e('Caught Platform error: $error', stackTrace: stack);
-        
+
         // End any active call before clearing push data
         _endActiveCallOnTermination();
         PlatformPushService.handler.clearPushData();
@@ -158,7 +159,7 @@ Future<void> main() async {
     },
     (error, stack) {
       logger.e('Caught Zoned error: $error', stackTrace: stack);
-      
+
       // End any active call before clearing push data
       _endActiveCallOnTermination();
       PlatformPushService.handler.clearPushData();
@@ -206,9 +207,22 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  late final AppLifecycleListener _listener;
+
+  Future<void> _handleStateChange(AppLifecycleState state) async {
+    if (state == AppLifecycleState.detached) {
+      logger.i(
+          '[_MyAppState] AppLifecycleState.detached - ending any active calls');
+      _endActiveCallOnTermination();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _listener = AppLifecycleListener(
+      onStateChange: _handleStateChange,
+    );
     logger.i('[_MyAppState] initState called.');
 
     // Platform-specific logic for handling initial push data when app starts.
