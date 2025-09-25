@@ -89,6 +89,9 @@ class TelnyxClient {
   bool _isAttaching = false;
   bool _debug = false;
 
+  // Stores the last known connectivity result to detect actual changes.
+  List<ConnectivityResult>? _previousConnectivityResult;
+
   // Map to track reconnection timers for each call
   final Map<String?, Timer> _reconnectionTimers = {};
 
@@ -289,6 +292,26 @@ class TelnyxClient {
       GlobalLogger().i(
         'Connectivity changed: ${connectivityResult.join(", ")}',
       );
+
+      // On the first emission, just store the initial state and do nothing.
+      // This prevents treating the initial status report as a connectivity change.
+      if (_previousConnectivityResult == null) {
+        _previousConnectivityResult = connectivityResult;
+        return;
+      }
+
+      // Use sets for comparison as the order of results is not guaranteed.
+      final currentSet = Set.of(connectivityResult);
+      final previousSet = Set.of(_previousConnectivityResult!);
+
+      // If the connectivity state hasn't changed, there's nothing to do.
+      if (setEquals(currentSet, previousSet)) {
+        GlobalLogger().i('Connectivity state is the same as before, ignoring.');
+        return;
+      }
+
+      // Update the state for the next change detection.
+      _previousConnectivityResult = connectivityResult;
 
       if (_isAttaching) return;
 
