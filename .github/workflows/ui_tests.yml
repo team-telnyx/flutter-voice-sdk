@@ -3,11 +3,14 @@ name: Flutter UI Tests (Firebase Test Lab)
 on:
   pull_request:
     branches: [ main ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
 
 jobs:
   integration_test:
     runs-on: ubuntu-latest
+    # Skip UI tests for draft PRs to reduce Firebase test quota usage
+    if: github.event.pull_request.draft != true
     steps:
       # 1) Check out repo
       - uses: actions/checkout@v3
