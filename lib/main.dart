@@ -157,12 +157,14 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
   }
   logger.i('[handlePush] Before txClientViewModel.getConfig()');
   final config = await txClientViewModel.getConfig();
+  final newTokenConfig =
+      await txClientViewModel.generateAuthToken(config as CredentialConfig);
   logger.i('[handlePush] Created PushMetaData: ${pushMetaData?.toJson()}');
   txClientViewModel
     ..handlePushNotification(
       pushMetaData!,
-      config is CredentialConfig ? config : null,
-      config is TokenConfig ? config : null,
+      null,
+      newTokenConfig,
     )
     ..observeResponses();
   logger.i('[handlePush] Processing complete. Call state should update soon.');

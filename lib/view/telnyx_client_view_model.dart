@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_callkit_incoming/entities/call_kit_params.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telnyx_flutter_webrtc/file_logger.dart';
@@ -813,6 +814,54 @@ class TelnyxClientViewModel with ChangeNotifier {
   Future<Object?> getConfig() async {
     logger.i('[TelnyxClientViewModel] getConfig: Using ConfigHelper...');
     return ConfigHelper.getTelnyxConfigFromPrefs();
+  }
+
+  /// Temporary method to generate a new Auth Token for the given SIP user.
+  Future<TokenConfig?> generateAuthToken(Config config) async {
+    try {
+      // Hardcoded values for testing
+      const String credentialId = 'CREDENTIAL_ID';
+      const String bearerToken = 'BEARER_TOKEN';
+      
+      final url = 'https://api.telnyx.com/v2/telephony_credentials/$credentialId/token';
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'text/plain',
+          'Authorization': 'Bearer $bearerToken',
+        },
+      );
+      
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final authToken = response.body.trim();
+        logger.i('Successfully generated auth token: $authToken');
+        
+        // Create TokenConfig using the new token and parameters from the provided config
+        return TokenConfig(
+          sipToken: authToken,
+          sipCallerIDName: config.sipCallerIDName,
+          sipCallerIDNumber: config.sipCallerIDNumber,
+          notificationToken: config.notificationToken,
+          autoReconnect: config.autoReconnect,
+          logLevel: config.logLevel,
+          debug: config.debug,
+          ringTonePath: config.ringTonePath,
+          ringbackPath: config.ringbackPath,
+          customLogger: config.customLogger,
+          reconnectionTimeout: config.reconnectionTimeout,
+          region: config.region,
+          fallbackOnRegionFailure: config.fallbackOnRegionFailure,
+          forceRelayCandidate: config.forceRelayCandidate,
+        );
+      } else {
+        logger.e('Failed to generate auth token. Status code: ${response.statusCode}, Response: ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      logger.e('TOKEN: Error generating auth token: $e');
+      return null;
+    }
   }
 
   Future<void> accept({
