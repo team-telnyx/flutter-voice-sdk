@@ -24,6 +24,21 @@ import 'package:telnyx_flutter_webrtc/firebase_options.dart';
 final logger = Logger();
 final txClientViewModel = TelnyxClientViewModel();
 
+/// Helper function to gracefully end any active call during app termination or crash
+void _endActiveCallOnTermination() {
+  try {
+    if (txClientViewModel.currentCall != null) {
+      logger.i(
+          '[_endActiveCallOnTermination] Active call detected, ending gracefully');
+      txClientViewModel.endCall();
+    } else {
+      logger.i('[_endActiveCallOnTermination] No active call to end');
+    }
+  } catch (e) {
+    logger.e('[_endActiveCallOnTermination] Error ending call: $e');
+  }
+}
+
 class AppInitializer {
   static final AppInitializer _instance = AppInitializer._internal();
   bool _isInitialized = false;
@@ -84,12 +99,18 @@ Future<void> main() async {
           'Caught Flutter error: ${details.exception}',
           stackTrace: details.stack,
         );
+
+        // End any active call before clearing push data
+        _endActiveCallOnTermination();
         PlatformPushService.handler.clearPushData();
       };
 
       // Catch other platform errors (e.g., Dart errors outside Flutter)
       PlatformDispatcher.instance.onError = (error, stack) {
         logger.e('Caught Platform error: $error', stackTrace: stack);
+
+        // End any active call before clearing push data
+        _endActiveCallOnTermination();
         PlatformPushService.handler.clearPushData();
         return true;
       };
@@ -123,6 +144,13 @@ Future<void> main() async {
                 '[BackgroundDetector] We are in the background, DISCONNECTING',
               );
               txClientViewModel.disconnect();
+            } else if (state == AppLifecycleState.detached) {
+              logger.i(
+                '[BackgroundDetector] App is being terminated, ending any active calls',
+              );
+              // End any active call before app termination
+              _endActiveCallOnTermination();
+              txClientViewModel.disconnect();
             }
           },
           child: const MyApp(),
@@ -131,6 +159,9 @@ Future<void> main() async {
     },
     (error, stack) {
       logger.e('Caught Zoned error: $error', stackTrace: stack);
+
+      // End any active call before clearing push data
+      _endActiveCallOnTermination();
       PlatformPushService.handler.clearPushData();
     },
   );
@@ -176,9 +207,22 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  late final AppLifecycleListener _listener;
+
+  Future<void> _handleStateChange(AppLifecycleState state) async {
+    if (state == AppLifecycleState.detached) {
+      logger.i(
+          '[_MyAppState] AppLifecycleState.detached - ending any active calls');
+      _endActiveCallOnTermination();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _listener = AppLifecycleListener(
+      onStateChange: _handleStateChange,
+    );
     logger.i('[_MyAppState] initState called.');
 
     // Platform-specific logic for handling initial push data when app starts.
@@ -201,6 +245,14 @@ class _MyAppState extends State<MyApp> {
         '[_MyAppState] Android: Error fetching initial push data: $e',
       );
     });
+  }
+
+  @override
+  void dispose() {
+    logger.i('[_MyAppState] dispose called - ending any active calls');
+    // End any active call when the app is being disposed
+    _endActiveCallOnTermination();
+    super.dispose();
   }
 
   @override
