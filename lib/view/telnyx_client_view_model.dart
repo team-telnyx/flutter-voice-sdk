@@ -52,6 +52,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _mute = false;
   bool _hold = false;
   bool _isAssistantMode = false;
+  bool _useTrickleIce = false;
   List<AudioCodec> _supportedCodecs = [];
   List<AudioCodec> _preferredCodecs = [];
 
@@ -120,6 +121,13 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool get isAssistantMode {
     return _isAssistantMode;
+  }
+
+  bool get useTrickleIce => _useTrickleIce;
+
+  void toggleTrickleIce() {
+    _useTrickleIce = !_useTrickleIce;
+    notifyListeners();
   }
 
   List<AudioCodec> get supportedCodecs => _supportedCodecs;
@@ -379,6 +387,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     if (config.notificationToken != null) {
       await prefs.setString('notificationToken', config.notificationToken!);
     }
+    await prefs.setBool('forceRelayCandidate', config.forceRelayCandidate);
   }
 
   Future<void> _clearConfigForAutoLogin() async {
@@ -389,6 +398,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     await prefs.remove('sipName');
     await prefs.remove('sipNumber');
     await prefs.remove('notificationToken');
+    await prefs.remove('forceRelayCandidate');
+    await prefs.remove('useTrickleIce');
   }
 
   void observeResponses() {
@@ -768,6 +779,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
       preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
       debug: true,
+      useTrickleIce: _useTrickleIce,
     );
 
     logger.i(
@@ -885,6 +897,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         customHeaders: {},
         preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
         debug: true,
+        useTrickleIce: _useTrickleIce,
       );
       observeCurrentCall();
 

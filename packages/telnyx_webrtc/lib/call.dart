@@ -124,8 +124,9 @@ class Call {
   /// - Represents states like: newCall, ringing, connecting, active, held, done, etc.
   late CallState callState;
 
-  /// AudioService instance to handle audio playback
-  final audioService = AudioService();
+  /// AudioService instance to handle audio playback (lazy initialized)
+  AudioService get audioService => _audioService ??= AudioService();
+  AudioService? _audioService;
 
   /// Debug mode flag to enable call quality metrics
   final bool debug;
@@ -241,6 +242,7 @@ class Call {
   /// @param isAttach Whether this is an attach operation
   /// @param customHeaders Optional custom SIP headers
   /// @param debug Whether to enable call quality metrics (default: false)
+  /// @param useTrickleIce Whether to use trickle ICE for faster call setup (default: false)
   Call acceptCall(
     IncomingInviteParams invite,
     String callerName,
@@ -249,6 +251,7 @@ class Call {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
     bool debug = false,
+    bool useTrickleIce = false,
   }) {
     // Store the session information for later use
     sessionCallerName = callerName;
@@ -265,6 +268,7 @@ class Call {
       customHeaders: customHeaders,
       isAttach: isAttach,
       debug: debug,
+      useTrickleIce: useTrickleIce,
     );
   }
 

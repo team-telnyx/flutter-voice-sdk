@@ -41,6 +41,8 @@ import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/pending_ice_candidate.dart';
+import 'package:telnyx_webrtc/utils/candidate_utils.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -172,6 +174,10 @@ class TelnyxClient {
 
   /// A map of all current calls, with the call ID as the key and the [Call] object as the value.
   Map<String, Call> calls = {};
+
+  /// A map of pending ICE candidates, with the call ID as the key and a list of candidates as the value.
+  /// These candidates are queued and will be processed after the remote description is set.
+  final Map<String, List<PendingIceCandidate>> pendingIceCandidates = {};
 
   /// The current active calls being handled by the TelnyxClient instance
   /// The Map key is the callId [String] and the value is the [Call] instance
@@ -551,6 +557,77 @@ class TelnyxClient {
       _pendingAnswerTimeout = null;
       GlobalLogger().i('Cancelled pending answer timeout');
     }
+  }
+
+  /// Processes and queues the ICE candidate for the specified call.
+  /// 
+  /// [callId] The ID of the call this candidate belongs to
+  /// [sdpMid] The SDP media identifier
+  /// [sdpMLineIndex] The SDP media line index
+  /// [candidateString] The normalized candidate string
+  void _processAndQueueCandidate(String callId, String sdpMid, int sdpMLineIndex, String candidateString) {
+    final call = calls[callId];
+    if (call != null) {
+      // Create pending ICE candidate and queue it instead of immediately adding
+      // Note: We don't enhance the candidate string here because remoteIceParameters 
+      // won't be available until after the remote description is set in onAnswerReceived
+      final pendingCandidate = PendingIceCandidate(
+        callId: callId,
+        sdpMid: sdpMid,
+        sdpMLineIndex: sdpMLineIndex,
+        candidateString: candidateString,
+        enhancedCandidateString: candidateString, // Store original for now, will enhance later
+      );
+
+      // Add to pending candidates map
+      final candidates = pendingIceCandidates.putIfAbsent(callId, () => []);
+      candidates.add(pendingCandidate);
+      GlobalLogger().i('Queued ICE candidate for call $callId. Total queued: ${candidates.length}');
+    } else {
+      GlobalLogger().w('No call found for ID: $callId');
+    }
+  }
+
+  /// Processes any queued ICE candidates after remote description is set.
+  /// 
+  /// [callId] The ID of the call whose candidates should be processed
+  void _processQueuedIceCandidates(String callId) {
+    final call = calls[callId];
+    if (call == null) {
+      GlobalLogger().w('No call found for ID: $callId when processing queued candidates');
+      return;
+    }
+
+    final candidates = pendingIceCandidates[callId];
+    if (candidates == null || candidates.isEmpty) {
+      GlobalLogger().i('No queued ICE candidates to process for call $callId');
+      return;
+    }
+
+    GlobalLogger().i('Processing ${candidates.length} queued ICE candidates for call $callId');
+
+    // Process each queued candidate
+    for (final candidate in candidates) {
+      try {
+        if (call.peerConnection != null) {
+          call.peerConnection!.handleRemoteCandidate(
+            candidate.callId,
+            candidate.enhancedCandidateString,
+            candidate.sdpMid,
+            candidate.sdpMLineIndex,
+          );
+          GlobalLogger().i('Successfully processed queued candidate for call $callId');
+        } else {
+          GlobalLogger().w('Peer connection is null for call $callId, cannot process candidate');
+        }
+      } catch (e) {
+        GlobalLogger().e('Error processing queued candidate for call $callId: ${e.toString()}');
+      }
+    }
+
+    // Clear the processed candidates
+    pendingIceCandidates.remove(callId);
+    GlobalLogger().i('Cleared processed candidates for call $callId');
   }
 
   /// Handles the timeout when no INVITE is received after accepting from push
@@ -1310,6 +1387,10 @@ class TelnyxClient {
   ///   If any codec in the list is not supported by the platform or remote party,
   ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
+  /// - [useTrickleIce]: When true, enables trickle ICE for the call. Trickle ICE allows
+  ///   ICE candidates to be sent incrementally as they are discovered, rather than
+  ///   waiting for all candidates to be gathered before sending the SDP. This can
+  ///   significantly reduce call setup time. Defaults to false.
   ///
   /// Returns a [Call] object representing the new outgoing call.
   Call newInvite(
@@ -1320,6 +1401,7 @@ class TelnyxClient {
     Map<String, String> customHeaders = const {},
     List<AudioCodec>? preferredCodecs,
     bool debug = false,
+    bool useTrickleIce = false,
   }) {
     final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
@@ -1337,6 +1419,7 @@ class TelnyxClient {
       debug || _debug,
       this,
       getForceRelayCandidate(),
+      useTrickleIce,
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1378,6 +1461,10 @@ class TelnyxClient {
   ///   If any codec in the list is not supported by the platform or remote party,
   ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
+  /// - [useTrickleIce]: When true, enables trickle ICE for the call. Trickle ICE allows
+  ///   ICE candidates to be sent incrementally as they are discovered, rather than
+  ///   waiting for all candidates to be gathered before sending the SDP. This can
+  ///   significantly reduce call setup time. Defaults to false.
   ///
   /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
@@ -1389,6 +1476,7 @@ class TelnyxClient {
     Map<String, String> customHeaders = const {},
     List<AudioCodec>? preferredCodecs,
     bool debug = false,
+    bool useTrickleIce = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -1406,6 +1494,7 @@ class TelnyxClient {
       debug || _debug,
       this,
       getForceRelayCandidate(),
+      useTrickleIce,
     );
 
     // Convert AudioCodec objects to Map format for the peer connection
@@ -1588,7 +1677,7 @@ class TelnyxClient {
 
     if (data != null) {
       if (data.toString().trim().isNotEmpty) {
-        GlobalLogger().i('TxSocket :: ${data.toString().trim()}');
+        GlobalLogger().i('TxSocket :: Receive : ${data.toString().trim()}');
         if (data.toString().trim().contains('error')) {
           final errorJson = jsonEncode(data.toString());
           _logger.log(
@@ -1975,6 +2064,10 @@ class TelnyxClient {
                   answerCall.onRemoteSessionReceived(
                     inviteAnswer.inviteParams?.sdp,
                   );
+                  
+                  // Process any queued ICE candidates after remote description is set (Android-style approach)
+                  _processQueuedIceCandidates(inviteAnswer.inviteParams!.callID!);
+                  
                   onSocketMessageReceived(message);
                 } else if (_earlySDP) {
                   onSocketMessageReceived(message);
@@ -2117,6 +2210,68 @@ class TelnyxClient {
                   message: aiConversation,
                 );
                 onSocketMessageReceived(message);
+                break;
+              }
+            case SocketMethod.candidate:
+              {
+                GlobalLogger()
+                    .i('TRICKLE ICE CANDIDATE RECEIVED :: $messageJson');
+                final Map<String, dynamic> candidateData =
+                    jsonDecode(data.toString());
+
+                // Extract params from the candidate data
+                final Map<String, dynamic>? params = candidateData['params'];
+                if (params == null) {
+                  GlobalLogger().w('Candidate message missing params');
+                  break;
+                }
+
+                // Validate required fields
+                if (!CandidateUtils.hasRequiredCandidateFields(params)) {
+                  GlobalLogger().w('Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)');
+                  break;
+                }
+
+                // Extract call ID using the utility method
+                final String? callId = CandidateUtils.extractCallIdFromCandidate(params);
+                if (callId == null) {
+                  GlobalLogger().w('Could not extract call ID from candidate message');
+                  break;
+                }
+
+                // Normalize the candidate string to handle "a=" prefix issue
+                final String candidateStr = params['candidate'] as String;
+                final String normalizedCandidate = CandidateUtils.normalizeCandidateString(candidateStr);
+                
+                // Extract other required fields
+                final String sdpMid = params['sdpMid'] as String;
+                final int sdpMLineIndex = params['sdpMLineIndex'] as int;
+
+                // Process and queue the candidate (Android-style approach)
+                _processAndQueueCandidate(callId, sdpMid, sdpMLineIndex, normalizedCandidate);
+                break;
+              }
+            case SocketMethod.endOfCandidates:
+              {
+                GlobalLogger().i('END OF CANDIDATES RECEIVED :: $messageJson');
+                final Map<String, dynamic> endData =
+                    jsonDecode(data.toString());
+
+                // Extract call ID
+                final String? callId =
+                    endData['params']?['dialogParams']?['callID'];
+
+                if (callId != null) {
+                  // Find the call and signal end of candidates
+                  final Call? call = calls[callId];
+                  if (call != null) {
+                    GlobalLogger()
+                        .i('End of candidates signaled for call: $callId');
+                  } else {
+                    GlobalLogger().w(
+                        'Received endOfCandidates for unknown call: $callId');
+                  }
+                }
                 break;
               }
           }
