@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 
 void main() {
   group('ICE Renegotiation', () {
@@ -22,15 +22,14 @@ void main() {
             'a=rtpmap:111 opus/48000/2\r\n',
       };
 
-      final receivedMessage = ReceivedMessageBody(result: responseData);
+      final updateMediaResponse = UpdateMediaResponse.fromJson(responseData);
 
-      expect(receivedMessage.result, isNotNull);
-      expect(receivedMessage.result!['action'], equals('updateMedia'));
-      expect(receivedMessage.result!['callID'], equals('test-call-id-123'));
-      expect(receivedMessage.result!['sdp'], isNotNull);
-      expect(receivedMessage.result!['sdp'], contains('v=0'));
-      expect(receivedMessage.result!['sdp'], contains('ice-ufrag'));
-      expect(receivedMessage.result!['sdp'], contains('ice-pwd'));
+      expect(updateMediaResponse.action, equals('updateMedia'));
+      expect(updateMediaResponse.callID, equals('test-call-id-123'));
+      expect(updateMediaResponse.sdp, isNotNull);
+      expect(updateMediaResponse.sdp, contains('v=0'));
+      expect(updateMediaResponse.sdp, contains('ice-ufrag'));
+      expect(updateMediaResponse.sdp, contains('ice-pwd'));
     });
 
     test('should validate updateMedia response has required fields', () {
@@ -40,15 +39,14 @@ void main() {
         'sdp': 'v=0\r\no=- 111222333 111222333 IN IP4 10.0.0.1\r\n',
       };
 
-      final receivedMessage = ReceivedMessageBody(result: responseData);
-      final result = receivedMessage.result!;
+      final updateMediaResponse = UpdateMediaResponse.fromJson(responseData);
 
       // Validate required fields for updateMedia response
-      expect(result['action'], equals('updateMedia'));
-      expect(result['callID'], isNotNull);
-      expect(result['callID'], isA<String>());
-      expect(result['sdp'], isNotNull);
-      expect(result['sdp'], isA<String>());
+      expect(updateMediaResponse.action, equals('updateMedia'));
+      expect(updateMediaResponse.callID, isNotNull);
+      expect(updateMediaResponse.callID, isA<String>());
+      expect(updateMediaResponse.sdp, isNotNull);
+      expect(updateMediaResponse.sdp, isA<String>());
     });
 
     test('should handle missing action in response', () {
@@ -57,12 +55,7 @@ void main() {
         'sdp': 'v=0\r\no=- 444555666 444555666 IN IP4 172.16.0.1\r\n',
       };
 
-      final receivedMessage = ReceivedMessageBody(result: responseData);
-      final result = receivedMessage.result!;
-
-      expect(result['action'], isNull);
-      expect(result['callID'], isNotNull);
-      expect(result['sdp'], isNotNull);
+      expect(() => UpdateMediaResponse.fromJson(responseData), throwsA(isA<TypeError>()));
     });
 
     test('should handle missing callID in response', () {
@@ -71,12 +64,7 @@ void main() {
         'sdp': 'v=0\r\no=- 777888999 777888999 IN IP4 203.0.113.1\r\n',
       };
 
-      final receivedMessage = ReceivedMessageBody(result: responseData);
-      final result = receivedMessage.result!;
-
-      expect(result['action'], equals('updateMedia'));
-      expect(result['callID'], isNull);
-      expect(result['sdp'], isNotNull);
+      expect(() => UpdateMediaResponse.fromJson(responseData), throwsA(isA<TypeError>()));
     });
 
     test('should handle missing SDP in response', () {
@@ -85,25 +73,20 @@ void main() {
         'callID': 'test-call-id-101112',
       };
 
-      final receivedMessage = ReceivedMessageBody(result: responseData);
-      final result = receivedMessage.result!;
-
-      expect(result['action'], equals('updateMedia'));
-      expect(result['callID'], isNotNull);
-      expect(result['sdp'], isNull);
+      expect(() => UpdateMediaResponse.fromJson(responseData), throwsA(isA<TypeError>()));
     });
 
     test('should handle different action types', () {
       final responseData = {
         'action': 'hold',
         'callID': 'test-call-id-131415',
+        'sdp': 'v=0\r\no=- 123456789 123456789 IN IP4 127.0.0.1\r\n',
       };
 
-      final receivedMessage = ReceivedMessageBody(result: responseData);
-      final result = receivedMessage.result!;
+      final updateMediaResponse = UpdateMediaResponse.fromJson(responseData);
 
-      expect(result['action'], equals('hold'));
-      expect(result['action'], isNot(equals('updateMedia')));
+      expect(updateMediaResponse.action, equals('hold'));
+      expect(updateMediaResponse.action, isNot(equals('updateMedia')));
     });
 
     test('should validate SDP format basics', () {
@@ -123,28 +106,19 @@ void main() {
         'sdp': validSdp,
       };
 
-      final receivedMessage = ReceivedMessageBody(result: responseData);
-      final sdp = receivedMessage.result!['sdp'] as String;
+      final updateMediaResponse = UpdateMediaResponse.fromJson(responseData);
 
       // Basic SDP validation
-      expect(sdp, startsWith('v=0'));
-      expect(sdp, contains('o=-'));
-      expect(sdp, contains('ice-ufrag:'));
-      expect(sdp, contains('ice-pwd:'));
-    });
-
-    test('should handle empty result', () {
-      final receivedMessage = ReceivedMessageBody(result: null);
-
-      expect(receivedMessage.result, isNull);
+      expect(updateMediaResponse.sdp, startsWith('v=0'));
+      expect(updateMediaResponse.sdp, contains('o=-'));
+      expect(updateMediaResponse.sdp, contains('ice-ufrag:'));
+      expect(updateMediaResponse.sdp, contains('ice-pwd:'));
     });
 
     test('should handle empty result map', () {
       final responseData = <String, dynamic>{};
-      final receivedMessage = ReceivedMessageBody(result: responseData);
 
-      expect(receivedMessage.result, isNotNull);
-      expect(receivedMessage.result!.isEmpty, isTrue);
+      expect(() => UpdateMediaResponse.fromJson(responseData), throwsA(isA<TypeError>()));
     });
   });
 }
