@@ -32,8 +32,10 @@ class ModifyParams {
   String? action;
   DialogParams? dialogParams;
   String? sessid;
+  String? sdp;
+  String? callID;
 
-  ModifyParams({this.action, this.dialogParams, this.sessid});
+  ModifyParams({this.action, this.dialogParams, this.sessid, this.sdp, this.callID});
 
   ModifyParams.fromJson(Map<String, dynamic> json) {
     action = json['action'];
@@ -41,6 +43,8 @@ class ModifyParams {
         ? DialogParams.fromJson(json['dialogParams'])
         : null;
     sessid = json['sessid'];
+    sdp = json['sdp'];
+    callID = json['callID'];
   }
 
   Map<String, dynamic> toJson() {
@@ -50,6 +54,12 @@ class ModifyParams {
       data['dialogParams'] = dialogParams!.toJson();
     }
     data['sessid'] = sessid;
+    if (sdp != null) {
+      data['sdp'] = sdp;
+    }
+    if (callID != null) {
+      data['callID'] = callID;
+    }
     return data;
   }
 }

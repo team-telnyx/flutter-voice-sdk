@@ -1780,6 +1780,27 @@ class TelnyxClient {
                   }
               }
             }
+
+            // Handle updateMedia response
+            if (stateMessage.result != null && 
+                stateMessage.result is Map<String, dynamic>) {
+              final resultMap = stateMessage.result as Map<String, dynamic>;
+              if (resultMap['action'] == 'updateMedia') {
+                GlobalLogger().i('Received updateMedia response');
+                final receivedMessage = ReceivedMessageBody(
+                  result: resultMap,
+                );
+                
+                // Find the call and handle the response
+                final callId = resultMap['callID'] as String?;
+                if (callId != null) {
+                  final call = calls[callId];
+                  if (call?.peerConnection != null) {
+                    call!.peerConnection!.handleUpdateMediaResponse(receivedMessage);
+                  }
+                }
+              }
+            }
           } on Exception catch (e) {
             GlobalLogger().e('Error parsing JSON: $e');
           }
