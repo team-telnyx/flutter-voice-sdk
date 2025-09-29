@@ -602,10 +602,6 @@ class TelnyxClient {
     );
 
     // Send the BYE message through the normal message flow
-    // This will trigger the existing BYE handling in the ViewModel which:
-    // 1. Calls resetCallInfo() to reset call state to idle
-    // 2. Dismisses any loading dialogs (CircularProgressIndicator)
-    // 3. Updates the UI to show the proper termination reason
     final message = TelnyxMessage(
       socketMethod: SocketMethod.bye,
       message: receivedMessage,
