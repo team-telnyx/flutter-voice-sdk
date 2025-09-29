@@ -361,6 +361,9 @@ class TelnyxClientViewModel with ChangeNotifier {
         case CallState.dropped:
           logger.i('dropped - ${state.networkReason?.message}');
           break;
+        case CallState.renegotiation:
+          logger.i('Renegotiation');
+          break;
       }
     };
   }

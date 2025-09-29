@@ -41,6 +41,7 @@ import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -471,7 +472,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)');
+      'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)',
+    );
     _reconnectToSocket();
 
     for (var call in activeCalls().values) {
@@ -935,7 +937,7 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _updateConnectionState(false);
-          bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          final bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
@@ -982,7 +984,7 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _updateConnectionState(false);
-          bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          final bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
@@ -1004,7 +1006,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)');
+      'Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)',
+    );
 
     _isAttaching = true;
     Timer(Duration(milliseconds: Constants.gatewayResponseDelay), () {
@@ -1077,11 +1080,14 @@ class TelnyxClient {
       sessid,
       _ringtonePath,
       _ringBackpath,
-      callHandler = CallHandler((state) {
-        GlobalLogger().i(
-          'Call state not overridden :Call State Changed to $state',
-        );
-      }, null),
+      callHandler = CallHandler(
+        (state) {
+          GlobalLogger().i(
+            'Call state not overridden :Call State Changed to $state',
+          );
+        },
+        null,
+      ),
       // Pass null initially
       _callEnded,
       _debug,
@@ -1782,23 +1788,23 @@ class TelnyxClient {
             }
 
             // Handle updateMedia response
-            if (stateMessage.result != null && 
-                stateMessage.result is Map<String, dynamic>) {
-              final resultMap = stateMessage.result as Map<String, dynamic>;
-              if (resultMap['action'] == 'updateMedia') {
-                GlobalLogger().i('Received updateMedia response');
-                final receivedMessage = ReceivedMessageBody(
-                  result: resultMap,
-                );
-                
+            final resultMap = stateMessage.resultParams?.stateParams?.toJson();
+            if (resultMap?['action'] == 'updateMedia') {
+              GlobalLogger().i('Received updateMedia response');
+
+              try {
+                final updateMediaResponse =
+                    UpdateMediaResponse.fromJson(resultMap!);
+
                 // Find the call and handle the response
-                final callId = resultMap['callID'] as String?;
-                if (callId != null) {
-                  final call = calls[callId];
-                  if (call?.peerConnection != null) {
-                    call!.peerConnection!.handleUpdateMediaResponse(receivedMessage);
-                  }
+                final callId = updateMediaResponse.callID;
+                final call = calls[callId];
+                if (call?.peerConnection != null) {
+                  call!.peerConnection!
+                      .handleUpdateMediaResponse(updateMediaResponse);
                 }
+              } catch (e) {
+                GlobalLogger().e('Error parsing updateMedia response: $e');
               }
             }
           } on Exception catch (e) {
@@ -2292,7 +2298,8 @@ class TelnyxClient {
     // Check if we've exceeded the retry limit
     if (_connectRetryCounter >= Constants.retryConnectTime) {
       GlobalLogger().e(
-          'Maximum reconnection attempts reached ($_connectRetryCounter/${Constants.retryConnectTime})');
+        'Maximum reconnection attempts reached ($_connectRetryCounter/${Constants.retryConnectTime})',
+      );
       final error = TelnyxSocketError(
         errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
         errorMessage: 'Maximum reconnection attempts reached',
@@ -2302,7 +2309,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Attempting reconnection $_connectRetryCounter/${Constants.retryConnectTime} (autoReconnect: $_autoReconnectLogin)');
+      'Attempting reconnection $_connectRetryCounter/${Constants.retryConnectTime} (autoReconnect: $_autoReconnectLogin)',
+    );
 
     // Add a small delay before attempting reconnection to avoid overwhelming the server
     // Use exponential backoff: base delay * (2 ^ retry_count)
@@ -2311,12 +2319,14 @@ class TelnyxClient {
     Timer(Duration(milliseconds: delayMs), () {
       if (_storedCredentialConfig != null) {
         GlobalLogger().i(
-            'Attempting reconnection with credential config (attempt $_connectRetryCounter)');
+          'Attempting reconnection with credential config (attempt $_connectRetryCounter)',
+        );
         // Use the existing _reconnectToSocket method for consistency
         _reconnectToSocket();
       } else if (_storedTokenConfig != null) {
         GlobalLogger().i(
-            'Attempting reconnection with token config (attempt $_connectRetryCounter)');
+          'Attempting reconnection with token config (attempt $_connectRetryCounter)',
+        );
         // Use the existing _reconnectToSocket method for consistency
         _reconnectToSocket();
       } else {

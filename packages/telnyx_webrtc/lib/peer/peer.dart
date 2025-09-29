@@ -18,6 +18,7 @@ import 'package:telnyx_webrtc/tx_socket.dart'
 import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 
@@ -457,10 +458,13 @@ class Peer {
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     if (media != 'data') _localStream = await createStream(media);
 
-    peerConnection = await createPeerConnection({
-      ..._buildIceConfiguration(),
-      ...{'sdpSemantics': sdpSemantics},
-    }, _dcConstraints);
+    peerConnection = await createPeerConnection(
+      {
+        ..._buildIceConfiguration(),
+        ...{'sdpSemantics': sdpSemantics},
+      },
+      _dcConstraints,
+    );
 
     await startStats(callId, peerId, onCallQualityChange: onCallQualityChange);
 
@@ -534,8 +538,9 @@ class Peer {
           // Cancel any reconnection timer for this call
           _txClient.onCallStateChangedToActive(callId);
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
-          GlobalLogger().i('Peer :: ICE connection failed, starting renegotiation...');
-          _startIceRenegotiation(callId, newSession.sessionId);
+          GlobalLogger()
+              .i('Peer :: ICE connection failed, starting renegotiation...');
+          _startIceRenegotiation(callId, newSession.sid);
           return;
         case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
           _statsManager?.stopStatsReporting();
@@ -637,19 +642,6 @@ class Peer {
       ..clear();
   }
 
-  /*void _closeSessionByPeerId(String peerId) {
-    Session? session;
-    _sessions.removeWhere((String key, Session sess) {
-      var ids = key.split('-');
-      session = sess;
-      return peerId == ids[0] || peerId == ids[1];
-    });
-    if (session != null) {
-      _closeSession(session!);
-      onCallStateChange?.call(session!, CallState.CallStateBye);
-    }
-  }*/
-
   Future<void> _closeSession(Session session) async {
     _localStream?.getTracks().forEach((element) async {
       await element.stop();
@@ -701,35 +693,39 @@ class Peer {
   Future<void> _startIceRenegotiation(String callId, String sessionId) async {
     try {
       GlobalLogger().i('Peer :: Starting ICE renegotiation for call: $callId');
-      
-      final peerConnection = _sessions[sessionId]?.peerConnection;
-      if (peerConnection == null) {
-        GlobalLogger().e('Peer :: No peer connection found for session: $sessionId');
-        return;
+      if (_sessions[sessionId] != null) {
+        onCallStateChange?.call(_sessions[sessionId]!, CallState.renegotiation);
+        final peerConnection = _sessions[sessionId]?.peerConnection;
+        if (peerConnection == null) {
+          GlobalLogger()
+              .e('Peer :: No peer connection found for session: $sessionId');
+          return;
+        }
+
+        // Create constraints with IceRestart flag to force ICE restart
+        final constraints = {
+          'mandatory': {'IceRestart': true},
+          'optional': [],
+        };
+
+        // Create new offer with ICE restart enabled
+        final offer = await peerConnection.createOffer(constraints);
+
+        // Set the local description with the new local SDP
+        await peerConnection.setLocalDescription(offer);
+
+        GlobalLogger().i(
+          'Peer :: Created new offer with ICE restart, waiting for ICE candidates...',
+        );
+
+        // Set up callback for when negotiation is complete
+        _setOnNegotiationComplete(() {
+          _sendUpdateMediaMessage(callId, sessionId, offer.sdp!);
+        });
+
+        // Start negotiation timer
+        _startNegotiationTimer();
       }
-
-      // Create constraints with IceRestart flag to force ICE restart
-      final constraints = {
-        'mandatory': {'IceRestart': true},
-        'optional': []
-      };
-
-      // Create new offer with ICE restart enabled
-      final offer = await peerConnection.createOffer(constraints);
-      
-      // Set the local description with the new local SDP
-      await peerConnection.setLocalDescription(offer);
-      
-      GlobalLogger().i('Peer :: Created new offer with ICE restart, waiting for ICE candidates...');
-      
-      // Set up callback for when negotiation is complete
-      _setOnNegotiationComplete(() {
-        _sendUpdateMediaMessage(callId, sessionId, offer.sdp!);
-      });
-      
-      // Start negotiation timer
-      _startNegotiationTimer();
-      
     } catch (e) {
       GlobalLogger().e('Peer :: Error during ICE renegotiation: $e');
     }
@@ -739,7 +735,7 @@ class Peer {
   void _sendUpdateMediaMessage(String callId, String sessionId, String sdp) {
     try {
       GlobalLogger().i('Peer :: Sending updateMedia message for call: $callId');
-      
+
       final modifyMessage = ModifyMessage(
         id: const Uuid().v4(),
         jsonrpc: '2.0',
@@ -753,55 +749,44 @@ class Peer {
 
       final jsonMessage = jsonEncode(modifyMessage.toJson());
       GlobalLogger().i('Peer :: Sending modify message: $jsonMessage');
-      
+
       _socket.send(jsonMessage);
-      
     } catch (e) {
       GlobalLogger().e('Peer :: Error sending updateMedia message: $e');
     }
   }
 
   /// Handles the updateMedia response from the server
-  void handleUpdateMediaResponse(ReceivedMessageBody message) {
+  void handleUpdateMediaResponse(UpdateMediaResponse response) {
     try {
-      final result = message.result;
-      if (result == null) {
-        GlobalLogger().e('Peer :: No result in updateMedia response');
+      if (response.action != 'updateMedia') {
+        GlobalLogger()
+            .w('Peer :: Unexpected action in response: ${response.action}');
         return;
       }
 
-      final action = result['action'] as String?;
-      if (action != 'updateMedia') {
-        GlobalLogger().w('Peer :: Unexpected action in response: $action');
-        return;
-      }
-
-      final remoteSdp = result['sdp'] as String?;
-      if (remoteSdp == null) {
+      if (response.sdp.isEmpty) {
         GlobalLogger().e('Peer :: No SDP in updateMedia response');
         return;
       }
 
-      final callId = result['callID'] as String?;
-      if (callId == null) {
-        GlobalLogger().e('Peer :: No callID in updateMedia response');
-        return;
-      }
-
-      GlobalLogger().i('Peer :: Received updateMedia response for call: $callId');
+      final callId = response.callID;
+      GlobalLogger()
+          .i('Peer :: Received updateMedia response for call: $callId');
 
       // Find the session for this call
       final session = _sessions.values.firstWhere(
-        (s) => s.callId == callId,
+        (s) => s.sid == callId,
         orElse: () => throw Exception('Session not found for call: $callId'),
       );
 
       // Set the remote description to complete renegotiation
-      final remoteDescription = RTCSessionDescription(remoteSdp, 'answer');
+      final remoteDescription = RTCSessionDescription(response.sdp, 'answer');
       session.peerConnection?.setRemoteDescription(remoteDescription);
-      
-      GlobalLogger().i('Peer :: ICE renegotiation completed successfully for call: $callId');
-      
+
+      GlobalLogger().i(
+        'Peer :: ICE renegotiation completed successfully for call: $callId',
+      );
     } catch (e) {
       GlobalLogger().e('Peer :: Error handling updateMedia response: $e');
     }
