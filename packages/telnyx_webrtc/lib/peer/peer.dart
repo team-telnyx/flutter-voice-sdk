@@ -693,9 +693,9 @@ class Peer {
   Future<void> _startIceRenegotiation(String callId, String sessionId) async {
     try {
       GlobalLogger().i('Peer :: Starting ICE renegotiation for call: $callId');
-      if (_sessions[_selfId] != null) {
-        onCallStateChange?.call(_sessions[_selfId]!, CallState.renegotiation);
-        final peerConnection = _sessions[_selfId]?.peerConnection;
+      if (_sessions[sessionId] != null) {
+        onCallStateChange?.call(_sessions[sessionId]!, CallState.renegotiation);
+        final peerConnection = _sessions[sessionId]?.peerConnection;
         if (peerConnection == null) {
           GlobalLogger()
               .e('Peer :: No peer connection found for session: $sessionId');
@@ -773,7 +773,7 @@ class Peer {
   }
 
   /// Handles the updateMedia response from the server
-  void handleUpdateMediaResponse(UpdateMediaResponse response) {
+  Future<void> handleUpdateMediaResponse(UpdateMediaResponse response) async {
     try {
       if (response.action != 'updateMedia') {
         GlobalLogger()
@@ -798,7 +798,7 @@ class Peer {
 
       // Set the remote description to complete renegotiation
       final remoteDescription = RTCSessionDescription(response.sdp, 'answer');
-      session.peerConnection?.setRemoteDescription(remoteDescription);
+      await session.peerConnection?.setRemoteDescription(remoteDescription);
 
       GlobalLogger().i(
         'Peer :: ICE renegotiation completed successfully for call: $callId',
