@@ -751,8 +751,14 @@ class Peer {
         );
 
         // Set up callback for when negotiation is complete
-        _setOnNegotiationComplete(() {
-          _sendUpdateMediaMessage(callId, sessionId, offer.sdp!);
+        _setOnNegotiationComplete(() async {
+          // Get the complete SDP with ICE candidates from the peer connection
+          final localDescription = await peerConnection.getLocalDescription();
+          if (localDescription != null && localDescription.sdp != null) {
+            _sendUpdateMediaMessage(callId, sessionId, localDescription.sdp!);
+          } else {
+            GlobalLogger().e('Web Peer :: No local description found with ICE candidates');
+          }
         });
 
         // Start negotiation timer
@@ -769,13 +775,20 @@ class Peer {
       GlobalLogger()
           .i('Web Peer :: Sending updateMedia message for call: $callId');
 
+      // Create dialog params with required callID field
+      final dialogParams = DialogParams(
+        callID: callId,
+        customHeaders: {}, // Empty custom headers as required
+      );
+
       final modifyMessage = ModifyMessage(
         id: const Uuid().v4(),
         jsonrpc: '2.0',
         method: 'telnyx_rtc.modify',
         params: ModifyParams(
           action: 'updateMedia',
-          callID: callId,
+          sessid: sessionId,
+          dialogParams: dialogParams,
           sdp: sdp,
         ),
       );

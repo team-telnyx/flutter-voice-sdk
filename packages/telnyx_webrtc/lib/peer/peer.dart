@@ -693,9 +693,9 @@ class Peer {
   Future<void> _startIceRenegotiation(String callId, String sessionId) async {
     try {
       GlobalLogger().i('Peer :: Starting ICE renegotiation for call: $callId');
-      if (_sessions[sessionId] != null) {
-        onCallStateChange?.call(_sessions[sessionId]!, CallState.renegotiation);
-        final peerConnection = _sessions[sessionId]?.peerConnection;
+      if (_sessions[_selfId] != null) {
+        onCallStateChange?.call(_sessions[_selfId]!, CallState.renegotiation);
+        final peerConnection = _sessions[_selfId]?.peerConnection;
         if (peerConnection == null) {
           GlobalLogger()
               .e('Peer :: No peer connection found for session: $sessionId');
@@ -719,12 +719,21 @@ class Peer {
         );
 
         // Set up callback for when negotiation is complete
-        _setOnNegotiationComplete(() {
-          _sendUpdateMediaMessage(callId, sessionId, offer.sdp!);
+        _setOnNegotiationComplete(() async {
+          // Get the complete SDP with ICE candidates from the peer connection
+          final localDescription = await peerConnection.getLocalDescription();
+          if (localDescription != null && localDescription.sdp != null) {
+            _sendUpdateMediaMessage(callId, sessionId, localDescription.sdp!);
+          } else {
+            GlobalLogger()
+                .e('Peer :: No local description found with ICE candidates');
+          }
         });
 
         // Start negotiation timer
         _startNegotiationTimer();
+      } else {
+        GlobalLogger().e('Peer :: No session found for ID: $sessionId');
       }
     } catch (e) {
       GlobalLogger().e('Peer :: Error during ICE renegotiation: $e');
@@ -736,13 +745,20 @@ class Peer {
     try {
       GlobalLogger().i('Peer :: Sending updateMedia message for call: $callId');
 
+      // Create dialog params with required callID field
+      final dialogParams = DialogParams(
+        callID: callId,
+        customHeaders: {}, // Empty custom headers as required
+      );
+
       final modifyMessage = ModifyMessage(
         id: const Uuid().v4(),
         jsonrpc: '2.0',
         method: 'telnyx_rtc.modify',
         params: ModifyParams(
           action: 'updateMedia',
-          callID: callId,
+          sessid: sessionId,
+          dialogParams: dialogParams,
           sdp: sdp,
         ),
       );
@@ -774,11 +790,11 @@ class Peer {
       GlobalLogger()
           .i('Peer :: Received updateMedia response for call: $callId');
 
-      // Find the session for this call
-      final session = _sessions.values.firstWhere(
-        (s) => s.sid == callId,
-        orElse: () => throw Exception('Session not found for call: $callId'),
-      );
+      final session = _sessions[_selfId];
+      if (session == null) {
+        GlobalLogger().e('Peer :: No session found for ID: $_selfId');
+        return;
+      }
 
       // Set the remote description to complete renegotiation
       final remoteDescription = RTCSessionDescription(response.sdp, 'answer');

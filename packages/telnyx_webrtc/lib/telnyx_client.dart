@@ -1783,25 +1783,30 @@ class TelnyxClient {
               }
             }
 
-            // Handle updateMedia response
-            final resultMap = stateMessage.resultParams?.stateParams?.toJson();
-            if (resultMap?['action'] == 'updateMedia') {
-              GlobalLogger().i('Received updateMedia response');
+            // Handle updateMedia response - check the raw JSON data directly
+            try {
+              final Map<String, dynamic> rawData = jsonDecode(data.toString());
+              if (rawData.containsKey('result') && rawData['result'] is Map) {
+                final resultMap = rawData['result'] as Map<String, dynamic>;
+                if (resultMap['action'] == 'updateMedia') {
+                  GlobalLogger().i('Received updateMedia response');
 
-              try {
-                final updateMediaResponse =
-                    UpdateMediaResponse.fromJson(resultMap!);
+                  final updateMediaResponse =
+                      UpdateMediaResponse.fromJson(resultMap);
 
-                // Find the call and handle the response
-                final callId = updateMediaResponse.callID;
-                final call = calls[callId];
-                if (call?.peerConnection != null) {
-                  call!.peerConnection!
-                      .handleUpdateMediaResponse(updateMediaResponse);
+                  // Find the call and handle the response
+                  final callId = updateMediaResponse.callID;
+                  final call = calls[callId];
+                  if (call?.peerConnection != null) {
+                    call!.peerConnection!
+                        .handleUpdateMediaResponse(updateMediaResponse);
+                  }
+                } else {
+                  GlobalLogger().i('Not an updateMedia response');
                 }
-              } catch (e) {
-                GlobalLogger().e('Error parsing updateMedia response: $e');
               }
+            } catch (e) {
+              GlobalLogger().e('Error parsing updateMedia response: $e');
             }
           } on Exception catch (e) {
             GlobalLogger().e('Error parsing JSON: $e');
