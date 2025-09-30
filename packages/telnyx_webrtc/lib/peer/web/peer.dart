@@ -48,6 +48,9 @@ class Peer {
   MediaStream? _localStream;
   final List<MediaStream> _remoteStreams = <MediaStream>[];
 
+  /// Track previous ICE connection state for renegotiation logic
+  RTCIceConnectionState? _previousIceConnectionState;
+
   /// Optional stats reporter (for debug).
   WebRTCStatsReporter? _statsManager;
 
@@ -551,14 +554,22 @@ class Peer {
         }
       }
       ..onIceConnectionState = (state) {
+        _previousIceConnectionState = state;
         GlobalLogger().i('Peer :: ICE Connection State => $state');
         switch (state) {
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
-            GlobalLogger().i(
-              'Web Peer :: ICE connection failed, starting renegotiation...',
-            );
-            _startIceRenegotiation(callId, newSession.sid);
-            break;
+            if (_previousIceConnectionState ==
+                RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
+              GlobalLogger()
+                  .i('Peer :: ICE connection failed, starting renegotiation...');
+              _startIceRenegotiation(callId, newSession.sid);
+              break;
+            } else {
+              GlobalLogger().d(
+                'Peer :: ICE connection failed without prior disconnection, not renegotiating',
+              );
+              break;
+            }
           case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
             // Optionally stop stats if you want
             _statsManager?.stopStatsReporting();
