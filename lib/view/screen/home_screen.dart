@@ -117,6 +117,11 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Disable Debugging':
         Provider.of<ProfileProvider>(context, listen: false).toggleDebugMode();
         break;
+      case 'Enable Trickle ICE':
+      case 'Disable Trickle ICE':
+        Provider.of<TelnyxClientViewModel>(context, listen: false)
+            .toggleTrickleIce();
+        break;
       case 'Assistant Login':
         _showAssistantLoginDialog();
         break;
@@ -140,6 +145,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final profileProvider = context.watch<ProfileProvider>();
     final selectedProfile = profileProvider.selectedProfile;
+
+    final clientViewModel = context.watch<TelnyxClientViewModel>();
+    final useTrickleIce = clientViewModel.useTrickleIce;
 
     final errorMessage = context.select<TelnyxClientViewModel, String?>(
       (viewModel) => viewModel.errorDialogMessage,
@@ -174,10 +182,14 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
+                final trickleIceToggleText = useTrickleIce
+                    ? 'Disable Trickle ICE'
+                    : 'Enable Trickle ICE';
                 return {
                   'Audio Codecs',
                   'Export Logs',
-                  'Disable Push Notifications'
+                  'Disable Push Notifications',
+                  trickleIceToggleText,
                 }.map((
                   String choice,
                 ) {

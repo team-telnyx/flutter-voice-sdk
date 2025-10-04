@@ -9,6 +9,8 @@ import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/candidate_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/end_of_candidates_message_body.dart';
 import 'package:telnyx_webrtc/peer/session.dart';
 import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
@@ -16,19 +18,30 @@ import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
+import 'package:telnyx_webrtc/utils/sdp_utils.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
+  /// The peer connection instance.
+  RTCPeerConnection? peerConnection;
+
   /// The constructor for the Peer class.
-  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate);
+  Peer(
+    this._socket,
+    this._debug,
+    this._txClient,
+    this._forceRelayCandidate,
+    this._useTrickleIce,
+  );
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
   final bool _debug;
   final bool _forceRelayCandidate;
+  final bool _useTrickleIce;
 
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
@@ -36,8 +49,16 @@ class Peer {
   /// Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 500; // 500ms timeout for negotiation
+  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
   Function()? _onNegotiationComplete;
+
+  // Add trickle ICE end-of-candidates timer fields
+  Timer? _trickleIceTimer;
+  DateTime? _lastTrickleCandidateTime;
+  static const int _trickleIceTimeout =
+      3000; // 3 seconds timeout for trickle ICE
+  String? _currentTrickleCallId;
+  bool _endOfCandidatesSent = false;
 
   /// Sessions by session-id.
   final Map<String, Session> _sessions = {};
@@ -74,7 +95,12 @@ class Peer {
   final Map<String, dynamic> _iceServers = {
     'iceServers': [
       {
-        'urls': [DefaultConfig.defaultStun, DefaultConfig.defaultTurn],
+        'url': DefaultConfig.defaultStun,
+        'username': DefaultConfig.username,
+        'credential': DefaultConfig.password,
+      },
+      {
+        'url': DefaultConfig.defaultTurn,
         'username': DefaultConfig.username,
         'credential': DefaultConfig.password,
       },
@@ -161,6 +187,7 @@ class Peer {
   /// [callId] The unique ID for this call.
   /// [telnyxSessionId] The Telnyx session ID.
   /// [customHeaders] Custom headers to include in the invite.
+  /// [useTrickleIce] Whether to use trickle ICE for this call.
   Future<void> invite(
     String callerName,
     String callerNumber,
@@ -168,8 +195,9 @@ class Peer {
     String clientState,
     String callId,
     String telnyxSessionId,
-    Map<String, String> customHeaders,
-  ) async {
+    Map<String, String> customHeaders, {
+    bool useTrickleIce = false,
+  }) async {
     final sessionId = _selfId;
     final session = await _createSession(
       null,
@@ -191,6 +219,7 @@ class Peer {
       callId,
       telnyxSessionId,
       customHeaders,
+      useTrickleIce,
     );
 
     // Indicate a new outbound call is created
@@ -207,12 +236,28 @@ class Peer {
     String callId,
     String telnyxSessionId,
     Map<String, String> customHeaders,
+    bool useTrickleIce,
   ) async {
     try {
-      final description = await session.peerConnection!.createOffer(
-        _dcConstraints,
-      );
-      await session.peerConnection!.setLocalDescription(description);
+      // For trickle ICE, set up immediate candidate sending first
+      if (_useTrickleIce) {
+        session.peerConnection?.onIceCandidate = (candidate) async {
+          if (candidate.candidate != null) {
+            GlobalLogger().i(
+              'Trickle ICE: Sending candidate immediately: ${candidate.candidate}',
+            );
+            _sendCandidate(callId, candidate);
+
+            // Reset the trickle ICE timer when a candidate is generated
+            _startTrickleIceTimer(callId);
+          } else {
+            GlobalLogger().i(
+              'Trickle ICE: Sending end of candidates (natural completion)',
+            );
+            _sendEndOfCandidatesAndCleanup(callId);
+          }
+        };
+      }
 
       // Add any remote candidates that arrived early
       if (session.remoteCandidates.isNotEmpty) {
@@ -225,17 +270,39 @@ class Peer {
         session.remoteCandidates.clear();
       }
 
-      // Give the localDescription a moment to be set
-      await Future.delayed(const Duration(milliseconds: 500));
-
       String? sdpUsed = '';
-      final localDesc = await session.peerConnection?.getLocalDescription();
-      if (localDesc != null) {
-        sdpUsed = localDesc.sdp;
+      
+      if (_useTrickleIce) {
+        // For trickle ICE, create offer without waiting for ICE gathering
+        final description = await session.peerConnection!.createOffer(
+          _dcConstraints,
+        );
+        
+        // For trickle ICE, add trickle support to SDP before setting local description
+        final modifiedSdp = SdpUtils.addTrickleIceCapability(description.sdp!, _useTrickleIce);
+        final modifiedDescription =
+            RTCSessionDescription(modifiedSdp, description.type!);
+        
+        // Set local description but don't wait for candidates
+        await session.peerConnection!.setLocalDescription(modifiedDescription);
+        
+        // Get the SDP immediately from the original description (before candidate gathering)
+        sdpUsed = modifiedSdp;
+      } else {
+        // Traditional ICE gathering
+        final description = await session.peerConnection!.createOffer(
+          _dcConstraints,
+        );
+        await session.peerConnection!.setLocalDescription(description);
+
+        final localDesc = await session.peerConnection?.getLocalDescription();
+        if (localDesc != null) {
+          sdpUsed = localDesc.sdp;
+        }
       }
 
-      // Send INVITE
-      Timer(const Duration(milliseconds: 500), () async {
+      // Send INVITE immediately for trickle ICE, or after delay for regular ICE
+      Future<void> sendInvite() async {
         final userAgent = await VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
@@ -258,6 +325,7 @@ class Peer {
           sdp: sdpUsed,
           sessid: session.sid,
           userAgent: userAgent,
+          trickle: useTrickleIce,
         );
 
         final inviteMessage = InviteAnswerMessage(
@@ -269,7 +337,16 @@ class Peer {
 
         final String jsonInviteMessage = jsonEncode(inviteMessage);
         _send(jsonInviteMessage);
-      });
+      }
+
+      if (_useTrickleIce) {
+        // Send INVITE immediately for trickle ICE
+        await sendInvite();
+      } else {
+        // Traditional ICE gathering - use negotiation timer
+        _lastCandidateTime = DateTime.now();
+        _setOnNegotiationComplete(sendInvite);
+      }
     } catch (e) {
       GlobalLogger().e('Peer :: _createOffer error: $e');
     }
@@ -284,6 +361,25 @@ class Peer {
       await session.peerConnection?.setRemoteDescription(
         RTCSessionDescription(sdp, 'answer'),
       );
+
+      // Process any queued candidates after setting remote SDP
+      if (session.remoteCandidates.isNotEmpty) {
+        GlobalLogger().i(
+          'Web Peer :: Processing queued remote candidates after remote SDP',
+        );
+        for (var candidate in session.remoteCandidates) {
+          if (candidate.candidate != null) {
+            GlobalLogger().i(
+              'Web Peer :: Adding queued candidate: ${candidate.candidate}',
+            );
+            await session.peerConnection?.addCandidate(candidate);
+          }
+        }
+        session.remoteCandidates.clear();
+        GlobalLogger()
+            .i('Web Peer :: Cleared queued candidates after processing');
+      }
+
       onCallStateChange?.call(session, CallState.active);
     }
   }
@@ -298,6 +394,7 @@ class Peer {
   /// [invite] The incoming invite parameters containing the SDP offer.
   /// [customHeaders] Custom headers to include in the answer.
   /// [isAttach] Whether this is an attach call.
+  /// [preferredCodecs] Optional list of preferred audio codecs.
   Future<void> accept(
     String callerName,
     String callerNumber,
@@ -306,8 +403,9 @@ class Peer {
     String callId,
     IncomingInviteParams invite,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    List<Map<String, dynamic>>? preferredCodecs,
+  }) async {
     final sessionId = _selfId;
     final session = await _createSession(
       null,
@@ -324,6 +422,24 @@ class Peer {
       RTCSessionDescription(invite.sdp, 'offer'),
     );
 
+    // Process any queued candidates after setting remote SDP
+    if (session.remoteCandidates.isNotEmpty) {
+      GlobalLogger().i(
+        'Web Peer :: Processing queued remote candidates after setting remote SDP in accept',
+      );
+      for (var candidate in session.remoteCandidates) {
+        if (candidate.candidate != null) {
+          GlobalLogger()
+              .i('Web Peer :: Adding queued candidate: ${candidate.candidate}');
+          await session.peerConnection?.addCandidate(candidate);
+        }
+      }
+      session.remoteCandidates.clear();
+      GlobalLogger().i(
+        'Web Peer :: Cleared queued candidates after processing in accept',
+      );
+    }
+
     // Create and send the Answer (or Attach)
     await _createAnswer(
       session,
@@ -335,6 +451,7 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
+      preferredCodecs,
     );
 
     // Indicate the call is now active (in mobile code, we do this after answer).
@@ -351,88 +468,172 @@ class Peer {
     String callId,
     Map<String, String> customHeaders,
     bool isAttach,
+    List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
-      // ICE candidate callback (with optional skipping logic)
-      session.peerConnection?.onIceCandidate = (candidate) async {
-        GlobalLogger().i(
-          'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
-        );
-        if (candidate.candidate != null) {
-          final candidateString = candidate.candidate.toString();
-          final isValidCandidate =
-              candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
-
-          if (isValidCandidate) {
+      // ICE candidate callback
+      if (_useTrickleIce) {
+        // For trickle ICE, send candidates immediately
+        session.peerConnection?.onIceCandidate = (candidate) async {
+          GlobalLogger().i(
+            'Trickle ICE :: onIceCandidate in _createAnswer: ${candidate.candidate}',
+          );
+          if (candidate.candidate != null) {
             GlobalLogger().i(
-              'Web Peer :: Valid ICE candidate: $candidateString',
+              'Trickle ICE: Sending candidate immediately: ${candidate.candidate}',
             );
-            // Only add valid candidates and reset timer
-            await session.peerConnection?.addCandidate(candidate);
-            _lastCandidateTime = DateTime.now();
+            _sendCandidate(callId, candidate);
+
+            // Reset the trickle ICE timer when a candidate is generated
+            _startTrickleIceTimer(callId);
           } else {
             GlobalLogger().i(
-              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+              'Trickle ICE: Sending end of candidates (natural completion)',
             );
+            _sendEndOfCandidatesAndCleanup(callId);
           }
-        } else {
-          GlobalLogger().i('Web Peer :: onIceCandidate: complete');
-        }
-      };
+        };
+      } else {
+        // Original ICE candidate callback for non-trickle ICE
+        session.peerConnection?.onIceCandidate = (candidate) async {
+          GlobalLogger().i(
+            'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
+          );
+          if (candidate.candidate != null) {
+            final candidateString = candidate.candidate.toString();
+            final isValidCandidate =
+                candidateString.contains('stun.telnyx.com') ||
+                    candidateString.contains('turn.telnyx.com');
 
-      // Create and set local description
-      final description = await session.peerConnection!.createAnswer(
-        _dcConstraints,
-      );
-      await session.peerConnection!.setLocalDescription(description);
+            if (isValidCandidate) {
+              GlobalLogger().i(
+                'Web Peer :: Valid ICE candidate: $candidateString',
+              );
+              // Only add valid candidates and reset timer
+              await session.peerConnection?.addCandidate(candidate);
+              _lastCandidateTime = DateTime.now();
+            } else {
+              GlobalLogger().i(
+                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+              );
+            }
+          } else {
+            GlobalLogger().i('Web Peer :: onIceCandidate: complete');
+          }
+        };
+      }
 
-      // Start ICE candidate gathering and wait for negotiation to complete
-      _lastCandidateTime = DateTime.now();
-      _setOnNegotiationComplete(() async {
-        String? sdpUsed = '';
-        final localDesc = await session.peerConnection?.getLocalDescription();
-        if (localDesc != null) {
-          sdpUsed = localDesc.sdp;
-        }
-
-        final userAgent = await VersionUtils.getUserAgent();
-        final dialogParams = DialogParams(
-          attach: false,
-          audio: true,
-          callID: callId,
-          callerIdName: callerNumber,
-          callerIdNumber: callerNumber,
-          clientState: clientState,
-          destinationNumber: destinationNumber,
-          remoteCallerIdName: '',
-          screenShare: false,
-          useStereo: false,
-          userVariables: [],
-          video: false,
-          customHeaders: customHeaders,
+      // Handle answer creation based on trickle ICE mode
+      if (_useTrickleIce) {
+        // For trickle ICE, create answer without waiting for ICE gathering
+        final description = await session.peerConnection!.createAnswer(
+          _dcConstraints,
         );
-
-        final inviteParams = InviteParams(
-          dialogParams: dialogParams,
-          sdp: sdpUsed,
-          sessid: session.sid, // We use the session's sid
-          userAgent: userAgent,
+        
+        // For trickle ICE, add trickle support to SDP before setting local description
+        final modifiedSdp = SdpUtils.addTrickleIceCapability(description.sdp!, _useTrickleIce);
+        final modifiedDescription =
+            RTCSessionDescription(modifiedSdp, description.type!);
+        
+        // Set local description but don't wait for candidates
+        await session.peerConnection!.setLocalDescription(modifiedDescription);
+        
+        // For trickle ICE, send answer immediately
+        await _sendAnswerMessage(
+          session,
+          callId,
+          callerNumber,
+          destinationNumber,
+          clientState,
+          customHeaders,
+          isAttach,
+          preferredCodecs,
+          modifiedSdp, // Pass the SDP directly to avoid getting it later
         );
-
-        final answerMessage = InviteAnswerMessage(
-          id: const Uuid().v4(),
-          jsonrpc: JsonRPCConstant.jsonrpc,
-          method: isAttach ? SocketMethod.attach : SocketMethod.answer,
-          params: inviteParams,
+      } else {
+        // Traditional ICE gathering
+        final description = await session.peerConnection!.createAnswer(
+          _dcConstraints,
         );
+        await session.peerConnection!.setLocalDescription(description);
 
-        final String jsonAnswerMessage = jsonEncode(answerMessage);
-        _send(jsonAnswerMessage);
-      });
+        // For regular ICE, start candidate gathering and wait for negotiation to complete
+        _lastCandidateTime = DateTime.now();
+        _setOnNegotiationComplete(() async {
+          await _sendAnswerMessage(
+            session,
+            callId,
+            callerNumber,
+            destinationNumber,
+            clientState,
+            customHeaders,
+            isAttach,
+            preferredCodecs,
+          );
+        });
+      }
     } catch (e) {
       GlobalLogger().e('Peer :: _createAnswer error: $e');
     }
+  }
+
+  /// Sends the answer message
+  Future<void> _sendAnswerMessage(
+    Session session,
+    String callId,
+    String callerNumber,
+    String destinationNumber,
+    String clientState,
+    Map<String, String> customHeaders,
+    bool isAttach,
+    List<Map<String, dynamic>>? preferredCodecs, [
+    String? preGeneratedSdp,
+  ]) async {
+    String? sdpUsed = '';
+    
+    // Use pre-generated SDP for trickle ICE, otherwise get from peer connection
+    if (preGeneratedSdp != null) {
+      sdpUsed = preGeneratedSdp;
+    } else {
+      final localDesc = await session.peerConnection?.getLocalDescription();
+      if (localDesc != null) {
+        sdpUsed = localDesc.sdp;
+      }
+    }
+
+    final userAgent = await VersionUtils.getUserAgent();
+    final dialogParams = DialogParams(
+      attach: false,
+      audio: true,
+      callID: callId,
+      callerIdName: callerNumber,
+      callerIdNumber: callerNumber,
+      clientState: clientState,
+      destinationNumber: destinationNumber,
+      remoteCallerIdName: '',
+      screenShare: false,
+      useStereo: false,
+      userVariables: [],
+      video: false,
+      customHeaders: customHeaders,
+    );
+
+    final inviteParams = InviteParams(
+      dialogParams: dialogParams,
+      sdp: sdpUsed,
+      sessid: session.sid,
+      userAgent: userAgent,
+    );
+
+    final answerMessage = InviteAnswerMessage(
+      id: const Uuid().v4(),
+      jsonrpc: JsonRPCConstant.jsonrpc,
+      method: isAttach ? SocketMethod.attach : SocketMethod.answer,
+      params: inviteParams,
+    );
+
+    final String jsonAnswerMessage = jsonEncode(answerMessage);
+    _send(jsonAnswerMessage);
   }
 
   /// Creates a local media stream (audio only for web).
@@ -479,10 +680,14 @@ class Peer {
     }
 
     // Create PeerConnection
-    final pc = await createPeerConnection({
-      ..._buildIceConfiguration(),
-      ...{'sdpSemantics': sdpSemantics},
-    }, _dcConstraints);
+    peerConnection = await createPeerConnection(
+      {
+        ..._buildIceConfiguration(),
+        ...{'sdpSemantics': sdpSemantics},
+      },
+      _dcConstraints,
+    );
+    final pc = peerConnection!;
 
     // If we want the same plan-b/unified-plan logic as mobile:
     if (media != 'data') {
@@ -518,7 +723,7 @@ class Peer {
       }
     }
 
-    // ICE callbacks
+    // ICE callbacks - this will be overridden in _createOffer/_createAnswer for trickle ICE
     pc
       ..onIceCandidate = (candidate) async {
         GlobalLogger().i(
@@ -642,12 +847,12 @@ class Peer {
       await _localStream!.dispose();
       _localStream = null;
     }
-    _sessions.forEach((key, sess) async {
+    _sessions..forEach((key, sess) async {
       await sess.peerConnection?.close();
       await sess.peerConnection?.dispose();
       await sess.dc?.close();
-    });
-    _sessions.clear();
+    })
+    ..clear();
     _statsManager?.stopStatsReporting();
   }
 
@@ -669,6 +874,9 @@ class Peer {
     await session.dc?.close();
     // Stop stats
     stopStats(session.sid);
+
+    // Clean up trickle ICE timer when session is closed
+    _stopTrickleIceTimer();
   }
 
   void _send(dynamic event) {
@@ -708,5 +916,140 @@ class Peer {
   void _stopNegotiationTimer() {
     _negotiationTimer?.cancel();
     _negotiationTimer = null;
+  }
+
+  /// Starts the trickle ICE timer that sends endOfCandidates after 3 seconds of inactivity
+  void _startTrickleIceTimer(String callId) {
+    // If this is a new call or timer is not running, start it
+    if (_currentTrickleCallId != callId || _trickleIceTimer == null) {
+      _stopTrickleIceTimer(); // Clean up any existing timer
+      _currentTrickleCallId = callId;
+      _endOfCandidatesSent = false;
+    }
+
+    _lastTrickleCandidateTime = DateTime.now();
+
+    // Start timer if not already running
+    _trickleIceTimer ??= Timer.periodic(
+        const Duration(milliseconds: 500), // Check every 500ms
+        (timer) {
+          if (_lastTrickleCandidateTime == null) return;
+
+          final timeSinceLastCandidate = DateTime.now()
+              .difference(_lastTrickleCandidateTime!)
+              .inMilliseconds;
+          GlobalLogger().d(
+            'Time since last trickle candidate: ${timeSinceLastCandidate}ms',
+          );
+
+          if (timeSinceLastCandidate >= _trickleIceTimeout &&
+              !_endOfCandidatesSent) {
+            GlobalLogger().i(
+              'Web Peer :: Trickle ICE timeout reached - sending end of candidates',
+            );
+            _sendEndOfCandidatesAndCleanup(_currentTrickleCallId!);
+          }
+        },
+      );
+  }
+
+  /// Stops and cleans up the trickle ICE timer
+  void _stopTrickleIceTimer() {
+    _trickleIceTimer?.cancel();
+    _trickleIceTimer = null;
+    _lastTrickleCandidateTime = null;
+    _currentTrickleCallId = null;
+    _endOfCandidatesSent = false;
+  }
+
+  /// Sends end of candidates signal and cleans up timer
+  void _sendEndOfCandidatesAndCleanup(String callId) {
+    if (!_endOfCandidatesSent) {
+      _sendEndOfCandidates(callId);
+      _endOfCandidatesSent = true;
+      _stopTrickleIceTimer();
+      GlobalLogger().i(
+        'Web Peer :: End of candidates sent and timer cleaned up for call $callId',
+      );
+    }
+  }
+
+  
+
+  /// Sends an ICE candidate via WebSocket
+  void _sendCandidate(String callId, RTCIceCandidate candidate) {
+    try {
+      final candidateParams = CandidateParams(
+        dialogParams: CandidateDialogParams(callID: callId),
+        candidate: candidate.candidate,
+        sdpMid: candidate.sdpMid ?? '0',
+        sdpMLineIndex: candidate.sdpMLineIndex ?? 0,
+      );
+
+      final candidateMessage = CandidateMessage(
+        id: const Uuid().v4(),
+        jsonrpc: JsonRPCConstant.jsonrpc,
+        method: SocketMethod.candidate,
+        params: candidateParams,
+      );
+
+      final String jsonCandidateMessage = jsonEncode(candidateMessage);
+      GlobalLogger().i(
+        'Web Peer :: Sending trickle ICE candidate: ${candidate.candidate}',
+      );
+      _send(jsonCandidateMessage);
+    } catch (e) {
+      GlobalLogger().e('Web Peer :: Error sending trickle ICE candidate: $e');
+    }
+  }
+
+  /// Sends end of candidates signal
+  void _sendEndOfCandidates(String callId) {
+    try {
+      final endOfCandidatesParams = EndOfCandidatesParams(
+        dialogParams: EndOfCandidatesDialogParams(callID: callId),
+      );
+
+      final endOfCandidatesMessage = EndOfCandidatesMessage(
+        id: const Uuid().v4(),
+        jsonrpc: JsonRPCConstant.jsonrpc,
+        method: SocketMethod.endOfCandidates,
+        params: endOfCandidatesParams,
+      );
+
+      final String jsonEndOfCandidatesMessage =
+          jsonEncode(endOfCandidatesMessage);
+      GlobalLogger().i('Web Peer :: Sending end of candidates signal');
+      _send(jsonEndOfCandidatesMessage);
+    } catch (e) {
+      GlobalLogger().e('Web Peer :: Error sending end of candidates: $e');
+    }
+  }
+
+  /// Handles remote ICE candidates received via WebSocket
+  void handleRemoteCandidate(
+    String callId,
+    String candidateStr,
+    String? sdpMid,
+    int? sdpMLineIndex,
+  ) async {
+    final session = _sessions[_selfId];
+    if (session?.peerConnection != null) {
+      try {
+        final candidate = RTCIceCandidate(
+          candidateStr,
+          sdpMid,
+          sdpMLineIndex,
+        );
+        await session!.peerConnection!.addCandidate(candidate);
+        GlobalLogger().i(
+          'Web Peer :: Added remote candidate: $candidateStr',
+        );
+      } catch (e) {
+        GlobalLogger().e(
+          'Web Peer :: Error adding remote candidate: $e',
+        );
+      }
+    }
   }
 }
