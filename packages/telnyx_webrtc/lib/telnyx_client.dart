@@ -471,7 +471,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)');
+      'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)',
+    );
     _reconnectToSocket();
 
     for (var call in activeCalls().values) {
@@ -935,7 +936,7 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _updateConnectionState(false);
-          bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          final bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
@@ -982,7 +983,7 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _updateConnectionState(false);
-          bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          final bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
@@ -1004,7 +1005,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)');
+      'Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)',
+    );
 
     _isAttaching = true;
     Timer(Duration(milliseconds: Constants.gatewayResponseDelay), () {
@@ -1077,11 +1079,14 @@ class TelnyxClient {
       sessid,
       _ringtonePath,
       _ringBackpath,
-      callHandler = CallHandler((state) {
-        GlobalLogger().i(
-          'Call state not overridden :Call State Changed to $state',
-        );
-      }, null),
+      callHandler = CallHandler(
+        (state) {
+          GlobalLogger().i(
+            'Call state not overridden :Call State Changed to $state',
+          );
+        },
+        null,
+      ),
       // Pass null initially
       _callEnded,
       _debug,
@@ -1587,54 +1592,35 @@ class TelnyxClient {
     );
 
     if (data != null) {
-      if (data.toString().trim().isNotEmpty) {
-        GlobalLogger().i('TxSocket :: ${data.toString().trim()}');
-        if (data.toString().trim().contains('error')) {
-          final errorJson = jsonEncode(data.toString());
-          _logger.log(
-            LogLevel.info,
-            'Received WebSocket message - Contains Error :: $errorJson',
-          );
-          try {
-            final Map<String, dynamic> jsonData = jsonDecode(data.toString());
+      final messageString = data.toString().trim();
+      if (messageString.isNotEmpty) {
+        GlobalLogger().i('TxSocket :: $messageString');
 
-            // Extract error code if available
-            int? errorCode;
-            if (jsonData.containsKey('error') &&
-                jsonData['error'] is Map<String, dynamic> &&
-                jsonData['error'].containsKey('code')) {
-              errorCode = jsonData['error']['code'] as int?;
-            }
+        try {
+          final Map<String, dynamic> messageJson = jsonDecode(messageString);
 
-            final ReceivedResult errorResult = ReceivedResult.fromJson(
-              jsonData,
+          if (messageJson.containsKey('error')) {
+            final errorJson = jsonEncode(messageJson);
+            _logger.log(
+              LogLevel.info,
+              'Received WebSocket message - Contains Error :: $errorJson',
             );
-
-            // Create error with code if available
+            final ReceivedResult errorResult =
+                ReceivedResult.fromJson(messageJson);
             final TelnyxSocketError error = TelnyxSocketError(
-              errorCode: errorCode ?? 0,
+              errorCode: errorResult.error?.errorCode ?? 0,
               errorMessage: errorResult.error?.errorMessage ?? 'Unknown error',
             );
-
             onSocketErrorReceived.call(error);
-          } on Exception catch (e) {
-            GlobalLogger().e('Error parsing JSON: $e');
-          }
-        }
-
-        //Login success
-        if (data.toString().trim().contains('result')) {
-          final paramJson = jsonEncode(data.toString());
-          _logger.log(
-            LogLevel.info,
-            'Received WebSocket message - Contains Result :: $paramJson',
-          );
-
-          try {
-            final ReceivedResult stateMessage = ReceivedResult.fromJson(
-              jsonDecode(data.toString()),
+          } else if (messageJson.containsKey('result')) {
+            final paramJson = jsonEncode(messageJson);
+            _logger.log(
+              LogLevel.info,
+              'Received WebSocket message - Contains Result :: $paramJson',
             );
 
+            final ReceivedResult stateMessage =
+                ReceivedResult.fromJson(messageJson);
             final mainMessage = ReceivedMessage(
               jsonrpc: stateMessage.jsonrpc,
               method: SocketMethod.gatewayState,
@@ -1780,348 +1766,336 @@ class TelnyxClient {
                   }
               }
             }
-          } on Exception catch (e) {
-            GlobalLogger().e('Error parsing JSON: $e');
-          }
-        } else if (data.toString().trim().contains('method')) {
-          //Received Telnyx Method Message
-          final messageJson = jsonDecode(data.toString());
-
-          final ReceivedMessage clientReadyMessage = ReceivedMessage.fromJson(
-            jsonDecode(data.toString()),
-          );
-          if (clientReadyMessage.voiceSdkId != null) {
-            GlobalLogger().i('VoiceSdkID :: ${clientReadyMessage.voiceSdkId}');
-            _pushMetaData = PushMetaData(
-              callerNumber: null,
-              callerName: null,
-              voiceSdkId: clientReadyMessage.voiceSdkId,
+          } else if (messageJson.containsKey('method')) {
+            //Received Telnyx Method Message
+            final ReceivedMessage clientReadyMessage =
+                ReceivedMessage.fromJson(messageJson);
+            if (clientReadyMessage.voiceSdkId != null) {
+              GlobalLogger()
+                  .i('VoiceSdkID :: ${clientReadyMessage.voiceSdkId}');
+              _pushMetaData = PushMetaData(
+                callerNumber: null,
+                callerName: null,
+                voiceSdkId: clientReadyMessage.voiceSdkId,
+              );
+            } else {
+              GlobalLogger().e('VoiceSdkID not found');
+            }
+            GlobalLogger().i(
+              'Received WebSocket message - Contains Method :: $messageJson',
             );
-          } else {
-            GlobalLogger().e('VoiceSdkID not found');
-          }
-          GlobalLogger().i(
-            'Received WebSocket message - Contains Method :: $messageJson',
-          );
-          switch (messageJson['method']) {
-            case SocketMethod.ping:
-              {
-                final result = Result(message: 'PONG', sessid: sessid);
-                final pongMessage = PongMessage(
-                  jsonrpc: JsonRPCConstant.jsonrpc,
-                  id: const Uuid().v4(),
-                  result: result,
-                );
-                final String jsonPongMessage = jsonEncode(pongMessage);
-                txSocket.send(jsonPongMessage);
-                break;
-              }
-            case SocketMethod.clientReady:
-              {
-                if (gatewayState != GatewayState.reged) {
-                  GlobalLogger().i('Retrieving Gateway state...');
-                  if (_waitingForReg) {
-                    _requestGatewayStatus();
-                    _gatewayResponseTimer = Timer(
-                      Duration(milliseconds: Constants.gatewayResponseDelay),
-                      () {
-                        if (_registrationRetryCounter <
-                            Constants.retryRegisterTime) {
-                          if (_waitingForReg) {
-                            _onMessage(data);
-                          }
-                          _registrationRetryCounter++;
-                        } else {
-                          GlobalLogger().i('GATEWAY REGISTRATION TIMEOUT');
-                          final error = TelnyxSocketError(
-                            errorCode:
-                                TelnyxErrorConstants.gatewayTimeoutErrorCode,
-                            errorMessage:
-                                TelnyxErrorConstants.gatewayTimeoutError,
-                          );
-                          onSocketErrorReceived(error);
-                        }
-                      },
-                    );
-                  }
-                } else {
-                  final ReceivedMessage clientReadyMessage =
-                      ReceivedMessage.fromJson(jsonDecode(data.toString()));
-                  final message = TelnyxMessage(
-                    socketMethod: SocketMethod.clientReady,
-                    message: clientReadyMessage,
+            switch (messageJson['method']) {
+              case SocketMethod.ping:
+                {
+                  final result = Result(message: 'PONG', sessid: sessid);
+                  final pongMessage = PongMessage(
+                    jsonrpc: JsonRPCConstant.jsonrpc,
+                    id: const Uuid().v4(),
+                    result: result,
                   );
-                  onSocketMessageReceived.call(message);
+                  final String jsonPongMessage = jsonEncode(pongMessage);
+                  txSocket.send(jsonPongMessage);
+                  break;
                 }
-                break;
-              }
-            case SocketMethod.invite:
-              {
-                GlobalLogger().i('INCOMING INVITATION :: $messageJson');
-                final ReceivedMessage invite = ReceivedMessage.fromJson(
-                  jsonDecode(data.toString()),
-                );
-                final message = TelnyxMessage(
-                  socketMethod: SocketMethod.invite,
-                  message: invite,
-                );
+              case SocketMethod.clientReady:
+                {
+                  if (gatewayState != GatewayState.reged) {
+                    GlobalLogger().i('Retrieving Gateway state...');
+                    if (_waitingForReg) {
+                      _requestGatewayStatus();
+                      _gatewayResponseTimer = Timer(
+                        Duration(milliseconds: Constants.gatewayResponseDelay),
+                        () {
+                          if (_registrationRetryCounter <
+                              Constants.retryRegisterTime) {
+                            if (_waitingForReg) {
+                              _onMessage(data);
+                            }
+                            _registrationRetryCounter++;
+                          } else {
+                            GlobalLogger().i('GATEWAY REGISTRATION TIMEOUT');
+                            final error = TelnyxSocketError(
+                              errorCode:
+                                  TelnyxErrorConstants.gatewayTimeoutErrorCode,
+                              errorMessage:
+                                  TelnyxErrorConstants.gatewayTimeoutError,
+                            );
+                            onSocketErrorReceived(error);
+                          }
+                        },
+                      );
+                    }
+                  } else {
+                    final message = TelnyxMessage(
+                      socketMethod: SocketMethod.clientReady,
+                      message: clientReadyMessage,
+                    );
+                    onSocketMessageReceived.call(message);
+                  }
+                  break;
+                }
+              case SocketMethod.invite:
+                {
+                  GlobalLogger().i('INCOMING INVITATION :: $messageJson');
+                  final ReceivedMessage invite =
+                      ReceivedMessage.fromJson(messageJson);
+                  final message = TelnyxMessage(
+                    socketMethod: SocketMethod.invite,
+                    message: invite,
+                  );
 
-                final Call offerCall = _createCall()
-                  ..callId = invite.inviteParams?.callID;
-                updateCall(offerCall);
+                  final Call offerCall = _createCall()
+                    ..callId = invite.inviteParams?.callID;
+                  updateCall(offerCall);
 
-                onSocketMessageReceived.call(message);
+                  onSocketMessageReceived.call(message);
 
-                offerCall.callHandler.changeState(CallState.ringing);
-                if (!_pendingAnswerFromPush) {
-                  offerCall.playRingtone(_ringtonePath);
                   offerCall.callHandler.changeState(CallState.ringing);
-                } else {
-                  // Cancel the pending answer timeout since INVITE arrived
-                  _cancelPendingAnswerTimeout();
+                  if (!_pendingAnswerFromPush) {
+                    offerCall.playRingtone(_ringtonePath);
+                    offerCall.callHandler.changeState(CallState.ringing);
+                  } else {
+                    // Cancel the pending answer timeout since INVITE arrived
+                    _cancelPendingAnswerTimeout();
+
+                    offerCall.acceptCall(
+                      invite.inviteParams!,
+                      invite.inviteParams!.calleeIdName ?? '',
+                      invite.inviteParams!.callerIdNumber ?? '',
+                      'State',
+                    );
+                    _pendingAnswerFromPush = false;
+                    offerCall.callHandler.changeState(CallState.connecting);
+                  }
+                  if (_pendingDeclineFromPush) {
+                    offerCall.endCall();
+                    offerCall.callHandler.changeState(CallState.done);
+                    _pendingDeclineFromPush = false;
+                  }
+                  break;
+                }
+              case SocketMethod.attach:
+                {
+                  GlobalLogger().i('ATTACH RECEIVED :: $messageJson');
+                  final ReceivedMessage invite =
+                      ReceivedMessage.fromJson(messageJson);
+                  final message = TelnyxMessage(
+                    socketMethod: SocketMethod.attach,
+                    message: invite,
+                  );
+                  //play ringtone for web
+                  final Call offerCall = _createCall()
+                    ..callId = invite.inviteParams?.callID;
+                  updateCall(offerCall);
+
+                  onSocketMessageReceived.call(message);
 
                   offerCall.acceptCall(
                     invite.inviteParams!,
                     invite.inviteParams!.calleeIdName ?? '',
                     invite.inviteParams!.callerIdNumber ?? '',
                     'State',
+                    isAttach: true,
                   );
+                  // Cancel the pending answer timeout since ATTACH arrived
+                  _cancelPendingAnswerTimeout();
                   _pendingAnswerFromPush = false;
-                  offerCall.callHandler.changeState(CallState.connecting);
+                  break;
                 }
-                if (_pendingDeclineFromPush) {
-                  offerCall.endCall();
-                  offerCall.callHandler.changeState(CallState.done);
-                  _pendingDeclineFromPush = false;
+              case SocketMethod.media:
+                {
+                  GlobalLogger().i('MEDIA RECEIVED :: $messageJson');
+                  final ReceivedMessage mediaReceived =
+                      ReceivedMessage.fromJson(messageJson);
+                  if (mediaReceived.inviteParams?.sdp != null) {
+                    final Call? mediaCall =
+                        calls[mediaReceived.inviteParams?.callID];
+                    if (mediaCall == null) {
+                      GlobalLogger().d(
+                        'Error : Call  is null from Media Message',
+                      );
+                      _sendNoCallError();
+                      return;
+                    }
+                    mediaCall.onRemoteSessionReceived(
+                      mediaReceived.inviteParams?.sdp,
+                    );
+                    _earlySDP = true;
+                  } else {
+                    GlobalLogger().d('No SDP contained within Media Message');
+                  }
+                  break;
                 }
-                break;
-              }
-            case SocketMethod.attach:
-              {
-                GlobalLogger().i('ATTACH RECEIVED :: $messageJson');
-                final ReceivedMessage invite = ReceivedMessage.fromJson(
-                  jsonDecode(data.toString()),
-                );
-                final message = TelnyxMessage(
-                  socketMethod: SocketMethod.attach,
-                  message: invite,
-                );
-                //play ringtone for web
-                final Call offerCall = _createCall()
-                  ..callId = invite.inviteParams?.callID;
-                updateCall(offerCall);
+              case SocketMethod.answer:
+                {
+                  GlobalLogger().i('INVITATION ANSWERED :: $messageJson');
+                  final ReceivedMessage inviteAnswer =
+                      ReceivedMessage.fromJson(messageJson);
+                  final Call? answerCall =
+                      calls[inviteAnswer.inviteParams?.callID];
+                  if (answerCall == null) {
+                    GlobalLogger()
+                        .d('Error : Call  is null from Answer Message');
+                    _sendNoCallError();
+                    return;
+                  }
+                  final message = TelnyxMessage(
+                    socketMethod: SocketMethod.answer,
+                    message: inviteAnswer,
+                  );
+                  answerCall.callState = CallState.active;
 
-                onSocketMessageReceived.call(message);
+                  updateCall(answerCall);
 
-                offerCall.acceptCall(
-                  invite.inviteParams!,
-                  invite.inviteParams!.calleeIdName ?? '',
-                  invite.inviteParams!.callerIdNumber ?? '',
-                  'State',
-                  isAttach: true,
-                );
-                // Cancel the pending answer timeout since ATTACH arrived
-                _cancelPendingAnswerTimeout();
-                _pendingAnswerFromPush = false;
-                break;
-              }
-            case SocketMethod.media:
-              {
-                GlobalLogger().i('MEDIA RECEIVED :: $messageJson');
-                final ReceivedMessage mediaReceived = ReceivedMessage.fromJson(
-                  jsonDecode(data.toString()),
-                );
-                if (mediaReceived.inviteParams?.sdp != null) {
-                  final Call? mediaCall =
-                      calls[mediaReceived.inviteParams?.callID];
-                  if (mediaCall == null) {
+                  if (inviteAnswer.inviteParams?.sdp != null) {
+                    answerCall.onRemoteSessionReceived(
+                      inviteAnswer.inviteParams?.sdp,
+                    );
+                    onSocketMessageReceived(message);
+                  } else if (_earlySDP) {
+                    onSocketMessageReceived(message);
+                  } else {
                     GlobalLogger().d(
-                      'Error : Call  is null from Media Message',
+                      'No SDP provided for Answer or Media, cannot initialize call',
+                    );
+                    answerCall.endCall();
+                  }
+                  _earlySDP = false;
+                  answerCall.stopAudio();
+                  break;
+                }
+              case SocketMethod.bye:
+                {
+                  GlobalLogger().i('BYE RECEIVED :: $messageJson');
+
+                  // Parse the bye message to extract termination details
+                  // Try to parse as ReceiveByeMessage first to get detailed termination info
+                  ReceiveByeMessage? byeMessage;
+                  CallTerminationReason? terminationReason;
+
+                  try {
+                    byeMessage = ReceiveByeMessage.fromJson(messageJson);
+
+                    // Extract termination details if available
+                    if (byeMessage.params != null) {
+                      terminationReason = CallTerminationReason(
+                        cause: byeMessage.params?.cause,
+                        causeCode: byeMessage.params?.causeCode,
+                        sipCode: byeMessage.params?.sipCode,
+                        sipReason: byeMessage.params?.sipReason,
+                      );
+
+                      GlobalLogger().d(
+                        'Call termination reason: $terminationReason',
+                      );
+                    }
+                  } catch (e) {
+                    GlobalLogger().e('Error parsing bye message: $e');
+                  }
+
+                  // Fall back to ReceivedMessage if ReceiveByeMessage parsing failed
+                  final ReceivedMessage bye =
+                      ReceivedMessage.fromJson(messageJson);
+                  final String? callId =
+                      byeMessage?.params?.callID ?? bye.inviteParams?.callID;
+
+                  final Call? byeCall = calls[callId];
+                  if (byeCall == null) {
+                    GlobalLogger().d('Error: Call is null from Bye Message');
+                    _sendNoCallError();
+                    return;
+                  }
+
+                  final message = TelnyxMessage(
+                    socketMethod: SocketMethod.bye,
+                    message: bye,
+                  );
+                  onSocketMessageReceived(message);
+
+                  byeCall.stopAudio();
+                  byeCall.peerConnection?.closeSession();
+
+                  // Update call state with termination reason
+                  byeCall.callHandler.changeState(
+                    CallState.done.withTerminationReason(terminationReason),
+                  );
+
+                  calls.remove(byeCall.callId);
+                  break;
+                }
+              case SocketMethod.ringing:
+                {
+                  GlobalLogger().i('RINGING RECEIVED :: $messageJson');
+                  final ReceivedMessage ringing =
+                      ReceivedMessage.fromJson(messageJson);
+                  final Call? ringingCall = calls[ringing.inviteParams?.callID];
+                  if (ringingCall == null) {
+                    GlobalLogger().d(
+                      'Error : Call  is null from Ringing Message',
                     );
                     _sendNoCallError();
                     return;
                   }
-                  mediaCall.onRemoteSessionReceived(
-                    mediaReceived.inviteParams?.sdp,
+
+                  // Send ringing acknowledgement
+                  final ringingAckResult = RingingAckResult(
+                    method: SocketMethod.ringing,
                   );
-                  _earlySDP = true;
-                } else {
-                  GlobalLogger().d('No SDP contained within Media Message');
-                }
-                break;
-              }
-            case SocketMethod.answer:
-              {
-                GlobalLogger().i('INVITATION ANSWERED :: $messageJson');
-                final ReceivedMessage inviteAnswer = ReceivedMessage.fromJson(
-                  jsonDecode(data.toString()),
-                );
-                final Call? answerCall =
-                    calls[inviteAnswer.inviteParams?.callID];
-                if (answerCall == null) {
-                  GlobalLogger().d('Error : Call  is null from Answer Message');
-                  _sendNoCallError();
-                  return;
-                }
-                final message = TelnyxMessage(
-                  socketMethod: SocketMethod.answer,
-                  message: inviteAnswer,
-                );
-                answerCall.callState = CallState.active;
+                  final ringingAckMessage = RingingAckMessage(
+                    jsonrpc: JsonRPCConstant.jsonrpc,
+                    id: ringing.id,
+                    result: ringingAckResult,
+                  );
+                  final String jsonRingingAckMessage = jsonEncode(
+                    ringingAckMessage,
+                  );
+                  GlobalLogger().i(
+                    'Sending ringing acknowledgement: $jsonRingingAckMessage',
+                  );
+                  txSocket.send(jsonRingingAckMessage);
 
-                updateCall(answerCall);
-
-                if (inviteAnswer.inviteParams?.sdp != null) {
-                  answerCall.onRemoteSessionReceived(
-                    inviteAnswer.inviteParams?.sdp,
+                  GlobalLogger().i(
+                    'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}',
+                  );
+                  final message = TelnyxMessage(
+                    socketMethod: SocketMethod.ringing,
+                    message: ringing,
                   );
                   onSocketMessageReceived(message);
-                } else if (_earlySDP) {
-                  onSocketMessageReceived(message);
-                } else {
-                  GlobalLogger().d(
-                    'No SDP provided for Answer or Media, cannot initialize call',
-                  );
-                  answerCall.endCall();
+                  break;
                 }
-                _earlySDP = false;
-                answerCall.stopAudio();
-                break;
-              }
-            case SocketMethod.bye:
-              {
-                GlobalLogger().i('BYE RECEIVED :: $messageJson');
+              case SocketMethod.aiConversation:
+                {
+                  GlobalLogger().i('AI CONVERSATION RECEIVED :: $messageJson');
+                  final ReceivedMessage aiConversation =
+                      ReceivedMessage.fromJson(messageJson);
 
-                // Parse the bye message to extract termination details
-                final Map<String, dynamic> jsonData = jsonDecode(
-                  data.toString(),
-                );
-
-                // Try to parse as ReceiveByeMessage first to get detailed termination info
-                ReceiveByeMessage? byeMessage;
-                CallTerminationReason? terminationReason;
-
-                try {
-                  byeMessage = ReceiveByeMessage.fromJson(jsonData);
-
-                  // Extract termination details if available
-                  if (byeMessage.params != null) {
-                    terminationReason = CallTerminationReason(
-                      cause: byeMessage.params?.cause,
-                      causeCode: byeMessage.params?.causeCode,
-                      sipCode: byeMessage.params?.sipCode,
-                      sipReason: byeMessage.params?.sipReason,
-                    );
-
-                    GlobalLogger().d(
-                      'Call termination reason: $terminationReason',
-                    );
+                  // Store widget settings if available
+                  if (aiConversation.aiConversationParams?.widgetSettings !=
+                      null) {
+                    _currentWidgetSettings =
+                        aiConversation.aiConversationParams!.widgetSettings;
+                    GlobalLogger().i('Widget settings updated');
                   }
-                } catch (e) {
-                  GlobalLogger().e('Error parsing bye message: $e');
-                }
 
-                // Fall back to ReceivedMessage if ReceiveByeMessage parsing failed
-                final ReceivedMessage bye = ReceivedMessage.fromJson(jsonData);
-                final String? callId =
-                    byeMessage?.params?.callID ?? bye.inviteParams?.callID;
-
-                final Call? byeCall = calls[callId];
-                if (byeCall == null) {
-                  GlobalLogger().d('Error: Call is null from Bye Message');
-                  _sendNoCallError();
-                  return;
-                }
-
-                final message = TelnyxMessage(
-                  socketMethod: SocketMethod.bye,
-                  message: bye,
-                );
-                onSocketMessageReceived(message);
-
-                byeCall.stopAudio();
-                byeCall.peerConnection?.closeSession();
-
-                // Update call state with termination reason
-                byeCall.callHandler.changeState(
-                  CallState.done.withTerminationReason(terminationReason),
-                );
-
-                calls.remove(byeCall.callId);
-                break;
-              }
-            case SocketMethod.ringing:
-              {
-                GlobalLogger().i('RINGING RECEIVED :: $messageJson');
-                final ReceivedMessage ringing = ReceivedMessage.fromJson(
-                  jsonDecode(data.toString()),
-                );
-                final Call? ringingCall = calls[ringing.inviteParams?.callID];
-                if (ringingCall == null) {
-                  GlobalLogger().d(
-                    'Error : Call  is null from Ringing Message',
+                  // Process message for transcript extraction
+                  _processAiConversationForTranscript(
+                    aiConversation.aiConversationParams,
                   );
-                  _sendNoCallError();
-                  return;
+
+                  final message = TelnyxMessage(
+                    socketMethod: SocketMethod.aiConversation,
+                    message: aiConversation,
+                  );
+                  onSocketMessageReceived(message);
+                  break;
                 }
-
-                // Send ringing acknowledgement
-                final ringingAckResult = RingingAckResult(
-                  method: SocketMethod.ringing,
-                );
-                final ringingAckMessage = RingingAckMessage(
-                  jsonrpc: JsonRPCConstant.jsonrpc,
-                  id: ringing.id,
-                  result: ringingAckResult,
-                );
-                final String jsonRingingAckMessage = jsonEncode(
-                  ringingAckMessage,
-                );
-                GlobalLogger().i(
-                  'Sending ringing acknowledgement: $jsonRingingAckMessage',
-                );
-                txSocket.send(jsonRingingAckMessage);
-
-                GlobalLogger().i(
-                  'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}',
-                );
-                final message = TelnyxMessage(
-                  socketMethod: SocketMethod.ringing,
-                  message: ringing,
-                );
-                onSocketMessageReceived(message);
-                break;
-              }
-            case SocketMethod.aiConversation:
-              {
-                GlobalLogger().i('AI CONVERSATION RECEIVED :: $messageJson');
-                final ReceivedMessage aiConversation = ReceivedMessage.fromJson(
-                  jsonDecode(data.toString()),
-                );
-
-                // Store widget settings if available
-                if (aiConversation.aiConversationParams?.widgetSettings !=
-                    null) {
-                  _currentWidgetSettings =
-                      aiConversation.aiConversationParams!.widgetSettings;
-                  GlobalLogger().i('Widget settings updated');
-                }
-
-                // Process message for transcript extraction
-                _processAiConversationForTranscript(
-                  aiConversation.aiConversationParams,
-                );
-
-                final message = TelnyxMessage(
-                  socketMethod: SocketMethod.aiConversation,
-                  message: aiConversation,
-                );
-                onSocketMessageReceived(message);
-                break;
-              }
+            }
+          } else {
+            GlobalLogger().i('Received and ignored empty packet');
           }
-        } else {
-          GlobalLogger().i('Received and ignored empty packet');
+        } on Exception catch (e) {
+          GlobalLogger().e('Error parsing JSON: $e');
         }
       } else {
         GlobalLogger().i('Received and ignored empty packet');
@@ -2148,24 +2122,40 @@ class TelnyxClient {
 
   /// Handle user speech transcript from conversation.item.created messages
   void _handleConversationItemCreated(AiConversationParams params) {
-    if (params.item?.role != 'user' || params.item?.status != 'completed') {
-      return; // Only handle completed user messages
+    if (params.item?.role != 'user' ||
+        params.item?.status != 'completed' ||
+        params.item?.content == null ||
+        params.item?.id == null) {
+      return; // Only handle completed user messages with content and an ID
     }
 
-    final content = params.item?.content
-            ?.where((c) => c.transcript != null || c.text != null)
-            .map((c) => c.transcript ?? c.text ?? '')
-            .join(' ') ??
-        '';
+    final textParts = <String>[];
+    final imageUrls = <String>[];
 
-    if (content.isNotEmpty && params.item?.id != null) {
+    for (final c in params.item!.content!) {
+      final text = c.transcript ?? c.text;
+      if (text != null && text.isNotEmpty) {
+        textParts.add(text);
+      }
+      if (c.type == 'image_url') {
+        final url = c.imageUrl?.url;
+        if (url != null && url.isNotEmpty) {
+          imageUrls.add(url);
+        }
+      }
+    }
+
+    final content = textParts.join(' ');
+    final finalImageUrls = imageUrls.isNotEmpty ? imageUrls : null;
+
+    if (content.isNotEmpty || finalImageUrls != null) {
       final transcriptItem = TranscriptItem(
         id: params.item!.id!,
         role: 'user',
         content: content,
+        imageUrls: finalImageUrls,
         timestamp: DateTime.now(),
       );
-
       _transcript.add(transcriptItem);
       onTranscriptUpdate?.call(List.unmodifiable(_transcript));
     }
@@ -2271,7 +2261,8 @@ class TelnyxClient {
     // Check if we've exceeded the retry limit
     if (_connectRetryCounter >= Constants.retryConnectTime) {
       GlobalLogger().e(
-          'Maximum reconnection attempts reached ($_connectRetryCounter/${Constants.retryConnectTime})');
+        'Maximum reconnection attempts reached ($_connectRetryCounter/${Constants.retryConnectTime})',
+      );
       final error = TelnyxSocketError(
         errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
         errorMessage: 'Maximum reconnection attempts reached',
@@ -2281,7 +2272,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Attempting reconnection $_connectRetryCounter/${Constants.retryConnectTime} (autoReconnect: $_autoReconnectLogin)');
+      'Attempting reconnection $_connectRetryCounter/${Constants.retryConnectTime} (autoReconnect: $_autoReconnectLogin)',
+    );
 
     // Add a small delay before attempting reconnection to avoid overwhelming the server
     // Use exponential backoff: base delay * (2 ^ retry_count)
@@ -2290,12 +2282,14 @@ class TelnyxClient {
     Timer(Duration(milliseconds: delayMs), () {
       if (_storedCredentialConfig != null) {
         GlobalLogger().i(
-            'Attempting reconnection with credential config (attempt $_connectRetryCounter)');
+          'Attempting reconnection with credential config (attempt $_connectRetryCounter)',
+        );
         // Use the existing _reconnectToSocket method for consistency
         _reconnectToSocket();
       } else if (_storedTokenConfig != null) {
         GlobalLogger().i(
-            'Attempting reconnection with token config (attempt $_connectRetryCounter)');
+          'Attempting reconnection with token config (attempt $_connectRetryCounter)',
+        );
         // Use the existing _reconnectToSocket method for consistency
         _reconnectToSocket();
       } else {

@@ -470,10 +470,11 @@ class Call {
     final uuid = const Uuid().v4();
     final messageId = const Uuid().v4();
 
-    // Create content list starting with the text message
-    final List<ConversationContentData> content = [
-      ConversationContentData(type: 'input_text', text: message),
-    ];
+    // Create content list, adding text message only if it's not empty
+    final List<ConversationContentData> content = [];
+    if (message.isNotEmpty) {
+      content.add(ConversationContentData(type: 'input_text', text: message));
+    }
 
     // Add image content if base64Image is provided
     if (base64Image != null && base64Image.isNotEmpty) {
