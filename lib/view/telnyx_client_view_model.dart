@@ -798,9 +798,9 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeCurrentCall();
   }
 
-  void sendConversationMessage(String message) {
+  void sendConversationMessage(String message, {String? base64Image}) {
     try {
-      currentCall?.sendConversationMessage(message);
+      currentCall?.sendConversationMessage(message, base64Image: base64Image);
     } catch (e) {
       logger.e('Error sending conversation message: $e');
     }
