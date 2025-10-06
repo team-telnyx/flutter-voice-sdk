@@ -12,8 +12,9 @@ class LoginMessage {
     id = json['id'];
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params =
-        json['params'] != null ? LoginParams.fromJson(json['params']) : null;
+    params = json['params'] != null
+        ? LoginParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {

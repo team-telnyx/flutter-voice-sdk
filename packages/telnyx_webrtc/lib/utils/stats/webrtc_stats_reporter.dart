@@ -244,14 +244,32 @@ class WebRTCStatsReporter {
       final audioOutboundStats = [];
       Map<String, dynamic>? succeededConnection;
       final statsObject = {};
+      final Map<String, dynamic> mediaSourceStats = {};
 
-      final timestamp =
-          DateTime.now().toUtc().millisecondsSinceEpoch.toDouble();
+      final timestamp = DateTime.now()
+          .toUtc()
+          .millisecondsSinceEpoch
+          .toDouble();
 
       final Map<String, dynamic> localCandidates = {};
       final Map<String, dynamic> remoteCandidates = {};
       final List<Map<String, dynamic>> unresolvedCandidatePairs = [];
 
+      // First pass: collect media-source stats
+      for (var report in stats) {
+        if (report.type == 'media-source') {
+          final mediaSourceValues = report.values.cast<String, dynamic>();
+          mediaSourceStats[report.id] = {
+            ...mediaSourceValues,
+            'id': report.id,
+            'type': report.type,
+            'timestamp': timestamp,
+          };
+          statsObject[report.id] = mediaSourceStats[report.id];
+        }
+      }
+
+      // Second pass: process all other stats with media-source linking
       for (var report in stats) {
         switch (report.type) {
           case 'inbound-rtp':
@@ -270,10 +288,23 @@ class WebRTCStatsReporter {
             break;
           case 'outbound-rtp':
             final outboundValues = report.values.cast<String, dynamic>();
+            final mediaSourceId = outboundValues['mediaSourceId'] as String?;
+            Map<String, dynamic>? linkedTrack;
+
+            // Link with media-source if available
+            if (mediaSourceId != null &&
+                mediaSourceStats.containsKey(mediaSourceId)) {
+              linkedTrack = Map<String, dynamic>.from(
+                mediaSourceStats[mediaSourceId]!,
+              );
+            } else {
+              linkedTrack = _constructTrack(outboundValues, timestamp);
+            }
+
             audioOutboundStats.add({
               ...outboundValues,
               'timestamp': timestamp,
-              'track': _constructTrack(outboundValues, timestamp),
+              'track': linkedTrack ?? {},
             });
             statsObject[report.id] = {
               ...outboundValues,
@@ -301,13 +332,7 @@ class WebRTCStatsReporter {
             };
             break;
           case 'media-source':
-            final mediaSourceValues = report.values.cast<String, dynamic>();
-            statsObject[report.id] = {
-              ...mediaSourceValues,
-              'id': report.id,
-              'type': report.type,
-              'timestamp': timestamp,
-            };
+            // Already processed in first pass
             break;
           case 'local-candidate':
             final localCandidate = {
@@ -445,13 +470,13 @@ class WebRTCStatsReporter {
       'id': reportValues['mediaSourceId'],
       'timestamp': timestamp,
       'type': 'media-source',
-      'kind': reportValues['kind'],
+      'kind': reportValues['kind'] ?? 'audio',
       'trackIdentifier': reportValues['trackIdentifier'],
       'audioLevel': reportValues['audioLevel'] ?? 0,
       'echoReturnLoss': reportValues['echoReturnLoss'],
       'echoReturnLossEnhancement': reportValues['echoReturnLossEnhancement'],
-      'totalAudioEnergy': reportValues['totalAudioEnergy'],
-      'totalSamplesDuration': reportValues['totalSamplesDuration'],
+      'totalAudioEnergy': reportValues['totalAudioEnergy'] ?? 0,
+      'totalSamplesDuration': reportValues['totalSamplesDuration'] ?? 0,
     };
   }
 
@@ -537,6 +562,21 @@ class WebRTCStatsReporter {
       Map<String, dynamic>? remoteInboundAudioStats;
       Map<String, dynamic>? remoteOutboundAudioStats;
 
+      // First pass: collect media-source stats for audio level extraction
+      final Map<String, Map<String, dynamic>> mediaSourceMap = {};
+      for (var report in stats) {
+        if (report.type == 'media-source') {
+          final mediaSourceValues = report.values.cast<String, dynamic>();
+          if (mediaSourceValues['kind'] == 'audio') {
+            mediaSourceMap[report.id] = mediaSourceValues;
+            // Extract outbound audio level from media-source
+            outboundAudioLevel =
+                (mediaSourceValues['audioLevel'] as num?)?.toDouble() ?? 0.0;
+          }
+        }
+      }
+
+      // Second pass: process other stats
       for (var report in stats) {
         switch (report.type) {
           case 'inbound-rtp':
@@ -554,8 +594,8 @@ class WebRTCStatsReporter {
                     (inboundValues['packetsLost'] as num?)?.toDouble() ?? 0;
                 final totalPackets =
                     (inboundValues['totalPacketsReceived'] as num?)
-                            ?.toDouble() ??
-                        1;
+                        ?.toDouble() ??
+                    1;
                 if (totalPackets > 0) {
                   packetLoss = packetsLost / (totalPackets + packetsLost);
                 }
@@ -568,6 +608,19 @@ class WebRTCStatsReporter {
             final outboundValues = report.values.cast<String, dynamic>();
             if (outboundValues['kind'] == 'audio') {
               outboundAudioStats = Map<String, dynamic>.from(outboundValues);
+
+              // Link with media-source if available for enhanced outbound stats
+              final mediaSourceId = outboundValues['mediaSourceId'] as String?;
+              if (mediaSourceId != null &&
+                  mediaSourceMap.containsKey(mediaSourceId)) {
+                final mediaSource = mediaSourceMap[mediaSourceId]!;
+                outboundAudioStats['mediaSource'] = mediaSource;
+                // Ensure we have the most accurate outbound audio level
+                if (outboundAudioLevel == 0.0) {
+                  outboundAudioLevel =
+                      (mediaSource['audioLevel'] as num?)?.toDouble() ?? 0.0;
+                }
+              }
             }
             break;
 
@@ -577,7 +630,7 @@ class WebRTCStatsReporter {
                 remoteInboundValues['kind'] == 'audio') {
               rtt =
                   (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ??
-                      0;
+                  0;
               remoteInboundAudioStats = Map<String, dynamic>.from(
                 remoteInboundValues,
               );
@@ -594,11 +647,7 @@ class WebRTCStatsReporter {
             break;
 
           case 'media-source':
-            final mediaSourceValues = report.values.cast<String, dynamic>();
-            if (mediaSourceValues.containsKey('audioLevel')) {
-              outboundAudioLevel =
-                  (mediaSourceValues['audioLevel'] as num?)?.toDouble() ?? 0.0;
-            }
+            // Already processed in first pass
             break;
         }
       }

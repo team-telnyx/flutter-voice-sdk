@@ -381,35 +381,15 @@ class TelnyxClient {
         sdpFmtpLine: 'minptime=10;useinbandfec=1',
       ),
       // G722 - Wideband codec for better quality than G.711
-      AudioCodec(
-        mimeType: 'audio/G722',
-        clockRate: 8000,
-        channels: 1,
-      ),
+      AudioCodec(mimeType: 'audio/G722', clockRate: 8000, channels: 1),
       // PCMU (G.711 μ-law) - Standard codec
-      AudioCodec(
-        mimeType: 'audio/PCMU',
-        clockRate: 8000,
-        channels: 1,
-      ),
+      AudioCodec(mimeType: 'audio/PCMU', clockRate: 8000, channels: 1),
       // PCMA (G.711 A-law) - Standard codec
-      AudioCodec(
-        mimeType: 'audio/PCMA',
-        clockRate: 8000,
-        channels: 1,
-      ),
+      AudioCodec(mimeType: 'audio/PCMA', clockRate: 8000, channels: 1),
       // G729 - Low bitrate codec
-      AudioCodec(
-        mimeType: 'audio/G729',
-        clockRate: 8000,
-        channels: 1,
-      ),
+      AudioCodec(mimeType: 'audio/G729', clockRate: 8000, channels: 1),
       // AMR-WB - Adaptive Multi-Rate Wideband codec
-      AudioCodec(
-        mimeType: 'audio/AMR-WB',
-        clockRate: 16000,
-        channels: 1,
-      ),
+      AudioCodec(mimeType: 'audio/AMR-WB', clockRate: 16000, channels: 1),
       // Telephone-event - For DTMF support
       AudioCodec(
         mimeType: 'audio/telephone-event',
@@ -459,8 +439,9 @@ class TelnyxClient {
   void _handleNetworkReconnection(NetworkReason reason) {
     // Check if autoReconnect is enabled before attempting network reconnection
     if (!_autoReconnectLogin) {
-      GlobalLogger()
-          .i('AutoReconnect is disabled, not attempting network reconnection');
+      GlobalLogger().i(
+        'AutoReconnect is disabled, not attempting network reconnection',
+      );
       for (var call in activeCalls().values) {
         call.callHandler.onCallStateChanged.call(
           CallState.dropped.withNetworkReason(NetworkReason.networkLost),
@@ -471,7 +452,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)');
+      'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)',
+    );
     _reconnectToSocket();
 
     for (var call in activeCalls().values) {
@@ -498,7 +480,8 @@ class TelnyxClient {
     // Create a new timer
     _reconnectionTimers[call.callId] = Timer(
       Duration(
-        milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
+        milliseconds:
+            _storedCredentialConfig?.reconnectionTimeout ??
             _storedTokenConfig?.reconnectionTimeout ??
             Constants.reconnectionTimeout,
       ),
@@ -691,8 +674,9 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider:
-          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
+          ? 'android'
+          : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -733,8 +717,9 @@ class TelnyxClient {
 
     notificationParams = UserVariables(
       pushDeviceToken: notificationToken,
-      pushNotificationProvider:
-          defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      pushNotificationProvider: defaultTargetPlatform == TargetPlatform.android
+          ? 'android'
+          : 'ios',
     );
 
     final loginParams = LoginParams(
@@ -949,7 +934,6 @@ class TelnyxClient {
   @Deprecated(
     'Use connect with token or credential login i.e connectWithCredential(..) or connectWithToken(..)',
   )
-
   /// Connects to the WebSocket with a previously provided [Config]
   void connect() {
     GlobalLogger().i('connect()');
@@ -1004,7 +988,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)');
+      'Reconnecting to socket (autoReconnect: $_autoReconnectLogin, retryCount: $_connectRetryCounter)',
+    );
 
     _isAttaching = true;
     Timer(Duration(milliseconds: Constants.gatewayResponseDelay), () {
@@ -1026,8 +1011,9 @@ class TelnyxClient {
         GlobalLogger().i('Reconnecting with token config');
         connectWithToken(_storedTokenConfig!);
       } else {
-        GlobalLogger()
-            .e('No stored configuration available for socket reconnection');
+        GlobalLogger().e(
+          'No stored configuration available for socket reconnection',
+        );
         final error = TelnyxSocketError(
           errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
           errorMessage:
@@ -1046,7 +1032,6 @@ class TelnyxClient {
   @Deprecated(
     'telnyxClient.call is deprecated, use telnyxClient.invite() or  telnyxClient.accept()',
   )
-
   /// The current instance of [Call] associated with this client.
   ///
   /// This is deprecated. Use [newInvite] to create a new call or
@@ -1275,8 +1260,8 @@ class TelnyxClient {
           pushNotificationToken: config.notificationToken!,
           pushNotificationProvider:
               defaultTargetPlatform == TargetPlatform.android
-                  ? 'android'
-                  : 'ios',
+              ? 'android'
+              : 'ios',
         ),
       );
       final disablePushMessage = DisablePushMessage(
@@ -1662,22 +1647,24 @@ class TelnyxClient {
                         //sending attach Call
                         final String platform =
                             defaultTargetPlatform == TargetPlatform.android
-                                ? 'android'
-                                : 'ios';
-                        const String pushEnvironment =
-                            kDebugMode ? 'development' : 'production';
+                            ? 'android'
+                            : 'ios';
+                        const String pushEnvironment = kDebugMode
+                            ? 'development'
+                            : 'production';
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
-                          method: SocketMethod.attachCall,
-                          id: const Uuid().v4(),
-                          params: Params(
-                            userVariables: <dynamic, dynamic>{
-                              'push_notification_environment': pushEnvironment,
-                              'push_notification_provider': platform,
-                            },
-                          ),
-                          jsonrpc: '2.0',
-                        );
+                              method: SocketMethod.attachCall,
+                              id: const Uuid().v4(),
+                              params: Params(
+                                userVariables: <dynamic, dynamic>{
+                                  'push_notification_environment':
+                                      pushEnvironment,
+                                  'push_notification_provider': platform,
+                                },
+                              ),
+                              jsonrpc: '2.0',
+                            );
                         GlobalLogger().i(
                           'attachCallMessage :: ${attachCallMessage.toJson()}',
                         );
@@ -2152,7 +2139,8 @@ class TelnyxClient {
       return; // Only handle completed user messages
     }
 
-    final content = params.item?.content
+    final content =
+        params.item?.content
             ?.where((c) => c.transcript != null || c.text != null)
             .map((c) => c.transcript ?? c.text ?? '')
             .join(' ') ??
@@ -2258,8 +2246,9 @@ class TelnyxClient {
 
     // Check if autoReconnect is enabled
     if (!_autoReconnectLogin) {
-      GlobalLogger()
-          .i('AutoReconnect is disabled, not attempting reconnection');
+      GlobalLogger().i(
+        'AutoReconnect is disabled, not attempting reconnection',
+      );
       final error = TelnyxSocketError(
         errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
         errorMessage: 'AutoReconnect is disabled',
@@ -2271,7 +2260,8 @@ class TelnyxClient {
     // Check if we've exceeded the retry limit
     if (_connectRetryCounter >= Constants.retryConnectTime) {
       GlobalLogger().e(
-          'Maximum reconnection attempts reached ($_connectRetryCounter/${Constants.retryConnectTime})');
+        'Maximum reconnection attempts reached ($_connectRetryCounter/${Constants.retryConnectTime})',
+      );
       final error = TelnyxSocketError(
         errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
         errorMessage: 'Maximum reconnection attempts reached',
@@ -2281,7 +2271,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Attempting reconnection $_connectRetryCounter/${Constants.retryConnectTime} (autoReconnect: $_autoReconnectLogin)');
+      'Attempting reconnection $_connectRetryCounter/${Constants.retryConnectTime} (autoReconnect: $_autoReconnectLogin)',
+    );
 
     // Add a small delay before attempting reconnection to avoid overwhelming the server
     // Use exponential backoff: base delay * (2 ^ retry_count)
@@ -2290,12 +2281,14 @@ class TelnyxClient {
     Timer(Duration(milliseconds: delayMs), () {
       if (_storedCredentialConfig != null) {
         GlobalLogger().i(
-            'Attempting reconnection with credential config (attempt $_connectRetryCounter)');
+          'Attempting reconnection with credential config (attempt $_connectRetryCounter)',
+        );
         // Use the existing _reconnectToSocket method for consistency
         _reconnectToSocket();
       } else if (_storedTokenConfig != null) {
         GlobalLogger().i(
-            'Attempting reconnection with token config (attempt $_connectRetryCounter)');
+          'Attempting reconnection with token config (attempt $_connectRetryCounter)',
+        );
         // Use the existing _reconnectToSocket method for consistency
         _reconnectToSocket();
       } else {
