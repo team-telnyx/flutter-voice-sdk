@@ -12,8 +12,9 @@ class ModifyMessage {
     id = json['id'];
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params =
-        json['params'] != null ? ModifyParams.fromJson(json['params']) : null;
+    params = json['params'] != null
+        ? ModifyParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {

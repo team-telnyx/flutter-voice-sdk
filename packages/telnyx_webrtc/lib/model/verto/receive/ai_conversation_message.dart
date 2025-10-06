@@ -70,8 +70,9 @@ class AiConversationParams {
     itemId = json['item_id'];
     outputIndex = json['output_index'];
     responseId = json['response_id'];
-    item =
-        json['item'] != null ? ConversationItem.fromJson(json['item']) : null;
+    item = json['item'] != null
+        ? ConversationItem.fromJson(json['item'])
+        : null;
     previousItemId = json['previous_item_id'];
   }
 
