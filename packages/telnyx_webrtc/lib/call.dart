@@ -466,6 +466,9 @@ class Call {
   /// 
   /// @param message The text message to send
   /// @param base64Image Optional base64 encoded image to include with the message
+  ///
+  /// Note: In order to provide an image to your assistant, you need to make sure that you are using a vision-capable model.
+  /// The base64Image should be a base64 encoded string of the image data.
   void sendConversationMessage(String message, {String? base64Image}) {
     final uuid = const Uuid().v4();
     final messageId = const Uuid().v4();
