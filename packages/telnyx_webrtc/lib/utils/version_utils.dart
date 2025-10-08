@@ -1,7 +1,7 @@
 /// Utility class for retrieving SDK version information
 class VersionUtils {
   /// SDK version constant
-  static const String _sdkVersion = '3.0.1';
+  static const String _sdkVersion = '3.1.0';
 
   /// Gets the SDK version
   /// Returns the current SDK version as a constant
