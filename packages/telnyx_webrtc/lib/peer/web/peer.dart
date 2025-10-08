@@ -236,7 +236,7 @@ class Peer {
 
       // Send INVITE
       Timer(const Duration(milliseconds: 500), () async {
-        final userAgent = await VersionUtils.getUserAgent();
+        final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -396,7 +396,7 @@ class Peer {
           sdpUsed = localDesc.sdp;
         }
 
-        final userAgent = await VersionUtils.getUserAgent();
+        final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,

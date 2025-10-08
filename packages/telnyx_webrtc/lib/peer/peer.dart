@@ -227,7 +227,7 @@ class Peer {
       );
 
       Timer(const Duration(milliseconds: 500), () async {
-        final userAgent = await VersionUtils.getUserAgent();
+        final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -379,7 +379,7 @@ class Peer {
           (value) => sdpUsed = value?.sdp.toString(),
         );
 
-        final userAgent = await VersionUtils.getUserAgent();
+        final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
