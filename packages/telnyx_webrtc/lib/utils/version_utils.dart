@@ -21,11 +21,13 @@ class VersionUtils {
           return _sdkVersion!;
         }
       }
+      // If we get here, no version line was found
+      _sdkVersion = 'unknown';
     } catch (e) {
       // Fallback version if we can't read SDK pubspec.yaml
       _sdkVersion = 'unknown';
     }
-    return _sdkVersion!;
+    return _sdkVersion ?? 'unknown';
   }
 
   /// Constructs the user agent string in the format Flutter-{SDK-Version}

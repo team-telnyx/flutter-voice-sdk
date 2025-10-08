@@ -70,8 +70,9 @@ class AiConversationParams {
     itemId = json['item_id'];
     outputIndex = json['output_index'];
     responseId = json['response_id'];
-    item =
-        json['item'] != null ? ConversationItem.fromJson(json['item']) : null;
+    item = json['item'] != null
+        ? ConversationItem.fromJson(json['item'])
+        : null;
     previousItemId = json['previous_item_id'];
   }
 
@@ -250,13 +251,17 @@ class ConversationContent {
   String? transcript;
   String? type;
   String? text;
+  ConversationImageUrlReceive? imageUrl;
 
-  ConversationContent({this.transcript, this.type, this.text});
+  ConversationContent({this.transcript, this.type, this.text, this.imageUrl});
 
   ConversationContent.fromJson(Map<String, dynamic> json) {
     transcript = json['transcript'];
     type = json['type'];
     text = json['text'];
+    imageUrl = json['image_url'] != null
+        ? ConversationImageUrlReceive.fromJson(json['image_url'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -264,6 +269,25 @@ class ConversationContent {
     if (transcript != null) data['transcript'] = transcript;
     if (type != null) data['type'] = type;
     if (text != null) data['text'] = text;
+    if (imageUrl != null) data['image_url'] = imageUrl!.toJson();
+    return data;
+  }
+}
+
+/// Model class for ConversationImageUrlReceive
+/// This represents the image URL structure for received conversation content
+class ConversationImageUrlReceive {
+  String? url;
+
+  ConversationImageUrlReceive({this.url});
+
+  ConversationImageUrlReceive.fromJson(Map<String, dynamic> json) {
+    url = json['url'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['url'] = url;
     return data;
   }
 }

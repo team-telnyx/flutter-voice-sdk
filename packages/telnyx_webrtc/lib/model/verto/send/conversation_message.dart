@@ -92,22 +92,45 @@ class ConversationItemData {
 }
 
 /// Model class for ConversationContentData
-/// This represents the content of a conversation item, such as text
+/// This represents the content of a conversation item, such as text or image
 class ConversationContentData {
   String? type;
   String? text;
+  ConversationImageUrl? imageUrl;
 
-  ConversationContentData({this.type, this.text});
+  ConversationContentData({this.type, this.text, this.imageUrl});
 
   ConversationContentData.fromJson(Map<String, dynamic> json) {
     type = json['type'];
     text = json['text'];
+    imageUrl = json['image_url'] != null
+        ? ConversationImageUrl.fromJson(json['image_url'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['type'] = type;
-    data['text'] = text;
+    if (text != null) data['text'] = text;
+    if (imageUrl != null) data['image_url'] = imageUrl!.toJson();
+    return data;
+  }
+}
+
+/// Model class for ConversationImageUrl
+/// This represents the image URL structure for conversation content
+class ConversationImageUrl {
+  String? url;
+
+  ConversationImageUrl({this.url});
+
+  ConversationImageUrl.fromJson(Map<String, dynamic> json) {
+    url = json['url'];
+  }
+
+  Map<String, dynamic> toJson() {
+    final Map<String, dynamic> data = <String, dynamic>{};
+    data['url'] = url;
     return data;
   }
 }

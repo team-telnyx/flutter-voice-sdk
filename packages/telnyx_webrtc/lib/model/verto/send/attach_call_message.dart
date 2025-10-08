@@ -23,11 +23,11 @@ class AttachCallMessage {
       );
 
   Map<dynamic, dynamic> toJson() => {
-        'method': method,
-        'id': id,
-        'params': params?.toJson(),
-        'jsonrpc': jsonrpc,
-      };
+    'method': method,
+    'id': id,
+    'params': params?.toJson(),
+    'jsonrpc': jsonrpc,
+  };
 }
 
 class Params {

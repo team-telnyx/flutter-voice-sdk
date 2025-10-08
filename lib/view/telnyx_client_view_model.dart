@@ -763,6 +763,9 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void call(String destination) {
+    // Set BackgroundDetector to ignore lifecycle events during outbound calls
+    BackgroundDetector.ignore = true;
+    
     _currentCall = _telnyxClient.newInvite(
       _localName,
       _localNumber,
@@ -801,9 +804,9 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeCurrentCall();
   }
 
-  void sendConversationMessage(String message) {
+  void sendConversationMessage(String message, {String? base64Image}) {
     try {
-      currentCall?.sendConversationMessage(message);
+      currentCall?.sendConversationMessage(message, base64Image: base64Image);
     } catch (e) {
       logger.e('Error sending conversation message: $e');
     }

@@ -168,7 +168,7 @@ void main() {
 
   test('verify autoReconnect setting is respected from CredentialConfig', () {
     final telnyxClient = TelnyxClient();
-    
+
     final credentialConfig = CredentialConfig(
       sipUser: 'test',
       sipPassword: 'test',
@@ -181,14 +181,14 @@ void main() {
     );
 
     telnyxClient.connectWithCredential(credentialConfig);
-    
+
     // After connecting with config, autoReconnect should be disabled
     expect(telnyxClient.isAutoReconnectEnabled(), false);
   });
 
   test('verify autoReconnect setting is respected from TokenConfig', () {
     final telnyxClient = TelnyxClient();
-    
+
     final tokenConfig = TokenConfig(
       sipToken: 'test-token',
       sipCallerIDName: 'test',
@@ -200,7 +200,7 @@ void main() {
     );
 
     telnyxClient.connectWithToken(tokenConfig);
-    
+
     // After connecting with config, autoReconnect should be enabled
     expect(telnyxClient.isAutoReconnectEnabled(), true);
   });

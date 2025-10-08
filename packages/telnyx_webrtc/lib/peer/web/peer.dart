@@ -65,7 +65,7 @@ class Peer {
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
   Function(dynamic event)? onPeersUpdate;
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-      onDataChannelMessage;
+  onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
   /// Callback for call quality metrics updates.
@@ -367,7 +367,7 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
+              candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
             GlobalLogger().i(
@@ -536,7 +536,7 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
+              candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
             GlobalLogger().i(
@@ -709,8 +709,9 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate =
-            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
+        final timeSinceLastCandidate = DateTime.now()
+            .difference(_lastCandidateTime!)
+            .inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );
