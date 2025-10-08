@@ -1058,4 +1058,24 @@ class TelnyxClientViewModel with ChangeNotifier {
     );
     notifyListeners();
   }
+
+  /// Forces ICE renegotiation for the current call
+  void forceIceRenegotiation() {
+    if (currentCall == null) {
+      logger.w('TelnyxClientViewModel.forceIceRenegotiation: No active call');
+      return;
+    }
+
+    try {
+      logger.i('TelnyxClientViewModel.forceIceRenegotiation: Starting renegotiation for call ${currentCall!.callId}');
+      
+      // Access the peer through the call's peerConnection property and call the public method
+      // Use the call's session ID as the session ID for renegotiation
+      currentCall?.peerConnection?.startIceRenegotiation(currentCall!.callId!, currentCall!.peerConnection?.currentSession?.sid ?? '');
+      
+      logger.i('TelnyxClientViewModel.forceIceRenegotiation: Renegotiation initiated');
+    } catch (e) {
+      logger.e('TelnyxClientViewModel.forceIceRenegotiation: Error during renegotiation: $e');
+    }
+  }
 }

@@ -562,7 +562,7 @@ class Peer {
                 RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
               GlobalLogger()
                   .i('Peer :: ICE connection failed, starting renegotiation...');
-              _startIceRenegotiation(callId, newSession.sid);
+              startIceRenegotiation(callId, newSession.sid);
               break;
             } else {
               GlobalLogger().d(
@@ -732,7 +732,7 @@ class Peer {
   }
 
   /// Starts ICE renegotiation process when ICE connection fails
-  Future<void> _startIceRenegotiation(String callId, String sessionId) async {
+  Future<void> startIceRenegotiation(String callId, String sessionId) async {
     try {
       GlobalLogger()
           .i('Web Peer :: Starting ICE renegotiation for call: $callId');

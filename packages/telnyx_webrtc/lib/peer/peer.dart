@@ -45,6 +45,7 @@ class Peer {
   Function()? _onNegotiationComplete;
 
   final Map<String, Session> _sessions = {};
+  Session? currentSession = null;
   MediaStream? _localStream;
   final List<MediaStream> _remoteStreams = <MediaStream>[];
 
@@ -459,6 +460,7 @@ class Peer {
     required String media,
   }) async {
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
+    currentSession = newSession;
     if (media != 'data') _localStream = await createStream(media);
 
     peerConnection = await createPeerConnection(
@@ -547,7 +549,7 @@ class Peer {
               RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
             GlobalLogger()
                 .i('Peer :: ICE connection failed, starting renegotiation...');
-            _startIceRenegotiation(callId, newSession.sid);
+            startIceRenegotiation(callId, newSession.sid);
             break;
           } else {
             GlobalLogger().d(
@@ -704,7 +706,7 @@ class Peer {
   }
 
   /// Starts ICE renegotiation process when ICE connection fails
-  Future<void> _startIceRenegotiation(String callId, String sessionId) async {
+  Future<void> startIceRenegotiation(String callId, String sessionId) async {
     try {
       GlobalLogger().i('Peer :: Starting ICE renegotiation for call: $callId');
       if (_sessions[sessionId] != null) {
