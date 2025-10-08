@@ -1229,8 +1229,8 @@ class TelnyxClient {
 
     setLogLevel(logLevel);
 
-    final versionData = await VersionUtils.getSDKVersion();
-    final userAgentData = await VersionUtils.getUserAgent();
+    final versionData = VersionUtils.getSDKVersion();
+    final userAgentData = VersionUtils.getUserAgent();
 
     final userAgent = UserAgent(sdkVersion: versionData, data: userAgentData);
 
