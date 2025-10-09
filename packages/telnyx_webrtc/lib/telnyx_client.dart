@@ -41,6 +41,7 @@ import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -53,6 +54,9 @@ typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
 
 /// Callback for when connection state changes
 typedef OnConnectionStateChanged = void Function(ConnectionStatus status);
+
+/// Callback for when connection metrics are updated
+typedef OnConnectionMetricsUpdate = void Function(SocketConnectionMetrics metrics);
 
 /// Represents the main entry point for interacting with the Telnyx RTC SDK.
 ///
@@ -76,6 +80,9 @@ class TelnyxClient {
 
   /// Callback for when connection state changes
   OnConnectionStateChanged? onConnectionStateChanged;
+
+  /// Callback for when connection metrics are updated
+  OnConnectionMetricsUpdate? onConnectionMetricsUpdate;
 
   /// The path to the ringtone file (audio to play when receiving a call)
   String _ringtonePath = '';
@@ -831,6 +838,9 @@ class TelnyxClient {
           _updateConnectionState(false);
           final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
+        }
+        ..onPing = (SocketConnectionMetrics metrics) {
+          onConnectionMetricsUpdate?.call(metrics);
         };
     } catch (e, string) {
       GlobalLogger().e('${e.toString()} :: $string');
@@ -883,6 +893,9 @@ class TelnyxClient {
           _updateConnectionState(false);
           final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
+        }
+        ..onPing = (SocketConnectionMetrics metrics) {
+          onConnectionMetricsUpdate?.call(metrics);
         }
         ..connect();
     } catch (e) {
@@ -2301,5 +2314,10 @@ class TelnyxClient {
         onSocketErrorReceived(error);
       }
     });
+  }
+
+  /// Gets the current socket connection metrics
+  SocketConnectionMetrics getConnectionMetrics() {
+    return txSocket.getConnectionMetrics();
   }
 }

@@ -5,6 +5,7 @@ import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
+import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 
 class ControlHeaders extends StatefulWidget {
   const ControlHeaders({super.key});
@@ -44,6 +45,7 @@ class _ControlHeadersState extends State<ControlHeaders> {
               connectionStatus: txClient.connectionStatus,
               autoReconnectEnabled: txClient.isAutoReconnectEnabled,
               retryCount: txClient.connectionRetryCount,
+              connectionMetrics: txClient.connectionMetrics,
             ),
             const SizedBox(height: spacingXL),
             CallStateStatusWidget(
@@ -70,12 +72,14 @@ class SocketConnectivityStatus extends StatelessWidget {
   final ConnectionStatus connectionStatus;
   final bool autoReconnectEnabled;
   final int retryCount;
+  final SocketConnectionMetrics? connectionMetrics;
 
   const SocketConnectivityStatus({
     super.key,
     required this.connectionStatus,
     required this.autoReconnectEnabled,
     required this.retryCount,
+    this.connectionMetrics,
   });
 
   @override
@@ -122,6 +126,11 @@ class SocketConnectivityStatus extends StatelessWidget {
             Text(connectionStatusText),
           ],
         ),
+        if (connectionMetrics != null && connectionStatus == ConnectionStatus.clientReady)
+          Padding(
+            padding: const EdgeInsets.only(top: spacingS),
+            child: ConnectionQualityIndicator(metrics: connectionMetrics!),
+          ),
       ],
     );
   }
@@ -198,6 +207,101 @@ class CallStateStatusWidget extends StatelessWidget {
         return 'Connecting';
       case CallStateStatus.ongoingCall:
         return 'Active';
+    }
+  }
+}
+
+class ConnectionQualityIndicator extends StatelessWidget {
+  final SocketConnectionMetrics metrics;
+
+  const ConnectionQualityIndicator({
+    super.key,
+    required this.metrics,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final quality = metrics.quality;
+    final qualityText = _getQualityText(quality);
+    final qualityColor = _getQualityColor(quality);
+    final qualityIcon = _getQualityIcon(quality);
+
+    return Row(
+      children: [
+        Icon(
+          qualityIcon,
+          size: 16,
+          color: qualityColor,
+        ),
+        const SizedBox(width: spacingXS),
+        Text(
+          'Connection: $qualityText',
+          style: TextStyle(
+            fontSize: 12,
+            color: qualityColor,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        if (metrics.averageIntervalMs != null)
+          Text(
+            ' (${metrics.averageIntervalMs}ms)',
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.grey[600],
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _getQualityText(SocketConnectionQuality quality) {
+    switch (quality) {
+      case SocketConnectionQuality.DISCONNECTED:
+        return 'Disconnected';
+      case SocketConnectionQuality.CALCULATING:
+        return 'Calculating...';
+      case SocketConnectionQuality.EXCELLENT:
+        return 'Excellent';
+      case SocketConnectionQuality.GOOD:
+        return 'Good';
+      case SocketConnectionQuality.FAIR:
+        return 'Fair';
+      case SocketConnectionQuality.POOR:
+        return 'Poor';
+    }
+  }
+
+  Color _getQualityColor(SocketConnectionQuality quality) {
+    switch (quality) {
+      case SocketConnectionQuality.DISCONNECTED:
+        return Colors.red;
+      case SocketConnectionQuality.CALCULATING:
+        return Colors.orange;
+      case SocketConnectionQuality.EXCELLENT:
+        return Colors.green;
+      case SocketConnectionQuality.GOOD:
+        return Colors.lightGreen;
+      case SocketConnectionQuality.FAIR:
+        return Colors.orange;
+      case SocketConnectionQuality.POOR:
+        return Colors.red;
+    }
+  }
+
+  IconData _getQualityIcon(SocketConnectionQuality quality) {
+    switch (quality) {
+      case SocketConnectionQuality.DISCONNECTED:
+        return Icons.signal_wifi_off;
+      case SocketConnectionQuality.CALCULATING:
+        return Icons.signal_wifi_statusbar_null;
+      case SocketConnectionQuality.EXCELLENT:
+        return Icons.signal_wifi_4_bar;
+      case SocketConnectionQuality.GOOD:
+        return Icons.signal_wifi_4_bar;
+      case SocketConnectionQuality.FAIR:
+        return Icons.signal_wifi_2_bar;
+      case SocketConnectionQuality.POOR:
+        return Icons.signal_wifi_1_bar;
     }
   }
 }

@@ -26,6 +26,7 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
@@ -60,6 +61,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   IncomingInviteParams? _incomingInvite;
   CallQualityMetrics? _callQualityMetrics;
   List<TranscriptItem> _transcript = [];
+  SocketConnectionMetrics? _connectionMetrics;
 
   String _localName = '';
   String _localNumber = '';
@@ -108,6 +110,10 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   CallQualityMetrics? get callQualityMetrics {
     return _callQualityMetrics;
+  }
+
+  SocketConnectionMetrics? get connectionMetrics {
+    return _connectionMetrics;
   }
 
   bool get muteState {
@@ -405,6 +411,13 @@ class TelnyxClientViewModel with ChangeNotifier {
               status == ConnectionStatus.clientReady;
           notifyListeners();
         }
+      }
+      ..onConnectionMetricsUpdate = (SocketConnectionMetrics metrics) {
+        logger.d(
+          'TxClientViewModel :: Connection metrics updated: ${metrics.quality}',
+        );
+        _connectionMetrics = metrics;
+        notifyListeners();
       }
       ..onSocketMessageReceived = (TelnyxMessage message) async {
         logger.i(
