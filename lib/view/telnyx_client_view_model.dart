@@ -763,6 +763,9 @@ class TelnyxClientViewModel with ChangeNotifier {
     // Set BackgroundDetector to ignore lifecycle events during outbound calls
     BackgroundDetector.ignore = true;
     
+    // Set call state to connectingToCall immediately to prevent multiple calls
+    callState = CallStateStatus.connectingToCall;
+    
     _currentCall = _telnyxClient.newInvite(
       _localName,
       _localNumber,
