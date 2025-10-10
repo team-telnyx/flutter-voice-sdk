@@ -120,6 +120,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Assistant Login':
         _showAssistantLoginDialog();
         break;
+      case 'Force ICE Renegotiation':
+        Provider.of<TelnyxClientViewModel>(context, listen: false).forceIceRenegotiation();
+        break;
     }
   }
 
@@ -175,10 +178,11 @@ class _HomeScreenState extends State<HomeScreen> {
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
                 return {
-                  'Audio Codecs',
-                  'Export Logs',
-                  'Disable Push Notifications'
-                }.map((
+          'Audio Codecs',
+          'Export Logs',
+          'Disable Push Notifications',
+          'Force ICE Renegotiation'
+        }.map((
                   String choice,
                 ) {
                   return PopupMenuItem<String>(
@@ -196,8 +200,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 final debugToggleText = selectedProfile.isDebug
                     ? 'Disable Debugging'
                     : 'Enable Debugging';
-                return {'Export Logs', debugToggleText, 'Assistant Login'}
+                return {'Export Logs', debugToggleText, 'Assistant Login', 'Force ICE Renegotiation'}
                     .map((String choice) {
+                  return PopupMenuItem<String>(
+                    value: choice,
+                    child: Text(choice),
+                  );
+                }).toList();
+              },
+            )
+          else if (clientState == CallStateStatus.ongoingCall ||
+                   clientState == CallStateStatus.ringing ||
+                   clientState == CallStateStatus.ongoingInvitation ||
+                   clientState == CallStateStatus.connectingToCall)
+            PopupMenuButton<String>(
+              onSelected: handleOptionClick,
+              itemBuilder: (BuildContext context) {
+                return {
+                  'Force ICE Renegotiation',
+                  'Export Logs',
+                }.map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
