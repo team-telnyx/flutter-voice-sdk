@@ -54,10 +54,14 @@ class TxSocket {
         ..timeout(const Duration(seconds: 30));
       
       // Initialize connection tracking
-      _connectionStartTime = DateTime.now().millisecondsSinceEpoch;
       _cleanPingIntervals();
-      
+      _connectionStartTime = DateTime.now().millisecondsSinceEpoch;
+
       onOpen.call();
+
+      // Emit initial calculating state
+      final initialMetrics = _calculateConnectionMetrics();
+      onPing?.call(initialMetrics);
       _socket.listen(
         (dynamic data) {
           // Check if this is a ping/pong message
@@ -165,6 +169,9 @@ class TxSocket {
     if (_pingIntervals.isEmpty) {
       return SocketConnectionMetrics(
         timestamp: DateTime.now().millisecondsSinceEpoch,
+        totalPings: _pingTimestamps.length,
+        quality: SocketConnectionQuality.calculating,
+        lastPingTimestamp: _lastPingTimestamp,
       );
     }
 

@@ -1,5 +1,3 @@
-import 'dart:math';
-
 /// Represents the quality level of a WebSocket connection based on ping interval and jitter metrics.
 ///
 /// Quality levels for 30-second server ping intervals:

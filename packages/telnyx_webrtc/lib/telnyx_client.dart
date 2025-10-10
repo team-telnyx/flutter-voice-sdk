@@ -952,6 +952,9 @@ class TelnyxClient {
           final bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
+        ..onPing = (SocketConnectionMetrics metrics) {
+          onConnectionMetricsUpdate?.call(metrics);
+        }
         ..connect();
     } catch (e) {
       GlobalLogger().e(e.toString());
@@ -998,6 +1001,9 @@ class TelnyxClient {
           _updateConnectionState(false);
           final bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
+        }
+        ..onPing = (SocketConnectionMetrics metrics) {
+          onConnectionMetricsUpdate?.call(metrics);
         }
         ..connect();
     } catch (e) {
