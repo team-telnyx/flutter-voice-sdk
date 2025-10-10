@@ -23,6 +23,11 @@ enum CallState {
   /// transitioning to [dropped] if the reconnection is not successful.
   reconnecting,
 
+  /// [renegotiation] The call is undergoing ICE renegotiation to recover from connection issues.
+  /// This state indicates that the call is actively trying to re-establish the media connection
+  /// without dropping the call entirely.
+  renegotiation,
+
   /// [dropped] The call has been dropped - for this state a [NetworkReason] is provided.
   dropped,
 

@@ -5,6 +5,7 @@ import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
+import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
     if (dart.library.html) 'package:telnyx_webrtc/peer/web/peer.dart';
@@ -608,10 +609,6 @@ class TelnyxClient {
     );
 
     // Send the BYE message through the normal message flow
-    // This will trigger the existing BYE handling in the ViewModel which:
-    // 1. Calls resetCallInfo() to reset call state to idle
-    // 2. Dismisses any loading dialogs (CircularProgressIndicator)
-    // 3. Updates the UI to show the proper termination reason
     final message = TelnyxMessage(
       socketMethod: SocketMethod.bye,
       message: receivedMessage,
@@ -1784,6 +1781,32 @@ class TelnyxClient {
                     GlobalLogger().i('$stateMessage');
                   }
               }
+
+              // Handle updateMedia response - check the raw JSON data directly
+              try {
+                final Map<String, dynamic> rawData = jsonDecode(data.toString());
+                if (rawData.containsKey('result') && rawData['result'] is Map) {
+                  final resultMap = rawData['result'] as Map<String, dynamic>;
+                  if (resultMap['action'] == 'updateMedia') {
+                    GlobalLogger().i('Received updateMedia response');
+
+                    final updateMediaResponse =
+                    UpdateMediaResponse.fromJson(resultMap);
+
+                    // Find the call and handle the response
+                    final callId = updateMediaResponse.callID;
+                    final call = calls[callId];
+                    if (call?.peerConnection != null) {
+                      await call!.peerConnection!
+                          .handleUpdateMediaResponse(updateMediaResponse);
+                    }
+                  } else {
+                    GlobalLogger().i('Not an updateMedia response');
+                  }
+                }
+              } catch (e) {
+                GlobalLogger().e('Error parsing updateMedia response: $e');
+              }
             }
           } else if (messageJson.containsKey('method')) {
             //Received Telnyx Method Message
@@ -2113,7 +2136,7 @@ class TelnyxClient {
           } else {
             GlobalLogger().i('Received and ignored empty packet');
           }
-        } on Exception catch (e) {
+        } catch (e) {
           GlobalLogger().e('Error parsing JSON: $e');
         }
       } else {
