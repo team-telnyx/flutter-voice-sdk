@@ -256,52 +256,52 @@ class ConnectionQualityIndicator extends StatelessWidget {
 
   String _getQualityText(SocketConnectionQuality quality) {
     switch (quality) {
-      case SocketConnectionQuality.DISCONNECTED:
+      case SocketConnectionQuality.disconnected:
         return 'Disconnected';
-      case SocketConnectionQuality.CALCULATING:
+      case SocketConnectionQuality.calculating:
         return 'Calculating...';
-      case SocketConnectionQuality.EXCELLENT:
+      case SocketConnectionQuality.excellent:
         return 'Excellent';
-      case SocketConnectionQuality.GOOD:
+      case SocketConnectionQuality.good:
         return 'Good';
-      case SocketConnectionQuality.FAIR:
+      case SocketConnectionQuality.fair:
         return 'Fair';
-      case SocketConnectionQuality.POOR:
+      case SocketConnectionQuality.poor:
         return 'Poor';
     }
   }
 
   Color _getQualityColor(SocketConnectionQuality quality) {
     switch (quality) {
-      case SocketConnectionQuality.DISCONNECTED:
+      case SocketConnectionQuality.disconnected:
         return Colors.red;
-      case SocketConnectionQuality.CALCULATING:
+      case SocketConnectionQuality.calculating:
         return Colors.orange;
-      case SocketConnectionQuality.EXCELLENT:
+      case SocketConnectionQuality.excellent:
         return Colors.green;
-      case SocketConnectionQuality.GOOD:
+      case SocketConnectionQuality.good:
         return Colors.lightGreen;
-      case SocketConnectionQuality.FAIR:
+      case SocketConnectionQuality.fair:
         return Colors.orange;
-      case SocketConnectionQuality.POOR:
+      case SocketConnectionQuality.poor:
         return Colors.red;
     }
   }
 
   IconData _getQualityIcon(SocketConnectionQuality quality) {
     switch (quality) {
-      case SocketConnectionQuality.DISCONNECTED:
-        return Icons.signal_wifi_off;
-      case SocketConnectionQuality.CALCULATING:
-        return Icons.signal_wifi_statusbar_null;
-      case SocketConnectionQuality.EXCELLENT:
-        return Icons.signal_wifi_4_bar;
-      case SocketConnectionQuality.GOOD:
-        return Icons.signal_wifi_4_bar;
-      case SocketConnectionQuality.FAIR:
-        return Icons.signal_wifi_2_bar;
-      case SocketConnectionQuality.POOR:
-        return Icons.signal_wifi_1_bar;
+      case SocketConnectionQuality.disconnected:
+        return Icons.signal_cellular_connected_no_internet_0_bar;
+      case SocketConnectionQuality.calculating:
+        return Icons.signal_cellular_connected_no_internet_4_bar;
+      case SocketConnectionQuality.excellent:
+        return Icons.signal_cellular_alt;
+      case SocketConnectionQuality.good:
+        return Icons.signal_cellular_alt_2_bar_sharp;
+      case SocketConnectionQuality.fair:
+        return Icons.signal_cellular_alt_1_bar_sharp;
+      case SocketConnectionQuality.poor:
+        return Icons.signal_cellular_0_bar;
     }
   }
 }
