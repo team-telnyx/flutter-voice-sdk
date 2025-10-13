@@ -14,7 +14,7 @@ void ignoreOverflowErrors(
   bool isUnableToLoadAsset = false;
 
   // Detect overflow error
-  var exception = details.exception;
+  final exception = details.exception;
   if (exception is FlutterError) {
     isOverflowError = exception.diagnostics.any(
       (e) => e.value.toString().contains('A RenderFlex overflowed by'),
@@ -37,8 +37,16 @@ void main() {
     'Full call flow test',
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     ($) async {
+      // Save the original error handler
+      final originalOnError = FlutterError.onError;
+
       // Set up custom error handler to ignore overflow errors
       FlutterError.onError = ignoreOverflowErrors;
+
+      // Ensure we restore the original handler at the end
+      addTearDown(() {
+        FlutterError.onError = originalOnError;
+      });
 
       // 1. Start the app using Patrol
       await $.pumpWidgetAndSettle(const MyApp());
@@ -108,10 +116,10 @@ void main() {
       // 12. Make the call
       // CallButton is a custom widget, so we'll use $.tester.tap(find.byType(...))
       await $.tester.tap(find.byType(CallButton));
-      await $.pumpAndSettle();
+      await $.pump(); // Allow the UI to update to connecting state
       await $.native.grantPermissionWhenInUse();
 
-      // 13. Wait for call to be established
+      // 13. Wait for call to be established (allow time for connecting -> ringing -> active)
       await Future.delayed(const Duration(seconds: 10));
       await $.pumpAndSettle();
 

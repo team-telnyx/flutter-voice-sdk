@@ -15,7 +15,7 @@ import 'patrol_test.dart' as patrol_test;
 Future<void> main() async {
   // This is the entrypoint of the bundled Dart test.
   //
-  // Its responsibilies are:
+  // Its responsibilities are:
   //  * Running a special Dart test that runs before all the other tests and
   //    explores the hierarchy of groups and tests.
   //  * Hosting a PatrolAppService, which the native side of Patrol uses to get
@@ -59,8 +59,7 @@ Future<void> main() async {
     // Maybe somewhat counterintuitively, this callback runs *after* the calls
     // to group() below.
     final topLevelGroup = Invoker.current!.liveTest.groups.first;
-    final dartTestGroup = createDartTestGroup(
-      topLevelGroup,
+    final dartTestGroup = createDartTestGroup(topLevelGroup,
       tags: null,
       excludeTags: null,
     );
