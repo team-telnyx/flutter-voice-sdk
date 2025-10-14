@@ -403,9 +403,9 @@ class TelnyxClient {
       // Create a temporary peer connection with minimal configuration
       tempPeer = Peer(
         txSocket,
-        false, // debug disabled for temp peer
+        false,
         this,
-        getForceRelayCandidate(),
+        false,
       );
 
       // Create an offer to get SDP with codec information
