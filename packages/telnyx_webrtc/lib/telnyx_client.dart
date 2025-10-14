@@ -24,6 +24,7 @@ import 'package:telnyx_webrtc/model/verto/send/anonymous_login_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/codec_utils.dart';
 import 'package:telnyx_webrtc/utils/constants.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/default_logger.dart';
@@ -356,68 +357,79 @@ class TelnyxClient {
     onTranscriptUpdate?.call(_transcript);
   }
 
-  /// Gets the list of supported audio codecs available on the client
+  /// Returns a list of audio codecs supported by WebRTC for this device.
   ///
-  /// Returns a [List<AudioCodec>] containing commonly supported audio codecs
-  /// for WebRTC calls. This method returns a predefined list of standard codecs
-  /// that are widely supported across WebRTC implementations.
+  /// This method creates a temporary WebRTC peer connection to query the
+  /// actual audio codecs supported by the WebRTC library. The temporary peer connection is
+  /// properly disposed of after querying. This ensures the returned codec list matches exactly
+  /// what WebRTC will use during actual calls.
   ///
-  /// Note: This is a temporary implementation until flutter_webrtc adds support
-  /// for RTCRtpSender.getCapabilities(). The returned codecs are standard WebRTC
-  /// audio codecs that should work on most platforms.
+  /// **Common codecs** returned include: Opus, PCMU, PCMA, G722, RED, CN, and telephone-event.
   ///
-  /// You can still pass the desired codec/s via the [newInvite] method when creating a call. The codecs passed are in order of preference.
-  /// If the codec/s passed are not supported it will default to a supported codec.
+  /// **Usage**:
+  /// - Call this method **before** initiating a call to get the list of supported WebRTC codecs
+  /// - Use the returned list to construct your preferred codec order
+  /// - Pass your preferences to [newInvite] or [acceptCall] via the `preferredCodecs` parameter
   ///
-  /// See: https://github.com/flutter-webrtc/flutter-webrtc/issues/930
-  List<AudioCodec> getSupportedAudioCodecs() {
-    // Return a list of audio codecs supported by the Telnyx backend
-    // These codecs are confirmed to be supported by the Telnyx platform
-    return [
-      // Opus - Primary codec for WebRTC, excellent quality and compression
-      AudioCodec(
-        mimeType: 'audio/opus',
-        clockRate: 48000,
-        channels: 2,
-        sdpFmtpLine: 'minptime=10;useinbandfec=1',
-      ),
-      // G722 - Wideband codec for better quality than G.711
-      AudioCodec(
-        mimeType: 'audio/G722',
-        clockRate: 8000,
-        channels: 1,
-      ),
-      // PCMU (G.711 μ-law) - Standard codec
-      AudioCodec(
-        mimeType: 'audio/PCMU',
-        clockRate: 8000,
-        channels: 1,
-      ),
-      // PCMA (G.711 A-law) - Standard codec
-      AudioCodec(
-        mimeType: 'audio/PCMA',
-        clockRate: 8000,
-        channels: 1,
-      ),
-      // G729 - Low bitrate codec
-      AudioCodec(
-        mimeType: 'audio/G729',
-        clockRate: 8000,
-        channels: 1,
-      ),
-      // AMR-WB - Adaptive Multi-Rate Wideband codec
-      AudioCodec(
-        mimeType: 'audio/AMR-WB',
-        clockRate: 16000,
-        channels: 1,
-      ),
-      // Telephone-event - For DTMF support
-      AudioCodec(
-        mimeType: 'audio/telephone-event',
-        clockRate: 8000,
-        channels: 1,
-      ),
-    ];
+  /// Returns a [Future<List<AudioCodec>>] containing the audio codecs supported by the device.
+  /// Returns an empty list if codec detection fails.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Query supported codecs before making a call
+  /// final supportedCodecs = await telnyxClient.getSupportedAudioCodecs();
+  /// print('WebRTC supports: ${supportedCodecs.map((c) => c.mimeType)}');
+  ///
+  /// // Prefer Opus, then PCMU as fallback
+  /// final preferredCodecs = supportedCodecs.where(
+  ///   (c) => c.mimeType == 'audio/opus' || c.mimeType == 'audio/PCMU'
+  /// ).toList();
+  ///
+  /// // Use in call
+  /// final call = telnyxClient.newInvite(
+  ///   'John',
+  ///   '+1234567890',
+  ///   'sip:destination',
+  ///   'state',
+  ///   preferredCodecs: preferredCodecs,
+  /// );
+  /// ```
+  Future<List<AudioCodec>> getSupportedAudioCodecs() async {
+    Peer? tempPeer;
+    try {
+      GlobalLogger()
+          .d('Creating temporary peer connection to query WebRTC audio codecs');
+
+      // Create a temporary peer connection with minimal configuration
+      tempPeer = Peer(
+        txSocket,
+        false, // debug disabled for temp peer
+        this,
+        getForceRelayCandidate(),
+      );
+
+      // Create an offer to get SDP with codec information
+      final sdp = await tempPeer.createOfferForCodecQuery();
+      if (sdp == null) {
+        GlobalLogger().e('Failed to create offer for codec query');
+        return [];
+      }
+
+      // Parse codecs from SDP
+      final codecs = CodecUtils.parseAudioCodecsFromSdp(sdp);
+      GlobalLogger().d(
+        'Retrieved ${codecs.length} audio codecs from SDP: ${codecs.map((c) => c.mimeType).toList()}',
+      );
+
+      return codecs;
+    } catch (e) {
+      GlobalLogger().e('Error retrieving supported audio codecs: $e');
+      return [];
+    } finally {
+      // Always clean up the temporary peer connection
+      tempPeer?.close();
+      GlobalLogger().d('Temporary peer connection disposed');
+    }
   }
 
   /// Helper method to update connection state and notify listener
@@ -933,7 +945,8 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _updateConnectionState(false);
-          final bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          final bool wasClean =
+              WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
@@ -980,7 +993,8 @@ class TelnyxClient {
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
           _updateConnectionState(false);
-          final bool wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+          final bool wasClean =
+              WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
         }
         ..connect();
@@ -1765,14 +1779,15 @@ class TelnyxClient {
 
               // Handle updateMedia response - check the raw JSON data directly
               try {
-                final Map<String, dynamic> rawData = jsonDecode(data.toString());
+                final Map<String, dynamic> rawData =
+                    jsonDecode(data.toString());
                 if (rawData.containsKey('result') && rawData['result'] is Map) {
                   final resultMap = rawData['result'] as Map<String, dynamic>;
                   if (resultMap['action'] == 'updateMedia') {
                     GlobalLogger().i('Received updateMedia response');
 
                     final updateMediaResponse =
-                    UpdateMediaResponse.fromJson(resultMap);
+                        UpdateMediaResponse.fromJson(resultMap);
 
                     // Find the call and handle the response
                     final callId = updateMediaResponse.callID;

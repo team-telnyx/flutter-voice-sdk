@@ -45,7 +45,9 @@ class Peer {
   Function()? _onNegotiationComplete;
 
   final Map<String, Session> _sessions = {};
-  Session? currentSession = null;
+
+  /// Current active session
+  Session? currentSession;
   MediaStream? _localStream;
   final List<MediaStream> _remoteStreams = <MediaStream>[];
 
@@ -72,7 +74,7 @@ class Peer {
 
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
 
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
@@ -229,8 +231,8 @@ class Peer {
 
       String? sdpUsed = '';
       await session.peerConnection?.getLocalDescription().then(
-        (value) => sdpUsed = value?.sdp.toString(),
-      );
+            (value) => sdpUsed = value?.sdp.toString(),
+          );
 
       Timer(const Duration(milliseconds: 500), () async {
         final userAgent = VersionUtils.getUserAgent();
@@ -277,8 +279,8 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(sdp, 'answer'),
-    );
+          RTCSessionDescription(sdp, 'answer'),
+        );
   }
 
   /// Accepts an incoming call.
@@ -354,7 +356,7 @@ class Peer {
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
                 candidateString.contains('stun.telnyx.com') ||
-                candidateString.contains('turn.telnyx.com');
+                    candidateString.contains('turn.telnyx.com');
 
             if (isValidCandidate) {
               GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
@@ -373,8 +375,8 @@ class Peer {
         }
       };
 
-      final RTCSessionDescription s = await session.peerConnection!
-          .createAnswer(_dcConstraints);
+      final RTCSessionDescription s =
+          await session.peerConnection!.createAnswer(_dcConstraints);
       await session.peerConnection!.setLocalDescription(s);
 
       // Start ICE candidate gathering and wait for negotiation to complete
@@ -382,8 +384,8 @@ class Peer {
       _setOnNegotiationComplete(() async {
         String? sdpUsed = '';
         await session.peerConnection?.getLocalDescription().then(
-          (value) => sdpUsed = value?.sdp.toString(),
-        );
+              (value) => sdpUsed = value?.sdp.toString(),
+            );
 
         final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -504,8 +506,7 @@ class Peer {
       );
       if (candidate.candidate != null) {
         final candidateString = candidate.candidate.toString();
-        final isValidCandidate =
-            candidateString.contains('stun.telnyx.com') ||
+        final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
             candidateString.contains('turn.telnyx.com');
 
         if (isValidCandidate) {
@@ -683,9 +684,8 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastCandidateTime!)
-            .inMilliseconds;
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );
@@ -821,6 +821,72 @@ class Peer {
       );
     } catch (e) {
       GlobalLogger().e('Peer :: Error handling updateMedia response: $e');
+    }
+  }
+
+  /// Creates an offer and extracts available audio codecs from the SDP.
+  /// This is the simplest way to query available codecs without needing full negotiation.
+  /// Used only for querying available codecs before making actual calls.
+  ///
+  /// Returns SDP string containing codec information, or null if offer creation failed
+  Future<String?> createOfferForCodecQuery() async {
+    RTCPeerConnection? tempPeerConnection;
+    MediaStream? tempStream;
+
+    try {
+      GlobalLogger()
+          .i('Peer :: Creating temporary peer connection for codec query');
+
+      // Create temporary local stream
+      tempStream = await createStream('audio');
+
+      // Create temporary peer connection
+      tempPeerConnection = await createPeerConnection(
+        {
+          ..._buildIceConfiguration(),
+          ...{'sdpSemantics': sdpSemantics},
+        },
+        _dcConstraints,
+      );
+
+      // Add tracks to the peer connection
+      switch (sdpSemantics) {
+        case 'plan-b':
+          await tempPeerConnection.addStream(tempStream);
+          break;
+        case 'unified-plan':
+        default:
+          tempStream.getTracks().forEach((track) {
+            tempPeerConnection?.addTrack(track, tempStream!);
+          });
+          break;
+      }
+
+      // Create offer
+      final offer = await tempPeerConnection.createOffer(_dcConstraints);
+
+      GlobalLogger()
+          .d('Peer :: Temp offer SDP created successfully for codec query');
+
+      return offer.sdp;
+    } catch (e) {
+      GlobalLogger().e('Peer :: Failed to create offer for codec query: $e');
+      return null;
+    } finally {
+      // Clean up temporary resources
+      if (tempStream != null) {
+        tempStream.getTracks().forEach((track) async {
+          await track.stop();
+        });
+        await tempStream.dispose();
+      }
+
+      if (tempPeerConnection != null) {
+        await tempPeerConnection.close();
+        await tempPeerConnection.dispose();
+      }
+
+      GlobalLogger().d('Peer :: Temporary peer connection disposed');
     }
   }
 }

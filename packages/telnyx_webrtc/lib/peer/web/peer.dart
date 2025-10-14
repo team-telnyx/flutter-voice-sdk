@@ -65,7 +65,7 @@ class Peer {
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
   Function(dynamic event)? onPeersUpdate;
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
   /// Callback for call quality metrics updates.
@@ -367,7 +367,7 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-              candidateString.contains('turn.telnyx.com');
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
             GlobalLogger().i(
@@ -536,7 +536,7 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-              candidateString.contains('turn.telnyx.com');
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
             GlobalLogger().i(
@@ -560,8 +560,9 @@ class Peer {
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
             if (_previousIceConnectionState ==
                 RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-              GlobalLogger()
-                  .i('Peer :: ICE connection failed, starting renegotiation...');
+              GlobalLogger().i(
+                'Peer :: ICE connection failed, starting renegotiation...',
+              );
               startIceRenegotiation(callId, newSession.sid);
               break;
             } else {
@@ -709,9 +710,8 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastCandidateTime!)
-            .inMilliseconds;
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );
@@ -769,7 +769,9 @@ class Peer {
           if (localDescription != null && localDescription.sdp != null) {
             _sendUpdateMediaMessage(callId, sessionId, localDescription.sdp!);
           } else {
-            GlobalLogger().e('Web Peer :: No local description found with ICE candidates');
+            GlobalLogger().e(
+              'Web Peer :: No local description found with ICE candidates',
+            );
           }
         });
 
@@ -847,6 +849,73 @@ class Peer {
       );
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error handling updateMedia response: $e');
+    }
+  }
+
+  /// Creates an offer and extracts available audio codecs from the SDP.
+  /// This is the simplest way to query available codecs without needing full negotiation.
+  /// Used only for querying available codecs before making actual calls.
+  ///
+  /// Returns SDP string containing codec information, or null if offer creation failed
+  Future<String?> createOfferForCodecQuery() async {
+    RTCPeerConnection? tempPeerConnection;
+    MediaStream? tempStream;
+
+    try {
+      GlobalLogger()
+          .i('Web Peer :: Creating temporary peer connection for codec query');
+
+      // Create temporary local stream
+      tempStream = await createStream('audio');
+
+      // Create temporary peer connection
+      tempPeerConnection = await createPeerConnection(
+        {
+          ..._buildIceConfiguration(),
+          ...{'sdpSemantics': sdpSemantics},
+        },
+        _dcConstraints,
+      );
+
+      // Add tracks to the peer connection
+      switch (sdpSemantics) {
+        case 'plan-b':
+          await tempPeerConnection.addStream(tempStream);
+          break;
+        case 'unified-plan':
+        default:
+          tempStream.getTracks().forEach((track) {
+            tempPeerConnection?.addTrack(track, tempStream!);
+          });
+          break;
+      }
+
+      // Create offer
+      final offer = await tempPeerConnection.createOffer(_dcConstraints);
+
+      GlobalLogger()
+          .d('Web Peer :: Temp offer SDP created successfully for codec query');
+
+      return offer.sdp;
+    } catch (e) {
+      GlobalLogger()
+          .e('Web Peer :: Failed to create offer for codec query: $e');
+      return null;
+    } finally {
+      // Clean up temporary resources
+      if (tempStream != null) {
+        for (var track in tempStream.getTracks()) {
+          await track.stop();
+        }
+        await tempStream.dispose();
+      }
+
+      if (tempPeerConnection != null) {
+        await tempPeerConnection.close();
+        await tempPeerConnection.dispose();
+      }
+
+      GlobalLogger().d('Web Peer :: Temporary peer connection disposed');
     }
   }
 }
