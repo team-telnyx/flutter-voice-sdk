@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
@@ -359,10 +360,10 @@ class TelnyxClient {
 
   /// Returns a list of audio codecs supported by WebRTC for this device.
   ///
-  /// This method creates a temporary WebRTC peer connection to query the
-  /// actual audio codecs supported by the WebRTC library. The temporary peer connection is
-  /// properly disposed of after querying. This ensures the returned codec list matches exactly
-  /// what WebRTC will use during actual calls.
+  /// This method queries the native WebRTC RTP sender capabilities API to retrieve
+  /// the actual audio codecs supported by the WebRTC library. This lightweight query
+  /// uses the platform's built-in codec discovery without creating any peer connections.
+  /// The returned codec list matches exactly what WebRTC will use during actual calls.
   ///
   /// **Common codecs** returned include: Opus, PCMU, PCMA, G722, RED, CN, and telephone-event.
   ///
@@ -395,40 +396,19 @@ class TelnyxClient {
   /// );
   /// ```
   Future<List<AudioCodec>> getSupportedAudioCodecs() async {
-    Peer? tempPeer;
     try {
-      GlobalLogger()
-          .d('Creating temporary peer connection to query WebRTC audio codecs');
+      GlobalLogger().d('Querying WebRTC audio codecs via RTP capabilities');
+      // Convert to AudioCodec list
+      final codecs = await CodecUtils.getSupportedAudioCodecs();
 
-      // Create a temporary peer connection with minimal configuration
-      tempPeer = Peer(
-        txSocket,
-        false,
-        this,
-        false,
-      );
-
-      // Create an offer to get SDP with codec information
-      final sdp = await tempPeer.createOfferForCodecQuery();
-      if (sdp == null) {
-        GlobalLogger().e('Failed to create offer for codec query');
-        return [];
-      }
-
-      // Parse codecs from SDP
-      final codecs = CodecUtils.parseAudioCodecsFromSdp(sdp);
       GlobalLogger().d(
-        'Retrieved ${codecs.length} audio codecs from SDP: ${codecs.map((c) => c.mimeType).toList()}',
+        'Retrieved ${codecs.length} audio codecs: ${codecs.map((c) => c.mimeType).toList()}',
       );
 
       return codecs;
     } catch (e) {
       GlobalLogger().e('Error retrieving supported audio codecs: $e');
       return [];
-    } finally {
-      // Always clean up the temporary peer connection
-      tempPeer?.close();
-      GlobalLogger().d('Temporary peer connection disposed');
     }
   }
 
