@@ -10,12 +10,13 @@ import 'package:telnyx_webrtc/model/verto/send/modify_message_body.dart';
 import 'package:telnyx_webrtc/peer/session.dart';
 import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
-import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
-import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
-import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/codec_utils.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
+import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
@@ -212,6 +213,14 @@ class Peer {
     List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
+      // Apply codec preferences before creating offer
+      if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
+        await applyAudioCodecPreferences(
+          session.peerConnection!,
+          preferredCodecs,
+        );
+      }
+
       final RTCSessionDescription s = await session.peerConnection!.createOffer(
         _dcConstraints,
       );
@@ -347,6 +356,14 @@ class Peer {
     List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
+      // Apply codec preferences before creating answer
+      if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
+        await applyAudioCodecPreferences(
+          session.peerConnection!,
+          preferredCodecs,
+        );
+      }
+
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
           GlobalLogger().i(
@@ -821,6 +838,71 @@ class Peer {
       );
     } catch (e) {
       GlobalLogger().e('Peer :: Error handling updateMedia response: $e');
+    }
+  }
+
+  /// Applies audio codec preferences to the peer connection's audio transceiver.
+  /// This method must be called before creating an offer or answer to ensure the
+  /// preferred codecs are negotiated in the correct order.
+  ///
+  /// [peerConnection] The RTCPeerConnection instance to apply preferences to
+  /// [preferredCodecs] List of preferred audio codec maps in order of preference
+  Future<void> applyAudioCodecPreferences(
+    RTCPeerConnection peerConnection,
+    List<Map<String, dynamic>>? preferredCodecs,
+  ) async {
+    if (preferredCodecs == null || preferredCodecs.isEmpty) {
+      GlobalLogger().d(
+        'Peer :: ApplyPreferredCodec :: No codec preferences provided, using defaults',
+      );
+      return;
+    }
+
+    try {
+      GlobalLogger().d(
+        'Peer :: ApplyPreferredCodec :: Attempting to apply ${preferredCodecs.length} codec preferences',
+      );
+
+      // Use CodecUtils to find the audio transceiver
+      final audioTransceiver =
+          await CodecUtils.findAudioTransceiver(peerConnection);
+
+      if (audioTransceiver == null) {
+        GlobalLogger().w(
+          'Peer :: ApplyPreferredCodec :: No audio transceiver found, cannot apply codec preferences',
+        );
+        return;
+      }
+
+      GlobalLogger().d(
+        'Peer :: ApplyPreferredCodec :: Audio transceiver found, converting codec maps to capabilities',
+      );
+
+      // Convert codec maps to capabilities
+      final codecCapabilities =
+          CodecUtils.convertAudioCodecMapsToCapabilities(preferredCodecs);
+
+      if (codecCapabilities.isEmpty) {
+        GlobalLogger().w(
+          'Peer :: No valid codec capabilities created, using defaults',
+        );
+        return;
+      }
+
+      GlobalLogger().d(
+        'Peer :: ApplyPreferredCodec :: Applying ${codecCapabilities.length} codec capabilities to transceiver',
+      );
+
+      // Apply codec preferences to transceiver
+      await audioTransceiver.setCodecPreferences(codecCapabilities);
+
+      GlobalLogger().d(
+        'Peer :: Successfully applied codec preferences. Order: ${codecCapabilities.map((c) => c.mimeType).toList()}',
+      );
+    } catch (e) {
+      GlobalLogger().e(
+        'Peer :: Error applying codec preferences: $e',
+      );
     }
   }
 }

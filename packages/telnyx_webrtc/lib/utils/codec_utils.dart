@@ -84,4 +84,100 @@ class CodecUtils {
         .d('Converted ${codecs.length} audio codecs from capabilities');
     return codecs;
   }
+
+  /// Finds the audio transceiver from a peer connection.
+  /// This method attempts multiple strategies to identify the audio transceiver,
+  /// similar to the Android SDK implementation.
+  ///
+  /// [peerConnection] The RTCPeerConnection to search for audio transceiver
+  /// Returns the audio [RTCRtpTransceiver] if found, null otherwise
+  static Future<RTCRtpTransceiver?> findAudioTransceiver(
+    RTCPeerConnection peerConnection,
+  ) async {
+    try {
+      final transceivers = await peerConnection.getTransceivers();
+
+      GlobalLogger().d(
+        'CodecUtils :: Searching for audio transceiver among ${transceivers.length} transceivers',
+      );
+
+      for (final transceiver in transceivers) {
+        // Try sender track kind first
+        final senderKind = transceiver.sender.track?.kind;
+        if (senderKind == 'audio') {
+          GlobalLogger().d(
+            'CodecUtils :: Found audio transceiver via sender track kind',
+          );
+          return transceiver;
+        }
+
+        // Fallback to receiver track kind
+        final receiverKind = transceiver.receiver.track?.kind;
+        if (receiverKind == 'audio') {
+          GlobalLogger().d(
+            'CodecUtils :: Found audio transceiver via receiver track kind',
+          );
+          return transceiver;
+        }
+      }
+
+      GlobalLogger().w(
+        'CodecUtils :: No audio transceiver found among ${transceivers.length} transceivers',
+      );
+      return null;
+    } catch (e) {
+      GlobalLogger().e('CodecUtils :: Error finding audio transceiver: $e');
+      return null;
+    }
+  }
+
+  /// Converts audio codec maps to RTCRtpCodecCapability objects for use with transceiver codec preferences.
+  /// This method transforms the Map format (from AudioCodec.toJson()) into the format required
+  /// by RTCRtpTransceiver.setCodecPreferences().
+  ///
+  /// [codecMaps] List of codec maps in the format produced by AudioCodec.toJson()
+  /// Returns a List of [RTCRtpCodecCapability] objects ready for setCodecPreferences()
+  static List<RTCRtpCodecCapability> convertAudioCodecMapsToCapabilities(
+    List<Map<String, dynamic>> codecMaps,
+  ) {
+    final capabilities = <RTCRtpCodecCapability>[];
+
+    for (final codecMap in codecMaps) {
+      try {
+        // Extract values from the map with proper type handling
+        final mimeType = codecMap['mimeType'] as String?;
+        final clockRate = codecMap['clockRate'];
+        final channels = codecMap['channels'];
+        final sdpFmtpLine = codecMap['sdpFmtpLine'] as String?;
+
+        if (mimeType == null || clockRate == null) {
+          GlobalLogger().w(
+            'Skipping codec with missing mimeType or clockRate: $codecMap',
+          );
+          continue;
+        }
+
+        capabilities.add(
+          RTCRtpCodecCapability(
+            mimeType: mimeType,
+            clockRate:
+                clockRate is int ? clockRate : (clockRate as num).toInt(),
+            channels: channels is int
+                ? channels
+                : (channels != null ? (channels as num).toInt() : null),
+            sdpFmtpLine: sdpFmtpLine,
+          ),
+        );
+      } catch (e) {
+        GlobalLogger().w(
+          'Failed to convert codec map to capability: $codecMap - $e',
+        );
+      }
+    }
+
+    GlobalLogger().d(
+      'Converted ${capabilities.length} codec maps to capabilities: ${capabilities.map((c) => c.mimeType).toList()}',
+    );
+    return capabilities;
+  }
 }
