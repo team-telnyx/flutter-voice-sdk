@@ -1,7 +1,3 @@
-## [3.0.1] - TBD
-### Bug Fixing
-- Fixed Call.newInvite and Call.acceptCall methods to properly support the preferredCodecs parameter. Previously, these methods in the Call class did not accept the preferredCodecs parameter, even though the underlying TelnyxClient methods supported it.
-
 ## [3.0.0](https://pub.dev/packages/telnyx_webrtc/versions/3.0.0) (2025-08-25)
 ### Enhancement
 
