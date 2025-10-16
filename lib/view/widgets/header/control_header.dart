@@ -5,6 +5,8 @@ import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
+import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
+import '../connection_details_bottom_sheet.dart';
 
 class ControlHeaders extends StatefulWidget {
   const ControlHeaders({super.key});
@@ -14,6 +16,15 @@ class ControlHeaders extends StatefulWidget {
 }
 
 class _ControlHeadersState extends State<ControlHeaders> {
+  void _showConnectionDetails(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const ConnectionDetailsBottomSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TelnyxClientViewModel>(
@@ -39,11 +50,12 @@ class _ControlHeadersState extends State<ControlHeaders> {
             ),
             const SizedBox(height: spacingXL),
             Text('Socket', style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: spacingS),
             SocketConnectivityStatus(
               connectionStatus: txClient.connectionStatus,
               autoReconnectEnabled: txClient.isAutoReconnectEnabled,
               retryCount: txClient.connectionRetryCount,
+              connectionMetrics: txClient.connectionMetrics,
+              onShowDetails: () => _showConnectionDetails(context),
             ),
             const SizedBox(height: spacingXL),
             CallStateStatusWidget(
@@ -70,12 +82,16 @@ class SocketConnectivityStatus extends StatelessWidget {
   final ConnectionStatus connectionStatus;
   final bool autoReconnectEnabled;
   final int retryCount;
+  final SocketConnectionMetrics? connectionMetrics;
+  final VoidCallback? onShowDetails;
 
   const SocketConnectivityStatus({
     super.key,
     required this.connectionStatus,
     required this.autoReconnectEnabled,
     required this.retryCount,
+    this.connectionMetrics,
+    this.onShowDetails,
   });
 
   @override
@@ -109,6 +125,7 @@ class SocketConnectivityStatus extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
             Container(
               width: spacingS,
@@ -120,6 +137,17 @@ class SocketConnectivityStatus extends StatelessWidget {
             ),
             const SizedBox(width: spacingS),
             Text(connectionStatusText),
+            if (connectionMetrics != null &&
+                connectionStatus == ConnectionStatus.clientReady)
+              IconButton(
+                icon: const Icon(Icons.info_outline, size: 20),
+                onPressed: onShowDetails,
+                tooltip: 'View connection details',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                iconSize: 20,
+                visualDensity: VisualDensity.compact,
+              ),
           ],
         ),
       ],
