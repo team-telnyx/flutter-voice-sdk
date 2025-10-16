@@ -892,7 +892,6 @@ class TelnyxClientViewModel with ChangeNotifier {
         _localNumber,
         'State',
         customHeaders: {},
-        preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
         debug: true,
       );
       observeCurrentCall();
