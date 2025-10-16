@@ -1,52 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
+import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 
 class ConnectionDetailsBottomSheet extends StatelessWidget {
-  final SocketConnectionMetrics? metrics;
-
   const ConnectionDetailsBottomSheet({
     super.key,
-    this.metrics,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Consumer<TelnyxClientViewModel>(
+      builder: (context, viewModel, child) {
+        final metrics = viewModel.connectionMetrics;
+
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(16),
+              topRight: Radius.circular(16),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                'Connection Details',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+              // Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Connection Details',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
+              const SizedBox(height: 16),
+              if (metrics == null)
+                const LoadingStateWidget()
+              else
+                MetricsContentWidget(metrics: metrics),
             ],
           ),
-          const SizedBox(height: 16),
-          if (metrics == null)
-            const LoadingStateWidget()
-          else
-            MetricsContentWidget(metrics: metrics!),
-        ],
-      ),
+        );
+      },
     );
   }
 }

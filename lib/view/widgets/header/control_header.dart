@@ -16,12 +16,12 @@ class ControlHeaders extends StatefulWidget {
 }
 
 class _ControlHeadersState extends State<ControlHeaders> {
-  void _showConnectionDetails(BuildContext context, SocketConnectionMetrics? metrics) {
+  void _showConnectionDetails(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => ConnectionDetailsBottomSheet(metrics: metrics),
+      builder: (context) => const ConnectionDetailsBottomSheet(),
     );
   }
 
@@ -55,7 +55,7 @@ class _ControlHeadersState extends State<ControlHeaders> {
               autoReconnectEnabled: txClient.isAutoReconnectEnabled,
               retryCount: txClient.connectionRetryCount,
               connectionMetrics: txClient.connectionMetrics,
-              onShowDetails: () => _showConnectionDetails(context, txClient.connectionMetrics),
+              onShowDetails: () => _showConnectionDetails(context),
             ),
             const SizedBox(height: spacingXL),
             CallStateStatusWidget(
@@ -137,7 +137,8 @@ class SocketConnectivityStatus extends StatelessWidget {
             ),
             const SizedBox(width: spacingS),
             Text(connectionStatusText),
-            if (connectionMetrics != null && connectionStatus == ConnectionStatus.clientReady)
+            if (connectionMetrics != null &&
+                connectionStatus == ConnectionStatus.clientReady)
               IconButton(
                 icon: const Icon(Icons.info_outline, size: 20),
                 onPressed: onShowDetails,
