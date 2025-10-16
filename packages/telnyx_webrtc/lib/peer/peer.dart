@@ -333,9 +333,8 @@ class Peer {
     String callId,
     IncomingInviteParams invite,
     Map<String, String> customHeaders,
-    bool isAttach, {
-    List<Map<String, dynamic>>? preferredCodecs,
-  }) async {
+    bool isAttach,
+  ) async {
     final sessionId = _selfId;
     final Session session = await _createSession(
       null,
@@ -360,7 +359,6 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
-      preferredCodecs,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -376,23 +374,8 @@ class Peer {
     String callId,
     Map<String, String> customHeaders,
     bool isAttach,
-    List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
-      // For iOS/Web: Apply codec preferences before creating answer
-      // For Android: We'll modify SDP after creation (setCodecPreferences doesn't work)
-      if (preferredCodecs != null &&
-          preferredCodecs.isNotEmpty &&
-          !Platform.isAndroid) {
-        GlobalLogger().d(
-          'Peer :: Applying codec preferences via setCodecPreferences (iOS/Web)',
-        );
-        await applyAudioCodecPreferences(
-          session.peerConnection!,
-          preferredCodecs,
-        );
-      }
-
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
           GlobalLogger().i(
@@ -424,22 +407,7 @@ class Peer {
       final RTCSessionDescription s =
           await session.peerConnection!.createAnswer(_dcConstraints);
 
-      // For Android: Modify SDP to filter codecs
-      String? sdpToUse = s.sdp;
-      if (preferredCodecs != null &&
-          preferredCodecs.isNotEmpty &&
-          Platform.isAndroid) {
-        GlobalLogger().d(
-          'Peer :: Filtering SDP codecs for Android (setCodecPreferences not supported)',
-        );
-        final audioCodecs =
-            preferredCodecs.map((m) => AudioCodec.fromJson(m)).toList();
-        sdpToUse = CodecUtils.filterSdpCodecs(s.sdp!, audioCodecs);
-      }
-
-      await session.peerConnection!.setLocalDescription(
-        RTCSessionDescription(sdpToUse, s.type),
-      );
+      await session.peerConnection!.setLocalDescription(s);
 
       // Start ICE candidate gathering and wait for negotiation to complete
       _lastCandidateTime = DateTime.now();
@@ -464,7 +432,6 @@ class Peer {
           userVariables: [],
           video: false,
           customHeaders: customHeaders,
-          preferredCodecs: preferredCodecs,
         );
         final inviteParams = InviteParams(
           dialogParams: dialogParams,

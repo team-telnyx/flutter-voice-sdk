@@ -245,7 +245,6 @@ class Call {
   /// @param clientState Custom client state to pass with the call
   /// @param isAttach Whether this is an attach operation
   /// @param customHeaders Optional custom SIP headers
-  /// @param preferredCodecs Optional list of preferred audio codecs in order of preference
   /// @param debug Whether to enable call quality metrics (default: false)
   Call acceptCall(
     IncomingInviteParams invite,
@@ -254,7 +253,6 @@ class Call {
     String clientState, {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
-    List<AudioCodec>? preferredCodecs,
     bool debug = false,
   }) {
     // Store the session information for later use
@@ -271,7 +269,6 @@ class Call {
       clientState,
       customHeaders: customHeaders,
       isAttach: isAttach,
-      preferredCodecs: preferredCodecs,
       debug: debug,
     );
   }

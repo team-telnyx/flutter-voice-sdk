@@ -1369,9 +1369,6 @@ class TelnyxClient {
   /// - [clientState]: A custom string for application-specific state.
   /// - [isAttach]: Set to true if this is a call being re-attached (e.g., after network reconnection).
   /// - [customHeaders]: Optional custom SIP headers to add to the response.
-  /// - [preferredCodecs]: Optional list of preferred audio codecs in order of preference.
-  ///   If any codec in the list is not supported by the platform or remote party,
-  ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
   ///
   /// Returns the [Call] object associated with the accepted call.
@@ -1382,7 +1379,6 @@ class TelnyxClient {
     String clientState, {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
-    List<AudioCodec>? preferredCodecs,
     bool debug = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
@@ -1403,12 +1399,6 @@ class TelnyxClient {
       getForceRelayCandidate(),
     );
 
-    // Convert AudioCodec objects to Map format for the peer connection
-    List<Map<String, dynamic>>? codecMaps;
-    if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
-      codecMaps = preferredCodecs.map((codec) => codec.toJson()).toList();
-    }
-
     // Set up the session with the callback if debug is enabled
     answerCall.peerConnection?.accept(
       callerName,
@@ -1419,7 +1409,6 @@ class TelnyxClient {
       invite,
       customHeaders,
       isAttach,
-      preferredCodecs: codecMaps,
     );
     answerCall.callHandler.changeState(CallState.connecting);
     if (debug) {
