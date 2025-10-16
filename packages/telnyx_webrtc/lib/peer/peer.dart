@@ -22,6 +22,7 @@ import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
+import 'package:telnyx_webrtc/model/audio_codec.dart';
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
@@ -213,8 +214,14 @@ class Peer {
     List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
-      // Apply codec preferences before creating offer
-      if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
+      // For iOS/Web: Apply codec preferences before creating offer
+      // For Android: We'll modify SDP after creation (setCodecPreferences doesn't work)
+      if (preferredCodecs != null &&
+          preferredCodecs.isNotEmpty &&
+          !Platform.isAndroid) {
+        GlobalLogger().d(
+          'Peer :: Applying codec preferences via setCodecPreferences (iOS/Web)',
+        );
         await applyAudioCodecPreferences(
           session.peerConnection!,
           preferredCodecs,
@@ -224,7 +231,23 @@ class Peer {
       final RTCSessionDescription s = await session.peerConnection!.createOffer(
         _dcConstraints,
       );
-      await session.peerConnection!.setLocalDescription(s);
+
+      // For Android: Modify SDP to filter codecs
+      String? sdpToUse = s.sdp;
+      if (preferredCodecs != null &&
+          preferredCodecs.isNotEmpty &&
+          Platform.isAndroid) {
+        GlobalLogger().d(
+          'Peer :: Filtering SDP codecs for Android (setCodecPreferences not supported)',
+        );
+        final audioCodecs =
+            preferredCodecs.map((m) => AudioCodec.fromJson(m)).toList();
+        sdpToUse = CodecUtils.filterSdpCodecs(s.sdp!, audioCodecs);
+      }
+
+      await session.peerConnection!.setLocalDescription(
+        RTCSessionDescription(sdpToUse, s.type),
+      );
 
       if (session.remoteCandidates.isNotEmpty) {
         for (var candidate in session.remoteCandidates) {
@@ -356,8 +379,14 @@ class Peer {
     List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
-      // Apply codec preferences before creating answer
-      if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
+      // For iOS/Web: Apply codec preferences before creating answer
+      // For Android: We'll modify SDP after creation (setCodecPreferences doesn't work)
+      if (preferredCodecs != null &&
+          preferredCodecs.isNotEmpty &&
+          !Platform.isAndroid) {
+        GlobalLogger().d(
+          'Peer :: Applying codec preferences via setCodecPreferences (iOS/Web)',
+        );
         await applyAudioCodecPreferences(
           session.peerConnection!,
           preferredCodecs,
@@ -394,7 +423,23 @@ class Peer {
 
       final RTCSessionDescription s =
           await session.peerConnection!.createAnswer(_dcConstraints);
-      await session.peerConnection!.setLocalDescription(s);
+
+      // For Android: Modify SDP to filter codecs
+      String? sdpToUse = s.sdp;
+      if (preferredCodecs != null &&
+          preferredCodecs.isNotEmpty &&
+          Platform.isAndroid) {
+        GlobalLogger().d(
+          'Peer :: Filtering SDP codecs for Android (setCodecPreferences not supported)',
+        );
+        final audioCodecs =
+            preferredCodecs.map((m) => AudioCodec.fromJson(m)).toList();
+        sdpToUse = CodecUtils.filterSdpCodecs(s.sdp!, audioCodecs);
+      }
+
+      await session.peerConnection!.setLocalDescription(
+        RTCSessionDescription(sdpToUse, s.type),
+      );
 
       // Start ICE candidate gathering and wait for negotiation to complete
       _lastCandidateTime = DateTime.now();

@@ -131,6 +131,164 @@ class CodecUtils {
     }
   }
 
+  /// Filters SDP to include only preferred audio codecs.
+  /// This method is used on Android where setCodecPreferences() doesn't work reliably.
+  ///
+  /// [sdp] The original SDP string
+  /// [preferredCodecs] List of preferred audio codecs in order of preference
+  /// Returns the modified SDP with only preferred codecs
+  static String filterSdpCodecs(String sdp, List<AudioCodec> preferredCodecs) {
+    if (preferredCodecs.isEmpty) {
+      GlobalLogger()
+          .d('CodecUtils :: No preferred codecs, returning original SDP');
+      return sdp;
+    }
+
+    try {
+      final lines = sdp.split('\r\n');
+      final modifiedLines = <String>[];
+
+      // Find the m=audio line
+      int? mAudioIndex;
+      for (int i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('m=audio ')) {
+          mAudioIndex = i;
+          break;
+        }
+      }
+
+      if (mAudioIndex == null) {
+        GlobalLogger().w('CodecUtils :: No m=audio line found in SDP');
+        return sdp;
+      }
+
+      // Parse m=audio line: "m=audio 9 UDP/TLS/RTP/SAVPF 111 63 9 0 8 13 110 126"
+      final mAudioLine = lines[mAudioIndex];
+      final mAudioParts = mAudioLine.split(' ');
+      if (mAudioParts.length < 4) {
+        GlobalLogger().w('CodecUtils :: Invalid m=audio line format');
+        return sdp;
+      }
+
+      // Extract payload types from m=audio line (everything after the transport protocol)
+      final payloadTypes = mAudioParts.sublist(3);
+
+      // Build map of payload type -> codec info from a=rtpmap lines
+      final payloadToCodec = <String, String>{};
+      for (final line in lines) {
+        if (line.startsWith('a=rtpmap:')) {
+          // Format: "a=rtpmap:111 opus/48000/2"
+          final rtpmapMatch =
+              RegExp(r'a=rtpmap:(\d+)\s+([^/]+)').firstMatch(line);
+          if (rtpmapMatch != null) {
+            final payloadType = rtpmapMatch.group(1)!;
+            final codecName = rtpmapMatch.group(2)!.toLowerCase();
+            payloadToCodec[payloadType] = codecName;
+          }
+        }
+      }
+
+      GlobalLogger().d(
+        'CodecUtils :: Found ${payloadToCodec.length} codecs in SDP: $payloadToCodec',
+      );
+
+      // Filter payload types to keep only preferred codecs
+      final preferredPayloadTypes = <String>[];
+      final preferredCodecNames = preferredCodecs
+          .map((c) => (c.mimeType ?? 'unknown').split('/').last.toLowerCase())
+          .toSet();
+
+      GlobalLogger().d(
+        'CodecUtils :: Preferred codec names: $preferredCodecNames',
+      );
+
+      for (final payloadType in payloadTypes) {
+        final codecName = payloadToCodec[payloadType];
+        if (codecName != null) {
+          // Keep codec if it matches preferred codecs
+          if (preferredCodecNames.contains(codecName)) {
+            preferredPayloadTypes.add(payloadType);
+            GlobalLogger().d(
+              'CodecUtils :: Keeping payload type $payloadType ($codecName)',
+            );
+          } else if (codecName == 'telephone-event') {
+            // Always keep telephone-event for DTMF
+            preferredPayloadTypes.add(payloadType);
+            GlobalLogger().d(
+              'CodecUtils :: Keeping telephone-event payload type $payloadType',
+            );
+          } else if (codecName == 'red') {
+            // Keep RED if it references a preferred codec
+            preferredPayloadTypes.add(payloadType);
+            GlobalLogger().d(
+              'CodecUtils :: Keeping RED payload type $payloadType',
+            );
+          }
+        }
+      }
+
+      if (preferredPayloadTypes.isEmpty) {
+        GlobalLogger().w(
+          'CodecUtils :: No matching codecs found, returning original SDP',
+        );
+        return sdp;
+      }
+
+      // Rebuild m=audio line with filtered payload types
+      final newMAudioLine = mAudioParts.sublist(0, 3).join(' ') +
+          ' ' +
+          preferredPayloadTypes.join(' ');
+
+      GlobalLogger().d(
+        'CodecUtils :: Original m=audio: $mAudioLine',
+      );
+      GlobalLogger().d(
+        'CodecUtils :: Modified m=audio: $newMAudioLine',
+      );
+
+      // Build set of payload types to keep
+      final keepPayloadTypes = preferredPayloadTypes.toSet();
+
+      // Filter all lines, removing codec-related attributes for non-preferred codecs
+      for (int i = 0; i < lines.length; i++) {
+        if (i == mAudioIndex) {
+          // Replace m=audio line with filtered version
+          modifiedLines.add(newMAudioLine);
+        } else if (lines[i].startsWith('a=rtpmap:') ||
+            lines[i].startsWith('a=fmtp:') ||
+            lines[i].startsWith('a=rtcp-fb:')) {
+          // Extract payload type from attribute line
+          final payloadMatch = RegExp(r':(\d+)').firstMatch(lines[i]);
+          if (payloadMatch != null) {
+            final payloadType = payloadMatch.group(1)!;
+            if (keepPayloadTypes.contains(payloadType)) {
+              modifiedLines.add(lines[i]);
+            } else {
+              GlobalLogger().d(
+                'CodecUtils :: Removing line: ${lines[i]}',
+              );
+            }
+          } else {
+            modifiedLines.add(lines[i]);
+          }
+        } else {
+          // Keep all other lines unchanged
+          modifiedLines.add(lines[i]);
+        }
+      }
+
+      final modifiedSdp = modifiedLines.join('\r\n');
+      GlobalLogger().d(
+        'CodecUtils :: Successfully filtered SDP, kept ${preferredPayloadTypes.length} codecs',
+      );
+
+      return modifiedSdp;
+    } catch (e) {
+      GlobalLogger().e('CodecUtils :: Error filtering SDP: $e');
+      return sdp; // Return original SDP on error
+    }
+  }
+
   /// Converts audio codec maps to RTCRtpCodecCapability objects for use with transceiver codec preferences.
   /// This method transforms the Map format (from AudioCodec.toJson()) into the format required
   /// by RTCRtpTransceiver.setCodecPreferences().
