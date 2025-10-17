@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
@@ -16,6 +17,7 @@ import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/codec_utils.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
@@ -44,6 +46,9 @@ class Peer {
   /// Sessions by session-id.
   final Map<String, Session> _sessions = {};
 
+  /// Current active session
+  Session? currentSession;
+
   /// Local and remote streams.
   MediaStream? _localStream;
   final List<MediaStream> _remoteStreams = <MediaStream>[];
@@ -65,7 +70,7 @@ class Peer {
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
   Function(dynamic event)? onPeersUpdate;
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
   /// Callback for call quality metrics updates.
@@ -166,6 +171,7 @@ class Peer {
   /// [callId] The unique ID for this call.
   /// [telnyxSessionId] The Telnyx session ID.
   /// [customHeaders] Custom headers to include in the invite.
+  /// [preferredCodecs] Optional list of preferred audio codecs.
   Future<void> invite(
     String callerName,
     String callerNumber,
@@ -173,8 +179,9 @@ class Peer {
     String clientState,
     String callId,
     String telnyxSessionId,
-    Map<String, String> customHeaders,
-  ) async {
+    Map<String, String> customHeaders, {
+    List<Map<String, dynamic>>? preferredCodecs,
+  }) async {
     final sessionId = _selfId;
     final session = await _createSession(
       null,
@@ -196,6 +203,7 @@ class Peer {
       callId,
       telnyxSessionId,
       customHeaders,
+      preferredCodecs,
     );
 
     // Indicate a new outbound call is created
@@ -212,8 +220,17 @@ class Peer {
     String callId,
     String telnyxSessionId,
     Map<String, String> customHeaders,
+    List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
+      // Apply codec preferences before creating offer
+      if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
+        await applyAudioCodecPreferences(
+          session.peerConnection!,
+          preferredCodecs,
+        );
+      }
+
       final description = await session.peerConnection!.createOffer(
         _dcConstraints,
       );
@@ -289,7 +306,6 @@ class Peer {
       await session.peerConnection?.setRemoteDescription(
         RTCSessionDescription(sdp, 'answer'),
       );
-      onCallStateChange?.call(session, CallState.active);
     }
   }
 
@@ -342,7 +358,6 @@ class Peer {
       isAttach,
     );
 
-    // Indicate the call is now active (in mobile code, we do this after answer).
     onCallStateChange?.call(session, CallState.active);
   }
 
@@ -367,7 +382,7 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-              candidateString.contains('turn.telnyx.com');
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
             GlobalLogger().i(
@@ -383,6 +398,39 @@ class Peer {
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
+        }
+      };
+
+      session.peerConnection?.onIceConnectionState = (state) {
+        GlobalLogger().i('Web Peer :: ICE Connection State change :: $state');
+        _previousIceConnectionState = state;
+        switch (state) {
+          case RTCIceConnectionState.RTCIceConnectionStateConnected:
+            final Call? currentCall = _txClient.calls[callId];
+            currentCall?.callHandler.changeState(CallState.active);
+            onCallStateChange?.call(session, CallState.active);
+
+            // Cancel any reconnection timer for this call
+            _txClient.onCallStateChangedToActive(callId);
+          case RTCIceConnectionState.RTCIceConnectionStateFailed:
+            if (_previousIceConnectionState ==
+                RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
+              GlobalLogger().i(
+                'Web Peer :: ICE connection failed, starting renegotiation...',
+              );
+              startIceRenegotiation(callId, session.sid);
+              break;
+            } else {
+              GlobalLogger().d(
+                'Web Peer :: ICE connection failed without prior disconnection, not renegotiating',
+              );
+              break;
+            }
+          case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
+            _statsManager?.stopStatsReporting();
+            return;
+          default:
+            return;
         }
       };
 
@@ -476,6 +524,7 @@ class Peer {
     );
 
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
+    currentSession = newSession;
     if (media != 'data') {
       _localStream = await createStream(media);
       // Set up local renderer (web-only)
@@ -536,7 +585,7 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-              candidateString.contains('turn.telnyx.com');
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
             GlobalLogger().i(
@@ -554,14 +603,22 @@ class Peer {
         }
       }
       ..onIceConnectionState = (state) {
+        GlobalLogger().i('Peer :: ICE Connection State change :: $state');
         _previousIceConnectionState = state;
-        GlobalLogger().i('Peer :: ICE Connection State => $state');
         switch (state) {
+          case RTCIceConnectionState.RTCIceConnectionStateConnected:
+            final Call? currentCall = _txClient.calls[callId];
+            currentCall?.callHandler.changeState(CallState.active);
+            onCallStateChange?.call(newSession, CallState.active);
+
+            // Cancel any reconnection timer for this call
+            _txClient.onCallStateChangedToActive(callId);
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
             if (_previousIceConnectionState ==
                 RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-              GlobalLogger()
-                  .i('Peer :: ICE connection failed, starting renegotiation...');
+              GlobalLogger().i(
+                'Peer :: ICE connection failed, starting renegotiation...',
+              );
               startIceRenegotiation(callId, newSession.sid);
               break;
             } else {
@@ -571,11 +628,10 @@ class Peer {
               break;
             }
           case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
-            // Optionally stop stats if you want
             _statsManager?.stopStatsReporting();
-            break;
+            return;
           default:
-            break;
+            return;
         }
       }
       ..onRemoveStream = (stream) {
@@ -709,9 +765,8 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastCandidateTime!)
-            .inMilliseconds;
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );
@@ -769,7 +824,9 @@ class Peer {
           if (localDescription != null && localDescription.sdp != null) {
             _sendUpdateMediaMessage(callId, sessionId, localDescription.sdp!);
           } else {
-            GlobalLogger().e('Web Peer :: No local description found with ICE candidates');
+            GlobalLogger().e(
+              'Web Peer :: No local description found with ICE candidates',
+            );
           }
         });
 
@@ -815,7 +872,7 @@ class Peer {
   }
 
   /// Handles the updateMedia response from the server
-  void handleUpdateMediaResponse(UpdateMediaResponse response) {
+  Future<void> handleUpdateMediaResponse(UpdateMediaResponse response) async {
     try {
       if (response.action != 'updateMedia') {
         GlobalLogger()
@@ -840,13 +897,78 @@ class Peer {
 
       // Set the remote description to complete renegotiation
       final remoteDescription = RTCSessionDescription(response.sdp, 'answer');
-      session.peerConnection?.setRemoteDescription(remoteDescription);
+      await session.peerConnection?.setRemoteDescription(remoteDescription);
 
       GlobalLogger().i(
         'Web Peer :: ICE renegotiation completed successfully for call: $callId',
       );
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error handling updateMedia response: $e');
+    }
+  }
+
+  /// Applies audio codec preferences to the peer connection's audio transceiver.
+  /// This method must be called before creating an offer or answer to ensure the
+  /// preferred codecs are negotiated in the correct order.
+  ///
+  /// [peerConnection] The RTCPeerConnection instance to apply preferences to
+  /// [preferredCodecs] List of preferred audio codec maps in order of preference
+  Future<void> applyAudioCodecPreferences(
+    RTCPeerConnection peerConnection,
+    List<Map<String, dynamic>>? preferredCodecs,
+  ) async {
+    if (preferredCodecs == null || preferredCodecs.isEmpty) {
+      GlobalLogger().d(
+        'Web Peer :: No codec preferences provided, using defaults',
+      );
+      return;
+    }
+
+    try {
+      GlobalLogger().d(
+        'Web Peer :: Attempting to apply ${preferredCodecs.length} codec preferences',
+      );
+
+      // Use CodecUtils to find the audio transceiver
+      final audioTransceiver =
+          await CodecUtils.findAudioTransceiver(peerConnection);
+
+      if (audioTransceiver == null) {
+        GlobalLogger().w(
+          'Web Peer :: No audio transceiver found, cannot apply codec preferences',
+        );
+        return;
+      }
+
+      GlobalLogger().d(
+        'Web Peer :: Audio transceiver found, converting codec maps to capabilities',
+      );
+
+      // Convert codec maps to capabilities
+      final codecCapabilities =
+          CodecUtils.convertAudioCodecMapsToCapabilities(preferredCodecs);
+
+      if (codecCapabilities.isEmpty) {
+        GlobalLogger().w(
+          'Web Peer :: No valid codec capabilities created, using defaults',
+        );
+        return;
+      }
+
+      GlobalLogger().d(
+        'Web Peer :: Applying ${codecCapabilities.length} codec capabilities to transceiver',
+      );
+
+      // Apply codec preferences to transceiver
+      await audioTransceiver.setCodecPreferences(codecCapabilities);
+
+      GlobalLogger().d(
+        'Web Peer :: Successfully applied codec preferences. Order: ${codecCapabilities.map((c) => c.mimeType).toList()}',
+      );
+    } catch (e) {
+      GlobalLogger().e(
+        'Web Peer :: Error applying codec preferences: $e',
+      );
     }
   }
 }

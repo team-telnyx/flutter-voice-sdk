@@ -10,17 +10,19 @@ import 'package:telnyx_webrtc/model/verto/send/modify_message_body.dart';
 import 'package:telnyx_webrtc/peer/session.dart';
 import 'package:telnyx_webrtc/peer/signaling_state.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
-import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
-import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
-import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
+import 'package:telnyx_webrtc/utils/codec_utils.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
+import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
+import 'package:telnyx_webrtc/model/audio_codec.dart';
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
@@ -45,7 +47,9 @@ class Peer {
   Function()? _onNegotiationComplete;
 
   final Map<String, Session> _sessions = {};
-  Session? currentSession = null;
+
+  /// Current active session
+  Session? currentSession;
   MediaStream? _localStream;
   final List<MediaStream> _remoteStreams = <MediaStream>[];
 
@@ -72,7 +76,7 @@ class Peer {
 
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
 
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
@@ -210,10 +214,40 @@ class Peer {
     List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
+      // For iOS/Web: Apply codec preferences before creating offer
+      // For Android: We'll modify SDP after creation (setCodecPreferences doesn't work)
+      if (preferredCodecs != null &&
+          preferredCodecs.isNotEmpty &&
+          !Platform.isAndroid) {
+        GlobalLogger().d(
+          'Peer :: Applying codec preferences via setCodecPreferences (iOS/Web)',
+        );
+        await applyAudioCodecPreferences(
+          session.peerConnection!,
+          preferredCodecs,
+        );
+      }
+
       final RTCSessionDescription s = await session.peerConnection!.createOffer(
         _dcConstraints,
       );
-      await session.peerConnection!.setLocalDescription(s);
+
+      // For Android: Modify SDP to filter codecs
+      String? sdpToUse = s.sdp;
+      if (preferredCodecs != null &&
+          preferredCodecs.isNotEmpty &&
+          Platform.isAndroid) {
+        GlobalLogger().d(
+          'Peer :: Filtering SDP codecs for Android (setCodecPreferences not supported)',
+        );
+        final audioCodecs =
+            preferredCodecs.map((m) => AudioCodec.fromJson(m)).toList();
+        sdpToUse = CodecUtils.filterSdpCodecs(s.sdp!, audioCodecs);
+      }
+
+      await session.peerConnection!.setLocalDescription(
+        RTCSessionDescription(sdpToUse, s.type),
+      );
 
       if (session.remoteCandidates.isNotEmpty) {
         for (var candidate in session.remoteCandidates) {
@@ -229,8 +263,8 @@ class Peer {
 
       String? sdpUsed = '';
       await session.peerConnection?.getLocalDescription().then(
-        (value) => sdpUsed = value?.sdp.toString(),
-      );
+            (value) => sdpUsed = value?.sdp.toString(),
+          );
 
       Timer(const Duration(milliseconds: 500), () async {
         final userAgent = VersionUtils.getUserAgent();
@@ -277,8 +311,8 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(sdp, 'answer'),
-    );
+          RTCSessionDescription(sdp, 'answer'),
+        );
   }
 
   /// Accepts an incoming call.
@@ -299,9 +333,8 @@ class Peer {
     String callId,
     IncomingInviteParams invite,
     Map<String, String> customHeaders,
-    bool isAttach, {
-    List<Map<String, dynamic>>? preferredCodecs,
-  }) async {
+    bool isAttach,
+  ) async {
     final sessionId = _selfId;
     final Session session = await _createSession(
       null,
@@ -326,7 +359,6 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
-      preferredCodecs,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -342,7 +374,6 @@ class Peer {
     String callId,
     Map<String, String> customHeaders,
     bool isAttach,
-    List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
@@ -354,7 +385,7 @@ class Peer {
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
                 candidateString.contains('stun.telnyx.com') ||
-                candidateString.contains('turn.telnyx.com');
+                    candidateString.contains('turn.telnyx.com');
 
             if (isValidCandidate) {
               GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
@@ -373,8 +404,9 @@ class Peer {
         }
       };
 
-      final RTCSessionDescription s = await session.peerConnection!
-          .createAnswer(_dcConstraints);
+      final RTCSessionDescription s =
+          await session.peerConnection!.createAnswer(_dcConstraints);
+
       await session.peerConnection!.setLocalDescription(s);
 
       // Start ICE candidate gathering and wait for negotiation to complete
@@ -382,8 +414,8 @@ class Peer {
       _setOnNegotiationComplete(() async {
         String? sdpUsed = '';
         await session.peerConnection?.getLocalDescription().then(
-          (value) => sdpUsed = value?.sdp.toString(),
-        );
+              (value) => sdpUsed = value?.sdp.toString(),
+            );
 
         final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -400,7 +432,6 @@ class Peer {
           userVariables: [],
           video: false,
           customHeaders: customHeaders,
-          preferredCodecs: preferredCodecs,
         );
         final inviteParams = InviteParams(
           dialogParams: dialogParams,
@@ -504,8 +535,7 @@ class Peer {
       );
       if (candidate.candidate != null) {
         final candidateString = candidate.candidate.toString();
-        final isValidCandidate =
-            candidateString.contains('stun.telnyx.com') ||
+        final isValidCandidate = candidateString.contains('stun.telnyx.com') ||
             candidateString.contains('turn.telnyx.com');
 
         if (isValidCandidate) {
@@ -683,9 +713,8 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastCandidateTime!)
-            .inMilliseconds;
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );
@@ -821,6 +850,71 @@ class Peer {
       );
     } catch (e) {
       GlobalLogger().e('Peer :: Error handling updateMedia response: $e');
+    }
+  }
+
+  /// Applies audio codec preferences to the peer connection's audio transceiver.
+  /// This method must be called before creating an offer or answer to ensure the
+  /// preferred codecs are negotiated in the correct order.
+  ///
+  /// [peerConnection] The RTCPeerConnection instance to apply preferences to
+  /// [preferredCodecs] List of preferred audio codec maps in order of preference
+  Future<void> applyAudioCodecPreferences(
+    RTCPeerConnection peerConnection,
+    List<Map<String, dynamic>>? preferredCodecs,
+  ) async {
+    if (preferredCodecs == null || preferredCodecs.isEmpty) {
+      GlobalLogger().d(
+        'Peer :: ApplyPreferredCodec :: No codec preferences provided, using defaults',
+      );
+      return;
+    }
+
+    try {
+      GlobalLogger().d(
+        'Peer :: ApplyPreferredCodec :: Attempting to apply ${preferredCodecs.length} codec preferences',
+      );
+
+      // Use CodecUtils to find the audio transceiver
+      final audioTransceiver =
+          await CodecUtils.findAudioTransceiver(peerConnection);
+
+      if (audioTransceiver == null) {
+        GlobalLogger().w(
+          'Peer :: ApplyPreferredCodec :: No audio transceiver found, cannot apply codec preferences',
+        );
+        return;
+      }
+
+      GlobalLogger().d(
+        'Peer :: ApplyPreferredCodec :: Audio transceiver found, converting codec maps to capabilities',
+      );
+
+      // Convert codec maps to capabilities
+      final codecCapabilities =
+          CodecUtils.convertAudioCodecMapsToCapabilities(preferredCodecs);
+
+      if (codecCapabilities.isEmpty) {
+        GlobalLogger().w(
+          'Peer :: No valid codec capabilities created, using defaults',
+        );
+        return;
+      }
+
+      GlobalLogger().d(
+        'Peer :: ApplyPreferredCodec :: Applying ${codecCapabilities.length} codec capabilities to transceiver',
+      );
+
+      // Apply codec preferences to transceiver
+      await audioTransceiver.setCodecPreferences(codecCapabilities);
+
+      GlobalLogger().d(
+        'Peer :: Successfully applied codec preferences. Order: ${codecCapabilities.map((c) => c.mimeType).toList()}',
+      );
+    } catch (e) {
+      GlobalLogger().e(
+        'Peer :: Error applying codec preferences: $e',
+      );
     }
   }
 }

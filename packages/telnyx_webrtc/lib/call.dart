@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:telnyx_webrtc/model/audio_codec.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
@@ -197,6 +198,7 @@ class Call {
   /// @param destinationNumber The number to call
   /// @param clientState Custom client state to pass with the call
   /// @param customHeaders Optional custom SIP headers
+  /// @param preferredCodecs Optional list of preferred audio codecs in order of preference
   /// @param debug Whether to enable call quality metrics (default: false)
   void newInvite(
     String callerName,
@@ -204,6 +206,7 @@ class Call {
     String destinationNumber,
     String clientState, {
     Map<String, String> customHeaders = const {},
+    List<AudioCodec>? preferredCodecs,
     bool debug = false,
   }) {
     // Store the session information for later use
@@ -219,6 +222,8 @@ class Call {
       destinationNumber,
       clientState,
       customHeaders: customHeaders,
+      preferredCodecs: preferredCodecs,
+      debug: debug,
     );
   }
 

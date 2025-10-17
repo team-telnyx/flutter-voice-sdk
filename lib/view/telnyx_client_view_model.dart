@@ -905,7 +905,6 @@ class TelnyxClientViewModel with ChangeNotifier {
         _localNumber,
         'State',
         customHeaders: {},
-        preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
         debug: true,
       );
       observeCurrentCall();
@@ -1016,7 +1015,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   /// Loads the supported audio codecs from the WebRTC capabilities
   Future<void> loadSupportedCodecs() async {
     try {
-      _supportedCodecs = _telnyxClient.getSupportedAudioCodecs();
+      _supportedCodecs = await _telnyxClient.getSupportedAudioCodecs();
       logger.i(
         'TelnyxClientViewModel.loadSupportedCodecs: Loaded ${_supportedCodecs.length} supported codecs',
       );

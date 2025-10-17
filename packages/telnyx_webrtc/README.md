@@ -34,6 +34,7 @@ This is the quickest way to implement the SDK with minimal setup and configurati
   - [Mute a call](#mute-a-call)
   - [Toggle loud speaker](#toggle-loud-speaker)
   - [Put a call on hold](#put-a-call-on-hold)
+  - [Preferred Audio Codecs](#preferred-audio-codecs)
 - [Advanced Usage - Push Notifications](#advanced-usage---push-notifications)
   - [Adding push notifications - Android platform](#adding-push-notifications---android-platform)
   - [Best Practices for Push Notifications on Android](#best-practices-for-push-notifications-on-android)
@@ -52,6 +53,7 @@ This is the quickest way to implement the SDK with minimal setup and configurati
 - [x] Hold calls
 - [x] Mute calls
 - [x] Dual Tone Multi Frequency
+- [x] Preferred Audio Codecs
 
 ## Usage
 
@@ -294,6 +296,140 @@ To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
 ```dart
     _telnyxClient.call.onHoldUnholdPressed();
 ```
+
+### Preferred Audio Codecs
+
+The Telnyx WebRTC SDK supports specifying preferred audio codecs for both outgoing and incoming calls. This allows you to prioritize certain codecs based on your application's requirements for audio quality, bandwidth usage, or compatibility.
+
+#### Getting Supported Codecs
+
+You can retrieve the list of supported audio codecs:
+
+```dart
+final supportedCodecs = _telnyxClient.getSupportedAudioCodecs();
+print('Supported codecs:');
+for (final codec in supportedCodecs) {
+  print('${codec.mimeType} @ ${codec.clockRate}Hz, ${codec.channels} channel(s)');
+}
+```
+
+The SDK supports the following codecs:
+- **Opus** - High-quality codec with excellent compression (48kHz, stereo)
+- **G722** - Wideband codec for better quality than G.711 (8kHz, mono)
+- **PCMU (G.711 μ-law)** - Standard codec (8kHz, mono)
+- **PCMA (G.711 A-law)** - Standard codec (8kHz, mono)
+- **G729** - Low bitrate codec (8kHz, mono)
+- **AMR-WB** - Adaptive Multi-Rate Wideband codec (16kHz, mono)
+- **telephone-event** - For DTMF support (8kHz, mono)
+
+#### Making Calls with Preferred Codecs
+
+When creating a new call, you can specify your preferred codecs in order of preference:
+
+```dart
+// Define preferred codecs in order of preference
+final preferredCodecs = [
+  // First preference: Opus for high quality
+  const AudioCodec(
+    mimeType: 'audio/opus',
+    clockRate: 48000,
+    channels: 2,
+    sdpFmtpLine: 'minptime=10;useinbandfec=1',
+  ),
+  // Second preference: G722 for good quality
+  const AudioCodec(
+    mimeType: 'audio/G722',
+    clockRate: 8000,
+    channels: 1,
+  ),
+  // Third preference: PCMU as fallback
+  const AudioCodec(
+    mimeType: 'audio/PCMU',
+    clockRate: 8000,
+    channels: 1,
+  ),
+];
+
+// Create a call with preferred codecs
+final call = _telnyxClient.newInvite(
+  'John Doe',           // callerName
+  '+1234567890',        // callerNumber
+  '+0987654321',        // destinationNumber
+  'example-state',      // clientState
+  preferredCodecs: preferredCodecs,
+);
+
+// Or using the Call class directly
+_telnyxClient.call.newInvite(
+  'John Doe',
+  '+1234567890',
+  '+0987654321',
+  'example-state',
+  preferredCodecs: preferredCodecs,
+);
+```
+
+#### Accepting Calls with Preferred Codecs
+
+You can also specify preferred codecs when accepting incoming calls:
+
+```dart
+// In your socket message handler
+void handleIncomingCall(IncomingInviteParams invite) {
+  final preferredCodecs = [
+    const AudioCodec(
+      mimeType: 'audio/G722',
+      clockRate: 8000,
+      channels: 1,
+    ),
+    const AudioCodec(
+      mimeType: 'audio/PCMU',
+      clockRate: 8000,
+      channels: 1,
+    ),
+  ];
+
+  final call = _telnyxClient.acceptCall(
+    invite,
+    'Jane Doe',           // callerName
+    '+1234567890',        // callerNumber
+    'example-state',      // clientState
+    preferredCodecs: preferredCodecs,
+  );
+
+  // Or using the Call class directly
+  _telnyxClient.call.acceptCall(
+    invite,
+    'Jane Doe',
+    '+1234567890',
+    'example-state',
+    preferredCodecs: preferredCodecs,
+  );
+}
+```
+
+#### Custom Codec Configuration
+
+You can create custom codec configurations with specific parameters:
+
+```dart
+// Custom Opus configuration with mono audio
+final customOpus = const AudioCodec(
+  mimeType: 'audio/opus',
+  clockRate: 48000,
+  channels: 1, // Mono instead of stereo
+  sdpFmtpLine: 'minptime=20;useinbandfec=0', // Custom parameters
+);
+
+final preferredCodecs = [customOpus];
+```
+
+#### Important Notes
+
+- **Codec Negotiation**: The final codec used will be negotiated between your preferred codecs and what the remote party supports.
+- **Fallback Behavior**: If none of your preferred codecs are supported, the system will automatically fall back to a mutually supported codec.
+- **Order Matters**: Codecs are prioritized in the order you specify them in the list.
+- **Platform Support**: All codecs listed are supported by the Telnyx platform, but actual availability may depend on the remote party's capabilities.
 
 ## Advanced Usage - Push Notifications
 
