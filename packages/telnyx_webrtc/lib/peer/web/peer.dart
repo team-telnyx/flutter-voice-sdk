@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
@@ -305,7 +306,6 @@ class Peer {
       await session.peerConnection?.setRemoteDescription(
         RTCSessionDescription(sdp, 'answer'),
       );
-      onCallStateChange?.call(session, CallState.active);
     }
   }
 
@@ -358,7 +358,6 @@ class Peer {
       isAttach,
     );
 
-    // Indicate the call is now active (in mobile code, we do this after answer).
     onCallStateChange?.call(session, CallState.active);
   }
 
@@ -399,6 +398,39 @@ class Peer {
           }
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
+        }
+      };
+
+      session.peerConnection?.onIceConnectionState = (state) {
+        GlobalLogger().i('Web Peer :: ICE Connection State change :: $state');
+        _previousIceConnectionState = state;
+        switch (state) {
+          case RTCIceConnectionState.RTCIceConnectionStateConnected:
+            final Call? currentCall = _txClient.calls[callId];
+            currentCall?.callHandler.changeState(CallState.active);
+            onCallStateChange?.call(session, CallState.active);
+
+            // Cancel any reconnection timer for this call
+            _txClient.onCallStateChangedToActive(callId);
+          case RTCIceConnectionState.RTCIceConnectionStateFailed:
+            if (_previousIceConnectionState ==
+                RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
+              GlobalLogger().i(
+                'Web Peer :: ICE connection failed, starting renegotiation...',
+              );
+              startIceRenegotiation(callId, session.sid);
+              break;
+            } else {
+              GlobalLogger().d(
+                'Web Peer :: ICE connection failed without prior disconnection, not renegotiating',
+              );
+              break;
+            }
+          case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
+            _statsManager?.stopStatsReporting();
+            return;
+          default:
+            return;
         }
       };
 
@@ -571,9 +603,16 @@ class Peer {
         }
       }
       ..onIceConnectionState = (state) {
+        GlobalLogger().i('Peer :: ICE Connection State change :: $state');
         _previousIceConnectionState = state;
-        GlobalLogger().i('Peer :: ICE Connection State => $state');
         switch (state) {
+          case RTCIceConnectionState.RTCIceConnectionStateConnected:
+            final Call? currentCall = _txClient.calls[callId];
+            currentCall?.callHandler.changeState(CallState.active);
+            onCallStateChange?.call(newSession, CallState.active);
+
+            // Cancel any reconnection timer for this call
+            _txClient.onCallStateChangedToActive(callId);
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
             if (_previousIceConnectionState ==
                 RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
@@ -589,11 +628,10 @@ class Peer {
               break;
             }
           case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
-            // Optionally stop stats if you want
             _statsManager?.stopStatsReporting();
-            break;
+            return;
           default:
-            break;
+            return;
         }
       }
       ..onRemoveStream = (stream) {
