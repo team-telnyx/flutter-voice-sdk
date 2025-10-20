@@ -1,3 +1,18 @@
+## [3.1.0](https://pub.dev/packages/telnyx_webrtc/versions/3.1.0) (2025-10-20)
+### Enhancement
+
+- Socket Connection Quality Callback
+    - Added OnConnectionMetricsUpdate callback to the TelnyxClient class to provide real-time updates on the quality of the WebSocket connection. This can help users monitor and respond to network conditions affecting call quality.
+- AI Agent Enhancements
+  - Allow for Base64 encoded images that can be sent via sendConversationMessage() on the Call object. 
+- ICE Candidate Renegotiation process implemented to enhance call stability during network changes.
+- Supported Codecs no longer return a static list of codecs, but instead will return the actual codecs supported by the current device.
+
+### Bug Fixing
+- Fixed an issue where preferred codecs were not being respected when specified during call initiation.
+- Fixed how stat metrics were being calculated and sent via the socket, causing some graphs during the debug view to be missing
+- Fixed an issue where the SDK version was not being parsed correctly in release builds, causing issues with backend logging and debugging.
+
 ## [3.0.0](https://pub.dev/packages/telnyx_webrtc/versions/3.0.0) (2025-08-25)
 ### Enhancement
 
