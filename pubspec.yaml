@@ -2,7 +2,7 @@ name: telnyx_flutter_webrtc
 description: Telnyx's Dart and Flutter based WebRTC solution
 
 publish_to: 'none'
-version: 2.0.1
+version: 2.1.0
 
 environment:
   sdk: ">=3.0.0 <3.22.3"
