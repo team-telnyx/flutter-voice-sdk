@@ -1,5 +1,6 @@
 ## [3.1.0](https://pub.dev/packages/telnyx_webrtc/versions/3.1.0) (2025-10-20)
 ### Enhancement
+
 - Socket Connection Quality Callback
     - Added OnConnectionMetricsUpdate callback to the TelnyxClient class to provide real-time updates on the quality of the WebSocket connection. This can help users monitor and respond to network conditions affecting call quality.
 - AI Agent Enhancements
