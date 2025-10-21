@@ -3,7 +3,7 @@ import 'dart:math';
 int randomBetween(int from, int to) {
   if (from > to) throw Exception('$from cannot be > $to');
   final rand = Random();
-  return ((to - from) * rand.nextDouble()).toInt() + from;
+  return ((to - from + 1) * rand.nextDouble()).toInt() + from;
 }
 
 String randomString(int length, {int from = 33, int to = 126}) {

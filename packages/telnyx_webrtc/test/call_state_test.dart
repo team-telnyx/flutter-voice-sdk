@@ -6,13 +6,14 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 void main() {
   group('CallState', () {
     test('should have all expected enum values', () {
-      expect(CallState.values, hasLength(8));
+      expect(CallState.values, hasLength(10));
       expect(CallState.values, contains(CallState.newCall));
       expect(CallState.values, contains(CallState.connecting));
       expect(CallState.values, contains(CallState.ringing));
       expect(CallState.values, contains(CallState.active));
       expect(CallState.values, contains(CallState.held));
       expect(CallState.values, contains(CallState.reconnecting));
+      expect(CallState.values, contains(CallState.renegotiation));
       expect(CallState.values, contains(CallState.dropped));
       expect(CallState.values, contains(CallState.done));
       expect(CallState.values, contains(CallState.error));
@@ -25,6 +26,7 @@ void main() {
       expect(CallState.ringing.isActive, isFalse);
       expect(CallState.held.isActive, isFalse);
       expect(CallState.reconnecting.isActive, isFalse);
+      expect(CallState.renegotiation.isActive, isFalse);
       expect(CallState.dropped.isActive, isFalse);
       expect(CallState.done.isActive, isFalse);
       expect(CallState.error.isActive, isFalse);
@@ -37,6 +39,7 @@ void main() {
       expect(CallState.ringing.isReconnecting, isFalse);
       expect(CallState.active.isReconnecting, isFalse);
       expect(CallState.held.isReconnecting, isFalse);
+      expect(CallState.renegotiation.isReconnecting, isFalse);
       expect(CallState.dropped.isReconnecting, isFalse);
       expect(CallState.done.isReconnecting, isFalse);
       expect(CallState.error.isReconnecting, isFalse);
@@ -50,6 +53,7 @@ void main() {
       expect(CallState.active.isDropped, isFalse);
       expect(CallState.held.isDropped, isFalse);
       expect(CallState.reconnecting.isDropped, isFalse);
+      expect(CallState.renegotiation.isDropped, isFalse);
       expect(CallState.done.isDropped, isFalse);
       expect(CallState.error.isDropped, isFalse);
     });
@@ -62,6 +66,7 @@ void main() {
       expect(CallState.active.isDone, isFalse);
       expect(CallState.held.isDone, isFalse);
       expect(CallState.reconnecting.isDone, isFalse);
+      expect(CallState.renegotiation.isDone, isFalse);
       expect(CallState.dropped.isDone, isFalse);
       expect(CallState.error.isDone, isFalse);
     });
@@ -104,6 +109,10 @@ void main() {
         );
         expect(
           () => CallState.held.withNetworkReason(NetworkReason.networkSwitch),
+          throwsStateError,
+        );
+        expect(
+          () => CallState.renegotiation.withNetworkReason(NetworkReason.networkSwitch),
           throwsStateError,
         );
         expect(
@@ -156,6 +165,10 @@ void main() {
           throwsStateError,
         );
         expect(
+          () => CallState.renegotiation.withTerminationReason(reason),
+          throwsStateError,
+        );
+        expect(
           () => CallState.dropped.withTerminationReason(reason),
           throwsStateError,
         );
@@ -172,6 +185,7 @@ void main() {
       expect(CallState.ringing.networkReason, isNull);
       expect(CallState.active.networkReason, isNull);
       expect(CallState.held.networkReason, isNull);
+      expect(CallState.renegotiation.networkReason, isNull);
       expect(CallState.done.networkReason, isNull);
       expect(CallState.error.networkReason, isNull);
     });
@@ -183,6 +197,7 @@ void main() {
       expect(CallState.active.terminationReason, isNull);
       expect(CallState.held.terminationReason, isNull);
       expect(CallState.reconnecting.terminationReason, isNull);
+      expect(CallState.renegotiation.terminationReason, isNull);
       expect(CallState.dropped.terminationReason, isNull);
       expect(CallState.error.terminationReason, isNull);
     });

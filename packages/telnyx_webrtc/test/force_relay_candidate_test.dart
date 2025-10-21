@@ -4,6 +4,8 @@ import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('ForceRelayCandidate Tests', () {
     test('CredentialConfig should have forceRelayCandidate parameter', () {
       final config = CredentialConfig(
