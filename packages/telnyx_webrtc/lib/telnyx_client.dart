@@ -1907,9 +1907,16 @@ class TelnyxClient {
                     socketMethod: SocketMethod.attach,
                     message: invite,
                   );
+
+                  // Preserve speakerphone state from existing call before reconnection
+                  final existingCall = calls[invite.inviteParams?.callID];
+                  final bool wasSpeakerPhoneEnabled = existingCall?.speakerPhone ?? false;
+                  GlobalLogger().i('ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled');
+
                   //play ringtone for web
                   final Call offerCall = _createCall()
-                    ..callId = invite.inviteParams?.callID;
+                    ..callId = invite.inviteParams?.callID
+                    ..speakerPhone = wasSpeakerPhoneEnabled; // Preserve the state
                   updateCall(offerCall);
 
                   onSocketMessageReceived.call(message);

@@ -561,15 +561,36 @@ class Peer {
           currentCall?.callHandler.changeState(CallState.active);
           onCallStateChange?.call(newSession, CallState.active);
 
-          // Automatically disable speaker phone to fix Android default behavior
-          // This ensures calls start with earpiece audio routing by default on Android
+          // Handle speakerphone state after ICE connection is established
           if (Platform.isAndroid) {
             Future.delayed(const Duration(milliseconds: 100), () {
-              currentCall?.enableSpeakerPhone(false);
-              GlobalLogger().i(
-                'Peer :: Automatically disabled speaker phone for Android call',
-              );
+              if (currentCall?.isReconnection == true) {
+                // This is a reconnection - restore previous speakerphone state
+                final bool shouldEnableSpeaker = currentCall?.speakerPhone ?? false;
+                currentCall?.enableSpeakerPhone(shouldEnableSpeaker);
+                GlobalLogger().i(
+                  'Peer :: Restored speakerphone state for Android reconnection: $shouldEnableSpeaker',
+                );
+              } else {
+                // This is initial connection - always disable to fix Android bug
+                // where speakerphone is enabled by default
+                currentCall?.enableSpeakerPhone(false);
+                GlobalLogger().i(
+                  'Peer :: Automatically disabled speaker phone for Android call (initial connection)',
+                );
+              }
             });
+          } else {
+            // For iOS and other platforms, restore if enabled during reconnection
+            final bool shouldEnableSpeaker = currentCall?.speakerPhone ?? false;
+            if (shouldEnableSpeaker) {
+              Future.delayed(const Duration(milliseconds: 100), () {
+                currentCall?.enableSpeakerPhone(true);
+                GlobalLogger().i(
+                  'Peer :: Restored speakerphone state: enabled',
+                );
+              });
+            }
           }
 
           // Cancel any reconnection timer for this call
