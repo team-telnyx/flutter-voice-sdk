@@ -153,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text("Error"),
+            title: const Text('Error'),
             content: Text(errorMessage),
             actions: [
               TextButton(
@@ -161,7 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   context.read<TelnyxClientViewModel>().clearErrorDialog();
                   Navigator.of(context).pop();
                 },
-                child: const Text("OK"),
+                child: const Text('OK'),
               ),
             ],
           ),

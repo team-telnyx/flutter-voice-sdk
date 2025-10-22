@@ -936,7 +936,6 @@ class TelnyxClient {
         }
         ..onClose = (int closeCode, String closeReason) {
           GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          _updateConnectionState(false);
           final bool wasClean =
               WebSocketUtils.isCleanClose(closeCode, closeReason);
           _onClose(wasClean, closeCode, closeReason);
