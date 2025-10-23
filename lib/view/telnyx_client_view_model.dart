@@ -440,7 +440,8 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 'TxClientViewModel :: observeResponses : Registered :: $_registered',
               );
-              if (callState != CallStateStatus.connectingToCall) {
+              if (callState != CallStateStatus.connectingToCall &&
+                  callState != CallStateStatus.ongoingCall) {
                 callState = CallStateStatus.idle;
               }
               // Load supported codecs after successful registration
@@ -778,10 +779,10 @@ class TelnyxClientViewModel with ChangeNotifier {
   void call(String destination) {
     // Set BackgroundDetector to ignore lifecycle events during outbound calls
     BackgroundDetector.ignore = true;
-    
+
     // Set call state to connectingToCall immediately to prevent multiple calls
     callState = CallStateStatus.connectingToCall;
-    
+
     _currentCall = _telnyxClient.newInvite(
       _localName,
       _localNumber,
@@ -1082,15 +1083,19 @@ class TelnyxClientViewModel with ChangeNotifier {
     }
 
     try {
-      logger.i('TelnyxClientViewModel.forceIceRenegotiation: Starting renegotiation for call ${currentCall!.callId}');
-      
+      logger.i(
+          'TelnyxClientViewModel.forceIceRenegotiation: Starting renegotiation for call ${currentCall!.callId}');
+
       // Access the peer through the call's peerConnection property and call the public method
       // Use the call's session ID as the session ID for renegotiation
-      currentCall?.peerConnection?.startIceRenegotiation(currentCall!.callId!, currentCall!.peerConnection?.currentSession?.sid ?? '');
-      
-      logger.i('TelnyxClientViewModel.forceIceRenegotiation: Renegotiation initiated');
+      currentCall?.peerConnection?.startIceRenegotiation(currentCall!.callId!,
+          currentCall!.peerConnection?.currentSession?.sid ?? '');
+
+      logger.i(
+          'TelnyxClientViewModel.forceIceRenegotiation: Renegotiation initiated');
     } catch (e) {
-      logger.e('TelnyxClientViewModel.forceIceRenegotiation: Error during renegotiation: $e');
+      logger.e(
+          'TelnyxClientViewModel.forceIceRenegotiation: Error during renegotiation: $e');
     }
   }
 }

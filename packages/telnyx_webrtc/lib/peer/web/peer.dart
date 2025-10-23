@@ -410,6 +410,18 @@ class Peer {
             currentCall?.callHandler.changeState(CallState.active);
             onCallStateChange?.call(session, CallState.active);
 
+            // Restore speakerphone state after ICE connection is established
+            // This is important for network reconnection scenarios where the call state should be preserved
+            final bool shouldEnableSpeaker = currentCall?.speakerPhone ?? false;
+            if (shouldEnableSpeaker) {
+              Future.delayed(const Duration(milliseconds: 100), () {
+                currentCall?.enableSpeakerPhone(true);
+                GlobalLogger().i(
+                  'Web Peer :: Restored speakerphone state in _createAnswer: enabled',
+                );
+              });
+            }
+
             // Cancel any reconnection timer for this call
             _txClient.onCallStateChangedToActive(callId);
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
@@ -610,6 +622,18 @@ class Peer {
             final Call? currentCall = _txClient.calls[callId];
             currentCall?.callHandler.changeState(CallState.active);
             onCallStateChange?.call(newSession, CallState.active);
+
+            // Restore speakerphone state after ICE connection is established
+            // This is important for network reconnection scenarios where the call state should be preserved
+            final bool shouldEnableSpeaker = currentCall?.speakerPhone ?? false;
+            if (shouldEnableSpeaker) {
+              Future.delayed(const Duration(milliseconds: 100), () {
+                currentCall?.enableSpeakerPhone(true);
+                GlobalLogger().i(
+                  'Web Peer :: Restored speakerphone state: enabled',
+                );
+              });
+            }
 
             // Cancel any reconnection timer for this call
             _txClient.onCallStateChangedToActive(callId);

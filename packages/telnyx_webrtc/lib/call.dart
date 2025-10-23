@@ -161,6 +161,9 @@ class Call {
   /// Indicates whether the call is currently using speaker phone
   bool speakerPhone = false;
 
+  /// Indicates whether this call is a reconnection (attach) or initial connection
+  bool isReconnection = false;
+
   /// The caller's name for the current session
   String sessionCallerName = '';
 
@@ -261,6 +264,9 @@ class Call {
     sessionDestinationNumber = invite.callerIdNumber ?? '';
     sessionClientState = clientState;
     this.customHeaders = Map.from(customHeaders);
+
+    // Track whether this is a reconnection scenario
+    isReconnection = isAttach;
 
     return _txClient.acceptCall(
       invite,
