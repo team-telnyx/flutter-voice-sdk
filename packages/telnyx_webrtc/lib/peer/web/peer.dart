@@ -413,18 +413,15 @@ class Peer {
   /// [invite] The incoming invite parameters containing the SDP offer.
   /// [customHeaders] Custom headers to include in the answer.
   /// [isAttach] Whether this is an attach call.
-  /// [preferredCodecs] Optional list of preferred audio codecs.
   Future<void> accept(
-    String callerName,
-    String callerNumber,
-    String destinationNumber,
-    String clientState,
-    String callId,
-    IncomingInviteParams invite,
-    Map<String, String> customHeaders,
-    bool isAttach, {
-    List<Map<String, dynamic>>? preferredCodecs,
-  }) async {
+      String callerName,
+      String callerNumber,
+      String destinationNumber,
+      String clientState,
+      String callId,
+      IncomingInviteParams invite,
+      Map<String, String> customHeaders,
+      bool isAttach) async {
     final sessionId = _selfId;
     final session = await _createSession(
       null,
@@ -470,7 +467,6 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
-      preferredCodecs,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -486,7 +482,6 @@ class Peer {
     String callId,
     Map<String, String> customHeaders,
     bool isAttach,
-    List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
       // ICE candidate callback
@@ -566,7 +561,6 @@ class Peer {
           clientState,
           customHeaders,
           isAttach,
-          preferredCodecs,
           modifiedSdp, // Pass the SDP directly to avoid getting it later
         );
       } else {
@@ -587,7 +581,6 @@ class Peer {
             clientState,
             customHeaders,
             isAttach,
-            preferredCodecs,
           );
         });
       }
@@ -604,8 +597,7 @@ class Peer {
     String destinationNumber,
     String clientState,
     Map<String, String> customHeaders,
-    bool isAttach,
-    List<Map<String, dynamic>>? preferredCodecs, [
+    bool isAttach, [
     String? preGeneratedSdp,
   ]) async {
     String? sdpUsed = '';

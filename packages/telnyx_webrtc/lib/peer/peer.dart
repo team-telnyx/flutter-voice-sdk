@@ -279,7 +279,7 @@ class Peer {
         sdpUsed =
             SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
 
-        final userAgent = await VersionUtils.getUserAgent();
+        final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -340,7 +340,7 @@ class Peer {
                 (value) => sdpUsed = value?.sdp.toString(),
               );
 
-          final userAgent = await VersionUtils.getUserAgent();
+          final userAgent = VersionUtils.getUserAgent();
           final dialogParams = DialogParams(
             attach: false,
             audio: true,
@@ -583,7 +583,7 @@ class Peer {
                 (value) => sdpUsed = value?.sdp.toString(),
               );
 
-          final userAgent = await VersionUtils.getUserAgent();
+          final userAgent = VersionUtils.getUserAgent();
           final dialogParams = DialogParams(
             attach: false,
             audio: true,
@@ -598,7 +598,6 @@ class Peer {
             userVariables: [],
             video: false,
             customHeaders: customHeaders,
-            preferredCodecs: preferredCodecs,
           );
           final inviteParams = InviteParams(
             dialogParams: dialogParams,
