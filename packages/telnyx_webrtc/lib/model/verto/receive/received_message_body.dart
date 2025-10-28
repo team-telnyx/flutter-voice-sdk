@@ -37,8 +37,9 @@ class ReceivedMessage {
     reattachedParams = json['params'] != null
         ? ReattachedParams.fromJson(json['params'])
         : null;
-    stateParams =
-        json['params'] != null ? StateParams.fromJson(json['params']) : null;
+    stateParams = json['params'] != null
+        ? StateParams.fromJson(json['params'])
+        : null;
     inviteParams = json['params'] != null
         ? IncomingInviteParams.fromJson(json['params'])
         : null;
@@ -47,8 +48,8 @@ class ReceivedMessage {
         : null;
     aiConversationParams =
         json['params'] != null && json['method'] == 'ai_conversation'
-            ? AiConversationParams.fromJson(json['params'])
-            : null;
+        ? AiConversationParams.fromJson(json['params'])
+        : null;
     if (json['params'] != null && json['params']['dialogParams'] != null) {
       dialogParams = DialogParams.fromJson(json['params']['dialogParams']);
     }
@@ -102,8 +103,9 @@ class ReceivedResult {
   ReceivedResult.fromJson(Map<String, dynamic> json) {
     jsonrpc = json['jsonrpc'];
     id = json['id'];
-    resultParams =
-        json['result'] != null ? ResultParams.fromJson(json['result']) : null;
+    resultParams = json['result'] != null
+        ? ResultParams.fromJson(json['result'])
+        : null;
     sessId = json['sessid'];
     error = json['error'] != null
         ? TelnyxSocketError.fromJson(json['error'])
@@ -161,8 +163,9 @@ class ResultParams {
   ResultParams({this.stateParams});
 
   ResultParams.fromJson(Map<String, dynamic> json) {
-    stateParams =
-        json['params'] != null ? StateParams.fromJson(json['params']) : null;
+    stateParams = json['params'] != null
+        ? StateParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {

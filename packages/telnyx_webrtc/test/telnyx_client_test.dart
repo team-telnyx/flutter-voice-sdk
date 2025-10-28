@@ -13,6 +13,8 @@ import 'telnyx_client_test.mocks.dart';
 
 @GenerateMocks([TelnyxClient])
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   test('verify that connect updates boolean properly', () {
     final telnyxClient = TelnyxClient();
     telnyxClient.connect();
@@ -168,7 +170,7 @@ void main() {
 
   test('verify autoReconnect setting is respected from CredentialConfig', () {
     final telnyxClient = TelnyxClient();
-    
+
     final credentialConfig = CredentialConfig(
       sipUser: 'test',
       sipPassword: 'test',
@@ -181,14 +183,17 @@ void main() {
     );
 
     telnyxClient.connectWithCredential(credentialConfig);
-    
+
+    Timer(const Duration(seconds: 2), () {
+      // called twice, once for connect, and again for login
+      expect(telnyxClient.isAutoReconnectEnabled(), false);
+    });
     // After connecting with config, autoReconnect should be disabled
-    expect(telnyxClient.isAutoReconnectEnabled(), false);
   });
 
   test('verify autoReconnect setting is respected from TokenConfig', () {
     final telnyxClient = TelnyxClient();
-    
+
     final tokenConfig = TokenConfig(
       sipToken: 'test-token',
       sipCallerIDName: 'test',
@@ -200,7 +205,7 @@ void main() {
     );
 
     telnyxClient.connectWithToken(tokenConfig);
-    
+
     // After connecting with config, autoReconnect should be enabled
     expect(telnyxClient.isAutoReconnectEnabled(), true);
   });

@@ -10,8 +10,9 @@ class InviteAnswerMessage {
     id = json['id'].toString();
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params =
-        json['params'] != null ? InviteParams.fromJson(json['params']) : null;
+    params = json['params'] != null
+        ? InviteParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -118,8 +119,9 @@ class DialogParams {
       });
     }
     if (json['preferred_codecs'] != null) {
-      preferredCodecs =
-          List<Map<String, dynamic>>.from(json['preferred_codecs']);
+      preferredCodecs = List<Map<String, dynamic>>.from(
+        json['preferred_codecs'],
+      );
     }
     video = json['video'];
   }

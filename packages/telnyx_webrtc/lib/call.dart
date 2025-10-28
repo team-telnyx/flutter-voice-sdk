@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:telnyx_webrtc/model/audio_codec.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
@@ -161,6 +162,9 @@ class Call {
   /// Indicates whether the call is currently using speaker phone
   bool speakerPhone = false;
 
+  /// Indicates whether this call is a reconnection (attach) or initial connection
+  bool isReconnection = false;
+
   /// The caller's name for the current session
   String sessionCallerName = '';
 
@@ -198,6 +202,7 @@ class Call {
   /// @param destinationNumber The number to call
   /// @param clientState Custom client state to pass with the call
   /// @param customHeaders Optional custom SIP headers
+  /// @param preferredCodecs Optional list of preferred audio codecs in order of preference
   /// @param debug Whether to enable call quality metrics (default: false)
   void newInvite(
     String callerName,
@@ -205,6 +210,7 @@ class Call {
     String destinationNumber,
     String clientState, {
     Map<String, String> customHeaders = const {},
+    List<AudioCodec>? preferredCodecs,
     bool debug = false,
   }) {
     // Store the session information for later use
@@ -220,6 +226,8 @@ class Call {
       destinationNumber,
       clientState,
       customHeaders: customHeaders,
+      preferredCodecs: preferredCodecs,
+      debug: debug,
     );
   }
 
@@ -260,6 +268,9 @@ class Call {
     sessionClientState = clientState;
     this.customHeaders = Map.from(customHeaders);
 
+    // Track whether this is a reconnection scenario
+    isReconnection = isAttach;
+
     return _txClient.acceptCall(
       invite,
       callerName,
@@ -289,18 +300,18 @@ class Call {
     final (causeCode, causeName) = switch (callState) {
       // When Active or Connecting, use NORMAL_CLEARING
       CallState.active => (
-          CauseCode.NORMAL_CLEARING.value,
-          CauseCode.NORMAL_CLEARING.name,
-        ),
+        CauseCode.NORMAL_CLEARING.value,
+        CauseCode.NORMAL_CLEARING.name,
+      ),
       CallState.connecting => (
-          CauseCode.NORMAL_CLEARING.value,
-          CauseCode.NORMAL_CLEARING.name,
-        ),
+        CauseCode.NORMAL_CLEARING.value,
+        CauseCode.NORMAL_CLEARING.name,
+      ),
       // When Ringing (i.e. Rejecting an incoming call), use USER_BUSY
       CallState.ringing => (
-          CauseCode.USER_BUSY.value,
-          CauseCode.USER_BUSY.name,
-        ),
+        CauseCode.USER_BUSY.value,
+        CauseCode.USER_BUSY.name,
+      ),
       // Default to NORMAL_CLEARING for other states
       _ => (CauseCode.NORMAL_CLEARING.value, CauseCode.NORMAL_CLEARING.name),
     };
@@ -467,15 +478,42 @@ class Call {
 
   /// AI Assistant Conversation Method.
   /// Sends a conversation message to an assistant agent.
-  void sendConversationMessage(String message) {
+  /// 
+  /// @param message The text message to send
+  /// @param base64Image Optional base64 encoded image to include with the message
+  ///
+  /// Note: In order to provide an image to your assistant, you need to make sure that you are using a vision-capable model.
+  /// The base64Image should be a base64 encoded string of the image data.
+  void sendConversationMessage(String message, {String? base64Image}) {
     final uuid = const Uuid().v4();
     final messageId = const Uuid().v4();
+
+    // Create content list, adding text message only if it's not empty
+    final List<ConversationContentData> content = [];
+    if (message.isNotEmpty) {
+      content.add(ConversationContentData(type: 'input_text', text: message));
+    }
+
+    // Add image content if base64Image is provided
+    if (base64Image != null && base64Image.isNotEmpty) {
+      // Ensure the base64 string has the proper data URL format
+      String imageDataUrl = base64Image;
+      if (!base64Image.startsWith('data:image/')) {
+        // Default to JPEG if no format is specified
+        imageDataUrl = 'data:image/jpeg;base64,$base64Image';
+      }
+
+      content.add(ConversationContentData(
+        type: 'image_url',
+        imageUrl: ConversationImageUrl(url: imageDataUrl),
+      ));
+    }
 
     final conversationItem = ConversationItemData(
       id: messageId,
       type: 'message',
       role: 'user',
-      content: [ConversationContentData(type: 'input_text', text: message)],
+      content: content,
     );
 
     final conversationParams = ConversationMessageParams(

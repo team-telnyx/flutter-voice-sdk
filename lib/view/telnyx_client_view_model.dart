@@ -26,6 +26,7 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
@@ -61,6 +62,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   IncomingInviteParams? _incomingInvite;
   CallQualityMetrics? _callQualityMetrics;
   List<TranscriptItem> _transcript = [];
+  SocketConnectionMetrics? _connectionMetrics;
 
   String _localName = '';
   String _localNumber = '';
@@ -109,6 +111,10 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   CallQualityMetrics? get callQualityMetrics {
     return _callQualityMetrics;
+  }
+
+  SocketConnectionMetrics? get connectionMetrics {
+    return _connectionMetrics;
   }
 
   bool get muteState {
@@ -369,6 +375,9 @@ class TelnyxClientViewModel with ChangeNotifier {
         case CallState.dropped:
           logger.i('dropped - ${state.networkReason?.message}');
           break;
+        case CallState.renegotiation:
+          logger.i('Renegotiation');
+          break;
       }
     };
   }
@@ -417,6 +426,13 @@ class TelnyxClientViewModel with ChangeNotifier {
           notifyListeners();
         }
       }
+      ..onConnectionMetricsUpdate = (SocketConnectionMetrics metrics) {
+        logger.d(
+          'TxClientViewModel :: Connection metrics updated: ${metrics.quality}',
+        );
+        _connectionMetrics = metrics;
+        notifyListeners();
+      }
       ..onSocketMessageReceived = (TelnyxMessage message) async {
         logger.i(
           'TxClientViewModel :: observeResponses :: Socket :: ${message.message}',
@@ -435,7 +451,8 @@ class TelnyxClientViewModel with ChangeNotifier {
               logger.i(
                 'TxClientViewModel :: observeResponses : Registered :: $_registered',
               );
-              if (callState != CallStateStatus.connectingToCall) {
+              if (callState != CallStateStatus.connectingToCall &&
+                  callState != CallStateStatus.ongoingCall) {
                 callState = CallStateStatus.idle;
               }
               // Load supported codecs after successful registration
@@ -771,6 +788,12 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   void call(String destination) {
+    // Set BackgroundDetector to ignore lifecycle events during outbound calls
+    BackgroundDetector.ignore = true;
+
+    // Set call state to connectingToCall immediately to prevent multiple calls
+    callState = CallStateStatus.connectingToCall;
+
     _currentCall = _telnyxClient.newInvite(
       _localName,
       _localNumber,
@@ -810,9 +833,9 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeCurrentCall();
   }
 
-  void sendConversationMessage(String message) {
+  void sendConversationMessage(String message, {String? base64Image}) {
     try {
-      currentCall?.sendConversationMessage(message);
+      currentCall?.sendConversationMessage(message, base64Image: base64Image);
     } catch (e) {
       logger.e('Error sending conversation message: $e');
     }
@@ -895,7 +918,6 @@ class TelnyxClientViewModel with ChangeNotifier {
         _localNumber,
         'State',
         customHeaders: {},
-        preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
         debug: true,
         useTrickleIce: _useTrickleIce,
       );
@@ -1007,7 +1029,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   /// Loads the supported audio codecs from the WebRTC capabilities
   Future<void> loadSupportedCodecs() async {
     try {
-      _supportedCodecs = _telnyxClient.getSupportedAudioCodecs();
+      _supportedCodecs = await _telnyxClient.getSupportedAudioCodecs();
       logger.i(
         'TelnyxClientViewModel.loadSupportedCodecs: Loaded ${_supportedCodecs.length} supported codecs',
       );
@@ -1064,5 +1086,29 @@ class TelnyxClientViewModel with ChangeNotifier {
       'TelnyxClientViewModel.clearPreferredCodecs: Cleared all preferred codecs',
     );
     notifyListeners();
+  }
+
+  /// Forces ICE renegotiation for the current call
+  void forceIceRenegotiation() {
+    if (currentCall == null) {
+      logger.w('TelnyxClientViewModel.forceIceRenegotiation: No active call');
+      return;
+    }
+
+    try {
+      logger.i(
+          'TelnyxClientViewModel.forceIceRenegotiation: Starting renegotiation for call ${currentCall!.callId}');
+
+      // Access the peer through the call's peerConnection property and call the public method
+      // Use the call's session ID as the session ID for renegotiation
+      currentCall?.peerConnection?.startIceRenegotiation(currentCall!.callId!,
+          currentCall!.peerConnection?.currentSession?.sid ?? '');
+
+      logger.i(
+          'TelnyxClientViewModel.forceIceRenegotiation: Renegotiation initiated');
+    } catch (e) {
+      logger.e(
+          'TelnyxClientViewModel.forceIceRenegotiation: Error during renegotiation: $e');
+    }
   }
 }

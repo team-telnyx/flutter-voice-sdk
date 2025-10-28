@@ -125,6 +125,11 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Assistant Login':
         _showAssistantLoginDialog();
         break;
+      case 'Force ICE Renegotiation':
+        Provider
+            .of<TelnyxClientViewModel>(context, listen: false)
+            .forceIceRenegotiation();
+        break;
     }
   }
 
@@ -140,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-      (txClient) => txClient.callState,
+          (txClient) => txClient.callState,
     );
 
     final profileProvider = context.watch<ProfileProvider>();
@@ -150,26 +155,27 @@ class _HomeScreenState extends State<HomeScreen> {
     final useTrickleIce = clientViewModel.useTrickleIce;
 
     final errorMessage = context.select<TelnyxClientViewModel, String?>(
-      (viewModel) => viewModel.errorDialogMessage,
+          (viewModel) => viewModel.errorDialogMessage,
     );
 
     if (errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showDialog(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text("Error"),
-            content: Text(errorMessage),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  context.read<TelnyxClientViewModel>().clearErrorDialog();
-                  Navigator.of(context).pop();
-                },
-                child: const Text("OK"),
+          builder: (_) =>
+              AlertDialog(
+                title: const Text('Error'),
+                content: Text(errorMessage),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      context.read<TelnyxClientViewModel>().clearErrorDialog();
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
       });
     }
@@ -189,10 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Audio Codecs',
                   'Export Logs',
                   'Disable Push Notifications',
-                  trickleIceToggleText,
-                }.map((
-                  String choice,
-                ) {
+                  'Force ICE Renegotiation'
+                }.map((String choice,) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
@@ -200,23 +204,48 @@ class _HomeScreenState extends State<HomeScreen> {
                 }).toList();
               },
             )
-          else if (clientState == CallStateStatus.disconnected &&
-              selectedProfile != null)
-            PopupMenuButton<String>(
-              onSelected: handleOptionClick,
-              itemBuilder: (BuildContext context) {
-                final debugToggleText = selectedProfile.isDebug
-                    ? 'Disable Debugging'
-                    : 'Enable Debugging';
-                return {'Export Logs', debugToggleText, 'Assistant Login'}
-                    .map((String choice) {
-                  return PopupMenuItem<String>(
-                    value: choice,
-                    child: Text(choice),
-                  );
-                }).toList();
-              },
-            ),
+          else
+            if (clientState == CallStateStatus.disconnected &&
+                selectedProfile != null)
+              PopupMenuButton<String>(
+                onSelected: handleOptionClick,
+                itemBuilder: (BuildContext context) {
+                  final debugToggleText = selectedProfile.isDebug
+                      ? 'Disable Debugging'
+                      : 'Enable Debugging';
+                  return {
+                    'Export Logs',
+                    debugToggleText,
+                    'Assistant Login',
+                    'Force ICE Renegotiation'
+                  }
+                      .map((String choice) {
+                    return PopupMenuItem<String>(
+                      value: choice,
+                      child: Text(choice),
+                    );
+                  }).toList();
+                },
+              )
+            else
+              if (clientState == CallStateStatus.ongoingCall ||
+                  clientState == CallStateStatus.ringing ||
+                  clientState == CallStateStatus.ongoingInvitation ||
+                  clientState == CallStateStatus.connectingToCall)
+                PopupMenuButton<String>(
+                  onSelected: handleOptionClick,
+                  itemBuilder: (BuildContext context) {
+                    return {
+                      'Force ICE Renegotiation',
+                      'Export Logs',
+                    }.map((String choice) {
+                      return PopupMenuItem<String>(
+                        value: choice,
+                        child: Text(choice),
+                      );
+                    }).toList();
+                  },
+                ),
         ],
       ),
       body: SingleChildScrollView(
@@ -239,41 +268,42 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: clientState == CallStateStatus.idle
           ? Padding(
-              padding: const EdgeInsets.all(spacingXXL),
-              child: BottomConnectionActionWidget(
-                buttonTitle: 'Disconnect',
-                onPressed: () => {
-                  context.read<TelnyxClientViewModel>().disconnect(),
-                },
-              ),
-            )
+        padding: const EdgeInsets.all(spacingXXL),
+        child: BottomConnectionActionWidget(
+          buttonTitle: 'Disconnect',
+          onPressed: () =>
+          {
+            context.read<TelnyxClientViewModel>().disconnect(),
+          },
+        ),
+      )
           : clientState == CallStateStatus.disconnected
-              ? // Connect Bottom Action widget positioned at the bottom
-              Consumer<TelnyxClientViewModel>(
-                  builder: (context, viewModel, child) {
-                    final profileProvider = context.watch<ProfileProvider>();
-                    final selectedProfile = profileProvider.selectedProfile;
-                    return Padding(
-                      padding: const EdgeInsets.all(spacingXXL),
-                      child: BottomConnectionActionWidget(
-                        buttonTitle: 'Connect',
-                        isLoading: viewModel.loggingIn,
-                        onPressed: selectedProfile != null
-                            ? () async {
-                                final config =
-                                    await selectedProfile.toTelnyxConfig();
-                                if (config is TokenConfig) {
-                                  viewModel.loginWithToken(config);
-                                } else if (config is CredentialConfig) {
-                                  viewModel.login(config);
-                                }
-                              }
-                            : null,
-                      ),
-                    );
-                  },
-                )
-              : null,
+          ? // Connect Bottom Action widget positioned at the bottom
+      Consumer<TelnyxClientViewModel>(
+        builder: (context, viewModel, child) {
+          final profileProvider = context.watch<ProfileProvider>();
+          final selectedProfile = profileProvider.selectedProfile;
+          return Padding(
+            padding: const EdgeInsets.all(spacingXXL),
+            child: BottomConnectionActionWidget(
+              buttonTitle: 'Connect',
+              isLoading: viewModel.loggingIn,
+              onPressed: selectedProfile != null
+                  ? () async {
+                final config =
+                await selectedProfile.toTelnyxConfig();
+                if (config is TokenConfig) {
+                  viewModel.loginWithToken(config);
+                } else if (config is CredentialConfig) {
+                  viewModel.login(config);
+                }
+              }
+                  : null,
+            ),
+          );
+        },
+      )
+          : null,
     );
   }
 }

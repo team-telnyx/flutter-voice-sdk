@@ -11,30 +11,57 @@ class CodecSelectorDialog extends StatefulWidget {
 }
 
 class _CodecSelectorDialogState extends State<CodecSelectorDialog> {
-  late List<AudioCodec> _availableCodecs;
-  late List<AudioCodec> _selectedCodecs;
-  late Map<String, bool> _codecSelectionStatus;
+  List<AudioCodec> _availableCodecs = [];
+  List<AudioCodec> _selectedCodecs = [];
+  Map<String, bool> _codecSelectionStatus = {};
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    _loadCodecs();
+  }
+
+  Future<void> _loadCodecs() async {
     final viewModel = context.read<TelnyxClientViewModel>();
 
-    // Get available codecs from the view model
-    _availableCodecs = List.from(viewModel.supportedCodecs);
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
 
-    // Initialize selected codecs from current preferences
-    _selectedCodecs = List.from(viewModel.preferredCodecs);
+      // Load supported codecs from the SDK if not already loaded
+      if (viewModel.supportedCodecs.isEmpty) {
+        await viewModel.loadSupportedCodecs();
+      }
 
-    // Initialize selection status map
-    _codecSelectionStatus = {};
-    for (var codec in _availableCodecs) {
-      final codecKey = '${codec.mimeType}_${codec.clockRate}';
-      _codecSelectionStatus[codecKey] = _selectedCodecs.any(
-        (selected) =>
-            selected.mimeType == codec.mimeType &&
-            selected.clockRate == codec.clockRate,
-      );
+      // Get available codecs from the view model
+      _availableCodecs = List.from(viewModel.supportedCodecs);
+
+      // Initialize selected codecs from current preferences
+      _selectedCodecs = List.from(viewModel.preferredCodecs);
+
+      // Initialize selection status map
+      _codecSelectionStatus = {};
+      for (var codec in _availableCodecs) {
+        final codecKey = '${codec.mimeType}_${codec.clockRate}';
+        _codecSelectionStatus[codecKey] = _selectedCodecs.any(
+          (selected) =>
+              selected.mimeType == codec.mimeType &&
+              selected.clockRate == codec.clockRate,
+        );
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load codecs: $e';
+      });
     }
   }
 
@@ -46,25 +73,6 @@ class _CodecSelectorDialogState extends State<CodecSelectorDialog> {
     final channels =
         codec.channels != null && codec.channels! > 1 ? ' Stereo' : '';
     return '$baseName $rate$channels'.trim();
-  }
-
-  String _getCodecDescription(AudioCodec codec) {
-    switch (codec.mimeType) {
-      case 'audio/opus':
-        return 'High quality, low latency codec';
-      case 'audio/PCMU':
-        return 'G.711 μ-law - Standard fallback';
-      case 'audio/PCMA':
-        return 'G.711 A-law - Alternative fallback';
-      case 'audio/G722':
-        return 'Wideband codec for better quality';
-      case 'audio/ILBC':
-        return 'Good for poor network conditions';
-      case 'audio/telephone-event':
-        return 'DTMF tone support';
-      default:
-        return '';
-    }
   }
 
   void _toggleCodecSelection(AudioCodec codec) {
@@ -108,131 +116,180 @@ class _CodecSelectorDialogState extends State<CodecSelectorDialog> {
       content: SizedBox(
         width: double.maxFinite,
         height: 500,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select codecs and drag to reorder by preference',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: DefaultTabController(
-                length: 2,
+        child: _isLoading
+            ? Center(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    TabBar(
-                      labelColor: theme.primaryColor,
-                      unselectedLabelColor: theme.textTheme.bodyMedium?.color,
-                      tabs: const [
-                        Tab(text: 'Available'),
-                        Tab(text: 'Selected'),
-                      ],
-                    ),
-                    Expanded(
-                      child: TabBarView(
-                        children: [
-                          // Available codecs tab
-                          ListView.builder(
-                            itemCount: _availableCodecs.length,
-                            itemBuilder: (context, index) {
-                              final codec = _availableCodecs[index];
-                              final codecKey =
-                                  '${codec.mimeType}_${codec.clockRate}';
-                              final isSelected =
-                                  _codecSelectionStatus[codecKey] ?? false;
-
-                              return CheckboxListTile(
-                                title: Text(_getCodecDisplayName(codec)),
-                                subtitle: Text(_getCodecDescription(codec)),
-                                value: isSelected,
-                                onChanged: (bool? value) {
-                                  _toggleCodecSelection(codec);
-                                },
-                                secondary: Icon(
-                                  Icons.audiotrack,
-                                  color: isSelected
-                                      ? theme.primaryColor
-                                      : theme.disabledColor,
-                                ),
-                              );
-                            },
-                          ),
-                          // Selected codecs tab with reordering
-                          _selectedCodecs.isEmpty
-                              ? Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.queue_music_outlined,
-                                        size: 64,
-                                        color: theme.disabledColor,
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        'No codecs selected',
-                                        style: TextStyle(
-                                          color: theme.disabledColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        'Select codecs from the Available tab',
-                                        style: TextStyle(
-                                          color: theme.disabledColor,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : ReorderableListView.builder(
-                                  itemCount: _selectedCodecs.length,
-                                  onReorder: _onReorder,
-                                  itemBuilder: (context, index) {
-                                    final codec = _selectedCodecs[index];
-                                    return ListTile(
-                                      key: ValueKey(
-                                          '${codec.mimeType}_${codec.clockRate}'),
-                                      leading: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            '${index + 1}',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: theme.primaryColor,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      title: Text(_getCodecDisplayName(codec)),
-                                      subtitle:
-                                          Text(_getCodecDescription(codec)),
-                                      trailing: const Icon(Icons.drag_handle),
-                                    );
-                                  },
-                                ),
-                        ],
-                      ),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Loading supported codecs...',
+                      style: theme.textTheme.bodyMedium,
                     ),
                   ],
                 ),
-              ),
-            ),
-            if (_selectedCodecs.isNotEmpty) ...[
-              const Divider(),
-              Text(
-                'Priority: ${_selectedCodecs.map(_getCodecDisplayName).join(' → ')}',
-                style: theme.textTheme.bodySmall,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
-        ),
+              )
+            : _errorMessage != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: theme.colorScheme.error,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _errorMessage!,
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _loadCodecs,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Select codecs and drag to reorder by preference',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: DefaultTabController(
+                          length: 2,
+                          child: Column(
+                            children: [
+                              TabBar(
+                                labelColor: theme.primaryColor,
+                                unselectedLabelColor:
+                                    theme.textTheme.bodyMedium?.color,
+                                tabs: const [
+                                  Tab(text: 'Available'),
+                                  Tab(text: 'Selected'),
+                                ],
+                              ),
+                              Expanded(
+                                child: TabBarView(
+                                  children: [
+                                    // Available codecs tab
+                                    ListView.builder(
+                                      itemCount: _availableCodecs.length,
+                                      itemBuilder: (context, index) {
+                                        final codec = _availableCodecs[index];
+                                        final codecKey =
+                                            '${codec.mimeType}_${codec.clockRate}';
+                                        final isSelected =
+                                            _codecSelectionStatus[codecKey] ??
+                                                false;
+
+                                        return CheckboxListTile(
+                                          title:
+                                              Text(_getCodecDisplayName(codec)),
+                                          value: isSelected,
+                                          onChanged: (bool? value) {
+                                            _toggleCodecSelection(codec);
+                                          },
+                                          secondary: Icon(
+                                            Icons.audiotrack,
+                                            color: isSelected
+                                                ? theme.primaryColor
+                                                : theme.disabledColor,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    // Selected codecs tab with reordering
+                                    _selectedCodecs.isEmpty
+                                        ? Center(
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.queue_music_outlined,
+                                                  size: 64,
+                                                  color: theme.disabledColor,
+                                                ),
+                                                const SizedBox(height: 16),
+                                                Text(
+                                                  'No codecs selected',
+                                                  style: TextStyle(
+                                                    color: theme.disabledColor,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  'Select codecs from the Available tab',
+                                                  style: TextStyle(
+                                                    color: theme.disabledColor,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        : ReorderableListView.builder(
+                                            itemCount: _selectedCodecs.length,
+                                            onReorder: _onReorder,
+                                            itemBuilder: (context, index) {
+                                              final codec =
+                                                  _selectedCodecs[index];
+                                              return ListTile(
+                                                key: ValueKey(
+                                                  '${codec.mimeType}_${codec.clockRate}',
+                                                ),
+                                                leading: Column(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Text(
+                                                      '${index + 1}',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color:
+                                                            theme.primaryColor,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                title: Text(
+                                                  _getCodecDisplayName(codec),
+                                                ),
+                                                trailing: const Icon(
+                                                  Icons.drag_handle,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_selectedCodecs.isNotEmpty) ...[
+                        const Divider(),
+                        Text(
+                          'Priority: ${_selectedCodecs.map(_getCodecDisplayName).join(' → ')}',
+                          style: theme.textTheme.bodySmall,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
       ),
       actions: [
         TextButton(
