@@ -743,9 +743,12 @@ _telnyxClient.newInvite(
   'Your Name',
   'Your Number',
   '', // Destination is ignored, can be an empty string
-  'Your custom state'
+  'Your custom state', 
+  customHeaders: {'X-Account-Number': '123', 'X-User-Name': 'JohnDoe'}, // Optional custom headers to be mapped to dynamic variables
 );
 ```
+
+Note that you can also provide `customHeaders` in the `newInvite` method. These headers need to start with the `X-` prefix and will be mapped to [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables) in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`). Hyphens in header names are converted to underscores in variable names.
 
 The call will be automatically answered by the AI Assistant. From this point on, the call flow is handled in the same way as any other answered call, allowing you to use standard call control methods like `endCall`, `mute`, etc.
 
