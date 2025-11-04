@@ -20,9 +20,10 @@ Call newInvite(
 
 ## Important Behavior
 
-- **Destination Ignored**: Because the session is locked to the AI Assistant, the `destinationNumber` parameter is ignored
+- **Destination Ignored**: Because the session is locked to the AI Assistant, the `destinationNumber` parameter is ignored, but can still be useful for referencing logs. 
 - **Automatic Answer**: The AI assistant automatically answers the call
 - **Standard Controls**: All normal call controls (mute, hold, end, etc.) work as expected
+- **Custom Headers**: You can pass custom SIP headers to provide context to the AI assistant. They will be mapped to [dynamic variables](https://developers.telnyx.com/docs/inference/ai-assistants/dynamic-variables) in the portal. Hyphens in header names are converted to underscores in variable names, e.g. `X-Session-Context` header maps to `{{session_context}}` variable.
 
 ## Basic Example
 
@@ -33,7 +34,7 @@ Call aiCall = _telnyxClient.newInvite(
   'Your Name',
   'Your Number', 
   '', // Destination is ignored, can be an empty string
-  'Your custom state'
+  'Your custom state',
 );
 
 // The call will be automatically answered by the AI Assistant
@@ -55,6 +56,8 @@ Call aiCall = _telnyxClient.newInvite(
   }
 );
 ```
+
+Note: The above headers will map to dynamic variables `{{session_context}}` and `{{user_tier}}` in the AI assistant portal settings
 
 ### With Preferred Audio Codecs
 

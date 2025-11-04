@@ -1319,6 +1319,11 @@ class TelnyxClient {
   /// - [clientState]: A custom string that can be used to store and retrieve state
   ///   between applications. It is passed to the remote party.
   /// - [customHeaders]: Optional custom SIP headers to add to the INVITE message.
+  ///
+  ///     Note that if you are calling a Telnyx AI Assistant,  Headers with the `X-` prefix
+  ///     will be mapped to dynamic variables in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`).
+  ///     Note: Hyphens in header names are converted to underscores in variable names.
+  ///
   /// - [preferredCodecs]: Optional list of preferred audio codecs in order of preference.
   ///   If any codec in the list is not supported by the platform or remote party,
   ///   the system will automatically fall back to a supported codec.
