@@ -473,14 +473,41 @@ class Call {
   }
 
   /// AI Assistant Conversation Method.
-  /// Sends a conversation message to an assistant agent.
+  /// Sends a conversation message to an assistant agent with optional image attachments.
   /// 
   /// @param message The text message to send
-  /// @param base64Image Optional base64 encoded image to include with the message
+  /// @param base64Images Optional list of base64 encoded images to attach to the message.
+  ///                     Can be null (no images), a single image, or multiple images.
+  /// @param base64Image [DEPRECATED] Optional single base64 encoded image. Use base64Images instead.
+  ///                    This parameter is kept for backward compatibility.
   ///
-  /// Note: In order to provide an image to your assistant, you need to make sure that you are using a vision-capable model.
-  /// The base64Image should be a base64 encoded string of the image data.
-  void sendConversationMessage(String message, {String? base64Image}) {
+  /// Note: In order to provide images to your assistant, you need to make sure that you are using a vision-capable model.
+  /// The base64 images should be base64 encoded strings of the image data.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // Send text only
+  /// call.sendConversationMessage("Hello");
+  /// 
+  /// // Send text with single image
+  /// call.sendConversationMessage("What's in this image?", base64Images: ["data:image/jpeg;base64,..."]);
+  /// 
+  /// // Send text with multiple images
+  /// call.sendConversationMessage("Compare these images", base64Images: [
+  ///   "data:image/jpeg;base64,...",
+  ///   "data:image/png;base64,...",
+  ///   "data:image/jpeg;base64,..."
+  /// ]);
+  /// 
+  /// // Backward compatibility - single image (deprecated)
+  /// call.sendConversationMessage("What's in this image?", base64Image: "data:image/jpeg;base64,...");
+  /// ```
+  void sendConversationMessage(
+    String message, {
+    List<String>? base64Images,
+    @Deprecated('Use base64Images parameter instead for better support of multiple images')
+    String? base64Image,
+  }) {
     final uuid = const Uuid().v4();
     final messageId = const Uuid().v4();
 
@@ -490,19 +517,32 @@ class Call {
       content.add(ConversationContentData(type: 'input_text', text: message));
     }
 
-    // Add image content if base64Image is provided
-    if (base64Image != null && base64Image.isNotEmpty) {
-      // Ensure the base64 string has the proper data URL format
-      String imageDataUrl = base64Image;
-      if (!base64Image.startsWith('data:image/')) {
-        // Default to JPEG if no format is specified
-        imageDataUrl = 'data:image/jpeg;base64,$base64Image';
-      }
+    // Handle images - prioritize base64Images over deprecated base64Image
+    List<String>? imagesToProcess;
+    if (base64Images != null && base64Images.isNotEmpty) {
+      imagesToProcess = base64Images;
+    } else if (base64Image != null && base64Image.isNotEmpty) {
+      // Backward compatibility: convert single image to list
+      imagesToProcess = [base64Image];
+    }
 
-      content.add(ConversationContentData(
-        type: 'image_url',
-        imageUrl: ConversationImageUrl(url: imageDataUrl),
-      ));
+    // Add image content for each provided image
+    if (imagesToProcess != null) {
+      for (String imageData in imagesToProcess) {
+        if (imageData.isNotEmpty) {
+          // Ensure the base64 string has the proper data URL format
+          String imageDataUrl = imageData;
+          if (!imageData.startsWith('data:image/')) {
+            // Default to JPEG if no format is specified
+            imageDataUrl = 'data:image/jpeg;base64,$imageData';
+          }
+
+          content.add(ConversationContentData(
+            type: 'image_url',
+            imageUrl: ConversationImageUrl(url: imageDataUrl),
+          ));
+        }
+      }
     }
 
     final conversationItem = ConversationItemData(
