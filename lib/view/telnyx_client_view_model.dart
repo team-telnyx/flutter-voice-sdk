@@ -821,9 +821,18 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeCurrentCall();
   }
 
-  void sendConversationMessage(String message, {String? base64Image}) {
+  void sendConversationMessage(
+    String message, {
+    List<String>? base64Images,
+    @Deprecated('Use base64Images parameter instead for better support of multiple images')
+    String? base64Image,
+  }) {
     try {
-      currentCall?.sendConversationMessage(message, base64Image: base64Image);
+      currentCall?.sendConversationMessage(
+        message,
+        base64Images: base64Images,
+        base64Image: base64Image,
+      );
     } catch (e) {
       logger.e('Error sending conversation message: $e');
     }
