@@ -12,9 +12,8 @@ class ModifyMessage {
     id = json['id'];
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params = json['params'] != null
-        ? ModifyParams.fromJson(json['params'])
-        : null;
+    params =
+        json['params'] != null ? ModifyParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -36,7 +35,8 @@ class ModifyParams {
   String? sdp;
   String? callID;
 
-  ModifyParams({this.action, this.dialogParams, this.sessid, this.sdp, this.callID});
+  ModifyParams(
+      {this.action, this.dialogParams, this.sessid, this.sdp, this.callID});
 
   ModifyParams.fromJson(Map<String, dynamic> json) {
     action = json['action'];

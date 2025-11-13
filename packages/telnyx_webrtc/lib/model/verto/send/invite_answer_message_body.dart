@@ -10,9 +10,8 @@ class InviteAnswerMessage {
     id = json['id'].toString();
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params = json['params'] != null
-        ? InviteParams.fromJson(json['params'])
-        : null;
+    params =
+        json['params'] != null ? InviteParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
