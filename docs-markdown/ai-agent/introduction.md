@@ -39,13 +39,11 @@ import 'package:flutter_telnyx_voice_ai_widget/flutter_telnyx_voice_ai_widget.da
 TelnyxVoiceAiWidget(
   height: 60,
   width: 300,
-  apiKey: 'your-api-key',
   assistantId: 'your-assistant-id',
 )
 
 // Icon-only mode
 TelnyxVoiceAiWidget.iconOnly(
-  apiKey: 'your-api-key',
   assistantId: 'your-assistant-id',
 )
 ```
