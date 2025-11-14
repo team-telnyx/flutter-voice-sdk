@@ -41,6 +41,7 @@ void main() {
       expect(config.ringTonePath, isNull);
       expect(config.ringbackPath, isNull);
       expect(config.reconnectionTimeout, isNull);
+      expect(config.pushAnswerTimeout, isNull);
     });
 
     test('should create Config with all optional parameters', () {
@@ -56,6 +57,7 @@ void main() {
         ringTonePath: '/path/to/ringtone.mp3',
         ringbackPath: '/path/to/ringback.mp3',
         reconnectionTimeout: 30,
+        pushAnswerTimeout: 5000,
         region: Region.auto,
         fallbackOnRegionFailure: false,
         forceRelayCandidate: true,
@@ -71,6 +73,7 @@ void main() {
       expect(config.ringTonePath, equals('/path/to/ringtone.mp3'));
       expect(config.ringbackPath, equals('/path/to/ringback.mp3'));
       expect(config.reconnectionTimeout, equals(30));
+      expect(config.pushAnswerTimeout, equals(5000));
       expect(config.region, equals(Region.auto));
       expect(config.fallbackOnRegionFailure, isFalse);
       expect(config.forceRelayCandidate, isTrue);
@@ -190,6 +193,7 @@ void main() {
         ringTonePath: '/ringtone.wav',
         ringbackPath: '/ringback.wav',
         reconnectionTimeout: 45,
+        pushAnswerTimeout: 15000,
         region: Region.eu,
         fallbackOnRegionFailure: true,
         forceRelayCandidate: false,
@@ -206,6 +210,7 @@ void main() {
       expect(config.ringTonePath, equals('/ringtone.wav'));
       expect(config.ringbackPath, equals('/ringback.wav'));
       expect(config.reconnectionTimeout, equals(45));
+      expect(config.pushAnswerTimeout, equals(15000));
       expect(config.region, equals(Region.eu));
       expect(config.fallbackOnRegionFailure, isTrue);
       expect(config.forceRelayCandidate, isFalse);
@@ -246,6 +251,7 @@ void main() {
         ringTonePath: '/custom_ringtone.mp3',
         ringbackPath: '/custom_ringback.mp3',
         reconnectionTimeout: 60,
+        pushAnswerTimeout: 20000,
         region: Region.apac,
         fallbackOnRegionFailure: false,
         forceRelayCandidate: true,
@@ -263,6 +269,7 @@ void main() {
       expect(config.ringTonePath, equals('/custom_ringtone.mp3'));
       expect(config.ringbackPath, equals('/custom_ringback.mp3'));
       expect(config.reconnectionTimeout, equals(60));
+      expect(config.pushAnswerTimeout, equals(20000));
       expect(config.region, equals(Region.apac));
       expect(config.fallbackOnRegionFailure, isFalse);
       expect(config.forceRelayCandidate, isTrue);

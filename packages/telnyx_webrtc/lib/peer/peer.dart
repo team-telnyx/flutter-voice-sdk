@@ -566,7 +566,8 @@ class Peer {
             Future.delayed(const Duration(milliseconds: 100), () {
               if (currentCall?.isReconnection == true) {
                 // This is a reconnection - restore previous speakerphone state
-                final bool shouldEnableSpeaker = currentCall?.speakerPhone ?? false;
+                final bool shouldEnableSpeaker =
+                    currentCall?.speakerPhone ?? false;
                 currentCall?.enableSpeakerPhone(shouldEnableSpeaker);
                 GlobalLogger().i(
                   'Peer :: Restored speakerphone state for Android reconnection: $shouldEnableSpeaker',

@@ -112,7 +112,8 @@ void main() {
           throwsStateError,
         );
         expect(
-          () => CallState.renegotiation.withNetworkReason(NetworkReason.networkSwitch),
+          () => CallState.renegotiation
+              .withNetworkReason(NetworkReason.networkSwitch),
           throwsStateError,
         );
         expect(

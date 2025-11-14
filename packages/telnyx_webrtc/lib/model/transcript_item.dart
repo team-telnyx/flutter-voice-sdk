@@ -98,5 +98,6 @@ class TranscriptItem {
   }
 
   @override
-  int get hashCode => Object.hash(id, role, content, imageUrls, timestamp, isPartial);
+  int get hashCode =>
+      Object.hash(id, role, content, imageUrls, timestamp, isPartial);
 }

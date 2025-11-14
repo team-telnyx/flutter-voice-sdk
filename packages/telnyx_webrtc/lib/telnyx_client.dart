@@ -58,7 +58,8 @@ typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
 typedef OnConnectionStateChanged = void Function(ConnectionStatus status);
 
 /// Callback for when connection metrics are updated
-typedef OnConnectionMetricsUpdate = void Function(SocketConnectionMetrics metrics);
+typedef OnConnectionMetricsUpdate = void Function(
+    SocketConnectionMetrics metrics);
 
 /// Represents the main entry point for interacting with the Telnyx RTC SDK.
 ///
@@ -163,8 +164,18 @@ class TelnyxClient {
   /// Timer for handling push notification answer timeout
   Timer? _pendingAnswerTimeout;
 
-  /// Timeout duration for pending answer from push (10 seconds)
-  static const Duration _pushAnswerTimeoutDuration = Duration(seconds: 10);
+  /// Override value for push answer timeout (used when set via handlePushNotification)
+  int? _pushAnswerTimeoutOverride;
+
+  /// Gets the timeout duration for pending answer from push notification
+  /// Precedence: handlePushNotification override → Config value → Default (10 seconds)
+  Duration get _pushAnswerTimeoutDuration {
+    final timeoutMs = _pushAnswerTimeoutOverride ??
+        _storedCredentialConfig?.pushAnswerTimeout ??
+        _storedTokenConfig?.pushAnswerTimeout ??
+        Constants.pushAnswerTimeout;
+    return Duration(milliseconds: timeoutMs);
+  }
 
   /// Controls whether the client should automatically attempt to reconnect
   /// when the socket connection fails or network connectivity is restored.
@@ -549,6 +560,7 @@ class TelnyxClient {
     if (_pendingAnswerTimeout != null) {
       _pendingAnswerTimeout?.cancel();
       _pendingAnswerTimeout = null;
+      _pushAnswerTimeoutOverride = null; // Clear the override
       GlobalLogger().i('Cancelled pending answer timeout');
     }
   }
@@ -559,8 +571,9 @@ class TelnyxClient {
       'Pending answer timeout expired - no INVITE received within ${_pushAnswerTimeoutDuration.inSeconds} seconds',
     );
 
-    // Reset the pending answer flag
+    // Reset the pending answer flag and clear the timeout override
     _pendingAnswerFromPush = false;
+    _pushAnswerTimeoutOverride = null;
 
     // Create termination reason for originator cancel
     final terminationReason = CallTerminationReason(
@@ -626,11 +639,15 @@ class TelnyxClient {
   /// - [pushMetaData]: The metadata received from the push notification.
   /// - [credentialConfig]: The credential configuration for login (if using credentials).
   /// - [tokenConfig]: The token configuration for login (if using a token).
+  /// - [pushAnswerTimeoutMs]: Optional timeout in milliseconds to wait for INVITE after accepting.
+  ///   If not provided, uses the timeout from config or defaults to 10000ms.
+  ///   This allows for granular per-call control over the timeout.
   void handlePushNotification(
     PushMetaData pushMetaData,
     CredentialConfig? credentialConfig,
-    TokenConfig? tokenConfig,
-  ) {
+    TokenConfig? tokenConfig, {
+    int? pushAnswerTimeoutMs,
+  }) {
     GlobalLogger().i(
       'TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}',
     );
@@ -657,6 +674,8 @@ class TelnyxClient {
         'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true',
       );
       _pendingAnswerFromPush = true;
+      // Store the timeout override if provided
+      _pushAnswerTimeoutOverride = pushAnswerTimeoutMs;
       // Start the timeout timer for pending answer
       _startPendingAnswerTimeout();
     } else {
@@ -1915,13 +1934,16 @@ class TelnyxClient {
 
                   // Preserve speakerphone state from existing call before reconnection
                   final existingCall = calls[invite.inviteParams?.callID];
-                  final bool wasSpeakerPhoneEnabled = existingCall?.speakerPhone ?? false;
-                  GlobalLogger().i('ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled');
+                  final bool wasSpeakerPhoneEnabled =
+                      existingCall?.speakerPhone ?? false;
+                  GlobalLogger().i(
+                      'ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled');
 
                   //play ringtone for web
                   final Call offerCall = _createCall()
                     ..callId = invite.inviteParams?.callID
-                    ..speakerPhone = wasSpeakerPhoneEnabled; // Preserve the state
+                    ..speakerPhone =
+                        wasSpeakerPhoneEnabled; // Preserve the state
                   updateCall(offerCall);
 
                   onSocketMessageReceived.call(message);

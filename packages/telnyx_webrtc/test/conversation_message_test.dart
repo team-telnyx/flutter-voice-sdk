@@ -17,7 +17,8 @@ void main() {
       expect(json.containsKey('image_url'), isFalse);
     });
 
-    test('ConversationContentData should serialize image content correctly', () {
+    test('ConversationContentData should serialize image content correctly',
+        () {
       final imageUrl = ConversationImageUrl(
         url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD',
       );
@@ -30,10 +31,12 @@ void main() {
       expect(json['type'], equals('image_url'));
       expect(json.containsKey('text'), isFalse);
       expect(json['image_url'], isNotNull);
-      expect(json['image_url']['url'], equals('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD'));
+      expect(json['image_url']['url'],
+          equals('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD'));
     });
 
-    test('ConversationContentData should deserialize text content correctly', () {
+    test('ConversationContentData should deserialize text content correctly',
+        () {
       final json = {
         'type': 'input_text',
         'text': 'Hello, world!',
@@ -45,7 +48,8 @@ void main() {
       expect(content.imageUrl, isNull);
     });
 
-    test('ConversationContentData should deserialize image content correctly', () {
+    test('ConversationContentData should deserialize image content correctly',
+        () {
       final json = {
         'type': 'image_url',
         'image_url': {
@@ -57,10 +61,13 @@ void main() {
       expect(content.type, equals('image_url'));
       expect(content.text, isNull);
       expect(content.imageUrl, isNotNull);
-      expect(content.imageUrl!.url, equals('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD'));
+      expect(content.imageUrl!.url,
+          equals('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD'));
     });
 
-    test('ConversationMessage should serialize complete message with text and image', () {
+    test(
+        'ConversationMessage should serialize complete message with text and image',
+        () {
       final textContent = ConversationContentData(
         type: 'input_text',
         text: 'What is in this image?',
@@ -98,17 +105,22 @@ void main() {
       expect(json['method'], equals('ai_conversation'));
       expect(json['params']['type'], equals('conversation.item.create'));
       expect(json['params']['item']['content'], hasLength(2));
-      expect(json['params']['item']['content'][0]['type'], equals('input_text'));
+      expect(
+          json['params']['item']['content'][0]['type'], equals('input_text'));
       expect(json['params']['item']['content'][1]['type'], equals('image_url'));
     });
 
     test('ConversationImageUrl should serialize and deserialize correctly', () {
       final imageUrl = ConversationImageUrl(
-        url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+        url:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
       );
 
       final json = imageUrl.toJson();
-      expect(json['url'], equals('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='));
+      expect(
+          json['url'],
+          equals(
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='));
 
       final deserialized = ConversationImageUrl.fromJson(json);
       expect(deserialized.url, equals(imageUrl.url));
@@ -140,7 +152,8 @@ void main() {
       expect(content.type, equals('image_url'));
       expect(content.text, isNull);
       expect(content.imageUrl, isNotNull);
-      expect(content.imageUrl!.url, equals('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD'));
+      expect(content.imageUrl!.url,
+          equals('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD'));
     });
 
     test('ConversationContent should serialize image content correctly', () {
@@ -155,16 +168,23 @@ void main() {
       expect(json['type'], equals('image_url'));
       expect(json.containsKey('text'), isFalse);
       expect(json['image_url'], isNotNull);
-      expect(json['image_url']['url'], equals('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD'));
+      expect(json['image_url']['url'],
+          equals('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD'));
     });
 
-    test('ConversationImageUrlReceive should serialize and deserialize correctly', () {
+    test(
+        'ConversationImageUrlReceive should serialize and deserialize correctly',
+        () {
       final imageUrl = ConversationImageUrlReceive(
-        url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+        url:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
       );
 
       final json = imageUrl.toJson();
-      expect(json['url'], equals('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='));
+      expect(
+          json['url'],
+          equals(
+              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=='));
 
       final deserialized = ConversationImageUrlReceive.fromJson(json);
       expect(deserialized.url, equals(imageUrl.url));

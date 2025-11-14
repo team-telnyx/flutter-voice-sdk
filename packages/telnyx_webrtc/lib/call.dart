@@ -296,18 +296,18 @@ class Call {
     final (causeCode, causeName) = switch (callState) {
       // When Active or Connecting, use NORMAL_CLEARING
       CallState.active => (
-        CauseCode.NORMAL_CLEARING.value,
-        CauseCode.NORMAL_CLEARING.name,
-      ),
+          CauseCode.NORMAL_CLEARING.value,
+          CauseCode.NORMAL_CLEARING.name,
+        ),
       CallState.connecting => (
-        CauseCode.NORMAL_CLEARING.value,
-        CauseCode.NORMAL_CLEARING.name,
-      ),
+          CauseCode.NORMAL_CLEARING.value,
+          CauseCode.NORMAL_CLEARING.name,
+        ),
       // When Ringing (i.e. Rejecting an incoming call), use USER_BUSY
       CallState.ringing => (
-        CauseCode.USER_BUSY.value,
-        CauseCode.USER_BUSY.name,
-      ),
+          CauseCode.USER_BUSY.value,
+          CauseCode.USER_BUSY.name,
+        ),
       // Default to NORMAL_CLEARING for other states
       _ => (CauseCode.NORMAL_CLEARING.value, CauseCode.NORMAL_CLEARING.name),
     };
@@ -474,7 +474,7 @@ class Call {
 
   /// AI Assistant Conversation Method.
   /// Sends a conversation message to an assistant agent with optional image attachments.
-  /// 
+  ///
   /// @param message The text message to send
   /// @param base64Images Optional list of base64 encoded images to attach to the message.
   ///                     Can be null (no images), a single image, or multiple images.
@@ -488,24 +488,25 @@ class Call {
   /// ```dart
   /// // Send text only
   /// call.sendConversationMessage("Hello");
-  /// 
+  ///
   /// // Send text with single image
   /// call.sendConversationMessage("What's in this image?", base64Images: ["data:image/jpeg;base64,..."]);
-  /// 
+  ///
   /// // Send text with multiple images
   /// call.sendConversationMessage("Compare these images", base64Images: [
   ///   "data:image/jpeg;base64,...",
   ///   "data:image/png;base64,...",
   ///   "data:image/jpeg;base64,..."
   /// ]);
-  /// 
+  ///
   /// // Backward compatibility - single image (deprecated)
   /// call.sendConversationMessage("What's in this image?", base64Image: "data:image/jpeg;base64,...");
   /// ```
   void sendConversationMessage(
     String message, {
     List<String>? base64Images,
-    @Deprecated('Use base64Images parameter instead for better support of multiple images')
+    @Deprecated(
+        'Use base64Images parameter instead for better support of multiple images')
     String? base64Image,
   }) {
     final uuid = const Uuid().v4();

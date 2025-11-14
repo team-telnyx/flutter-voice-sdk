@@ -1,5 +1,3 @@
-
-
 /// A response to an updateMedia modify request containing the new remote SDP for ICE renegotiation
 ///
 /// [action] the action type, should be "updateMedia"

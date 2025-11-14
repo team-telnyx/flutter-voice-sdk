@@ -55,7 +55,8 @@ void main() {
         'sdp': 'v=0\r\no=- 444555666 444555666 IN IP4 172.16.0.1\r\n',
       };
 
-      expect(() => UpdateMediaResponse.fromJson(responseData), throwsA(isA<TypeError>()));
+      expect(() => UpdateMediaResponse.fromJson(responseData),
+          throwsA(isA<TypeError>()));
     });
 
     test('should handle missing callID in response', () {
@@ -64,7 +65,8 @@ void main() {
         'sdp': 'v=0\r\no=- 777888999 777888999 IN IP4 203.0.113.1\r\n',
       };
 
-      expect(() => UpdateMediaResponse.fromJson(responseData), throwsA(isA<TypeError>()));
+      expect(() => UpdateMediaResponse.fromJson(responseData),
+          throwsA(isA<TypeError>()));
     });
 
     test('should handle missing SDP in response', () {
@@ -73,7 +75,8 @@ void main() {
         'callID': 'test-call-id-101112',
       };
 
-      expect(() => UpdateMediaResponse.fromJson(responseData), throwsA(isA<TypeError>()));
+      expect(() => UpdateMediaResponse.fromJson(responseData),
+          throwsA(isA<TypeError>()));
     });
 
     test('should handle different action types', () {
@@ -118,7 +121,8 @@ void main() {
     test('should handle empty result map', () {
       final responseData = <String, dynamic>{};
 
-      expect(() => UpdateMediaResponse.fromJson(responseData), throwsA(isA<TypeError>()));
+      expect(() => UpdateMediaResponse.fromJson(responseData),
+          throwsA(isA<TypeError>()));
     });
   });
 }

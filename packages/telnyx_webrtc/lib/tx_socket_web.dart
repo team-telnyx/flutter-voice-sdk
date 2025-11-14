@@ -50,7 +50,7 @@ class TxSocket {
   void connect() async {
     try {
       _socket = WebSocket(hostAddress);
-      
+
       _socket.onOpen.listen((e) {
         // Initialize connection tracking
         _cleanPingIntervals();
@@ -102,9 +102,9 @@ class TxSocket {
       try {
         // Check for ping/pong patterns in the message
         return data.contains('"method":"telnyx_rtc.ping"') ||
-               data.contains('"method":"telnyx_rtc.pong"') ||
-               data.contains('ping') ||
-               data.contains('pong');
+            data.contains('"method":"telnyx_rtc.pong"') ||
+            data.contains('ping') ||
+            data.contains('pong');
       } catch (e) {
         return false;
       }
@@ -171,9 +171,11 @@ class TxSocket {
       );
     }
 
-    final currentInterval = _pingIntervals.isNotEmpty ? _pingIntervals.last : null;
+    final currentInterval =
+        _pingIntervals.isNotEmpty ? _pingIntervals.last : null;
     final averageInterval = _pingIntervals.isNotEmpty
-        ? (_pingIntervals.reduce((a, b) => a + b) / _pingIntervals.length).round()
+        ? (_pingIntervals.reduce((a, b) => a + b) / _pingIntervals.length)
+            .round()
         : null;
     final minInterval = _pingIntervals.isNotEmpty
         ? _pingIntervals.reduce((a, b) => a < b ? a : b)
@@ -186,13 +188,15 @@ class TxSocket {
     int? jitter;
     if (_pingIntervals.length > 1 && averageInterval != null) {
       final variance = _pingIntervals
-          .map((interval) => pow(interval - averageInterval, 2))
-          .reduce((a, b) => a + b) / _pingIntervals.length;
+              .map((interval) => pow(interval - averageInterval, 2))
+              .reduce((a, b) => a + b) /
+          _pingIntervals.length;
       jitter = sqrt(variance).round();
     }
 
     // Calculate quality based on metrics
-    final quality = SocketConnectionMetrics.calculateQuality(averageInterval, jitter);
+    final quality =
+        SocketConnectionMetrics.calculateQuality(averageInterval, jitter);
 
     return SocketConnectionMetrics(
       intervalMs: currentInterval,

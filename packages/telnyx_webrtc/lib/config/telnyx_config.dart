@@ -16,6 +16,7 @@ class Config {
     this.ringTonePath,
     this.ringbackPath,
     this.reconnectionTimeout,
+    this.pushAnswerTimeout,
     this.region = Region.auto,
     this.fallbackOnRegionFailure = true,
     this.forceRelayCandidate = false,
@@ -52,6 +53,11 @@ class Config {
   // This is the maximum time allowed for a call to be in the RECONNECTING or DROPPED state
   int? reconnectionTimeout = 60000;
 
+  /// pushAnswerTimeout in milliseconds (Default 10 seconds)
+  /// This is the maximum time to wait for an INVITE after accepting from push notification
+  /// Can be overridden per call via handlePushNotification's pushAnswerTimeoutMs parameter
+  int? pushAnswerTimeout = 10000;
+
   /// The region to use for the connection (Auto by default)
   final Region region;
 
@@ -79,6 +85,7 @@ class Config {
 /// [ringTonePath] is the path to the ringtone file (audio to play when receiving a call)
 /// [ringbackPath] is the path to the ringback file (audio to play when calling)
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
+/// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
 class CredentialConfig extends Config {
   /// Creates an instance of CredentialConfig which can be used to log in
@@ -93,6 +100,7 @@ class CredentialConfig extends Config {
   /// [ringTonePath] is the path to the ringtone file (audio to play when receiving a call)
   /// [ringbackPath] is the path to the ringback file (audio to play when calling)
   /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
+  /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
   CredentialConfig({
     required this.sipUser,
     required this.sipPassword,
@@ -106,6 +114,7 @@ class CredentialConfig extends Config {
     super.ringbackPath,
     super.customLogger,
     super.reconnectionTimeout,
+    super.pushAnswerTimeout,
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
@@ -130,6 +139,7 @@ class CredentialConfig extends Config {
 /// [ringTonePath] is the path to the ringtone file (audio to play when receiving a call)
 /// [ringbackPath] is the path to the ringback file (audio to play when calling)
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
+/// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
 class TokenConfig extends Config {
   /// Creates an instance of TokenConfig which can be used to log in
@@ -144,6 +154,7 @@ class TokenConfig extends Config {
   /// [ringTonePath] is the path to the ringtone file (audio to play when receiving a call)
   /// [ringbackPath] is the path to the ringback file (audio to play when calling)
   /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
+  /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
   TokenConfig({
     required this.sipToken,
     required super.sipCallerIDName,
@@ -156,6 +167,7 @@ class TokenConfig extends Config {
     super.ringbackPath,
     super.customLogger,
     super.reconnectionTimeout,
+    super.pushAnswerTimeout,
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
