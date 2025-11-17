@@ -48,7 +48,8 @@ void main() {
         AudioCodec(mimeType: 'audio/PCMA', clockRate: 8000, channels: 1),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
 
       // Check m=audio line contains PCMU (0), PCMA (8), RED (63), and telephone-event (110 & 126)
       // RED and telephone-event are automatically preserved
@@ -89,7 +90,8 @@ void main() {
         AudioCodec(mimeType: 'audio/opus', clockRate: 48000, channels: 2),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
 
       // Check m=audio line contains opus (111), RED (63), and telephone-event (110 & 126)
       final mAudioLine =
@@ -121,7 +123,8 @@ void main() {
         AudioCodec(mimeType: 'audio/G722', clockRate: 8000, channels: 1),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
 
       // Check m=audio line contains G722 (9), RED (63), and telephone-event
       final mAudioLine =
@@ -144,7 +147,8 @@ void main() {
     test('returns original SDP when no preferred codecs provided', () {
       final preferredCodecs = <AudioCodec>[];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
 
       // Should return original SDP unchanged
       expect(filteredSdp, equals(sampleSdp));
@@ -155,7 +159,8 @@ void main() {
         AudioCodec(mimeType: 'audio/PCMU', clockRate: 8000, channels: 1),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
 
       // Check non-codec attributes are preserved
       expect(filteredSdp, contains('v=0'));
@@ -183,7 +188,8 @@ void main() {
         AudioCodec(mimeType: 'audio/PCMU', clockRate: 8000, channels: 1),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sdpNoAudio, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sdpNoAudio, preferredCodecs);
 
       // Should return original SDP when no m=audio line found
       expect(filteredSdp, equals(sdpNoAudio));
@@ -200,7 +206,8 @@ void main() {
         AudioCodec(mimeType: 'audio/PCMU', clockRate: 8000, channels: 1),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(malformedSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(malformedSdp, preferredCodecs);
 
       // Should return original SDP on error
       expect(filteredSdp, equals(malformedSdp));
@@ -211,7 +218,8 @@ void main() {
         AudioCodec(mimeType: 'audio/ISAC', clockRate: 16000, channels: 1),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
 
       // When no matching codec is found, the implementation still filters out
       // all non-essential codecs, keeping only RED and telephone-event
@@ -238,7 +246,8 @@ void main() {
         AudioCodec(mimeType: 'audio/PCMA', clockRate: 8000, channels: 1),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
 
       // Check all preferred codecs are in the m=audio line
       final mAudioLine = filteredSdp
@@ -267,7 +276,8 @@ void main() {
         AudioCodec(mimeType: 'audio/Opus', clockRate: 48000, channels: 2),
       ];
 
-      final filteredSdp = CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
+      final filteredSdp =
+          CodecUtils.filterSdpCodecs(sampleSdp, preferredCodecs);
 
       // Should match regardless of case
       expect(filteredSdp, contains('a=rtpmap:0 PCMU/8000'));
@@ -505,7 +515,8 @@ void main() {
       final audioCodecs = codecMaps.map((m) => AudioCodec.fromJson(m)).toList();
 
       // Step 2: Filter SDP
-      const sampleSdp = 'm=audio 9 UDP/TLS/RTP/SAVPF 111 63 9 0 8 13 110 126\r\n'
+      const sampleSdp =
+          'm=audio 9 UDP/TLS/RTP/SAVPF 111 63 9 0 8 13 110 126\r\n'
           'a=rtpmap:111 opus/48000/2\r\n'
           'a=rtpmap:63 red/48000/2\r\n'
           'a=rtpmap:9 G722/8000\r\n'
