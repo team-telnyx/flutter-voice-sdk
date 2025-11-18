@@ -1,3 +1,13 @@
+## [3.2.0](https://pub.dev/packages/telnyx_webrtc/versions/3.2.0) (2025-11-18)
+### Enhancement
+- AI Agent Conversation Message Enhancements
+  - Added support for sending multiple Base64 encoded images via the `sendConversationMessage()` method on the Call object. This allows users to send images to the AI agent for analysis or context during conversations.
+- Added configurable push notification timeout parameter on the  `Config ` class. This allows users to specify how long the SDK should wait for a push notification to be accepted before timing out. The default value is 10 seconds.
+  - Additionally, the timeout can be configured per call via the  `pushAnswerTimeoutMs ` parameter on the  `handlePushNotification() ` method. This will override the global timeout set in the Config class for that specific call.
+
+### Bug Fixing
+- Fixed an issue where speakerphone state was not persisted after reconnection on Android devices. Now, the speakerphone state will be maintained correctly after network interruptions and reconnections.
+
 ## [3.1.0](https://pub.dev/packages/telnyx_webrtc/versions/3.1.0) (2025-10-20)
 ### Enhancement
 
