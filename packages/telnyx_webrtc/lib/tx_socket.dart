@@ -88,7 +88,7 @@ class TxSocket {
   void send(dynamic data) {
     if (_socket.readyState == WebSocket.open) {
       _socket.add(data);
-      GlobalLogger().i('TxSocket :: send : \n\n$data');
+      GlobalLogger().i('TxSocket :: Send : ${data?.toString().trim()}');
     } else {
       GlobalLogger().d('WebSocket not connected, message $data not sent');
     }
