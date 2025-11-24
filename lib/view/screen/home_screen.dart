@@ -8,6 +8,7 @@ import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_controls.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/codec_selector_dialog.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/audio_constraints_dialog.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/common/bottom_action_widget.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
@@ -104,6 +105,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Audio Codecs':
         _showCodecSelectorDialog();
         break;
+      case 'Audio Constraints':
+        _showAudioConstraintsDialog();
+        break;
       case 'Export Logs':
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
@@ -131,6 +135,15 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (BuildContext context) {
         return const CodecSelectorDialog();
+      },
+    );
+  }
+
+  void _showAudioConstraintsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return const AudioConstraintsDialog();
       },
     );
   }
@@ -179,6 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
               itemBuilder: (BuildContext context) {
                 return {
           'Audio Codecs',
+          'Audio Constraints',
           'Export Logs',
           'Disable Push Notifications',
           'Force ICE Renegotiation'
