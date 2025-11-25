@@ -15,15 +15,20 @@ class _AudioConstraintsDialogState extends State<AudioConstraintsDialog> {
   late bool _noiseSuppression;
   late bool _autoGainControl;
 
+  bool _isInitialized = false;
+
   @override
-  void initState() {
-    super.initState();
-    final viewModel = context.read<TelnyxClientViewModel>();
-    final currentConstraints = viewModel.audioConstraints;
-    
-    _echoCancellation = currentConstraints.echoCancellation;
-    _noiseSuppression = currentConstraints.noiseSuppression;
-    _autoGainControl = currentConstraints.autoGainControl;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_isInitialized) {
+      final viewModel = context.read<TelnyxClientViewModel>();
+      final currentConstraints = viewModel.audioConstraints;
+      
+      _echoCancellation = currentConstraints.echoCancellation;
+      _noiseSuppression = currentConstraints.noiseSuppression;
+      _autoGainControl = currentConstraints.autoGainControl;
+      _isInitialized = true;
+    }
   }
 
   @override

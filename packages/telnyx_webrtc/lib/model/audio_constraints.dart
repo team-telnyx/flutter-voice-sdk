@@ -74,6 +74,16 @@ class AudioConstraints {
 
   /// Creates an AudioConstraints instance from a Map.
   factory AudioConstraints.fromMap(Map<String, dynamic> map) {
+    if (map['echoCancellation'] != null && map['echoCancellation'] is! bool) {
+      throw const FormatException('echoCancellation must be a boolean');
+    }
+    if (map['noiseSuppression'] != null && map['noiseSuppression'] is! bool) {
+      throw const FormatException('noiseSuppression must be a boolean');
+    }
+    if (map['autoGainControl'] != null && map['autoGainControl'] is! bool) {
+      throw const FormatException('autoGainControl must be a boolean');
+    }
+
     return AudioConstraints(
       echoCancellation: map['echoCancellation'] as bool? ?? true,
       noiseSuppression: map['noiseSuppression'] as bool? ?? true,

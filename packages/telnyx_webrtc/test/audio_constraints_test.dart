@@ -24,7 +24,7 @@ void main() {
     });
 
     test('should create enabled AudioConstraints', () {
-      const constraints = AudioConstraints.enabled();
+      final constraints = AudioConstraints.enabled();
 
       expect(constraints.echoCancellation, equals(true));
       expect(constraints.noiseSuppression, equals(true));
@@ -32,7 +32,7 @@ void main() {
     });
 
     test('should create disabled AudioConstraints', () {
-      const constraints = AudioConstraints.disabled();
+      final constraints = AudioConstraints.disabled();
 
       expect(constraints.echoCancellation, equals(false));
       expect(constraints.noiseSuppression, equals(false));
@@ -65,6 +65,21 @@ void main() {
         'noiseSuppression': true,
         'autoGainControl': true,
       }));
+    });
+
+    test('should throw FormatException when fromMap receives invalid types', () {
+      expect(
+        () => AudioConstraints.fromMap({'echoCancellation': 'invalid'}),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => AudioConstraints.fromMap({'noiseSuppression': 123}),
+        throwsA(isA<FormatException>()),
+      );
+      expect(
+        () => AudioConstraints.fromMap({'autoGainControl': []}),
+        throwsA(isA<FormatException>()),
+      );
     });
 
     test('should have correct equality', () {
