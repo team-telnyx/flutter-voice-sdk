@@ -473,7 +473,8 @@ class Peer {
   /// Returns a [Future] that completes with the [MediaStream].
   Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': (_audioConstraints ?? AudioConstraints.enabled()).toMap(),
+      'audio': (_audioConstraints ?? AudioConstraints.enabled())
+          .toMap(isAndroid: Platform.isAndroid),
       'video': false,
     };
 

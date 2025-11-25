@@ -509,7 +509,7 @@ class Peer {
   Future<MediaStream> createStream(String media) async {
     GlobalLogger().i('Peer :: Creating stream');
     final Map<String, dynamic> mediaConstraints = {
-      'audio': _audioConstraints?.toMap() ?? true,
+      'audio': (_audioConstraints ?? AudioConstraints.enabled()).toMap(),
       'video': false,
     };
     final MediaStream stream = await navigator.mediaDevices.getUserMedia(

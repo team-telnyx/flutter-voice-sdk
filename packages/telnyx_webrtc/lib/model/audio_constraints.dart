@@ -64,12 +64,26 @@ class AudioConstraints {
   }
 
   /// Converts the AudioConstraints to a Map suitable for WebRTC configuration.
-  Map<String, dynamic> toMap() {
-    return {
+  ///
+  /// [isAndroid] If true, adds Google-specific constraints (prefixed with 'goog')
+  /// which are often required for proper behavior on Android devices.
+  Map<String, dynamic> toMap({bool isAndroid = false}) {
+    final map = <String, dynamic>{
       'echoCancellation': echoCancellation,
       'noiseSuppression': noiseSuppression,
       'autoGainControl': autoGainControl,
     };
+
+    if (isAndroid) {
+      map.addAll({
+        'googEchoCancellation': echoCancellation,
+        'googNoiseSuppression': noiseSuppression,
+        'googAutoGainControl': autoGainControl,
+        'googHighpassFilter': noiseSuppression,
+      });
+    }
+
+    return map;
   }
 
   /// Creates an AudioConstraints instance from a Map.

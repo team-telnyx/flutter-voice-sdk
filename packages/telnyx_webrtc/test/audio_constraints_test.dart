@@ -39,8 +39,8 @@ void main() {
       expect(constraints.autoGainControl, equals(false));
     });
 
-    test('should convert to map correctly', () {
-      const constraints = AudioConstraints(
+    test('should convert to map correctly (default/non-Android)', () {
+      final constraints = AudioConstraints(
         echoCancellation: true,
         noiseSuppression: false,
         autoGainControl: true,
@@ -52,6 +52,26 @@ void main() {
         'echoCancellation': true,
         'noiseSuppression': false,
         'autoGainControl': true,
+      }));
+    });
+
+    test('should convert to map correctly (Android)', () {
+      final constraints = AudioConstraints(
+        echoCancellation: true,
+        noiseSuppression: false,
+        autoGainControl: true,
+      );
+
+      final map = constraints.toMap(isAndroid: true);
+
+      expect(map, equals({
+        'echoCancellation': true,
+        'noiseSuppression': false,
+        'autoGainControl': true,
+        'googEchoCancellation': true,
+        'googNoiseSuppression': false,
+        'googAutoGainControl': true,
+        'googHighpassFilter': false,
       }));
     });
 
