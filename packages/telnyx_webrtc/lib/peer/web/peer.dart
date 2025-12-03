@@ -370,27 +370,13 @@ class Peer {
     bool isAttach,
   ) async {
     try {
-      // ICE candidate callback (with optional skipping logic)
+      // ICE candidate callback
       session.peerConnection?.onIceCandidate = (candidate) async {
         GlobalLogger().i(
           'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
         );
         if (candidate.candidate != null) {
-          final candidateString = candidate.candidate.toString();
-          // Filter out local candidates (typ host)
-          final isValidCandidate = !candidateString.contains('typ host');
-
-          if (isValidCandidate) {
-            GlobalLogger().i(
-              'Web Peer :: Valid ICE candidate: $candidateString',
-            );
-            await session.peerConnection?.addCandidate(candidate);
-          } else {
-            GlobalLogger().i(
-              'Web Peer :: Ignoring local candidate (typ host): $candidateString',
-            );
-          }
-          // Reset timer for ALL candidates to keep gathering active
+          // Restart timer for all candidates to keep gathering active
           _restartNegotiationTimer();
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
@@ -589,21 +575,7 @@ class Peer {
           'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
         );
         if (candidate.candidate != null) {
-          final candidateString = candidate.candidate.toString();
-          // Filter out local candidates (typ host)
-          final isValidCandidate = !candidateString.contains('typ host');
-
-          if (isValidCandidate) {
-            GlobalLogger().i(
-              'Web Peer :: Valid ICE candidate: $candidateString',
-            );
-            await pc.addCandidate(candidate);
-          } else {
-            GlobalLogger().i(
-              'Web Peer :: Ignoring local candidate (typ host): $candidateString',
-            );
-          }
-          // Reset timer for ALL candidates to keep gathering active
+          // Restart timer for all candidates to keep gathering active
           _restartNegotiationTimer();
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');

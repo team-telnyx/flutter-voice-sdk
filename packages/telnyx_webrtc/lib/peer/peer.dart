@@ -234,22 +234,10 @@ class Peer {
           GlobalLogger().i(
             'Peer :: onIceCandidate in _createOffer received: ${candidate.candidate}',
           );
-            if (candidate.candidate != null) {
-              final candidateString = candidate.candidate.toString();
-              // Filter out local candidates (typ host)
-              final isValidCandidate = !candidateString.contains('typ host');
-
-              if (isValidCandidate) {
-                GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
-                await session.peerConnection?.addCandidate(candidate);
-              } else {
-                GlobalLogger().i(
-                  'Peer :: Ignoring local candidate (typ host): $candidateString',
-                );
-              }
-              // Reset timer for ALL candidates to keep gathering active
-              _restartNegotiationTimer();
-            }
+          if (candidate.candidate != null) {
+            // Restart timer for all candidates to keep gathering active
+            _restartNegotiationTimer();
+          }
         } else {
           // Still collect candidates if peerConnection is not ready yet
           session.remoteCandidates.add(candidate);
@@ -408,22 +396,10 @@ class Peer {
           GlobalLogger().i(
             'Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
           );
-            if (candidate.candidate != null) {
-              final candidateString = candidate.candidate.toString();
-              // Filter out local candidates (typ host)
-              final isValidCandidate = !candidateString.contains('typ host');
-
-              if (isValidCandidate) {
-                GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
-                await session.peerConnection?.addCandidate(candidate);
-              } else {
-                GlobalLogger().i(
-                  'Peer :: Ignoring local candidate (typ host): $candidateString',
-                );
-              }
-              // Reset timer for ALL candidates to keep gathering active
-              _restartNegotiationTimer();
-            }
+          if (candidate.candidate != null) {
+            // Restart timer for all candidates to keep gathering active
+            _restartNegotiationTimer();
+          }
         } else {
           // Still collect candidates if peerConnection is not ready yet
           session.remoteCandidates.add(candidate);
@@ -558,20 +534,6 @@ class Peer {
       GlobalLogger().i(
         'Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
       );
-      if (candidate.candidate != null) {
-        final candidateString = candidate.candidate.toString();
-        // Filter out local candidates (typ host)
-        final isValidCandidate = !candidateString.contains('typ host');
-
-        if (isValidCandidate) {
-          GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
-          await peerConnection?.addCandidate(candidate);
-        } else {
-          GlobalLogger().i(
-            'Peer :: Ignoring local candidate (typ host): $candidateString',
-          );
-        }
-      }
     };
 
     peerConnection?.onIceConnectionState = (state) {
