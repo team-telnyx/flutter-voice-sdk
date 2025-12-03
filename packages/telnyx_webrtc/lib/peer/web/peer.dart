@@ -377,22 +377,21 @@ class Peer {
         );
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
-          final isValidCandidate =
-              candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
+          // Filter out local candidates (typ host)
+          final isValidCandidate = !candidateString.contains('typ host');
 
           if (isValidCandidate) {
             GlobalLogger().i(
               'Web Peer :: Valid ICE candidate: $candidateString',
             );
-            // Only add valid candidates and reset timer
             await session.peerConnection?.addCandidate(candidate);
-            _restartNegotiationTimer();
           } else {
             GlobalLogger().i(
-              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+              'Web Peer :: Ignoring local candidate (typ host): $candidateString',
             );
           }
+          // Reset timer for ALL candidates to keep gathering active
+          _restartNegotiationTimer();
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
@@ -591,22 +590,21 @@ class Peer {
         );
         if (candidate.candidate != null) {
           final candidateString = candidate.candidate.toString();
-          final isValidCandidate =
-              candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
+          // Filter out local candidates (typ host)
+          final isValidCandidate = !candidateString.contains('typ host');
 
           if (isValidCandidate) {
             GlobalLogger().i(
               'Web Peer :: Valid ICE candidate: $candidateString',
             );
-            // Add valid candidates
             await pc.addCandidate(candidate);
-            _restartNegotiationTimer();
           } else {
             GlobalLogger().i(
-              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
+              'Web Peer :: Ignoring local candidate (typ host): $candidateString',
             );
           }
+          // Reset timer for ALL candidates to keep gathering active
+          _restartNegotiationTimer();
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
