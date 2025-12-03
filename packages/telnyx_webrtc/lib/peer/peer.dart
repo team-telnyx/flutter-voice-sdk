@@ -198,6 +198,14 @@ class Peer {
       customHeaders,
       preferredCodecs,
     );
+
+    // Start stats collection now that local description is set
+    await startStats(
+      callId,
+      session.pid,
+      onCallQualityChange: onCallQualityChange,
+    );
+
     onCallStateChange?.call(session, CallState.newCall);
   }
 
@@ -376,6 +384,13 @@ class Peer {
       isAttach,
     );
 
+    // Start stats collection now that descriptions are set
+    await startStats(
+      callId,
+      session.pid,
+      onCallQualityChange: onCallQualityChange,
+    );
+
     onCallStateChange?.call(session, CallState.active);
   }
 
@@ -502,8 +517,6 @@ class Peer {
       },
       _dcConstraints,
     );
-
-    await startStats(callId, peerId, onCallQualityChange: onCallQualityChange);
 
     if (media != 'data') {
       switch (sdpSemantics) {

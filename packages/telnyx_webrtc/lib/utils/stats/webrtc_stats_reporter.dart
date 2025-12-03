@@ -187,20 +187,9 @@ class WebRTCStatsReporter {
           localSdp = await peerConnection.getLocalDescription();
           remoteSdp = await peerConnection.getRemoteDescription();
         } catch (e) {
-          // Handle expected errors during early call setup or when peer connection is disposed
-          final errorMsg = e.toString().toLowerCase();
-          if (errorMsg.contains('null') ||
-              errorMsg.contains('disposed') ||
-              errorMsg.contains('closed')) {
-            GlobalLogger().d(
-              'Descriptions not yet available or peer connection disposed',
-            );
-          } else {
-            // Log unexpected errors
-            GlobalLogger().e(
-              'Error retrieving descriptions for Signaling State Stats: $e',
-            );
-          }
+          GlobalLogger().e(
+            'Error retrieving descriptions for Signaling State Stats: $e',
+          );
         }
 
         // If both are null, just skip
@@ -462,16 +451,6 @@ class WebRTCStatsReporter {
 
       _enqueueMessage(jsonEncode(message.toJson()));
     } catch (e) {
-      // Handle expected errors silently (peer connection disposed/null)
-      final errorMsg = e.toString().toLowerCase();
-      if (errorMsg.contains('null') ||
-          errorMsg.contains('disposed') ||
-          errorMsg.contains('closed')) {
-        GlobalLogger()
-            .d('Stats collection skipped: peer connection not available');
-        return;
-      }
-      // Log unexpected errors
       GlobalLogger().e('Error collecting stats: $e');
     }
   }
@@ -701,16 +680,6 @@ class WebRTCStatsReporter {
         onCallQualityChange!(metrics);
       }
     } catch (e) {
-      // Handle expected errors silently (peer connection disposed/null)
-      final errorMsg = e.toString().toLowerCase();
-      if (errorMsg.contains('null') ||
-          errorMsg.contains('disposed') ||
-          errorMsg.contains('closed')) {
-        GlobalLogger()
-            .d('Stats collection skipped: peer connection not available');
-        return;
-      }
-      // Log unexpected errors
       GlobalLogger().e('Error collecting call quality metrics: $e');
     }
   }

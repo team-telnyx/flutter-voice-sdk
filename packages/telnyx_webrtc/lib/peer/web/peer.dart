@@ -206,6 +206,14 @@ class Peer {
       preferredCodecs,
     );
 
+    // Start stats collection now that local description is set
+    await startStats(
+      callId,
+      session.pid,
+      session.peerConnection!,
+      onCallQualityChange: onCallQualityChange,
+    );
+
     // Indicate a new outbound call is created
     onCallStateChange?.call(session, CallState.newCall);
   }
@@ -353,6 +361,14 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
+    );
+
+    // Start stats collection now that descriptions are set
+    await startStats(
+      callId,
+      session.pid,
+      session.peerConnection!,
+      onCallQualityChange: onCallQualityChange,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -635,14 +651,6 @@ class Peer {
       };
 
     newSession.peerConnection = pc;
-
-    // Start stats if debug is enabled
-    await startStats(
-      callId,
-      peerId,
-      pc,
-      onCallQualityChange: onCallQualityChange,
-    );
 
     return newSession;
   }
