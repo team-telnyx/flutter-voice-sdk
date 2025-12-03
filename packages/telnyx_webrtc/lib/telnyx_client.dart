@@ -59,7 +59,8 @@ typedef OnConnectionStateChanged = void Function(ConnectionStatus status);
 
 /// Callback for when connection metrics are updated
 typedef OnConnectionMetricsUpdate = void Function(
-    SocketConnectionMetrics metrics);
+  SocketConnectionMetrics metrics,
+);
 
 /// Represents the main entry point for interacting with the Telnyx RTC SDK.
 ///
@@ -1433,6 +1434,12 @@ class TelnyxClient {
 
     final destinationNum = invite.callerIdNumber;
 
+    // Close existing peer connection if it exists to prevent stale connections
+    if (answerCall.peerConnection != null) {
+      GlobalLogger().i('Closing existing peer connection for call ${invite.callID}');
+      answerCall.peerConnection?.closeSession();
+    }
+
     // Create the peer connection
     answerCall.peerConnection = Peer(
       txSocket,
@@ -1892,8 +1899,17 @@ class TelnyxClient {
                     message: invite,
                   );
 
+                  // Check for existing call with same ID and clean it up
+                  final String? incomingCallId = invite.inviteParams?.callID;
+                  if (incomingCallId != null && calls.containsKey(incomingCallId)) {
+                    GlobalLogger().i(
+                      'Incoming INVITE for existing call ID: $incomingCallId. Cleaning up old session.',
+                    );
+                    calls[incomingCallId]?.peerConnection?.closeSession();
+                  }
+
                   final Call offerCall = _createCall()
-                    ..callId = invite.inviteParams?.callID;
+                    ..callId = incomingCallId;
                   updateCall(offerCall);
 
                   onSocketMessageReceived.call(message);
@@ -1937,7 +1953,8 @@ class TelnyxClient {
                   final bool wasSpeakerPhoneEnabled =
                       existingCall?.speakerPhone ?? false;
                   GlobalLogger().i(
-                      'ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled');
+                    'ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled',
+                  );
 
                   //play ringtone for web
                   final Call offerCall = _createCall()

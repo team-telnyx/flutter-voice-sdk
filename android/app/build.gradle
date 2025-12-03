@@ -25,8 +25,8 @@ if (flutterVersionName == null) {
 
 android {
     namespace 'com.telnyx.telnyx_flutter_webrtc'
-    ndkVersion "25.1.8937393"
-    compileSdkVersion 35
+    ndkVersion "27.0.12077973"
+    compileSdk = 36
 
     compileOptions {
         coreLibraryDesugaringEnabled true
