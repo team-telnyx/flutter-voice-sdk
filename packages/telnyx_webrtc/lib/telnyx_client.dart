@@ -1436,7 +1436,8 @@ class TelnyxClient {
 
     // Close existing peer connection if it exists to prevent stale connections
     if (answerCall.peerConnection != null) {
-      GlobalLogger().i('Closing existing peer connection for call ${invite.callID}');
+      GlobalLogger()
+          .i('Closing existing peer connection for call ${invite.callID}');
       answerCall.peerConnection?.closeSession();
     }
 
@@ -1901,15 +1902,15 @@ class TelnyxClient {
 
                   // Check for existing call with same ID and clean it up
                   final String? incomingCallId = invite.inviteParams?.callID;
-                  if (incomingCallId != null && calls.containsKey(incomingCallId)) {
+                  if (incomingCallId != null &&
+                      calls.containsKey(incomingCallId)) {
                     GlobalLogger().i(
                       'Incoming INVITE for existing call ID: $incomingCallId. Cleaning up old session.',
                     );
                     calls[incomingCallId]?.peerConnection?.closeSession();
                   }
 
-                  final Call offerCall = _createCall()
-                    ..callId = incomingCallId;
+                  final Call offerCall = _createCall()..callId = incomingCallId;
                   updateCall(offerCall);
 
                   onSocketMessageReceived.call(message);

@@ -699,10 +699,10 @@ class Peer {
     });
     await _localStream?.dispose();
     _localStream = null;
+    stopStats(session.sid);
     await session.peerConnection?.close();
     await session.peerConnection?.dispose();
     await session.dc?.close();
-    stopStats(session.sid);
   }
 
   /// Sets a callback to be invoked when ICE negotiation is complete
@@ -725,8 +725,6 @@ class Peer {
       },
     );
   }
-
-
 
   /// Starts ICE renegotiation process when ICE connection fails
   Future<void> startIceRenegotiation(String callId, String sessionId) async {
@@ -768,8 +766,6 @@ class Peer {
                 .e('Peer :: No local description found with ICE candidates');
           }
         });
-
-
       } else {
         GlobalLogger().e('Peer :: No session found for ID: $sessionId');
       }

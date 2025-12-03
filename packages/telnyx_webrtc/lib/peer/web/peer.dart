@@ -727,6 +727,8 @@ class Peer {
       await _localStream!.dispose();
       _localStream = null;
     }
+    // Stop stats
+    stopStats(session.sid);
     // Close peer connection
     if (session.peerConnection != null) {
       await session.peerConnection?.close();
@@ -734,8 +736,6 @@ class Peer {
     }
     // Close data channel
     await session.dc?.close();
-    // Stop stats
-    stopStats(session.sid);
   }
 
   void _send(dynamic event) {
@@ -762,8 +762,6 @@ class Peer {
       },
     );
   }
-
-
 
   /// Starts ICE renegotiation process when ICE connection fails
   Future<void> startIceRenegotiation(String callId, String sessionId) async {
@@ -808,8 +806,6 @@ class Peer {
             );
           }
         });
-
-
       }
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error during ICE renegotiation: $e');
