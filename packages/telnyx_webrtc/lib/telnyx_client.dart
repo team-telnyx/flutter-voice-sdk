@@ -43,6 +43,7 @@ import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 
 /// Callback for when the socket receives a message
@@ -1356,6 +1357,7 @@ class TelnyxClient {
     String clientState, {
     Map<String, String> customHeaders = const {},
     List<AudioCodec>? preferredCodecs,
+    AudioConstraints? audioConstraints,
     bool debug = false,
   }) {
     final Call inviteCall = _createCall()
@@ -1374,6 +1376,7 @@ class TelnyxClient {
       debug || _debug,
       this,
       getForceRelayCandidate(),
+      audioConstraints,
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1421,6 +1424,7 @@ class TelnyxClient {
     String clientState, {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
+    AudioConstraints? audioConstraints,
     bool debug = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
@@ -1439,6 +1443,7 @@ class TelnyxClient {
       debug || _debug,
       this,
       getForceRelayCandidate(),
+      audioConstraints,
     );
 
     // Set up the session with the callback if debug is enabled

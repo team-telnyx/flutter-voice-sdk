@@ -26,6 +26,7 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
@@ -55,6 +56,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _isAssistantMode = false;
   List<AudioCodec> _supportedCodecs = [];
   List<AudioCodec> _preferredCodecs = [];
+  AudioConstraints _audioConstraints = AudioConstraints.enabled();
 
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
@@ -131,6 +133,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   List<AudioCodec> get supportedCodecs => _supportedCodecs;
 
   List<AudioCodec> get preferredCodecs => _preferredCodecs;
+
+  AudioConstraints get audioConstraints => _audioConstraints;
 
   String get sessionId {
     return _telnyxClient.sessid;
@@ -790,6 +794,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       '',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
       preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
+      audioConstraints: _audioConstraints,
       debug: true,
     );
 
@@ -915,6 +920,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         _localNumber,
         'State',
         customHeaders: {},
+        audioConstraints: _audioConstraints,
         debug: true,
       );
       observeCurrentCall();
@@ -1047,6 +1053,15 @@ class TelnyxClientViewModel with ChangeNotifier {
     _preferredCodecs = List.from(codecs);
     logger.i(
       'TelnyxClientViewModel.setPreferredCodecs: Set ${_preferredCodecs.length} preferred codecs: ${_preferredCodecs.map((c) => c.mimeType).join(', ')}',
+    );
+    notifyListeners();
+  }
+
+  /// Sets the audio constraints for WebRTC calls
+  void setAudioConstraints(AudioConstraints constraints) {
+    _audioConstraints = constraints;
+    logger.i(
+      'TelnyxClientViewModel.setAudioConstraints: Set audio constraints - echoCancellation: ${constraints.echoCancellation}, noiseSuppression: ${constraints.noiseSuppression}, autoGainControl: ${constraints.autoGainControl}',
     );
     notifyListeners();
   }
