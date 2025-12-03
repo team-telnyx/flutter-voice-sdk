@@ -23,16 +23,18 @@ import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
   /// The constructor for the Peer class.
-  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate);
+  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate, [this._audioConstraints]);
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
   final bool _debug;
   final bool _forceRelayCandidate;
+  final AudioConstraints? _audioConstraints;
 
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
@@ -504,7 +506,7 @@ class Peer {
   Future<MediaStream> createStream(String media) async {
     GlobalLogger().i('Peer :: Creating stream');
     final Map<String, dynamic> mediaConstraints = {
-      'audio': true,
+      'audio': (_audioConstraints ?? AudioConstraints.enabled()).toMap(),
       'video': false,
     };
     final MediaStream stream = await navigator.mediaDevices.getUserMedia(

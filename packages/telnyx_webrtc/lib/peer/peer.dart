@@ -23,6 +23,7 @@ import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
@@ -30,7 +31,7 @@ class Peer {
   RTCPeerConnection? peerConnection;
 
   /// The constructor for the Peer class.
-  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate);
+  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate, [this._audioConstraints]);
 
   final String _selfId = randomNumeric(6);
 
@@ -38,6 +39,7 @@ class Peer {
   final TelnyxClient _txClient;
   final bool _debug;
   final bool _forceRelayCandidate;
+  final AudioConstraints? _audioConstraints;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -487,7 +489,8 @@ class Peer {
   /// Returns a [Future] that completes with the [MediaStream].
   Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': true,
+      'audio': (_audioConstraints ?? AudioConstraints.enabled())
+          .toMap(isAndroid: Platform.isAndroid),
       'video': false,
     };
 
