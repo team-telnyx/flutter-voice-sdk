@@ -783,7 +783,9 @@ class Peer {
       const Duration(milliseconds: _negotiationTimeout),
       () {
         GlobalLogger().d('Negotiation timeout reached');
-        _onNegotiationComplete?.call();
+        final callback = _onNegotiationComplete;
+        _onNegotiationComplete = null; // Clear to prevent duplicate calls
+        callback?.call();
         _negotiationTimer = null;
       },
     );
