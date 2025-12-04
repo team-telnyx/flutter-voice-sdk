@@ -41,8 +41,8 @@ class Peer {
 
   /// Add negotiation timer fields
   Timer? _negotiationTimer;
-  DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 500; // 500ms timeout for negotiation
+
+  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
   Function()? _onNegotiationComplete;
 
   /// Sessions by session-id.
@@ -208,6 +208,14 @@ class Peer {
       preferredCodecs,
     );
 
+    // Start stats collection now that local description is set
+    await startStats(
+      callId,
+      session.pid,
+      session.peerConnection!,
+      onCallQualityChange: onCallQualityChange,
+    );
+
     // Indicate a new outbound call is created
     onCallStateChange?.call(session, CallState.newCall);
   }
@@ -249,17 +257,14 @@ class Peer {
         session.remoteCandidates.clear();
       }
 
-      // Give the localDescription a moment to be set
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Start ICE candidate gathering and wait for negotiation to complete
+      _setOnNegotiationComplete(() async {
+        String? sdpUsed = '';
+        final localDesc = await session.peerConnection?.getLocalDescription();
+        if (localDesc != null) {
+          sdpUsed = localDesc.sdp;
+        }
 
-      String? sdpUsed = '';
-      final localDesc = await session.peerConnection?.getLocalDescription();
-      if (localDesc != null) {
-        sdpUsed = localDesc.sdp;
-      }
-
-      // Send INVITE
-      Timer(const Duration(milliseconds: 500), () async {
         final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
@@ -360,6 +365,14 @@ class Peer {
       isAttach,
     );
 
+    // Start stats collection now that descriptions are set
+    await startStats(
+      callId,
+      session.pid,
+      session.peerConnection!,
+      onCallQualityChange: onCallQualityChange,
+    );
+
     onCallStateChange?.call(session, CallState.active);
   }
 
@@ -375,29 +388,14 @@ class Peer {
     bool isAttach,
   ) async {
     try {
-      // ICE candidate callback (with optional skipping logic)
+      // ICE candidate callback
       session.peerConnection?.onIceCandidate = (candidate) async {
         GlobalLogger().i(
           'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
         );
         if (candidate.candidate != null) {
-          final candidateString = candidate.candidate.toString();
-          final isValidCandidate =
-              candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
-
-          if (isValidCandidate) {
-            GlobalLogger().i(
-              'Web Peer :: Valid ICE candidate: $candidateString',
-            );
-            // Only add valid candidates and reset timer
-            await session.peerConnection?.addCandidate(candidate);
-            _lastCandidateTime = DateTime.now();
-          } else {
-            GlobalLogger().i(
-              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
-            );
-          }
+          // Restart timer for all candidates to keep gathering active
+          _restartNegotiationTimer();
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
@@ -455,7 +453,6 @@ class Peer {
       await session.peerConnection!.setLocalDescription(description);
 
       // Start ICE candidate gathering and wait for negotiation to complete
-      _lastCandidateTime = DateTime.now();
       _setOnNegotiationComplete(() async {
         String? sdpUsed = '';
         final localDesc = await session.peerConnection?.getLocalDescription();
@@ -596,22 +593,8 @@ class Peer {
           'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
         );
         if (candidate.candidate != null) {
-          final candidateString = candidate.candidate.toString();
-          final isValidCandidate =
-              candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
-
-          if (isValidCandidate) {
-            GlobalLogger().i(
-              'Web Peer :: Valid ICE candidate: $candidateString',
-            );
-            // Add valid candidates
-            await pc.addCandidate(candidate);
-          } else {
-            GlobalLogger().i(
-              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
-            );
-          }
+          // Restart timer for all candidates to keep gathering active
+          _restartNegotiationTimer();
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
@@ -670,14 +653,6 @@ class Peer {
       };
 
     newSession.peerConnection = pc;
-
-    // Start stats if debug is enabled
-    await startStats(
-      callId,
-      peerId,
-      pc,
-      onCallQualityChange: onCallQualityChange,
-    );
 
     return newSession;
   }
@@ -762,6 +737,8 @@ class Peer {
       await _localStream!.dispose();
       _localStream = null;
     }
+    // Stop stats
+    stopStats(session.sid);
     // Close peer connection
     if (session.peerConnection != null) {
       await session.peerConnection?.close();
@@ -769,8 +746,6 @@ class Peer {
     }
     // Close data channel
     await session.dc?.close();
-    // Stop stats
-    stopStats(session.sid);
   }
 
   void _send(dynamic event) {
@@ -780,36 +755,22 @@ class Peer {
   /// Sets a callback to be invoked when ICE negotiation is complete
   void _setOnNegotiationComplete(Function() callback) {
     _onNegotiationComplete = callback;
-    _startNegotiationTimer();
+    _restartNegotiationTimer();
   }
 
-  /// Starts the negotiation timer that checks for ICE candidate timeout
-  void _startNegotiationTimer() {
+  /// Restarts the negotiation timer (Debounce pattern)
+  void _restartNegotiationTimer() {
     _negotiationTimer?.cancel();
-    _negotiationTimer = Timer.periodic(
+    _negotiationTimer = Timer(
       const Duration(milliseconds: _negotiationTimeout),
-      (timer) {
-        if (_lastCandidateTime == null) return;
-
-        final timeSinceLastCandidate =
-            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
-        GlobalLogger().d(
-          'Time since last candidate: ${timeSinceLastCandidate}ms',
-        );
-
-        if (timeSinceLastCandidate >= _negotiationTimeout) {
-          GlobalLogger().d('Negotiation timeout reached');
-          _onNegotiationComplete?.call();
-          _stopNegotiationTimer();
-        }
+      () {
+        GlobalLogger().d('Negotiation timeout reached');
+        final callback = _onNegotiationComplete;
+        _onNegotiationComplete = null; // Clear to prevent duplicate calls
+        callback?.call();
+        _negotiationTimer = null;
       },
     );
-  }
-
-  /// Stops and cleans up the negotiation timer
-  void _stopNegotiationTimer() {
-    _negotiationTimer?.cancel();
-    _negotiationTimer = null;
   }
 
   /// Starts ICE renegotiation process when ICE connection fails
@@ -855,9 +816,6 @@ class Peer {
             );
           }
         });
-
-        // Start negotiation timer
-        _startNegotiationTimer();
       }
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error during ICE renegotiation: $e');
