@@ -1349,6 +1349,8 @@ class TelnyxClient {
   ///   If any codec in the list is not supported by the platform or remote party,
   ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
+  /// - [mutedMicOnStart]: When true, starts the call with the microphone muted.
+  ///   Defaults to false.
   ///
   /// Returns a [Call] object representing the new outgoing call.
   Call newInvite(
@@ -1360,6 +1362,7 @@ class TelnyxClient {
     List<AudioCodec>? preferredCodecs,
     AudioConstraints? audioConstraints,
     bool debug = false,
+    bool mutedMicOnStart = false,
   }) {
     final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
@@ -1398,7 +1401,14 @@ class TelnyxClient {
 
     if (debug) {
       inviteCall.initCallMetrics();
-    } //play ringback tone
+    }
+
+    // Set microphone mute state if requested
+    if (mutedMicOnStart) {
+      inviteCall.setMuteState(true);
+    }
+
+    //play ringback tone
     inviteCall.playAudio(_ringBackpath);
     inviteCall.callHandler.changeState(CallState.newCall);
     return inviteCall;
@@ -1416,6 +1426,8 @@ class TelnyxClient {
   /// - [isAttach]: Set to true if this is a call being re-attached (e.g., after network reconnection).
   /// - [customHeaders]: Optional custom SIP headers to add to the response.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
+  /// - [mutedMicOnStart]: When true, starts the call with the microphone muted.
+  ///   Defaults to false.
   ///
   /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
@@ -1427,6 +1439,7 @@ class TelnyxClient {
     Map<String, String> customHeaders = const {},
     AudioConstraints? audioConstraints,
     bool debug = false,
+    bool mutedMicOnStart = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -1469,6 +1482,12 @@ class TelnyxClient {
     if (debug) {
       answerCall.initCallMetrics();
     }
+
+    // Set microphone mute state if requested
+    if (mutedMicOnStart) {
+      answerCall.setMuteState(true);
+    }
+
     answerCall.stopAudio();
     if (answerCall.callId != null) {
       updateCall(answerCall);

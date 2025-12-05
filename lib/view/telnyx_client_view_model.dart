@@ -54,6 +54,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _mute = false;
   bool _hold = false;
   bool _isAssistantMode = false;
+  bool _mutedMicOnStart = false;
   List<AudioCodec> _supportedCodecs = [];
   List<AudioCodec> _preferredCodecs = [];
   AudioConstraints _audioConstraints = AudioConstraints.enabled();
@@ -129,6 +130,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool get isAssistantMode {
     return _isAssistantMode;
   }
+
+  bool get mutedMicOnStart => _mutedMicOnStart;
 
   List<AudioCodec> get supportedCodecs => _supportedCodecs;
 
@@ -796,10 +799,16 @@ class TelnyxClientViewModel with ChangeNotifier {
       preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
       audioConstraints: _audioConstraints,
       debug: true,
+      mutedMicOnStart: _mutedMicOnStart,
     );
 
+    // Update mute state to match mutedMicOnStart setting
+    if (_mutedMicOnStart) {
+      _mute = true;
+    }
+
     logger.i(
-      'TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}',
+      'TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}. Muted on start: $_mutedMicOnStart',
     );
 
     if (_preferredCodecs.isNotEmpty) {
@@ -900,7 +909,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   // Private helper to contain the actual acceptance steps
   Future<void> _performAccept(IncomingInviteParams invite) async {
     logger.i(
-      'TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}',
+      'TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}. Muted on start: $_mutedMicOnStart',
     );
     // Set state definitively before async gaps
     callState = CallStateStatus.connectingToCall;
@@ -922,7 +931,14 @@ class TelnyxClientViewModel with ChangeNotifier {
         customHeaders: {},
         audioConstraints: _audioConstraints,
         debug: true,
+        mutedMicOnStart: _mutedMicOnStart,
       );
+
+      // Update mute state to match mutedMicOnStart setting
+      if (_mutedMicOnStart) {
+        _mute = true;
+      }
+
       observeCurrentCall();
 
       if (!kIsWeb) {
@@ -1062,6 +1078,15 @@ class TelnyxClientViewModel with ChangeNotifier {
     _audioConstraints = constraints;
     logger.i(
       'TelnyxClientViewModel.setAudioConstraints: Set audio constraints - echoCancellation: ${constraints.echoCancellation}, noiseSuppression: ${constraints.noiseSuppression}, autoGainControl: ${constraints.autoGainControl}',
+    );
+    notifyListeners();
+  }
+
+  /// Sets whether the microphone should be muted when starting or answering a call
+  void setMutedMicOnStart(bool muted) {
+    _mutedMicOnStart = muted;
+    logger.i(
+      'TelnyxClientViewModel.setMutedMicOnStart: Set mutedMicOnStart to $muted',
     );
     notifyListeners();
   }

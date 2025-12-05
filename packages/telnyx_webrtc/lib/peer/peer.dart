@@ -143,6 +143,18 @@ class Peer {
     }
   }
 
+  /// Sets the microphone mute state to a specific value.
+  ///
+  /// [muted] True to mute the microphone, false to unmute.
+  void setMuteState(bool muted) {
+    if (_localStream != null) {
+      _localStream!.getAudioTracks()[0].enabled = !muted;
+      GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
+    } else {
+      GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
+    }
+  }
+
   /// Enables or disables the speakerphone.
   ///
   /// [enable] True to enable speakerphone, false to disable.
