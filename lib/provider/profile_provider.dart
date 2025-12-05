@@ -124,4 +124,19 @@ class ProfileProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Whether the app is currently using development environment
+  bool _isDevEnvironment = false;
+
+  /// Gets whether the app is using development environment
+  bool get isDevEnvironment => _isDevEnvironment;
+
+  /// Sets the development environment flag
+  ///
+  /// When [isDev] is true, the SDK will use development TURN/STUN servers.
+  /// When [isDev] is false, the SDK will use production TURN/STUN servers.
+  void setDevEnvironment(bool isDev) {
+    _isDevEnvironment = isDev;
+    notifyListeners();
+  }
 }

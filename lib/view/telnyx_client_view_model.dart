@@ -28,6 +28,7 @@ import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
+import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
@@ -731,6 +732,23 @@ class TelnyxClientViewModel with ChangeNotifier {
     _registered = false;
     _connected = false; // Will be updated by onConnectionStateChanged callback
     _isAssistantMode = false;
+    notifyListeners();
+  }
+
+  /// Sets the server environment for TURN/STUN servers.
+  ///
+  /// When [isDev] is true, the SDK will use development TURN/STUN servers.
+  /// When [isDev] is false, the SDK will use production TURN/STUN servers.
+  ///
+  /// This should be called before connecting to the socket.
+  void setDevEnvironment(bool isDev) {
+    if (isDev) {
+      _telnyxClient.setServerConfiguration(TxServerConfiguration.development());
+      logger.i('TelnyxClientViewModel :: Switched to Development environment');
+    } else {
+      _telnyxClient.setServerConfiguration(TxServerConfiguration.production());
+      logger.i('TelnyxClientViewModel :: Switched to Production environment');
+    }
     notifyListeners();
   }
 

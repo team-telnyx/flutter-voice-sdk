@@ -31,7 +31,24 @@ class Peer {
   RTCPeerConnection? peerConnection;
 
   /// The constructor for the Peer class.
-  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate, [this._audioConstraints]);
+  ///
+  /// [_socket] The socket connection for signaling.
+  /// [_debug] Whether debug mode is enabled.
+  /// [_txClient] The TelnyxClient instance.
+  /// [_forceRelayCandidate] Whether to force TURN relay candidates.
+  /// [_audioConstraints] Optional audio constraints.
+  /// [providedTurn] Optional custom TURN server URL. Defaults to production.
+  /// [providedStun] Optional custom STUN server URL. Defaults to production.
+  Peer(
+    this._socket,
+    this._debug,
+    this._txClient,
+    this._forceRelayCandidate, [
+    this._audioConstraints,
+    String? providedTurn,
+    String? providedStun,
+  ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
+        _providedStun = providedStun ?? DefaultConfig.defaultStun;
 
   final String _selfId = randomNumeric(6);
 
@@ -40,6 +57,8 @@ class Peer {
   final bool _debug;
   final bool _forceRelayCandidate;
   final AudioConstraints? _audioConstraints;
+  final String _providedTurn;
+  final String _providedStun;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -91,20 +110,20 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
-  final Map<String, dynamic> _iceServers = {
-    'iceServers': [
-      {
-        'url': DefaultConfig.defaultStun,
-        'username': DefaultConfig.username,
-        'credential': DefaultConfig.password,
-      },
-      {
-        'url': DefaultConfig.defaultTurn,
-        'username': DefaultConfig.username,
-        'credential': DefaultConfig.password,
-      },
-    ],
-  };
+  Map<String, dynamic> get _iceServers => {
+        'iceServers': [
+          {
+            'url': _providedStun,
+            'username': DefaultConfig.username,
+            'credential': DefaultConfig.password,
+          },
+          {
+            'url': _providedTurn,
+            'username': DefaultConfig.username,
+            'credential': DefaultConfig.password,
+          },
+        ],
+      };
 
   /// Builds the ICE configuration based on the forceRelayCandidate setting
   Map<String, dynamic> _buildIceConfiguration() {
