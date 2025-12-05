@@ -1,6 +1,7 @@
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 import 'package:telnyx_webrtc/model/region.dart';
+import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 
 /// Base configuration class for common parameters
 class Config {
@@ -20,7 +21,9 @@ class Config {
     this.region = Region.auto,
     this.fallbackOnRegionFailure = true,
     this.forceRelayCandidate = false,
-  });
+    TxServerConfiguration? serverConfiguration,
+  }) : serverConfiguration =
+           serverConfiguration ?? TxServerConfiguration.production();
 
   /// Name associated with the SIP account
   final String sipCallerIDName;
@@ -71,6 +74,11 @@ class Config {
   ///   as all media will be relayed through TURN servers.
   /// - Important: This setting is disabled by default to maintain optimal call quality.
   final bool forceRelayCandidate;
+
+  /// Server configuration for TURN/STUN servers and WebSocket host.
+  /// Use [TxServerConfiguration.production] for production environment (default)
+  /// or [TxServerConfiguration.development] for development environment.
+  final TxServerConfiguration serverConfiguration;
 }
 
 /// Creates an instance of CredentialConfig which can be used to log in
@@ -87,6 +95,7 @@ class Config {
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
 /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+/// [serverConfiguration] is the server configuration for TURN/STUN servers (defaults to production)
 class CredentialConfig extends Config {
   /// Creates an instance of CredentialConfig which can be used to log in
   ///
@@ -101,6 +110,7 @@ class CredentialConfig extends Config {
   /// [ringbackPath] is the path to the ringback file (audio to play when calling)
   /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
   /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
+  /// [serverConfiguration] is the server configuration for TURN/STUN servers (defaults to production)
   CredentialConfig({
     required this.sipUser,
     required this.sipPassword,
@@ -118,6 +128,7 @@ class CredentialConfig extends Config {
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
+    super.serverConfiguration,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -141,6 +152,7 @@ class CredentialConfig extends Config {
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
 /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+/// [serverConfiguration] is the server configuration for TURN/STUN servers (defaults to production)
 class TokenConfig extends Config {
   /// Creates an instance of TokenConfig which can be used to log in
   ///
@@ -155,6 +167,7 @@ class TokenConfig extends Config {
   /// [ringbackPath] is the path to the ringback file (audio to play when calling)
   /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
   /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
+  /// [serverConfiguration] is the server configuration for TURN/STUN servers (defaults to production)
   TokenConfig({
     required this.sipToken,
     required super.sipCallerIDName,
@@ -171,6 +184,7 @@ class TokenConfig extends Config {
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
+    super.serverConfiguration,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API

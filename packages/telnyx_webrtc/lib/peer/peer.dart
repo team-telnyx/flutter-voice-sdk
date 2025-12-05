@@ -31,7 +31,24 @@ class Peer {
   RTCPeerConnection? peerConnection;
 
   /// The constructor for the Peer class.
-  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate, [this._audioConstraints]);
+  ///
+  /// [_socket] - The WebSocket connection
+  /// [_debug] - Whether debug mode is enabled
+  /// [_txClient] - The TelnyxClient instance
+  /// [_forceRelayCandidate] - Whether to force TURN relay candidates
+  /// [_audioConstraints] - Optional audio constraints
+  /// [providedTurn] - Optional TURN server URL (defaults to production)
+  /// [providedStun] - Optional STUN server URL (defaults to production)
+  Peer(
+    this._socket,
+    this._debug,
+    this._txClient,
+    this._forceRelayCandidate, [
+    this._audioConstraints,
+    String? providedTurn,
+    String? providedStun,
+  ]) : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
+       _providedStun = providedStun ?? DefaultConfig.defaultStun;
 
   final String _selfId = randomNumeric(6);
 
@@ -40,6 +57,8 @@ class Peer {
   final bool _debug;
   final bool _forceRelayCandidate;
   final AudioConstraints? _audioConstraints;
+  final String _providedTurn;
+  final String _providedStun;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -78,7 +97,7 @@ class Peer {
 
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-      onDataChannelMessage;
+  onDataChannelMessage;
 
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
@@ -91,15 +110,16 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
-  final Map<String, dynamic> _iceServers = {
+  /// Returns the ICE servers configuration using the provided TURN/STUN servers.
+  Map<String, dynamic> get _iceServers => {
     'iceServers': [
       {
-        'url': DefaultConfig.defaultStun,
+        'url': _providedStun,
         'username': DefaultConfig.username,
         'credential': DefaultConfig.password,
       },
       {
-        'url': DefaultConfig.defaultTurn,
+        'url': _providedTurn,
         'username': DefaultConfig.username,
         'credential': DefaultConfig.password,
       },
@@ -266,8 +286,9 @@ class Peer {
         GlobalLogger().d(
           'Peer :: Filtering SDP codecs for Android (setCodecPreferences not supported)',
         );
-        final audioCodecs =
-            preferredCodecs.map((m) => AudioCodec.fromJson(m)).toList();
+        final audioCodecs = preferredCodecs
+            .map((m) => AudioCodec.fromJson(m))
+            .toList();
         sdpToUse = CodecUtils.filterSdpCodecs(s.sdp!, audioCodecs);
       }
 
@@ -289,8 +310,8 @@ class Peer {
       _setOnNegotiationComplete(() async {
         String? sdpUsed = '';
         await session.peerConnection?.getLocalDescription().then(
-              (value) => sdpUsed = value?.sdp.toString(),
-            );
+          (value) => sdpUsed = value?.sdp.toString(),
+        );
 
         final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -336,8 +357,8 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
-          RTCSessionDescription(sdp, 'answer'),
-        );
+      RTCSessionDescription(sdp, 'answer'),
+    );
   }
 
   /// Accepts an incoming call.
@@ -423,8 +444,8 @@ class Peer {
         }
       };
 
-      final RTCSessionDescription s =
-          await session.peerConnection!.createAnswer(_dcConstraints);
+      final RTCSessionDescription s = await session.peerConnection!
+          .createAnswer(_dcConstraints);
 
       await session.peerConnection!.setLocalDescription(s);
 
@@ -432,8 +453,8 @@ class Peer {
       _setOnNegotiationComplete(() async {
         String? sdpUsed = '';
         await session.peerConnection?.getLocalDescription().then(
-              (value) => sdpUsed = value?.sdp.toString(),
-            );
+          (value) => sdpUsed = value?.sdp.toString(),
+        );
 
         final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -489,8 +510,9 @@ class Peer {
   /// Returns a [Future] that completes with the [MediaStream].
   Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': (_audioConstraints ?? AudioConstraints.enabled())
-          .toMap(isAndroid: Platform.isAndroid),
+      'audio': (_audioConstraints ?? AudioConstraints.enabled()).toMap(
+        isAndroid: Platform.isAndroid,
+      ),
       'video': false,
     };
 
@@ -513,13 +535,10 @@ class Peer {
     currentSession = newSession;
     if (media != 'data') _localStream = await createStream(media);
 
-    peerConnection = await createPeerConnection(
-      {
-        ..._buildIceConfiguration(),
-        ...{'sdpSemantics': sdpSemantics},
-      },
-      _dcConstraints,
-    );
+    peerConnection = await createPeerConnection({
+      ..._buildIceConfiguration(),
+      ...{'sdpSemantics': sdpSemantics},
+    }, _dcConstraints);
 
     if (media != 'data') {
       switch (sdpSemantics) {
@@ -599,8 +618,9 @@ class Peer {
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
           if (_previousIceConnectionState ==
               RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-            GlobalLogger()
-                .i('Peer :: ICE connection failed, starting renegotiation...');
+            GlobalLogger().i(
+              'Peer :: ICE connection failed, starting renegotiation...',
+            );
             startIceRenegotiation(callId, newSession.sid);
             break;
           } else {
@@ -750,8 +770,9 @@ class Peer {
         onCallStateChange?.call(_sessions[sessionId]!, CallState.renegotiation);
         final peerConnection = _sessions[sessionId]?.peerConnection;
         if (peerConnection == null) {
-          GlobalLogger()
-              .e('Peer :: No peer connection found for session: $sessionId');
+          GlobalLogger().e(
+            'Peer :: No peer connection found for session: $sessionId',
+          );
           return;
         }
 
@@ -778,8 +799,9 @@ class Peer {
           if (localDescription != null && localDescription.sdp != null) {
             _sendUpdateMediaMessage(callId, sessionId, localDescription.sdp!);
           } else {
-            GlobalLogger()
-                .e('Peer :: No local description found with ICE candidates');
+            GlobalLogger().e(
+              'Peer :: No local description found with ICE candidates',
+            );
           }
         });
       } else {
@@ -826,8 +848,9 @@ class Peer {
   Future<void> handleUpdateMediaResponse(UpdateMediaResponse response) async {
     try {
       if (response.action != 'updateMedia') {
-        GlobalLogger()
-            .w('Peer :: Unexpected action in response: ${response.action}');
+        GlobalLogger().w(
+          'Peer :: Unexpected action in response: ${response.action}',
+        );
         return;
       }
 
@@ -837,8 +860,9 @@ class Peer {
       }
 
       final callId = response.callID;
-      GlobalLogger()
-          .i('Peer :: Received updateMedia response for call: $callId');
+      GlobalLogger().i(
+        'Peer :: Received updateMedia response for call: $callId',
+      );
 
       final session = _sessions[_selfId];
       if (session == null) {
@@ -881,8 +905,9 @@ class Peer {
       );
 
       // Use CodecUtils to find the audio transceiver
-      final audioTransceiver =
-          await CodecUtils.findAudioTransceiver(peerConnection);
+      final audioTransceiver = await CodecUtils.findAudioTransceiver(
+        peerConnection,
+      );
 
       if (audioTransceiver == null) {
         GlobalLogger().w(
@@ -896,8 +921,9 @@ class Peer {
       );
 
       // Convert codec maps to capabilities
-      final codecCapabilities =
-          CodecUtils.convertAudioCodecMapsToCapabilities(preferredCodecs);
+      final codecCapabilities = CodecUtils.convertAudioCodecMapsToCapabilities(
+        preferredCodecs,
+      );
 
       if (codecCapabilities.isEmpty) {
         GlobalLogger().w(
@@ -917,9 +943,7 @@ class Peer {
         'Peer :: Successfully applied codec preferences. Order: ${codecCapabilities.map((c) => c.mimeType).toList()}',
       );
     } catch (e) {
-      GlobalLogger().e(
-        'Peer :: Error applying codec preferences: $e',
-      );
+      GlobalLogger().e('Peer :: Error applying codec preferences: $e');
     }
   }
 }

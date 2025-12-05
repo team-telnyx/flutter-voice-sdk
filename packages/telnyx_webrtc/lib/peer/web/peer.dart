@@ -28,13 +28,32 @@ import 'package:telnyx_webrtc/model/audio_constraints.dart';
 /// Represents a peer in the WebRTC communication.
 class Peer {
   /// The constructor for the Peer class.
-  Peer(this._socket, this._debug, this._txClient, this._forceRelayCandidate, [this._audioConstraints]);
+  ///
+  /// [_socket] - The WebSocket connection
+  /// [_debug] - Whether debug mode is enabled
+  /// [_txClient] - The TelnyxClient instance
+  /// [_forceRelayCandidate] - Whether to force TURN relay candidates
+  /// [_audioConstraints] - Optional audio constraints
+  /// [providedTurn] - Optional TURN server URL (defaults to production)
+  /// [providedStun] - Optional STUN server URL (defaults to production)
+  Peer(
+    this._socket,
+    this._debug,
+    this._txClient,
+    this._forceRelayCandidate, [
+    this._audioConstraints,
+    String? providedTurn,
+    String? providedStun,
+  ]) : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
+       _providedStun = providedStun ?? DefaultConfig.defaultStun;
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
   final bool _debug;
   final bool _forceRelayCandidate;
   final AudioConstraints? _audioConstraints;
+  final String _providedTurn;
+  final String _providedStun;
 
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
@@ -72,7 +91,7 @@ class Peer {
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
   Function(dynamic event)? onPeersUpdate;
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-      onDataChannelMessage;
+  onDataChannelMessage;
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
   /// Callback for call quality metrics updates.
@@ -83,10 +102,11 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
-  final Map<String, dynamic> _iceServers = {
+  /// Returns the ICE servers configuration using the provided TURN/STUN servers.
+  Map<String, dynamic> get _iceServers => {
     'iceServers': [
       {
-        'urls': [DefaultConfig.defaultStun, DefaultConfig.defaultTurn],
+        'urls': [_providedStun, _providedTurn],
         'username': DefaultConfig.username,
         'credential': DefaultConfig.password,
       },
@@ -544,13 +564,10 @@ class Peer {
     }
 
     // Create PeerConnection
-    final pc = await createPeerConnection(
-      {
-        ..._buildIceConfiguration(),
-        ...{'sdpSemantics': sdpSemantics},
-      },
-      _dcConstraints,
-    );
+    final pc = await createPeerConnection({
+      ..._buildIceConfiguration(),
+      ...{'sdpSemantics': sdpSemantics},
+    }, _dcConstraints);
 
     // If we want the same plan-b/unified-plan logic as mobile:
     if (media != 'data') {
@@ -776,8 +793,9 @@ class Peer {
   /// Starts ICE renegotiation process when ICE connection fails
   Future<void> startIceRenegotiation(String callId, String sessionId) async {
     try {
-      GlobalLogger()
-          .i('Web Peer :: Starting ICE renegotiation for call: $callId');
+      GlobalLogger().i(
+        'Web Peer :: Starting ICE renegotiation for call: $callId',
+      );
       if (_sessions[sessionId] != null) {
         onCallStateChange?.call(_sessions[sessionId]!, CallState.renegotiation);
         final peerConnection = _sessions[sessionId]?.peerConnection;
@@ -825,8 +843,9 @@ class Peer {
   /// Sends the updateMedia modify message with the new SDP
   void _sendUpdateMediaMessage(String callId, String sessionId, String sdp) {
     try {
-      GlobalLogger()
-          .i('Web Peer :: Sending updateMedia message for call: $callId');
+      GlobalLogger().i(
+        'Web Peer :: Sending updateMedia message for call: $callId',
+      );
 
       // Create dialog params with required callID field
       final dialogParams = DialogParams(
@@ -859,8 +878,9 @@ class Peer {
   Future<void> handleUpdateMediaResponse(UpdateMediaResponse response) async {
     try {
       if (response.action != 'updateMedia') {
-        GlobalLogger()
-            .w('Web Peer :: Unexpected action in response: ${response.action}');
+        GlobalLogger().w(
+          'Web Peer :: Unexpected action in response: ${response.action}',
+        );
         return;
       }
 
@@ -870,8 +890,9 @@ class Peer {
       }
 
       final callId = response.callID;
-      GlobalLogger()
-          .i('Web Peer :: Received updateMedia response for call: $callId');
+      GlobalLogger().i(
+        'Web Peer :: Received updateMedia response for call: $callId',
+      );
 
       // Find the session for this call
       final session = _sessions.values.firstWhere(
@@ -914,8 +935,9 @@ class Peer {
       );
 
       // Use CodecUtils to find the audio transceiver
-      final audioTransceiver =
-          await CodecUtils.findAudioTransceiver(peerConnection);
+      final audioTransceiver = await CodecUtils.findAudioTransceiver(
+        peerConnection,
+      );
 
       if (audioTransceiver == null) {
         GlobalLogger().w(
@@ -929,8 +951,9 @@ class Peer {
       );
 
       // Convert codec maps to capabilities
-      final codecCapabilities =
-          CodecUtils.convertAudioCodecMapsToCapabilities(preferredCodecs);
+      final codecCapabilities = CodecUtils.convertAudioCodecMapsToCapabilities(
+        preferredCodecs,
+      );
 
       if (codecCapabilities.isEmpty) {
         GlobalLogger().w(
@@ -950,9 +973,7 @@ class Peer {
         'Web Peer :: Successfully applied codec preferences. Order: ${codecCapabilities.map((c) => c.mimeType).toList()}',
       );
     } catch (e) {
-      GlobalLogger().e(
-        'Web Peer :: Error applying codec preferences: $e',
-      );
+      GlobalLogger().e('Web Peer :: Error applying codec preferences: $e');
     }
   }
 }
