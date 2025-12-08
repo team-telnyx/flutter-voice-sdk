@@ -55,8 +55,8 @@ class EnvironmentBottomSheet extends StatelessWidget {
                 title: 'Development Environment',
                 subtitle: 'Uses turndev.telnyx.com and stundev.telnyx.com',
                 isSelected: isDevEnvironment,
-                onTap: () {
-                  profileProvider.setDevEnvironment(true);
+                onTap: () async {
+                  await profileProvider.setDevEnvironment(true);
                   context.read<TelnyxClientViewModel>().setDevEnvironment(true);
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -72,9 +72,11 @@ class EnvironmentBottomSheet extends StatelessWidget {
                 title: 'Production Environment',
                 subtitle: 'Uses turn.telnyx.com and stun.telnyx.com',
                 isSelected: !isDevEnvironment,
-                onTap: () {
-                  profileProvider.setDevEnvironment(false);
-                  context.read<TelnyxClientViewModel>().setDevEnvironment(false);
+                onTap: () async {
+                  await profileProvider.setDevEnvironment(false);
+                  context
+                      .read<TelnyxClientViewModel>()
+                      .setDevEnvironment(false);
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -110,7 +112,8 @@ class EnvironmentBottomSheet extends StatelessWidget {
                             ? 'Currently using Development servers'
                             : 'Currently using Production servers',
                         style: TextStyle(
-                          color: isDevEnvironment ? Colors.orange : Colors.green,
+                          color:
+                              isDevEnvironment ? Colors.orange : Colors.green,
                           fontWeight: FontWeight.w500,
                         ),
                       ),

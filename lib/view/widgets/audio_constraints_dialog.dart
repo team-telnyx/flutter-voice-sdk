@@ -23,7 +23,7 @@ class _AudioConstraintsDialogState extends State<AudioConstraintsDialog> {
     if (!_isInitialized) {
       final viewModel = context.read<TelnyxClientViewModel>();
       final currentConstraints = viewModel.audioConstraints;
-      
+
       _echoCancellation = currentConstraints.echoCancellation;
       _noiseSuppression = currentConstraints.noiseSuppression;
       _autoGainControl = currentConstraints.autoGainControl;
@@ -121,7 +121,7 @@ class _AudioConstraintsDialogState extends State<AudioConstraintsDialog> {
     viewModel.setAudioConstraints(constraints);
 
     Navigator.of(context).pop();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Audio constraints updated'),

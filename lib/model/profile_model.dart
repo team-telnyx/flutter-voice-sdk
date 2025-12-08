@@ -22,7 +22,6 @@ class Profile {
   final Region region;
   final bool fallbackOnRegionFailure;
   final bool forceRelayCandidate;
-  final bool isDev;
 
   Profile({
     required this.isTokenLogin,
@@ -36,7 +35,6 @@ class Profile {
     this.region = Region.auto,
     this.fallbackOnRegionFailure = true,
     this.forceRelayCandidate = false,
-    this.isDev = false,
   });
 
   factory Profile.fromJson(Map<String, dynamic> json) {
@@ -55,7 +53,6 @@ class Profile {
       ),
       fallbackOnRegionFailure: json['fallbackOnRegionFailure'] as bool? ?? true,
       forceRelayCandidate: json['forceRelayCandidate'] as bool? ?? false,
-      isDev: json['isDev'] as bool? ?? false,
     );
   }
 
@@ -72,7 +69,6 @@ class Profile {
       'region': region.value,
       'fallbackOnRegionFailure': fallbackOnRegionFailure,
       'forceRelayCandidate': forceRelayCandidate,
-      'isDev': isDev,
     };
   }
 
@@ -88,7 +84,6 @@ class Profile {
     Region? region,
     bool? fallbackOnRegionFailure,
     bool? forceRelayCandidate,
-    bool? isDev,
   }) {
     return Profile(
       isTokenLogin: isTokenLogin ?? this.isTokenLogin,
@@ -103,7 +98,6 @@ class Profile {
       fallbackOnRegionFailure:
           fallbackOnRegionFailure ?? this.fallbackOnRegionFailure,
       forceRelayCandidate: forceRelayCandidate ?? this.forceRelayCandidate,
-      isDev: isDev ?? this.isDev,
     );
   }
 

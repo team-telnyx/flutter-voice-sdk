@@ -28,7 +28,8 @@ class _ControlHeadersState extends State<ControlHeaders> {
   }
 
   void _showEnvironmentBottomSheet(BuildContext context) {
-    final connectionStatus = context.read<TelnyxClientViewModel>().connectionStatus;
+    final connectionStatus =
+        context.read<TelnyxClientViewModel>().connectionStatus;
     // Only show environment switcher when disconnected
     if (connectionStatus == ConnectionStatus.disconnected) {
       showModalBottomSheet(

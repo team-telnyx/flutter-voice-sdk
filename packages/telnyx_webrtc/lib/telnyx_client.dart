@@ -227,12 +227,13 @@ class TelnyxClient {
 
   /// Build the host address with region support
   String _buildHostAddress(Config config, {String? voiceSdkId}) {
-    String baseHost = _storedHostAddress;
+    // Use the configured server URL instead of hardcoded default
+    String baseHost = _serverConfiguration.socketUrl;
 
     // If region is not AUTO, prepend the region to the host
     if (config.region != Region.auto) {
       // Extract the base host from the WebSocket URL
-      final uri = Uri.parse(_storedHostAddress);
+      final uri = Uri.parse(_serverConfiguration.socketUrl);
       final hostWithoutProtocol = uri.host;
       final regionHost = '${config.region.value}.$hostWithoutProtocol';
 
@@ -277,7 +278,8 @@ class TelnyxClient {
 
   /// The current server configuration for TURN/STUN servers.
   /// Defaults to production servers.
-  TxServerConfiguration _serverConfiguration = TxServerConfiguration.production();
+  TxServerConfiguration _serverConfiguration =
+      TxServerConfiguration.production();
 
   /// Gets the current server configuration.
   TxServerConfiguration get serverConfiguration => _serverConfiguration;

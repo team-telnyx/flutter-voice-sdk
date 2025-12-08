@@ -847,7 +847,8 @@ class TelnyxClientViewModel with ChangeNotifier {
   void sendConversationMessage(
     String message, {
     List<String>? base64Images,
-    @Deprecated('Use base64Images parameter instead for better support of multiple images')
+    @Deprecated(
+        'Use base64Images parameter instead for better support of multiple images')
     String? base64Image,
   }) {
     try {
