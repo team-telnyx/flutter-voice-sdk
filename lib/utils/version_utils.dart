@@ -47,9 +47,12 @@ class VersionUtils {
     return _sdkVersion!;
   }
 
-  static Future<String> getVersionString() async {
+  static Future<String> getVersionString({
+    bool isDevEnvironment = false,
+  }) async {
     final appVersion = await getAppVersion();
     final sdkVersion = await getSDKVersion();
-    return 'Production TelnyxSDK [v$sdkVersion] - App [v$appVersion]';
+    final envLabel = isDevEnvironment ? 'Development' : 'Production';
+    return '$envLabel TelnyxSDK [v$sdkVersion] - App [v$appVersion]';
   }
 }

@@ -6,6 +6,7 @@ import 'package:telnyx_flutter_webrtc/model/profile_model.dart';
 class ProfileProvider with ChangeNotifier {
   static const String _profilesKey = 'profiles';
   static const String _selectedProfileKey = 'selected_profile';
+  static const String _isDevEnvironmentKey = 'is_dev_environment';
   List<Profile> _profiles = [];
   Profile? _selectedProfile;
 
@@ -26,6 +27,10 @@ class ProfileProvider with ChangeNotifier {
     if (selectedProfileJson != null) {
       _selectedProfile = Profile.fromJson(jsonDecode(selectedProfileJson));
     }
+
+    // Restore environment setting
+    _isDevEnvironment = prefs.getBool(_isDevEnvironmentKey) ?? false;
+
     notifyListeners();
   }
 
@@ -43,6 +48,9 @@ class ProfileProvider with ChangeNotifier {
     } else {
       await prefs.remove(_selectedProfileKey);
     }
+
+    // Save environment setting
+    await prefs.setBool(_isDevEnvironmentKey, _isDevEnvironment);
   }
 
   Future<void> addProfile(Profile profile) async {
@@ -123,5 +131,21 @@ class ProfileProvider with ChangeNotifier {
       await _saveProfiles();
       notifyListeners();
     }
+  }
+
+  /// Whether the app is currently using development environment
+  bool _isDevEnvironment = false;
+
+  /// Gets whether the app is using development environment
+  bool get isDevEnvironment => _isDevEnvironment;
+
+  /// Sets the development environment flag
+  ///
+  /// When [isDev] is true, the SDK will use development TURN/STUN servers.
+  /// When [isDev] is false, the SDK will use production TURN/STUN servers.
+  Future<void> setDevEnvironment(bool isDev) async {
+    _isDevEnvironment = isDev;
+    await _saveProfiles();
+    notifyListeners();
   }
 }

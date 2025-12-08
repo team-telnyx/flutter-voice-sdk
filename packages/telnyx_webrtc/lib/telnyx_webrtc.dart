@@ -12,6 +12,7 @@ export './model/socket_method.dart';
 export './model/telnyx_message.dart';
 export './model/telnyx_socket_error.dart';
 export './model/socket_connection_metrics.dart';
+export './model/tx_server_configuration.dart';
 
 export './model/verto/receive/ai_conversation_message.dart';
 export './model/verto/receive/auth_failure_message_body.dart';

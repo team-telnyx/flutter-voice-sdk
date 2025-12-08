@@ -48,12 +48,12 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         final File imageFile = File(image.path);
         final Uint8List imageBytes = await imageFile.readAsBytes();
         final String base64String = base64Encode(imageBytes);
-        
+
         setState(() {
           _selectedImages.add(imageFile);
           _selectedImagesBase64.add(base64String);
@@ -73,12 +73,12 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-      
+
       for (final XFile image in images) {
         final File imageFile = File(image.path);
         final Uint8List imageBytes = await imageFile.readAsBytes();
         final String base64String = base64Encode(imageBytes);
-        
+
         setState(() {
           _selectedImages.add(imageFile);
           _selectedImagesBase64.add(base64String);
@@ -108,16 +108,17 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
   void _sendMessage() {
     final message = _messageController.text.trim();
     if (message.isNotEmpty || _selectedImagesBase64.isNotEmpty) {
-      final messageText = message.isNotEmpty 
-          ? message 
-          : _selectedImagesBase64.length == 1 
-              ? 'Image attached' 
+      final messageText = message.isNotEmpty
+          ? message
+          : _selectedImagesBase64.length == 1
+              ? 'Image attached'
               : '${_selectedImagesBase64.length} images attached';
-      
+
       context.read<TelnyxClientViewModel>().sendConversationMessage(
-        messageText,
-        base64Images: _selectedImagesBase64.isNotEmpty ? _selectedImagesBase64 : null,
-      );
+            messageText,
+            base64Images:
+                _selectedImagesBase64.isNotEmpty ? _selectedImagesBase64 : null,
+          );
       _messageController.clear();
       _clearAllImages();
       _scrollToBottom();
@@ -258,7 +259,8 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
                                         height: 20,
                                         decoration: BoxDecoration(
                                           color: Colors.red,
-                                          borderRadius: BorderRadius.circular(10),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
                                         ),
                                         child: const Icon(
                                           Icons.close,
