@@ -34,13 +34,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Initialize environment setting on first load
     if (!_hasInitializedEnvironment) {
       _hasInitializedEnvironment = true;
       // Schedule the environment initialization after the build phase
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final profileProvider = context.read<ProfileProvider>();
-        context.read<TelnyxClientViewModel>()..setDevEnvironment(profileProvider.isDevEnvironment);
+        context.read<TelnyxClientViewModel>()
+          ..setDevEnvironment(profileProvider.isDevEnvironment);
       });
     }
   }

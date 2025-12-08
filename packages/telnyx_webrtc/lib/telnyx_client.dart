@@ -1411,6 +1411,7 @@ class TelnyxClient {
       audioConstraints,
       _serverConfiguration.turn,
       _serverConfiguration.stun,
+      mutedMicOnStart,
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1431,11 +1432,6 @@ class TelnyxClient {
 
     if (debug) {
       inviteCall.initCallMetrics();
-    }
-
-    // Set microphone mute state if requested
-    if (mutedMicOnStart) {
-      inviteCall.setMuteState(true);
     }
 
     //play ringback tone
@@ -1497,6 +1493,7 @@ class TelnyxClient {
       audioConstraints,
       _serverConfiguration.turn,
       _serverConfiguration.stun,
+      mutedMicOnStart,
     );
 
     // Set up the session with the callback if debug is enabled
@@ -1513,11 +1510,6 @@ class TelnyxClient {
     answerCall.callHandler.changeState(CallState.connecting);
     if (debug) {
       answerCall.initCallMetrics();
-    }
-
-    // Set microphone mute state if requested
-    if (mutedMicOnStart) {
-      answerCall.setMuteState(true);
     }
 
     answerCall.stopAudio();
