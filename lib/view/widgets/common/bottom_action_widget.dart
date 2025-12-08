@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/utils/version_utils.dart';
 
@@ -21,23 +23,11 @@ class BottomConnectionActionWidget extends StatefulWidget {
 
 class _BottomConnectionActionWidgetState
     extends State<BottomConnectionActionWidget> {
-  String _versionString = '';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadVersionString();
-  }
-
-  Future<void> _loadVersionString() async {
-    final versionString = await VersionUtils.getVersionString();
-    setState(() {
-      _versionString = versionString;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    // Watch ProfileProvider to rebuild when environment changes
+    final isDevEnvironment = context.watch<ProfileProvider>().isDevEnvironment;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -58,13 +48,20 @@ class _BottomConnectionActionWidgetState
           ),
         ),
         const SizedBox(height: spacingS),
-        Text(
-          _versionString,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontSize: 10,
-                color: Colors.grey[600],
-              ),
-          textAlign: TextAlign.center,
+        FutureBuilder<String>(
+          future: VersionUtils.getVersionString(
+            isDevEnvironment: isDevEnvironment,
+          ),
+          builder: (context, snapshot) {
+            return Text(
+              snapshot.data ?? '',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontSize: 10,
+                    color: Colors.grey[600],
+                  ),
+              textAlign: TextAlign.center,
+            );
+          },
         ),
       ],
     );

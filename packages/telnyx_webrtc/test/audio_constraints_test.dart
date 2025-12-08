@@ -48,11 +48,13 @@ void main() {
 
       final map = constraints.toMap();
 
-      expect(map, equals({
-        'echoCancellation': true,
-        'noiseSuppression': false,
-        'autoGainControl': true,
-      }));
+      expect(
+          map,
+          equals({
+            'echoCancellation': true,
+            'noiseSuppression': false,
+            'autoGainControl': true,
+          }));
     });
 
     test('should convert to map correctly (Android)', () {
@@ -64,15 +66,17 @@ void main() {
 
       final map = constraints.toMap(isAndroid: true);
 
-      expect(map, equals({
-        'echoCancellation': true,
-        'noiseSuppression': false,
-        'autoGainControl': true,
-        'googEchoCancellation': true,
-        'googNoiseSuppression': false,
-        'googAutoGainControl': true,
-        'googHighpassFilter': false,
-      }));
+      expect(
+          map,
+          equals({
+            'echoCancellation': true,
+            'noiseSuppression': false,
+            'autoGainControl': true,
+            'googEchoCancellation': true,
+            'googNoiseSuppression': false,
+            'googAutoGainControl': true,
+            'googHighpassFilter': false,
+          }));
     });
 
     test('should convert to map with default values', () {
@@ -80,14 +84,17 @@ void main() {
 
       final map = constraints.toMap();
 
-      expect(map, equals({
-        'echoCancellation': true,
-        'noiseSuppression': true,
-        'autoGainControl': true,
-      }));
+      expect(
+          map,
+          equals({
+            'echoCancellation': true,
+            'noiseSuppression': true,
+            'autoGainControl': true,
+          }));
     });
 
-    test('should throw FormatException when fromMap receives invalid types', () {
+    test('should throw FormatException when fromMap receives invalid types',
+        () {
       expect(
         () => AudioConstraints.fromMap({'echoCancellation': 'invalid'}),
         throwsA(isA<FormatException>()),
@@ -134,7 +141,8 @@ void main() {
 
       expect(
         constraints.toString(),
-        equals('AudioConstraints(echoCancellation: true, noiseSuppression: false, autoGainControl: true)'),
+        equals(
+            'AudioConstraints(echoCancellation: true, noiseSuppression: false, autoGainControl: true)'),
       );
     });
   });

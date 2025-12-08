@@ -22,6 +22,7 @@ import 'package:telnyx_webrtc/model/verto/send/gateway_request_message_body.dart
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/anonymous_login_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
+import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/codec_utils.dart';
@@ -226,12 +227,13 @@ class TelnyxClient {
 
   /// Build the host address with region support
   String _buildHostAddress(Config config, {String? voiceSdkId}) {
-    String baseHost = _storedHostAddress;
+    // Use the configured server URL instead of hardcoded default
+    String baseHost = _serverConfiguration.socketUrl;
 
     // If region is not AUTO, prepend the region to the host
     if (config.region != Region.auto) {
       // Extract the base host from the WebSocket URL
-      final uri = Uri.parse(_storedHostAddress);
+      final uri = Uri.parse(_serverConfiguration.socketUrl);
       final hostWithoutProtocol = uri.host;
       final regionHost = '${config.region.value}.$hostWithoutProtocol';
 
@@ -272,6 +274,32 @@ class TelnyxClient {
   bool getForceRelayCandidate() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
     return config?.forceRelayCandidate ?? false;
+  }
+
+  /// The current server configuration for TURN/STUN servers.
+  /// Defaults to production servers.
+  TxServerConfiguration _serverConfiguration =
+      TxServerConfiguration.production();
+
+  /// Gets the current server configuration.
+  TxServerConfiguration get serverConfiguration => _serverConfiguration;
+
+  /// Sets the server configuration for TURN/STUN servers.
+  ///
+  /// This should be called before connecting to the socket.
+  /// Use [TxServerConfiguration.production()] for production servers
+  /// or [TxServerConfiguration.development()] for development servers.
+  ///
+  /// Example:
+  /// ```dart
+  /// telnyxClient.setServerConfiguration(TxServerConfiguration.development());
+  /// ```
+  void setServerConfiguration(TxServerConfiguration configuration) {
+    _serverConfiguration = configuration;
+    GlobalLogger().i(
+      'TelnyxClient :: Server configuration set to: ${configuration.host}, '
+      'TURN: ${configuration.turn}, STUN: ${configuration.stun}',
+    );
   }
 
   /// Returns whether or not the client is connected to the socket connection
@@ -1378,6 +1406,8 @@ class TelnyxClient {
       this,
       getForceRelayCandidate(),
       audioConstraints,
+      _serverConfiguration.turn,
+      _serverConfiguration.stun,
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1452,6 +1482,8 @@ class TelnyxClient {
       this,
       getForceRelayCandidate(),
       audioConstraints,
+      _serverConfiguration.turn,
+      _serverConfiguration.stun,
     );
 
     // Set up the session with the callback if debug is enabled

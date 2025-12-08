@@ -23,11 +23,27 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _targetIdController = TextEditingController();
+  bool _hasInitializedEnvironment = false;
 
   @override
   void initState() {
     super.initState();
     askForNotificationPermission();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize environment setting on first load
+    if (!_hasInitializedEnvironment) {
+      _hasInitializedEnvironment = true;
+      // Schedule the environment initialization after the build phase
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final profileProvider = context.read<ProfileProvider>();
+        final viewModel = context.read<TelnyxClientViewModel>();
+        viewModel.setDevEnvironment(profileProvider.isDevEnvironment);
+      });
+    }
   }
 
   @override
@@ -125,7 +141,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _showAssistantLoginDialog();
         break;
       case 'Force ICE Renegotiation':
-        Provider.of<TelnyxClientViewModel>(context, listen: false).forceIceRenegotiation();
+        Provider.of<TelnyxClientViewModel>(context, listen: false)
+            .forceIceRenegotiation();
         break;
     }
   }
@@ -191,12 +208,12 @@ class _HomeScreenState extends State<HomeScreen> {
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
                 return {
-          'Audio Codecs',
-          'Audio Constraints',
-          'Export Logs',
-          'Disable Push Notifications',
-          'Force ICE Renegotiation'
-        }.map((
+                  'Audio Codecs',
+                  'Audio Constraints',
+                  'Export Logs',
+                  'Disable Push Notifications',
+                  'Force ICE Renegotiation'
+                }.map((
                   String choice,
                 ) {
                   return PopupMenuItem<String>(
@@ -214,8 +231,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 final debugToggleText = selectedProfile.isDebug
                     ? 'Disable Debugging'
                     : 'Enable Debugging';
-                return {'Export Logs', debugToggleText, 'Assistant Login', 'Force ICE Renegotiation'}
-                    .map((String choice) {
+                return {
+                  'Export Logs',
+                  debugToggleText,
+                  'Assistant Login',
+                  'Force ICE Renegotiation'
+                }.map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
@@ -224,9 +245,9 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             )
           else if (clientState == CallStateStatus.ongoingCall ||
-                   clientState == CallStateStatus.ringing ||
-                   clientState == CallStateStatus.ongoingInvitation ||
-                   clientState == CallStateStatus.connectingToCall)
+              clientState == CallStateStatus.ringing ||
+              clientState == CallStateStatus.ongoingInvitation ||
+              clientState == CallStateStatus.connectingToCall)
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
@@ -284,6 +305,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         isLoading: viewModel.loggingIn,
                         onPressed: selectedProfile != null
                             ? () async {
+                                // Apply environment setting before connecting
+                                final profileProvider =
+                                    context.read<ProfileProvider>();
+                                viewModel.setDevEnvironment(
+                                    profileProvider.isDevEnvironment);
+
                                 final config =
                                     await selectedProfile.toTelnyxConfig();
                                 if (config is TokenConfig) {
