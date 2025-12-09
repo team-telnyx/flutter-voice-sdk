@@ -401,6 +401,13 @@ class Call {
     peerConnection?.muteUnmuteMic();
   }
 
+  /// Sets the microphone mute state to a specific value.
+  ///
+  /// @param muted True to mute the microphone, false to unmute.
+  void setMuteState(bool muted) {
+    peerConnection?.setMuteState(muted);
+  }
+
   /// Enables or disables the speakerphone based on the [enable] parameter
   void enableSpeakerPhone(bool enable) {
     peerConnection?.enableSpeakerPhone(enable);

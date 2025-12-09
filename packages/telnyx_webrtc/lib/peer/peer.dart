@@ -47,8 +47,10 @@ class Peer {
     this._audioConstraints,
     String? providedTurn,
     String? providedStun,
+    bool initialMuteState = false,
   ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
-        _providedStun = providedStun ?? DefaultConfig.defaultStun;
+        _providedStun = providedStun ?? DefaultConfig.defaultStun,
+        _initialMuteState = initialMuteState;
 
   final String _selfId = randomNumeric(6);
 
@@ -59,6 +61,7 @@ class Peer {
   final AudioConstraints? _audioConstraints;
   final String _providedTurn;
   final String _providedStun;
+  final bool _initialMuteState;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -159,6 +162,18 @@ class Peer {
       _localStream!.getAudioTracks()[0].enabled = !enabled;
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
+    }
+  }
+
+  /// Sets the microphone mute state to a specific value.
+  ///
+  /// [muted] True to mute the microphone, false to unmute.
+  void setMuteState(bool muted) {
+    if (_localStream != null) {
+      _localStream!.getAudioTracks()[0].enabled = !muted;
+      GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
+    } else {
+      GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
     }
   }
 
@@ -530,7 +545,19 @@ class Peer {
   }) async {
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     currentSession = newSession;
-    if (media != 'data') _localStream = await createStream(media);
+    if (media != 'data') {
+      _localStream = await createStream(media);
+
+      // Apply initial mute state if requested
+      if (_initialMuteState && _localStream != null) {
+        final audioTracks = _localStream!.getAudioTracks();
+        if (audioTracks.isNotEmpty) {
+          audioTracks[0].enabled = false;
+          GlobalLogger()
+              .d('Peer :: Applied initial mute state on stream creation');
+        }
+      }
+    }
 
     peerConnection = await createPeerConnection(
       {

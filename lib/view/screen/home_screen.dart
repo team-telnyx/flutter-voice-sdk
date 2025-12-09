@@ -34,14 +34,13 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Initialize environment setting on first load
     if (!_hasInitializedEnvironment) {
       _hasInitializedEnvironment = true;
       // Schedule the environment initialization after the build phase
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final profileProvider = context.read<ProfileProvider>();
-        final viewModel = context.read<TelnyxClientViewModel>();
-        viewModel.setDevEnvironment(profileProvider.isDevEnvironment);
+        context.read<TelnyxClientViewModel>()
+          ..setDevEnvironment(profileProvider.isDevEnvironment);
       });
     }
   }
@@ -144,7 +143,26 @@ class _HomeScreenState extends State<HomeScreen> {
         Provider.of<TelnyxClientViewModel>(context, listen: false)
             .forceIceRenegotiation();
         break;
+      case 'Start Call Muted On':
+      case 'Start Call Muted Off':
+        _toggleMuteOnStart();
+        break;
     }
+  }
+
+  void _toggleMuteOnStart() {
+    final viewModel =
+        Provider.of<TelnyxClientViewModel>(context, listen: false);
+    final newState = !viewModel.mutedMicOnStart;
+    viewModel.setMutedMicOnStart(newState);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          newState ? 'Start Call Muted: On' : 'Start Call Muted: Off',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _showCodecSelectorDialog() {
@@ -204,23 +222,29 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: <Widget>[
           // Show different menu options based on client state
           if (clientState == CallStateStatus.idle)
-            PopupMenuButton<String>(
-              onSelected: handleOptionClick,
-              itemBuilder: (BuildContext context) {
-                return {
-                  'Audio Codecs',
-                  'Audio Constraints',
-                  'Export Logs',
-                  'Disable Push Notifications',
-                  'Force ICE Renegotiation'
-                }.map((
-                  String choice,
-                ) {
-                  return PopupMenuItem<String>(
-                    value: choice,
-                    child: Text(choice),
-                  );
-                }).toList();
+            Consumer<TelnyxClientViewModel>(
+              builder: (context, viewModel, child) {
+                final muteOnStartText = viewModel.mutedMicOnStart
+                    ? 'Start Call Muted On'
+                    : 'Start Call Muted Off';
+                return PopupMenuButton<String>(
+                  onSelected: handleOptionClick,
+                  itemBuilder: (BuildContext context) {
+                    return [
+                      muteOnStartText,
+                      'Audio Codecs',
+                      'Audio Constraints',
+                      'Export Logs',
+                      'Disable Push Notifications',
+                      'Force ICE Renegotiation',
+                    ].map((String choice) {
+                      return PopupMenuItem<String>(
+                        value: choice,
+                        child: Text(choice),
+                      );
+                    }).toList();
+                  },
+                );
               },
             )
           else if (clientState == CallStateStatus.disconnected &&
@@ -231,12 +255,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 final debugToggleText = selectedProfile.isDebug
                     ? 'Disable Debugging'
                     : 'Enable Debugging';
-                return {
+                return [
                   'Export Logs',
                   debugToggleText,
                   'Assistant Login',
-                  'Force ICE Renegotiation'
-                }.map((String choice) {
+                  'Force ICE Renegotiation',
+                ].map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),
@@ -309,7 +333,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 final profileProvider =
                                     context.read<ProfileProvider>();
                                 viewModel.setDevEnvironment(
-                                    profileProvider.isDevEnvironment);
+                                  profileProvider.isDevEnvironment,
+                                );
 
                                 final config =
                                     await selectedProfile.toTelnyxConfig();
