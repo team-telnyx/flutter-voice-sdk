@@ -43,7 +43,7 @@ The SDK provides real-time call quality metrics through the `onCallQualityChange
 
 #### Using onCallQualityChanged
 
-```Dart
+```dart
 // When creating a new call set debug to true for CallQualityMetrics
 val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, 
    debug // debug value
