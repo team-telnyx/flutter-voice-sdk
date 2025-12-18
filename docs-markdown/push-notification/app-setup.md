@@ -10,6 +10,12 @@ Once you respond to a push notification—for example, by tapping "Accept"—you
 
 The following sections provide more detail on how to implement these steps.
 
+## Multidevice Push Notifications
+
+Telnyx WebRTC supports multidevice push notifications. A single user can have up to 5 device tokens (either iOS - APNS or Android - FCM). When a user logs into the socket and provides a push token, our services will register this token to that user - allowing it to receive push notifications for incoming calls. If a 6 th registration is made, the least recently used token will be removed.
+
+This effectivly means that you can have up to 5 devices that can receive push notifications for the same incoming call.
+
 ## Handling Foreground and Terminated Calls
 
 When the app is in the foreground you do not need to use push notifications to receive calls, however it still might be beneficial to use CallKit to show native UI for the calls. When the app is terminated you will need to use push notifications to receive calls as described below.
