@@ -1,9 +1,9 @@
-[![Pub Version](https://img.shields.io/pub/v/telnyx_webrtc?color=blue&logo=telnyx)](https://pub.dev/packages/telnyx_webrtc)
-[![Flutter Test](https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml)
+<a href="https://pub.dev/packages/telnyx_webrtc"><img src="https://img.shields.io/pub/v/telnyx_webrtc?color=blue&logo=telnyx" alt="Pub Version" /></a>
+<a href="https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml"><img src="https://github.com/team-telnyx/telnyx-webrtc-flutter/actions/workflows/unit_tests.yml/badge.svg" alt="Flutter Test" /></a>
 
 # Telnyx Flutter Voice SDK
 
-Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
+Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) 📞 🔥
 
 ## Quick Start with Telnyx Common (Beta)
 
@@ -54,18 +54,18 @@ This is the quickest way to implement the SDK with minimal setup and configurati
 - [License](#license)
 
 ## Features
-- [x] Create / Receive calls
-- [x] Hold calls
-- [x] Mute calls
-- [x] Dual Tone Multi Frequency
-- [x] Call quality metrics monitoring
+- ✅ Create / Receive calls
+- ✅ Hold calls
+- ✅ Mute calls
+- ✅ Dual Tone Multi Frequency
+- ✅ Call quality metrics monitoring
 
 ## Usage
 
 ### SIP Credentials
 In order to start making and receiving calls using the TelnyxRTC SDK you will need to get SIP Credentials:
 
-![Screenshot 2022-07-15 at 13 51 45](https://user-images.githubusercontent.com/9112652/179226614-f0477f38-6131-4cef-9c7a-3366f23a89b6.png)
+<img src="https://user-images.githubusercontent.com/9112652/179226614-f0477f38-6131-4cef-9c7a-3366f23a89b6.png" alt="SIP Credentials Screenshot" />
 
 1. Access to https://portal.telnyx.com/
 2. Sign up for a Telnyx Account.
@@ -79,7 +79,7 @@ For more information on how to generate SIP credentials check the [Telnyx WebRTC
 ## Android
 If you are implementing the SDK into an Android application it is important to remember to add the following permissions to your AndroidManifest in order to allow Audio and Internet permissions:
 
-```xml
+```html
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />

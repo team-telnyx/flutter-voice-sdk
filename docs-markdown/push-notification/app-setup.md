@@ -181,7 +181,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
    Finally, tell the Firebase SDK to use this channel by default for incoming FCM notifications by adding the following meta-data inside the `<application>` tag in your `android/app/src/main/AndroidManifest.xml`:
 
-   ```xml
+   ```html
    <meta-data
        android:name="com.google.firebase.messaging.default_notification_channel_id"
        android:value="telnyx_call_channel" /> 
@@ -308,7 +308,7 @@ For a full example please view the [Demo Application Example](https://github.com
 ```
 
 Note: It is important to add the following lines to your `Info.plist` file to enable push notifications
-```xml
+```html
 <key>UIBackgroundModes</key>
 <array>
     <string>processing</string>
