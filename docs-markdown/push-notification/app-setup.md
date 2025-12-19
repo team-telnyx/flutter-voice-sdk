@@ -10,6 +10,12 @@ Once you respond to a push notification—for example, by tapping "Accept"—you
 
 The following sections provide more detail on how to implement these steps.
 
+## Multidevice Push Notifications
+
+Telnyx WebRTC supports multidevice push notifications. A single user can have up to 5 device tokens (either iOS - APNS or Android - FCM). When a user logs into the socket and provides a push token, our services will register this token to that user - allowing it to receive push notifications for incoming calls. If a 6th registration is made, the least recently used token will be removed.
+
+This effectivly means that you can have up to 5 devices that can receive push notifications for the same incoming call.
+
 ## Handling Foreground and Terminated Calls
 
 When the app is in the foreground you do not need to use push notifications to receive calls, however it still might be beneficial to use CallKit to show native UI for the calls. When the app is terminated you will need to use push notifications to receive calls as described below.
@@ -181,7 +187,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
    Finally, tell the Firebase SDK to use this channel by default for incoming FCM notifications by adding the following meta-data inside the `<application>` tag in your `android/app/src/main/AndroidManifest.xml`:
 
-   ```xml
+   ```html
    <meta-data
        android:name="com.google.firebase.messaging.default_notification_channel_id"
        android:value="telnyx_call_channel" /> 
@@ -308,7 +314,7 @@ For a full example please view the [Demo Application Example](https://github.com
 ```
 
 Note: It is important to add the following lines to your `Info.plist` file to enable push notifications
-```xml
+```html
 <key>UIBackgroundModes</key>
 <array>
     <string>processing</string>
