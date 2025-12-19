@@ -1,3 +1,12 @@
+## [3.3.0](https://pub.dev/packages/telnyx_webrtc/versions/3.3.0) (2025-12-15)
+### Enhancement
+- Added `EchoCanellation`, `NoiseSuppression` and `AutoGainControl` MediaConstraints as AudioConstraints that can be passed on `newInvite` and `acceptCall`
+- Added a new parameter on `newInvite` and `acceptCall` called `mutedMicOnStart`, allowing users to join a call muted.
+- Added `tx_server_configuration.dart` allowing users to specify a specific server connection including host, port, turn and stun. 
+
+### Bug Fixing
+- Further tweaking and refining of the Ice Candidate Gathering and Peer disposal logic to improve call quality and memory usage
+
 ## [3.2.0](https://pub.dev/packages/telnyx_webrtc/versions/3.2.0) (2025-11-18)
 ### Enhancement
 - AI Agent Conversation Message Enhancements
