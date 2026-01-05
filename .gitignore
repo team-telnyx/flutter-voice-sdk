@@ -74,3 +74,7 @@ android/.idea/runConfigurations.xml
 # Node.js
 node_modules/
 package-lock.json
+
+# Documentation markdown linting
+docs-markdown/node_modules/
+docs-markdown/package-lock.json
