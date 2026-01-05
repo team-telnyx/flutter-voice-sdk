@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/asset_paths.dart';
 import 'package:telnyx_flutter_webrtc/utils/dimensions.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
@@ -7,6 +8,7 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import '../connection_details_bottom_sheet.dart';
+import '../environment_bottom_sheet.dart';
 
 class ControlHeaders extends StatefulWidget {
   const ControlHeaders({super.key});
@@ -25,6 +27,20 @@ class _ControlHeadersState extends State<ControlHeaders> {
     );
   }
 
+  void _showEnvironmentBottomSheet(BuildContext context) {
+    final connectionStatus =
+        context.read<TelnyxClientViewModel>().connectionStatus;
+    // Only show environment switcher when disconnected
+    if (connectionStatus == ConnectionStatus.disconnected) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => const EnvironmentBottomSheet(),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<TelnyxClientViewModel>(
@@ -35,10 +51,13 @@ class _ControlHeadersState extends State<ControlHeaders> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: spacingS),
               child: Center(
-                child: Image.asset(
-                  logo_path,
-                  width: logoWidth,
-                  height: logoHeight,
+                child: GestureDetector(
+                  onLongPress: () => _showEnvironmentBottomSheet(context),
+                  child: Image.asset(
+                    logo_path,
+                    width: logoWidth,
+                    height: logoHeight,
+                  ),
                 ),
               ),
             ),

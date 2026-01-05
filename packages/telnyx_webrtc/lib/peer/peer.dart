@@ -26,6 +26,7 @@ import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
@@ -33,13 +34,29 @@ class Peer {
   RTCPeerConnection? peerConnection;
 
   /// The constructor for the Peer class.
+  ///
+  /// [_socket] The socket connection for signaling.
+  /// [_debug] Whether debug mode is enabled.
+  /// [_txClient] The TelnyxClient instance.
+  /// [_forceRelayCandidate] Whether to force TURN relay candidates.
+  /// [_useTrickleIce] Whether to use trickle ICE.
+  /// [_audioConstraints] Optional audio constraints.
+  /// [providedTurn] Optional custom TURN server URL. Defaults to production.
+  /// [providedStun] Optional custom STUN server URL. Defaults to production.
+  /// [initialMuteState] Whether to start the call muted.
   Peer(
     this._socket,
     this._debug,
     this._txClient,
     this._forceRelayCandidate,
-    this._useTrickleIce,
-  );
+    this._useTrickleIce, [
+    this._audioConstraints,
+    String? providedTurn,
+    String? providedStun,
+    bool initialMuteState = false,
+  ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
+        _providedStun = providedStun ?? DefaultConfig.defaultStun,
+        _initialMuteState = initialMuteState;
 
   final String _selfId = randomNumeric(6);
 
@@ -48,6 +65,10 @@ class Peer {
   final bool _debug;
   final bool _forceRelayCandidate;
   final bool _useTrickleIce;
+  final AudioConstraints? _audioConstraints;
+  final String _providedTurn;
+  final String _providedStun;
+  final bool _initialMuteState;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -107,20 +128,20 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
-  final Map<String, dynamic> _iceServers = {
-    'iceServers': [
-      {
-        'url': DefaultConfig.defaultStun,
-        'username': DefaultConfig.username,
-        'credential': DefaultConfig.password,
-      },
-      {
-        'url': DefaultConfig.defaultTurn,
-        'username': DefaultConfig.username,
-        'credential': DefaultConfig.password,
-      },
-    ],
-  };
+  Map<String, dynamic> get _iceServers => {
+        'iceServers': [
+          {
+            'url': _providedStun,
+            'username': DefaultConfig.username,
+            'credential': DefaultConfig.password,
+          },
+          {
+            'url': _providedTurn,
+            'username': DefaultConfig.username,
+            'credential': DefaultConfig.password,
+          },
+        ],
+      };
 
   /// Builds the ICE configuration based on the forceRelayCandidate setting
   Map<String, dynamic> _buildIceConfiguration() {
@@ -156,6 +177,18 @@ class Peer {
       _localStream!.getAudioTracks()[0].enabled = !enabled;
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
+    }
+  }
+
+  /// Sets the microphone mute state to a specific value.
+  ///
+  /// [muted] True to mute the microphone, false to unmute.
+  void setMuteState(bool muted) {
+    if (_localStream != null) {
+      _localStream!.getAudioTracks()[0].enabled = !muted;
+      GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
+    } else {
+      GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
     }
   }
 
@@ -639,7 +672,8 @@ class Peer {
   /// Returns a [Future] that completes with the [MediaStream].
   Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': true,
+      'audio': (_audioConstraints ?? AudioConstraints.enabled())
+          .toMap(isAndroid: Platform.isAndroid),
       'video': false,
     };
 
@@ -660,7 +694,19 @@ class Peer {
   }) async {
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     currentSession = newSession;
-    if (media != 'data') _localStream = await createStream(media);
+    if (media != 'data') {
+      _localStream = await createStream(media);
+
+      // Apply initial mute state if requested
+      if (_initialMuteState && _localStream != null) {
+        final audioTracks = _localStream!.getAudioTracks();
+        if (audioTracks.isNotEmpty) {
+          audioTracks[0].enabled = false;
+          GlobalLogger()
+              .d('Peer :: Applied initial mute state on stream creation');
+        }
+      }
+    }
 
     peerConnection = await createPeerConnection(
       {

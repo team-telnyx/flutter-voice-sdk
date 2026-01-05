@@ -70,3 +70,11 @@ android/.idea/AndroidProjectSystem.xml
 android/.idea/runConfigurations.xml
 /old
 /.firebase
+
+# Node.js
+node_modules/
+package-lock.json
+
+# Documentation markdown linting
+docs-markdown/node_modules/
+docs-markdown/package-lock.json

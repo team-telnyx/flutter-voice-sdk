@@ -11,6 +11,10 @@ class Constants {
   // This is the maximum time allowed for a call to be in the RECONNECTING or DROPPED  state
   static const int reconnectionTimeout = 60000;
 
+  // Push answer timeout in milliseconds (10 seconds)
+  // This is the maximum time to wait for an INVITE after accepting from push notification
+  static const int pushAnswerTimeout = 10000;
+
   // Stats Manager constants
   static const int statsInitial = 1000;
   static const int statsInterval = 2000;

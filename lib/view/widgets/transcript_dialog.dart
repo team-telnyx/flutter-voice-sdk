@@ -18,8 +18,8 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ImagePicker _imagePicker = ImagePicker();
-  File? _selectedImage;
-  String? _selectedImageBase64;
+  final List<File> _selectedImages = [];
+  final List<String> _selectedImagesBase64 = [];
 
   @override
   void dispose() {
@@ -48,15 +48,15 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         final File imageFile = File(image.path);
         final Uint8List imageBytes = await imageFile.readAsBytes();
         final String base64String = base64Encode(imageBytes);
-        
+
         setState(() {
-          _selectedImage = imageFile;
-          _selectedImageBase64 = base64String;
+          _selectedImages.add(imageFile);
+          _selectedImagesBase64.add(base64String);
         });
       }
     } catch (e) {
@@ -66,23 +66,61 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
     }
   }
 
-  void _removeImage() {
+  Future<void> _pickMultipleImages() async {
+    try {
+      final List<XFile> images = await _imagePicker.pickMultiImage(
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      for (final XFile image in images) {
+        final File imageFile = File(image.path);
+        final Uint8List imageBytes = await imageFile.readAsBytes();
+        final String base64String = base64Encode(imageBytes);
+
+        setState(() {
+          _selectedImages.add(imageFile);
+          _selectedImagesBase64.add(base64String);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error picking images: $e')),
+      );
+    }
+  }
+
+  void _removeImage(int index) {
     setState(() {
-      _selectedImage = null;
-      _selectedImageBase64 = null;
+      _selectedImages.removeAt(index);
+      _selectedImagesBase64.removeAt(index);
+    });
+  }
+
+  void _clearAllImages() {
+    setState(() {
+      _selectedImages.clear();
+      _selectedImagesBase64.clear();
     });
   }
 
   void _sendMessage() {
     final message = _messageController.text.trim();
-    if (message.isNotEmpty || _selectedImageBase64 != null) {
-      final messageText = message.isNotEmpty ? message : 'Image attached';
+    if (message.isNotEmpty || _selectedImagesBase64.isNotEmpty) {
+      final messageText = message.isNotEmpty
+          ? message
+          : _selectedImagesBase64.length == 1
+              ? 'Image attached'
+              : '${_selectedImagesBase64.length} images attached';
+
       context.read<TelnyxClientViewModel>().sendConversationMessage(
-        messageText,
-        base64Image: _selectedImageBase64,
-      );
+            messageText,
+            base64Images:
+                _selectedImagesBase64.isNotEmpty ? _selectedImagesBase64 : null,
+          );
       _messageController.clear();
-      _removeImage();
+      _clearAllImages();
       _scrollToBottom();
     }
   }
@@ -155,8 +193,8 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
           ),
           child: Column(
             children: [
-              // Image preview
-              if (_selectedImage != null) ...[
+              // Images preview
+              if (_selectedImages.isNotEmpty) ...[
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(8),
@@ -165,34 +203,77 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey[300]!),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: Image.file(
-                          _selectedImage!,
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Image selected',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.black87,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${_selectedImages.length} image${_selectedImages.length > 1 ? 's' : ''} selected',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
-                        ),
+                          IconButton(
+                            onPressed: _clearAllImages,
+                            icon: const Icon(Icons.clear_all, size: 20),
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.red[100],
+                              foregroundColor: Colors.red,
+                              minimumSize: const Size(32, 32),
+                            ),
+                          ),
+                        ],
                       ),
-                      IconButton(
-                        onPressed: _removeImage,
-                        icon: const Icon(Icons.close, size: 20),
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.red[100],
-                          foregroundColor: Colors.red,
-                          minimumSize: const Size(32, 32),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 80,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _selectedImages.length,
+                          itemBuilder: (context, index) {
+                            return Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Image.file(
+                                      _selectedImages[index],
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 2,
+                                    right: 2,
+                                    child: GestureDetector(
+                                      onTap: () => _removeImage(index),
+                                      child: Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: const Icon(
+                                          Icons.close,
+                                          size: 14,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -202,12 +283,46 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
               // Input row
               Row(
                 children: [
-                  IconButton(
-                    onPressed: _pickImage,
-                    icon: const Icon(Icons.image),
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.grey[200],
-                      foregroundColor: Colors.grey[700],
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'single') {
+                        _pickImage();
+                      } else if (value == 'multiple') {
+                        _pickMultipleImages();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'single',
+                        child: Row(
+                          children: [
+                            Icon(Icons.image),
+                            SizedBox(width: 8),
+                            Text('Add single image'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'multiple',
+                        child: Row(
+                          children: [
+                            Icon(Icons.photo_library),
+                            SizedBox(width: 8),
+                            Text('Add multiple images'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.add_photo_alternate,
+                        color: Colors.grey[700],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),

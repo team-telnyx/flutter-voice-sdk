@@ -81,7 +81,8 @@ void main() {
       expect(modifyParams.callID, equals(callID));
     });
 
-    test('should deserialize from JSON correctly with missing optional fields', () {
+    test('should deserialize from JSON correctly with missing optional fields',
+        () {
       const action = 'updateMedia';
       const sessid = 'test-session-id';
 

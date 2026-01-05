@@ -26,7 +26,9 @@ import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/transcript_item.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
+import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
@@ -54,8 +56,10 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _hold = false;
   bool _isAssistantMode = false;
   bool _useTrickleIce = false;
+  bool _mutedMicOnStart = false;
   List<AudioCodec> _supportedCodecs = [];
   List<AudioCodec> _preferredCodecs = [];
+  AudioConstraints _audioConstraints = AudioConstraints.enabled();
 
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
@@ -136,9 +140,13 @@ class TelnyxClientViewModel with ChangeNotifier {
     notifyListeners();
   }
 
+  bool get mutedMicOnStart => _mutedMicOnStart;
+
   List<AudioCodec> get supportedCodecs => _supportedCodecs;
 
   List<AudioCodec> get preferredCodecs => _preferredCodecs;
+
+  AudioConstraints get audioConstraints => _audioConstraints;
 
   String get sessionId {
     return _telnyxClient.sessid;
@@ -741,6 +749,23 @@ class TelnyxClientViewModel with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Sets the server environment for TURN/STUN servers.
+  ///
+  /// When [isDev] is true, the SDK will use development TURN/STUN servers.
+  /// When [isDev] is false, the SDK will use production TURN/STUN servers.
+  ///
+  /// This should be called before connecting to the socket.
+  void setDevEnvironment(bool isDev) {
+    if (isDev) {
+      _telnyxClient.setServerConfiguration(TxServerConfiguration.development());
+      logger.i('TelnyxClientViewModel :: Switched to Development environment');
+    } else {
+      _telnyxClient.setServerConfiguration(TxServerConfiguration.production());
+      logger.i('TelnyxClientViewModel :: Switched to Production environment');
+    }
+    notifyListeners();
+  }
+
   void login(CredentialConfig credentialConfig) async {
     _loggingIn = true;
     notifyListeners();
@@ -801,12 +826,19 @@ class TelnyxClientViewModel with ChangeNotifier {
       '',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
       preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
+      audioConstraints: _audioConstraints,
       debug: true,
       useTrickleIce: _useTrickleIce,
+      mutedMicOnStart: _mutedMicOnStart,
     );
 
+    // Update mute state to match mutedMicOnStart setting
+    if (_mutedMicOnStart) {
+      _mute = true;
+    }
+
     logger.i(
-      'TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}',
+      'TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}. Muted on start: $_mutedMicOnStart',
     );
 
     if (_preferredCodecs.isNotEmpty) {
@@ -833,9 +865,19 @@ class TelnyxClientViewModel with ChangeNotifier {
     observeCurrentCall();
   }
 
-  void sendConversationMessage(String message, {String? base64Image}) {
+  void sendConversationMessage(
+    String message, {
+    List<String>? base64Images,
+    @Deprecated(
+        'Use base64Images parameter instead for better support of multiple images')
+    String? base64Image,
+  }) {
     try {
-      currentCall?.sendConversationMessage(message, base64Image: base64Image);
+      currentCall?.sendConversationMessage(
+        message,
+        base64Images: base64Images,
+        base64Image: base64Image,
+      );
     } catch (e) {
       logger.e('Error sending conversation message: $e');
     }
@@ -898,7 +940,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   // Private helper to contain the actual acceptance steps
   Future<void> _performAccept(IncomingInviteParams invite) async {
     logger.i(
-      'TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}',
+      'TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}. Muted on start: $_mutedMicOnStart',
     );
     // Set state definitively before async gaps
     callState = CallStateStatus.connectingToCall;
@@ -918,9 +960,17 @@ class TelnyxClientViewModel with ChangeNotifier {
         _localNumber,
         'State',
         customHeaders: {},
+        audioConstraints: _audioConstraints,
         debug: true,
         useTrickleIce: _useTrickleIce,
+        mutedMicOnStart: _mutedMicOnStart,
       );
+
+      // Update mute state to match mutedMicOnStart setting
+      if (_mutedMicOnStart) {
+        _mute = true;
+      }
+
       observeCurrentCall();
 
       if (!kIsWeb) {
@@ -1051,6 +1101,24 @@ class TelnyxClientViewModel with ChangeNotifier {
     _preferredCodecs = List.from(codecs);
     logger.i(
       'TelnyxClientViewModel.setPreferredCodecs: Set ${_preferredCodecs.length} preferred codecs: ${_preferredCodecs.map((c) => c.mimeType).join(', ')}',
+    );
+    notifyListeners();
+  }
+
+  /// Sets the audio constraints for WebRTC calls
+  void setAudioConstraints(AudioConstraints constraints) {
+    _audioConstraints = constraints;
+    logger.i(
+      'TelnyxClientViewModel.setAudioConstraints: Set audio constraints - echoCancellation: ${constraints.echoCancellation}, noiseSuppression: ${constraints.noiseSuppression}, autoGainControl: ${constraints.autoGainControl}',
+    );
+    notifyListeners();
+  }
+
+  /// Sets whether the microphone should be muted when starting or answering a call
+  void setMutedMicOnStart(bool muted) {
+    _mutedMicOnStart = muted;
+    logger.i(
+      'TelnyxClientViewModel.setMutedMicOnStart: Set mutedMicOnStart to $muted',
     );
     notifyListeners();
   }

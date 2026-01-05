@@ -43,7 +43,7 @@ The SDK provides real-time call quality metrics through the `onCallQualityChange
 
 #### Using onCallQualityChanged
 
-```Dart
+```dart
 // When creating a new call set debug to true for CallQualityMetrics
 val outgoingCall = telnyxClient.newInvite(callerName, callerNumber, destinationNumber, clientState, customHeaders, 
    debug // debug value
@@ -77,10 +77,10 @@ The `CallQualityMetrics` object provides the following properties:
 | `rtt` | Double | Round-trip time in seconds (multiply by 1000 for milliseconds) |
 | `mos` | Double | Mean Opinion Score (1.0-5.0) |
 | `quality` | CallQuality | Call quality rating based on MOS |
-| `inboundAudio` | Map<String, Any>? | Inbound audio statistics |
-| `outboundAudio` | Map<String, Any>? | Outbound audio statistics |
-| `remoteInboundAudio` | Map<String, Any>? | Remote inbound audio statistics |
-| `remoteOutboundAudio` | Map<String, Any>? | Remote outbound audio statistics |
+| `inboundAudio` | `Map<String, Any>?` | Inbound audio statistics |
+| `outboundAudio` | `Map<String, Any>?` | Outbound audio statistics |
+| `remoteInboundAudio` | `Map<String, Any>?` | Remote inbound audio statistics |
+| `remoteOutboundAudio` | `Map<String, Any>?` | Remote outbound audio statistics |
 
 #### CallQuality Enum
 
@@ -88,11 +88,11 @@ The `CallQuality` enum provides the following values:
 
 | Value | MOS Range | Description |
 |-------|-----------|-------------|
-| `.excellent` | MOS > 4.2 | Excellent call quality |
-| `.good` | 4.1 <= MOS <= 4.2 | Good call quality |
-| `.fair` | 3.7 <= MOS <= 4.0 | Fair call quality |
-| `.poor` | 3.1 <= MOS <= 3.6 | Poor call quality |
-| `.bad` | MOS <= 3.0 | Bad call quality |
+| `.excellent` | MOS \> 4.2 | Excellent call quality |
+| `.good` | 4.1 \<= MOS \<= 4.2 | Good call quality |
+| `.fair` | 3.7 \<= MOS \<= 4.0 | Fair call quality |
+| `.poor` | 3.1 \<= MOS \<= 3.6 | Poor call quality |
+| `.bad` | MOS \<= 3.0 | Bad call quality |
 | `.unknown` | N/A | Unable to calculate quality |
 
 #### Best Practices for Call Quality Monitoring
@@ -130,4 +130,3 @@ The `CallQuality` enum provides the following values:
     - Consider disabling debug mode in production unless actively investigating issues
 
 ---
-</br>

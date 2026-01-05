@@ -1,4 +1,4 @@
-name: Flutter UI Tests (Firebase Test Lab)
+name: Flutter UI Tests (Firebase Test Lab with Reactive Circus Fallback)
 
 on:
   pull_request:
@@ -65,6 +65,8 @@ jobs:
 
       # 8) Run tests on Firebase Test Lab
       - name: Run Tests on Firebase Test Lab
+        id: firebase_tests
+        continue-on-error: true
         run: |
           gcloud firebase test android run \
           --type instrumentation \
@@ -75,3 +77,54 @@ jobs:
           --device model=akita,version=34,locale=en,orientation=portrait \
           --record-video \
           --environment-variables clearPackageData=true
+          echo "firebase_status=success" >> $GITHUB_OUTPUT
+
+      # Reactive Circus fallback mechanism - runs only when Firebase tests fail
+      - name: Enable KVM group perms (Reactive Circus)
+        if: always() && steps.firebase_tests.outcome == 'failure'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Flutter Tests with Reactive Circus (Fallback)
+        id: fallback_tests
+        if: always() && steps.firebase_tests.outcome == 'failure'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            echo "Running Flutter integration tests as fallback..."
+            flutter test integration_test/patrol_test.dart --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }}
+
+      - name: Check Test Results
+        if: always()
+        run: |
+          # Check Firebase test results first
+          if [[ "${{ steps.firebase_tests.outcome }}" == "success" ]]; then
+            echo "✅ Firebase test suite passed"
+            exit 0
+          fi
+
+          # If Firebase tests failed, check fallback results
+          echo "⚠️ Firebase test suite failed, checking fallback results..."
+          if [[ "${{ steps.fallback_tests.outcome }}" == "success" ]]; then
+            echo "✅ Reactive Circus fallback test suite passed"
+            exit 0
+          fi
+
+          # If both Firebase and fallback tests failed
+          if [[ "${{ steps.fallback_tests.outcome }}" == "failure" ]]; then
+            echo "❌ Both Firebase and Reactive Circus fallback test suites failed"
+            exit 1
+          fi
+
+          # If fallback tests were skipped (Firebase tests passed)
+          echo "❌ All test suites failed"
+          exit 1

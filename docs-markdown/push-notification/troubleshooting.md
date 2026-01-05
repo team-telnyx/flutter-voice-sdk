@@ -204,7 +204,7 @@ Proper configuration in Info.plist is essential for push notifications to work.
 
 **Solution:**
 - Add the following to your Info.plist:
-  ```xml
+  ```html
   <key>UIBackgroundModes</key>
   <array>
       <string>voip</string>

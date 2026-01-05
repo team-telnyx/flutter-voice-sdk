@@ -46,6 +46,8 @@ import 'package:telnyx_webrtc/model/audio_codec.dart';
 import 'package:telnyx_webrtc/model/pending_ice_candidate.dart';
 import 'package:telnyx_webrtc/utils/candidate_utils.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
+import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -166,8 +168,18 @@ class TelnyxClient {
   /// Timer for handling push notification answer timeout
   Timer? _pendingAnswerTimeout;
 
-  /// Timeout duration for pending answer from push (10 seconds)
-  static const Duration _pushAnswerTimeoutDuration = Duration(seconds: 10);
+  /// Override value for push answer timeout (used when set via handlePushNotification)
+  int? _pushAnswerTimeoutOverride;
+
+  /// Gets the timeout duration for pending answer from push notification
+  /// Precedence: handlePushNotification override → Config value → Default (10 seconds)
+  Duration get _pushAnswerTimeoutDuration {
+    final timeoutMs = _pushAnswerTimeoutOverride ??
+        _storedCredentialConfig?.pushAnswerTimeout ??
+        _storedTokenConfig?.pushAnswerTimeout ??
+        Constants.pushAnswerTimeout;
+    return Duration(milliseconds: timeoutMs);
+  }
 
   /// Controls whether the client should automatically attempt to reconnect
   /// when the socket connection fails or network connectivity is restored.
@@ -216,16 +228,15 @@ class TelnyxClient {
   // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
   bool _earlySDP = false;
 
-  final String _storedHostAddress = DefaultConfig.socketHostAddress;
-
   /// Build the host address with region support
   String _buildHostAddress(Config config, {String? voiceSdkId}) {
-    String baseHost = _storedHostAddress;
+    // Use the configured server URL instead of hardcoded default
+    String baseHost = _serverConfiguration.socketUrl;
 
     // If region is not AUTO, prepend the region to the host
     if (config.region != Region.auto) {
       // Extract the base host from the WebSocket URL
-      final uri = Uri.parse(_storedHostAddress);
+      final uri = Uri.parse(_serverConfiguration.socketUrl);
       final hostWithoutProtocol = uri.host;
       final regionHost = '${config.region.value}.$hostWithoutProtocol';
 
@@ -266,6 +277,31 @@ class TelnyxClient {
   bool getForceRelayCandidate() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
     return config?.forceRelayCandidate ?? false;
+  }
+
+  /// The current server configuration for TURN/STUN servers.
+  /// Defaults to production servers.
+  TxServerConfiguration _serverConfiguration =
+      TxServerConfiguration.production();
+
+  /// Gets the current server configuration.
+  TxServerConfiguration get serverConfiguration => _serverConfiguration;
+
+  /// Sets the server configuration for TURN/STUN servers.
+  ///
+  /// This should be called before connecting to the socket.
+  /// Use [TxServerConfiguration.production()] for production servers
+  /// or [TxServerConfiguration.development()] for development servers.
+  ///
+  /// Example:
+  /// ```dart
+  /// telnyxClient.setServerConfiguration(TxServerConfiguration.development());
+  /// ```
+  void setServerConfiguration(TxServerConfiguration configuration) {
+    _serverConfiguration = configuration;
+    GlobalLogger().i(
+      'TelnyxClient :: Server configuration updated: ${configuration.socketUrl}',
+    );
   }
 
   /// Returns whether or not the client is connected to the socket connection
@@ -883,14 +919,14 @@ class TelnyxClient {
     try {
       if (pushMetaData?.voiceSdkId != null) {
         txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${pushMetaData?.voiceSdkId}';
+            '$_serverConfiguration.socketUrl?voice_sdk_id=${pushMetaData?.voiceSdkId}';
         GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voiceSdkId}',
         );
       } else {
-        txSocket.hostAddress = _storedHostAddress;
+        txSocket.hostAddress = _serverConfiguration.socketUrl;
         GlobalLogger().i(
-          'TelnyxClient._connectWithCallBack: connecting to WebSocket $_storedHostAddress',
+          'TelnyxClient._connectWithCallBack: connecting to WebSocket $_serverConfiguration.socketUrl',
         );
       }
       txSocket
@@ -919,7 +955,7 @@ class TelnyxClient {
     } catch (e, string) {
       GlobalLogger().e('${e.toString()} :: $string');
       _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
     }
   }
 
@@ -937,7 +973,7 @@ class TelnyxClient {
     _logger
       ..setLogLevel(tokenConfig.logLevel)
       ..log(LogLevel.info, 'connect()')
-      ..log(LogLevel.info, 'connecting to WebSocket $_storedHostAddress');
+      ..log(LogLevel.info, 'connecting to WebSocket $_serverConfiguration.socketUrl');
     try {
       // Build the host address with region support
       final hostAddress = _buildHostAddress(
@@ -975,7 +1011,7 @@ class TelnyxClient {
     } catch (e) {
       GlobalLogger().e(e.toString());
       _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
     }
   }
 
@@ -1033,7 +1069,7 @@ class TelnyxClient {
     } catch (e) {
       GlobalLogger().e(e.toString());
       _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
     }
   }
 
@@ -1045,20 +1081,20 @@ class TelnyxClient {
   void connect() {
     GlobalLogger().i('connect()');
     if (isConnected()) {
-      GlobalLogger().i('WebSocket $_storedHostAddress is already connected');
+      GlobalLogger().i('WebSocket $_serverConfiguration.socketUrl is already connected');
       return;
     }
-    GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
+    GlobalLogger().i('connecting to WebSocket $_serverConfiguration.socketUrl');
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
+            '$_serverConfiguration.socketUrl?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
         GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
       } else {
-        txSocket.hostAddress = _storedHostAddress;
-        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
+        txSocket.hostAddress = _serverConfiguration.socketUrl;
+        GlobalLogger().i('connecting to WebSocket $_serverConfiguration.socketUrl');
       }
       txSocket
         ..onOpen = () {
@@ -1084,7 +1120,7 @@ class TelnyxClient {
     } catch (e) {
       GlobalLogger().e(e.toString());
       _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
     }
   }
 
@@ -1413,6 +1449,7 @@ class TelnyxClient {
   ///   ICE candidates to be sent incrementally as they are discovered, rather than
   ///   waiting for all candidates to be gathered before sending the SDP. This can
   ///   significantly reduce call setup time. Defaults to false.
+  /// - [audioConstraints]: Optional audio constraints for the call.
   ///
   /// Returns a [Call] object representing the new outgoing call.
   Call newInvite(
@@ -1424,6 +1461,7 @@ class TelnyxClient {
     List<AudioCodec>? preferredCodecs,
     bool debug = false,
     bool useTrickleIce = false,
+    AudioConstraints? audioConstraints,
   }) {
     final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
@@ -1442,6 +1480,9 @@ class TelnyxClient {
       this,
       getForceRelayCandidate(),
       useTrickleIce,
+      audioConstraints: audioConstraints,
+      providedTurn: _serverConfiguration.turn,
+      providedStun: _serverConfiguration.stun,
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1484,6 +1525,7 @@ class TelnyxClient {
   ///   ICE candidates to be sent incrementally as they are discovered, rather than
   ///   waiting for all candidates to be gathered before sending the SDP. This can
   ///   significantly reduce call setup time. Defaults to false.
+  /// - [audioConstraints]: Optional audio constraints for the call.
   ///
   /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
@@ -1495,6 +1537,7 @@ class TelnyxClient {
     Map<String, String> customHeaders = const {},
     bool debug = false,
     bool useTrickleIce = false,
+    AudioConstraints? audioConstraints,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -1513,6 +1556,9 @@ class TelnyxClient {
       this,
       getForceRelayCandidate(),
       useTrickleIce,
+      audioConstraints: audioConstraints,
+      providedTurn: _serverConfiguration.turn,
+      providedStun: _serverConfiguration.stun,
     );
 
     // Set up the session with the callback if debug is enabled
