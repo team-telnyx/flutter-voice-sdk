@@ -238,6 +238,7 @@ class WebRTCStatsReporter {
   /// Collects and sends full WebRTC stats to socket every 3 seconds
   Future<void> _collectAndSendStats() async {
     try {
+      if (peerConnection == null) return;
       final stats = await peerConnection.getStats(null);
 
       final audioInboundStats = [];
@@ -545,6 +546,7 @@ class WebRTCStatsReporter {
   /// Collects call quality metrics every 100ms for real-time UI updates
   Future<void> _collectCallQualityMetrics() async {
     if (onCallQualityChange == null) return;
+    if (peerConnection == null) return;
 
     try {
       final stats = await peerConnection.getStats(null);

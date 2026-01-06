@@ -77,7 +77,7 @@ class Peer {
   Timer? _trickleIceTimer;
   DateTime? _lastTrickleCandidateTime;
   static const int _trickleIceTimeout =
-      3000; // 3 seconds timeout for trickle ICE
+      1000; // 1 second timeout for trickle ICE
   String? _currentTrickleCallId;
   bool _endOfCandidatesSent = false;
 
@@ -919,6 +919,8 @@ class Peer {
       await _localStream!.dispose();
       _localStream = null;
     }
+    // Stop stats
+    stopStats(session.sid);
     // Close peer connection
     if (session.peerConnection != null) {
       await session.peerConnection?.close();
@@ -926,8 +928,6 @@ class Peer {
     }
     // Close data channel
     await session.dc?.close();
-    // Stop stats
-    stopStats(session.sid);
 
     // Clean up trickle ICE timer when session is closed
     _stopTrickleIceTimer();
