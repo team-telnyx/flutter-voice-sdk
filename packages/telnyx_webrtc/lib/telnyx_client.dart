@@ -973,7 +973,8 @@ class TelnyxClient {
     _logger
       ..setLogLevel(tokenConfig.logLevel)
       ..log(LogLevel.info, 'connect()')
-      ..log(LogLevel.info, 'connecting to WebSocket $_serverConfiguration.socketUrl');
+      ..log(LogLevel.info,
+          'connecting to WebSocket $_serverConfiguration.socketUrl');
     try {
       // Build the host address with region support
       final hostAddress = _buildHostAddress(
@@ -1081,7 +1082,8 @@ class TelnyxClient {
   void connect() {
     GlobalLogger().i('connect()');
     if (isConnected()) {
-      GlobalLogger().i('WebSocket $_serverConfiguration.socketUrl is already connected');
+      GlobalLogger()
+          .i('WebSocket $_serverConfiguration.socketUrl is already connected');
       return;
     }
     GlobalLogger().i('connecting to WebSocket $_serverConfiguration.socketUrl');
@@ -1094,7 +1096,8 @@ class TelnyxClient {
         );
       } else {
         txSocket.hostAddress = _serverConfiguration.socketUrl;
-        GlobalLogger().i('connecting to WebSocket $_serverConfiguration.socketUrl');
+        GlobalLogger()
+            .i('connecting to WebSocket $_serverConfiguration.socketUrl');
       }
       txSocket
         ..onOpen = () {
@@ -1449,6 +1452,8 @@ class TelnyxClient {
   ///   ICE candidates to be sent incrementally as they are discovered, rather than
   ///   waiting for all candidates to be gathered before sending the SDP. This can
   ///   significantly reduce call setup time. Defaults to false.
+  /// - [mutedMicOnStart]: When true, starts the call with the microphone muted.
+  ///   Defaults to false.
   /// - [audioConstraints]: Optional audio constraints for the call.
   ///
   /// Returns a [Call] object representing the new outgoing call.
@@ -1461,6 +1466,7 @@ class TelnyxClient {
     List<AudioCodec>? preferredCodecs,
     bool debug = false,
     bool useTrickleIce = false,
+    bool mutedMicOnStart = false,
     AudioConstraints? audioConstraints,
   }) {
     final Call inviteCall = _createCall()
@@ -1483,6 +1489,7 @@ class TelnyxClient {
       audioConstraints,
       _serverConfiguration.turn,
       _serverConfiguration.stun,
+      mutedMicOnStart,
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1525,6 +1532,8 @@ class TelnyxClient {
   ///   ICE candidates to be sent incrementally as they are discovered, rather than
   ///   waiting for all candidates to be gathered before sending the SDP. This can
   ///   significantly reduce call setup time. Defaults to false.
+  /// - [mutedMicOnStart]: When true, starts the call with the microphone muted.
+  ///   Defaults to false.
   /// - [audioConstraints]: Optional audio constraints for the call.
   ///
   /// Returns the [Call] object associated with the accepted call.
@@ -1537,6 +1546,7 @@ class TelnyxClient {
     Map<String, String> customHeaders = const {},
     bool debug = false,
     bool useTrickleIce = false,
+    bool mutedMicOnStart = false,
     AudioConstraints? audioConstraints,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
@@ -1559,6 +1569,7 @@ class TelnyxClient {
       audioConstraints,
       _serverConfiguration.turn,
       _serverConfiguration.stun,
+      mutedMicOnStart,
     );
 
     // Set up the session with the callback if debug is enabled
