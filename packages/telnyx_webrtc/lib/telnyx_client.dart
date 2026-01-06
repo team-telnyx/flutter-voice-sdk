@@ -63,7 +63,8 @@ typedef OnConnectionStateChanged = void Function(ConnectionStatus status);
 
 /// Callback for when connection metrics are updated
 typedef OnConnectionMetricsUpdate = void Function(
-    SocketConnectionMetrics metrics);
+  SocketConnectionMetrics metrics,
+);
 
 /// Represents the main entry point for interacting with the Telnyx RTC SDK.
 ///
@@ -603,7 +604,11 @@ class TelnyxClient {
   /// [sdpMLineIndex] The SDP media line index
   /// [candidateString] The normalized candidate string
   void _processAndQueueCandidate(
-      String callId, String sdpMid, int sdpMLineIndex, String candidateString) {
+    String callId,
+    String sdpMid,
+    int sdpMLineIndex,
+    String candidateString,
+  ) {
     final call = calls[callId];
     if (call != null) {
       // Create pending ICE candidate and queue it instead of immediately adding
@@ -619,10 +624,11 @@ class TelnyxClient {
       );
 
       // Add to pending candidates map
-      final candidates = pendingIceCandidates.putIfAbsent(callId, () => []);
-      candidates.add(pendingCandidate);
+      final candidates = pendingIceCandidates.putIfAbsent(callId, () => [])
+      ..add(pendingCandidate);
       GlobalLogger().i(
-          'Queued ICE candidate for call $callId. Total queued: ${candidates.length}');
+        'Queued ICE candidate for call $callId. Total queued: ${candidates.length}',
+      );
     } else {
       GlobalLogger().w('No call found for ID: $callId');
     }
@@ -646,7 +652,8 @@ class TelnyxClient {
     }
 
     GlobalLogger().i(
-        'Processing ${candidates.length} queued ICE candidates for call $callId');
+      'Processing ${candidates.length} queued ICE candidates for call $callId',
+    );
 
     // Process each queued candidate
     for (final candidate in candidates) {
@@ -662,11 +669,13 @@ class TelnyxClient {
               .i('Successfully processed queued candidate for call $callId');
         } else {
           GlobalLogger().w(
-              'Peer connection is null for call $callId, cannot process candidate');
+            'Peer connection is null for call $callId, cannot process candidate',
+          );
         }
       } catch (e) {
         GlobalLogger().e(
-            'Error processing queued candidate for call $callId: ${e.toString()}');
+          'Error processing queued candidate for call $callId: ${e.toString()}',
+        );
       }
     }
 
@@ -973,8 +982,10 @@ class TelnyxClient {
     _logger
       ..setLogLevel(tokenConfig.logLevel)
       ..log(LogLevel.info, 'connect()')
-      ..log(LogLevel.info,
-          'connecting to WebSocket $_serverConfiguration.socketUrl');
+      ..log(
+        LogLevel.info,
+        'connecting to WebSocket $_serverConfiguration.socketUrl',
+      );
     try {
       // Build the host address with region support
       final hostAddress = _buildHostAddress(
@@ -2068,7 +2079,8 @@ class TelnyxClient {
                   final bool wasSpeakerPhoneEnabled =
                       existingCall?.speakerPhone ?? false;
                   GlobalLogger().i(
-                      'ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled');
+                    'ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled',
+                  );
 
                   //play ringtone for web
                   final Call offerCall = _createCall()
@@ -2300,7 +2312,8 @@ class TelnyxClient {
                   // Validate required fields
                   if (!CandidateUtils.hasRequiredCandidateFields(params)) {
                     GlobalLogger().w(
-                        'Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)');
+                      'Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)',
+                    );
                     break;
                   }
 
@@ -2324,7 +2337,11 @@ class TelnyxClient {
 
                   // Process and queue the candidate (Android-style approach)
                   _processAndQueueCandidate(
-                      callId, sdpMid, sdpMLineIndex, normalizedCandidate);
+                    callId,
+                    sdpMid,
+                    sdpMLineIndex,
+                    normalizedCandidate,
+                  );
                   break;
                 }
               case SocketMethod.endOfCandidates:
@@ -2346,7 +2363,8 @@ class TelnyxClient {
                           .i('End of candidates signaled for call: $callId');
                     } else {
                       GlobalLogger().w(
-                          'Received endOfCandidates for unknown call: $callId');
+                        'Received endOfCandidates for unknown call: $callId',
+                      );
                     }
                   }
                   break;
