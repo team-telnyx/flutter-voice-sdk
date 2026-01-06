@@ -1480,9 +1480,9 @@ class TelnyxClient {
       this,
       getForceRelayCandidate(),
       useTrickleIce,
-      audioConstraints: audioConstraints,
-      providedTurn: _serverConfiguration.turn,
-      providedStun: _serverConfiguration.stun,
+      audioConstraints,
+      _serverConfiguration.turn,
+      _serverConfiguration.stun,
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1556,9 +1556,9 @@ class TelnyxClient {
       this,
       getForceRelayCandidate(),
       useTrickleIce,
-      audioConstraints: audioConstraints,
-      providedTurn: _serverConfiguration.turn,
-      providedStun: _serverConfiguration.stun,
+      audioConstraints,
+      _serverConfiguration.turn,
+      _serverConfiguration.stun,
     );
 
     // Set up the session with the callback if debug is enabled
