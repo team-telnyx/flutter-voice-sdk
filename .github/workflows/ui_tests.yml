@@ -44,7 +44,19 @@ jobs:
       - name: Install Patrol CLI
         run: flutter pub global activate patrol_cli 3.6.0
 
-        # 6) Authenticate Cloud SDK
+      # 6) Cache Gradle dependencies
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+        # 7) Authenticate Cloud SDK
       - name: 'Authenticate Cloud SDK'
         uses: 'google-github-actions/auth@v2'
         with:
@@ -53,7 +65,7 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-        # 7) Build app & test APK
+        # 8) Build app & test APK
       - name: Build app & test APK
         run: |
           patrol build android \
@@ -63,7 +75,7 @@ jobs:
             --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }} \
             --verbose
 
-      # 8) Run tests on Firebase Test Lab
+      # 9) Run tests on Firebase Test Lab
       - name: Run Tests on Firebase Test Lab
         id: firebase_tests
         continue-on-error: true
