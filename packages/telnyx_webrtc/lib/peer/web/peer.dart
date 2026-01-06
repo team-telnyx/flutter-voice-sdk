@@ -27,6 +27,7 @@ import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
+import 'package:telnyx_webrtc/utils/call_timing_benchmark.dart';
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
@@ -75,9 +76,8 @@ class Peer {
 
   // Add trickle ICE end-of-candidates timer fields
   Timer? _trickleIceTimer;
-  DateTime? _lastTrickleCandidateTime;
   static const int _trickleIceTimeout =
-      1000; // 1 second timeout for trickle ICE
+      500; // 500ms timeout for trickle ICE
   String? _currentTrickleCallId;
   bool _endOfCandidatesSent = false;
 
@@ -426,14 +426,16 @@ class Peer {
   /// [customHeaders] Custom headers to include in the answer.
   /// [isAttach] Whether this is an attach call.
   Future<void> accept(
-      String callerName,
-      String callerNumber,
-      String destinationNumber,
-      String clientState,
-      String callId,
-      IncomingInviteParams invite,
-      Map<String, String> customHeaders,
-      bool isAttach) async {
+    String callerName,
+    String callerNumber,
+    String destinationNumber,
+    String clientState,
+    String callId,
+    IncomingInviteParams invite,
+    Map<String, String> customHeaders,
+    bool isAttach,
+  ) async {
+    CallTimingBenchmark.start();
     final sessionId = _selfId;
     final session = await _createSession(
       null,
@@ -449,6 +451,7 @@ class Peer {
     await session.peerConnection?.setRemoteDescription(
       RTCSessionDescription(invite.sdp, 'offer'),
     );
+    CallTimingBenchmark.mark('remote_sdp_set');
 
     // Process any queued candidates after setting remote SDP
     if (session.remoteCandidates.isNotEmpty) {
@@ -507,6 +510,7 @@ class Peer {
             GlobalLogger().i(
               'Trickle ICE: Sending candidate immediately: ${candidate.candidate}',
             );
+            CallTimingBenchmark.markFirstCandidate();
             _sendCandidate(callId, candidate);
 
             // Reset the trickle ICE timer when a candidate is generated
@@ -554,6 +558,7 @@ class Peer {
         final description = await session.peerConnection!.createAnswer(
           _dcConstraints,
         );
+        CallTimingBenchmark.mark('local_answer_created');
 
         // For trickle ICE, add trickle support to SDP before setting local description
         final modifiedSdp =
@@ -563,6 +568,7 @@ class Peer {
 
         // Set local description but don't wait for candidates
         await session.peerConnection!.setLocalDescription(modifiedDescription);
+        CallTimingBenchmark.mark('local_sdp_set');
 
         // For trickle ICE, send answer immediately
         await _sendAnswerMessage(
@@ -575,6 +581,7 @@ class Peer {
           isAttach,
           modifiedSdp, // Pass the SDP directly to avoid getting it later
         );
+        CallTimingBenchmark.mark('answer_sent');
       } else {
         // Traditional ICE gathering
         final description = await session.peerConnection!.createAnswer(
@@ -696,21 +703,43 @@ class Peer {
 
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     currentSession = newSession;
+
+    late RTCPeerConnection pc;
+
+    // Parallelize media stream and peer connection creation for faster setup
     if (media != 'data') {
-      _localStream = await createStream(media);
+      // Run both operations in parallel since they are independent
+      final results = await Future.wait([
+        createStream(media),
+        createPeerConnection(
+          {
+            ..._buildIceConfiguration(),
+            ...{'sdpSemantics': sdpSemantics},
+          },
+          _dcConstraints,
+        ),
+      ]);
+
+      _localStream = results[0] as MediaStream;
+      CallTimingBenchmark.mark('media_stream_acquired');
+
+      pc = results[1] as RTCPeerConnection;
+      CallTimingBenchmark.mark('peer_connection_created');
+
       // Set up local renderer (web-only)
       await initRenderers();
       _localRenderer.srcObject = _localStream;
+    } else {
+      // Data-only mode: just create peer connection
+      pc = await createPeerConnection(
+        {
+          ..._buildIceConfiguration(),
+          ...{'sdpSemantics': sdpSemantics},
+        },
+        _dcConstraints,
+      );
+      CallTimingBenchmark.mark('peer_connection_created');
     }
-
-    // Create PeerConnection
-    final pc = await createPeerConnection(
-      {
-        ..._buildIceConfiguration(),
-        ...{'sdpSemantics': sdpSemantics},
-      },
-      _dcConstraints,
-    );
 
     // If we want the same plan-b/unified-plan logic as mobile:
     if (media != 'data') {
@@ -775,9 +804,12 @@ class Peer {
       }
       ..onIceConnectionState = (state) {
         GlobalLogger().i('Peer :: ICE Connection State change :: $state');
+        // Benchmark all ICE connection state transitions
+        CallTimingBenchmark.mark('ice_state_${state.name}');
         _previousIceConnectionState = state;
         switch (state) {
           case RTCIceConnectionState.RTCIceConnectionStateConnected:
+            CallTimingBenchmark.end();
             final Call? currentCall = _txClient.calls[callId];
             currentCall?.callHandler.changeState(CallState.active);
             onCallStateChange?.call(newSession, CallState.active);
@@ -828,12 +860,14 @@ class Peer {
 
     newSession.peerConnection = pc;
 
-    // Start stats if debug is enabled
-    await startStats(
-      callId,
-      peerId,
-      pc,
-      onCallQualityChange: onCallQualityChange,
+    // Start stats asynchronously (non-blocking) to avoid delaying call setup
+    unawaited(
+      startStats(
+        callId,
+        peerId,
+        pc,
+        onCallQualityChange: onCallQualityChange,
+      ),
     );
 
     return newSession;
@@ -972,32 +1006,21 @@ class Peer {
     _negotiationTimer = null;
   }
 
-  /// Starts the trickle ICE timer that sends endOfCandidates after 3 seconds of inactivity
+  /// Starts/resets the trickle ICE timer that sends endOfCandidates after inactivity
+  /// Uses a single delayed timer instead of periodic polling for better efficiency.
   void _startTrickleIceTimer(String callId) {
-    // If this is a new call or timer is not running, start it
-    if (_currentTrickleCallId != callId || _trickleIceTimer == null) {
-      _stopTrickleIceTimer(); // Clean up any existing timer
+    // If this is a new call, initialize the call ID and reset flags
+    if (_currentTrickleCallId != callId) {
       _currentTrickleCallId = callId;
       _endOfCandidatesSent = false;
     }
 
-    _lastTrickleCandidateTime = DateTime.now();
-
-    // Start timer if not already running
-    _trickleIceTimer ??= Timer.periodic(
-      const Duration(milliseconds: 500), // Check every 500ms
-      (timer) {
-        if (_lastTrickleCandidateTime == null) return;
-
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastTrickleCandidateTime!)
-            .inMilliseconds;
-        GlobalLogger().d(
-          'Time since last trickle candidate: ${timeSinceLastCandidate}ms',
-        );
-
-        if (timeSinceLastCandidate >= _trickleIceTimeout &&
-            !_endOfCandidatesSent) {
+    // Cancel existing timer and start a fresh one (resets on each candidate)
+    _trickleIceTimer?.cancel();
+    _trickleIceTimer = Timer(
+      const Duration(milliseconds: _trickleIceTimeout),
+      () {
+        if (!_endOfCandidatesSent && _currentTrickleCallId != null) {
           GlobalLogger().i(
             'Web Peer :: Trickle ICE timeout reached - sending end of candidates',
           );
@@ -1011,7 +1034,6 @@ class Peer {
   void _stopTrickleIceTimer() {
     _trickleIceTimer?.cancel();
     _trickleIceTimer = null;
-    _lastTrickleCandidateTime = null;
     _currentTrickleCallId = null;
     _endOfCandidatesSent = false;
   }
@@ -1019,6 +1041,7 @@ class Peer {
   /// Sends end of candidates signal and cleans up timer
   void _sendEndOfCandidatesAndCleanup(String callId) {
     if (!_endOfCandidatesSent) {
+      CallTimingBenchmark.mark('ice_gathering_complete');
       _sendEndOfCandidates(callId);
       _endOfCandidatesSent = true;
       _stopTrickleIceTimer();
