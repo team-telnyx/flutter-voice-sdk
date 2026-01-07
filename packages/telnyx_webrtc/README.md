@@ -35,6 +35,7 @@ This is the quickest way to implement the SDK with minimal setup and configurati
   - [Toggle loud speaker](#toggle-loud-speaker)
   - [Put a call on hold](#put-a-call-on-hold)
   - [Preferred Audio Codecs](#preferred-audio-codecs)
+  - [Trickle ICE](#trickle-ice)
 - [Advanced Usage - Push Notifications](#advanced-usage---push-notifications)
   - [Adding push notifications - Android platform](#adding-push-notifications---android-platform)
   - [Best Practices for Push Notifications on Android](#best-practices-for-push-notifications-on-android)
@@ -54,7 +55,8 @@ This is the quickest way to implement the SDK with minimal setup and configurati
 - [x] Mute calls
 - [x] Dual Tone Multi Frequency
 - [x] Preferred Audio Codecs
-
+- [x] Trickle ICE
+- 
 ## Usage
 
 ### SIP Credentials
@@ -423,6 +425,25 @@ final customOpus = const AudioCodec(
 
 final preferredCodecs = [customOpus];
 ```
+
+## Trickle ICE
+
+The SDK supports Trickle ICE, which enables faster call setup by sending ICE candidates incrementally as they are discovered, rather than waiting for all candidates before establishing the connection.
+
+### Key Features
+
+- **Faster Call Establishment**: Candidates are sent immediately as discovered, reducing connection time
+- **Automatic Management**: No configuration required - the SDK handles Trickle ICE automatically
+- **Smart Queuing**: Answering side queues candidates until ANSWER is sent to prevent race conditions
+- **Candidate Cleaning**: WebRTC extensions are removed for maximum server compatibility
+
+### How It Works
+
+**Outbound Calls**: Candidates are sent immediately as they are generated
+
+**Inbound Calls**: Candidates are queued until the call is answered, then flushed all at once followed by real-time sending of new candidates
+
+This approach prevents race conditions where candidates might arrive before the answer, ensuring reliable call setup.
 
 #### Important Notes
 
