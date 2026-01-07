@@ -76,8 +76,7 @@ class Peer {
 
   // Add trickle ICE end-of-candidates timer fields
   Timer? _trickleIceTimer;
-  static const int _trickleIceTimeout =
-      500; // 500ms timeout for trickle ICE
+  static const int _trickleIceTimeout = 500; // 500ms timeout for trickle ICE
   String? _currentTrickleCallId;
   bool _endOfCandidatesSent = false;
 
@@ -307,6 +306,7 @@ class Peer {
         final description = await session.peerConnection!.createOffer(
           _dcConstraints,
         );
+        CallTimingBenchmark.mark('offer_created');
 
         // For trickle ICE, add trickle support to SDP before setting local description
         final modifiedSdp =
@@ -316,6 +316,7 @@ class Peer {
 
         // Set local description but don't wait for candidates
         await session.peerConnection!.setLocalDescription(modifiedDescription);
+        CallTimingBenchmark.mark('local_offer_sdp_set');
 
         // Get the SDP immediately from the original description (before candidate gathering)
         sdpUsed = modifiedSdp;
@@ -324,7 +325,9 @@ class Peer {
         final description = await session.peerConnection!.createOffer(
           _dcConstraints,
         );
+        CallTimingBenchmark.mark('offer_created');
         await session.peerConnection!.setLocalDescription(description);
+        CallTimingBenchmark.mark('local_offer_sdp_set');
 
         final localDesc = await session.peerConnection?.getLocalDescription();
         if (localDesc != null) {
@@ -373,10 +376,15 @@ class Peer {
       if (_useTrickleIce) {
         // Send INVITE immediately for trickle ICE
         await sendInvite();
+        CallTimingBenchmark.mark('invite_sent');
       } else {
         // Traditional ICE gathering - use negotiation timer
         _lastCandidateTime = DateTime.now();
-        _setOnNegotiationComplete(sendInvite);
+        _setOnNegotiationComplete(() async {
+          CallTimingBenchmark.mark('ice_gathering_complete');
+          await sendInvite();
+          CallTimingBenchmark.mark('invite_sent');
+        });
       }
     } catch (e) {
       GlobalLogger().e('Peer :: _createOffer error: $e');
@@ -387,11 +395,13 @@ class Peer {
   /// (e.g., bridging a call scenario).
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
+    CallTimingBenchmark.start(isOutbound: true);
     final session = _sessions[_selfId];
     if (session != null) {
       await session.peerConnection?.setRemoteDescription(
         RTCSessionDescription(sdp, 'answer'),
       );
+      CallTimingBenchmark.mark('remote_answer_sdp_set');
 
       // Process any queued candidates after setting remote SDP
       if (session.remoteCandidates.isNotEmpty) {
@@ -847,6 +857,13 @@ class Peer {
             return;
           default:
             return;
+        }
+      }
+      ..onConnectionState = (state) {
+        GlobalLogger().i('Peer :: Peer Connection State change :: $state');
+        CallTimingBenchmark.mark('peer_state_${state.name}');
+        if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          CallTimingBenchmark.end();
         }
       }
       ..onRemoveStream = (stream) {

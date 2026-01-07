@@ -80,8 +80,7 @@ class Peer {
 
   // Add trickle ICE end-of-candidates timer fields
   Timer? _trickleIceTimer;
-  static const int _trickleIceTimeout =
-      500; // 500ms timeout for trickle ICE
+  static const int _trickleIceTimeout = 500; // 500ms timeout for trickle ICE
   String? _currentTrickleCallId;
   bool _endOfCandidatesSent = false;
 
@@ -286,6 +285,7 @@ class Peer {
             await session.peerConnection!.createOffer(
           _dcConstraints,
         );
+        CallTimingBenchmark.mark('offer_created');
 
         // For Android: Modify SDP to filter codecs
         String? sdpToUse = s.sdp;
@@ -304,6 +304,7 @@ class Peer {
         await session.peerConnection!.setLocalDescription(
           RTCSessionDescription(sdpToUse, s.type),
         );
+        CallTimingBenchmark.mark('local_offer_sdp_set');
 
         // Get the SDP immediately - it should not contain candidates yet
         String? sdpUsed = s.sdp;
@@ -348,13 +349,16 @@ class Peer {
           'Peer :: Sending INVITE with trickle ICE enabled (no candidate gathering)',
         );
         _send(jsonInviteMessage);
+        CallTimingBenchmark.mark('invite_sent');
       } else {
         // Traditional ICE gathering - use negotiation timer
         final RTCSessionDescription s =
             await session.peerConnection!.createOffer(
           _dcConstraints,
         );
+        CallTimingBenchmark.mark('offer_created');
         await session.peerConnection!.setLocalDescription(s);
+        CallTimingBenchmark.mark('local_offer_sdp_set');
 
         if (session.remoteCandidates.isNotEmpty) {
           for (var candidate in session.remoteCandidates) {
@@ -405,7 +409,9 @@ class Peer {
           );
 
           final String jsonInviteMessage = jsonEncode(inviteMessage);
+          CallTimingBenchmark.mark('ice_gathering_complete');
           _send(jsonInviteMessage);
+          CallTimingBenchmark.mark('invite_sent');
         });
       }
     } catch (e) {
@@ -417,9 +423,11 @@ class Peer {
   ///
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
+    CallTimingBenchmark.start(isOutbound: true);
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
           RTCSessionDescription(sdp, 'answer'),
         );
+    CallTimingBenchmark.mark('remote_answer_sdp_set');
 
     // Process any queued candidates after setting remote SDP
     final session = _sessions[_selfId];
@@ -877,6 +885,14 @@ class Peer {
           return;
         default:
           return;
+      }
+    };
+
+    peerConnection?.onConnectionState = (state) {
+      GlobalLogger().i('Peer :: Peer Connection State change :: $state');
+      CallTimingBenchmark.mark('peer_state_${state.name}');
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        CallTimingBenchmark.end();
       }
     };
 

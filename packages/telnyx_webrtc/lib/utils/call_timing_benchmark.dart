@@ -7,12 +7,15 @@ class CallTimingBenchmark {
   static final Stopwatch _totalTimer = Stopwatch();
   static final Map<String, int> _milestones = {};
   static bool _isFirstCandidate = true;
+  static bool _isOutbound = false;
 
-  /// Starts the benchmark timer. Call this when accept() is invoked.
-  static void start() {
+  /// Starts the benchmark timer.
+  /// [isOutbound] indicates if this is an outbound call (true) or inbound (false).
+  static void start({bool isOutbound = false}) {
     _totalTimer.reset();
     _milestones.clear();
     _isFirstCandidate = true;
+    _isOutbound = isOutbound;
     _totalTimer.start();
   }
 
@@ -37,13 +40,14 @@ class CallTimingBenchmark {
     _totalTimer.stop();
 
     final total = _totalTimer.elapsedMilliseconds;
+    final direction = _isOutbound ? 'OUTBOUND' : 'INBOUND';
     final buffer = StringBuffer()
       ..writeln('')
       ..writeln(
         '╔══════════════════════════════════════════════════════════╗',
       )
       ..writeln(
-        '║           CALL CONNECTION BENCHMARK RESULTS              ║',
+        '║       $direction CALL CONNECTION BENCHMARK RESULTS       ║',
       )
       ..writeln(
         '╠══════════════════════════════════════════════════════════╣',
