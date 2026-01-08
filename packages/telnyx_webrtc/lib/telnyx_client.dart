@@ -625,7 +625,7 @@ class TelnyxClient {
 
       // Add to pending candidates map
       final candidates = pendingIceCandidates.putIfAbsent(callId, () => [])
-      ..add(pendingCandidate);
+        ..add(pendingCandidate);
       GlobalLogger().i(
         'Queued ICE candidate for call $callId. Total queued: ${candidates.length}',
       );
@@ -928,7 +928,7 @@ class TelnyxClient {
     try {
       if (pushMetaData?.voiceSdkId != null) {
         txSocket.hostAddress =
-            '$_serverConfiguration.socketUrl?voice_sdk_id=${pushMetaData?.voiceSdkId}';
+            '${_serverConfiguration.socketUrl}?voice_sdk_id=${pushMetaData?.voiceSdkId}';
         GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voiceSdkId}',
         );
@@ -1101,7 +1101,7 @@ class TelnyxClient {
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
-            '$_serverConfiguration.socketUrl?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
+            '${_serverConfiguration.socketUrl}?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
         GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
