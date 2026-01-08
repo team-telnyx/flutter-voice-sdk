@@ -1,3 +1,11 @@
+## [3.4.0](https://pub.dev/packages/telnyx_webrtc/versions/3.4.0) (2026-01-08)
+### Enhancement
+- Added `Trickle Ice` option on `newInvite` and `acceptCall` methods to allow users to enable or disable Trickle ICE for calls. By default, Trickle ICE is disabled.
+- Added Call Connection Time Benchmarking to measure the time taken to establish a call connection. This can be useful for performance monitoring and optimization, and is logged automatically when a call is connected.
+
+### Bug Fixing
+- Adjustments to Call Connection Establishment logic resulting from Connection Time Benchmark findings to improve call setup times and reliability.
+
 ## [3.3.0](https://pub.dev/packages/telnyx_webrtc/versions/3.3.0) (2025-12-15)
 ### Enhancement
 - Added `EchoCanellation`, `NoiseSuppression` and `AutoGainControl` MediaConstraints as AudioConstraints that can be passed on `newInvite` and `acceptCall`
