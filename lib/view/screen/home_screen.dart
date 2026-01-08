@@ -136,6 +136,11 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Disable Debugging':
         Provider.of<ProfileProvider>(context, listen: false).toggleDebugMode();
         break;
+      case 'Enable Trickle ICE':
+      case 'Disable Trickle ICE':
+        Provider.of<TelnyxClientViewModel>(context, listen: false)
+            .toggleTrickleIce();
+        break;
       case 'Assistant Login':
         _showAssistantLoginDialog();
         break;
@@ -186,33 +191,37 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-      (txClient) => txClient.callState,
+          (txClient) => txClient.callState,
     );
 
     final profileProvider = context.watch<ProfileProvider>();
     final selectedProfile = profileProvider.selectedProfile;
 
+    final clientViewModel = context.watch<TelnyxClientViewModel>();
+    final useTrickleIce = clientViewModel.useTrickleIce;
+
     final errorMessage = context.select<TelnyxClientViewModel, String?>(
-      (viewModel) => viewModel.errorDialogMessage,
+          (viewModel) => viewModel.errorDialogMessage,
     );
 
     if (errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showDialog(
           context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Error'),
-            content: Text(errorMessage),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  context.read<TelnyxClientViewModel>().clearErrorDialog();
-                  Navigator.of(context).pop();
-                },
-                child: const Text('OK'),
+          builder: (_) =>
+              AlertDialog(
+                title: const Text('Error'),
+                content: Text(errorMessage),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      context.read<TelnyxClientViewModel>().clearErrorDialog();
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
               ),
-            ],
-          ),
         );
       });
     }
@@ -227,11 +236,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 final muteOnStartText = viewModel.mutedMicOnStart
                     ? 'Start Call Muted On'
                     : 'Start Call Muted Off';
+                final trickleIceToggleText = useTrickleIce
+                    ? 'Disable Trickle ICE'
+                    : 'Enable Trickle ICE';
                 return PopupMenuButton<String>(
                   onSelected: handleOptionClick,
                   itemBuilder: (BuildContext context) {
                     return [
                       muteOnStartText,
+                      trickleIceToggleText,
                       'Audio Codecs',
                       'Audio Constraints',
                       'Export Logs',
@@ -275,10 +288,10 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
-                return {
+                return [
                   'Force ICE Renegotiation',
                   'Export Logs',
-                }.map((String choice) {
+                ].map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
                     child: Text(choice),

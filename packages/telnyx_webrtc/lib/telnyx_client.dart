@@ -22,7 +22,6 @@ import 'package:telnyx_webrtc/model/verto/send/gateway_request_message_body.dart
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/anonymous_login_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
-import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/codec_utils.dart';
@@ -44,8 +43,11 @@ import 'package:telnyx_webrtc/model/verto/send/ringing_ack_message.dart';
 import 'package:telnyx_webrtc/model/verto/send/disable_push_body.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/model/audio_codec.dart';
-import 'package:telnyx_webrtc/model/audio_constraints.dart';
+import 'package:telnyx_webrtc/model/pending_ice_candidate.dart';
+import 'package:telnyx_webrtc/utils/candidate_utils.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
+import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -196,6 +198,10 @@ class TelnyxClient {
   /// A map of all current calls, with the call ID as the key and the [Call] object as the value.
   Map<String, Call> calls = {};
 
+  /// A map of pending ICE candidates, with the call ID as the key and a list of candidates as the value.
+  /// These candidates are queued and will be processed after the remote description is set.
+  final Map<String, List<PendingIceCandidate>> pendingIceCandidates = {};
+
   /// The current active calls being handled by the TelnyxClient instance
   /// The Map key is the callId [String] and the value is the [Call] instance
   Map<String, Call> activeCalls() {
@@ -222,8 +228,6 @@ class TelnyxClient {
 
   // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
   bool _earlySDP = false;
-
-  final String _storedHostAddress = DefaultConfig.socketHostAddress;
 
   /// Build the host address with region support
   String _buildHostAddress(Config config, {String? voiceSdkId}) {
@@ -297,8 +301,7 @@ class TelnyxClient {
   void setServerConfiguration(TxServerConfiguration configuration) {
     _serverConfiguration = configuration;
     GlobalLogger().i(
-      'TelnyxClient :: Server configuration set to: ${configuration.host}, '
-      'TURN: ${configuration.turn}, STUN: ${configuration.stun}',
+      'TelnyxClient :: Server configuration updated: ${configuration.socketUrl}',
     );
   }
 
@@ -590,9 +593,95 @@ class TelnyxClient {
     if (_pendingAnswerTimeout != null) {
       _pendingAnswerTimeout?.cancel();
       _pendingAnswerTimeout = null;
-      _pushAnswerTimeoutOverride = null; // Clear the override
       GlobalLogger().i('Cancelled pending answer timeout');
     }
+  }
+
+  /// Processes and queues the ICE candidate for the specified call.
+  ///
+  /// [callId] The ID of the call this candidate belongs to
+  /// [sdpMid] The SDP media identifier
+  /// [sdpMLineIndex] The SDP media line index
+  /// [candidateString] The normalized candidate string
+  void _processAndQueueCandidate(
+    String callId,
+    String sdpMid,
+    int sdpMLineIndex,
+    String candidateString,
+  ) {
+    final call = calls[callId];
+    if (call != null) {
+      // Create pending ICE candidate and queue it instead of immediately adding
+      // Note: We don't enhance the candidate string here because remoteIceParameters
+      // won't be available until after the remote description is set in onAnswerReceived
+      final pendingCandidate = PendingIceCandidate(
+        callId: callId,
+        sdpMid: sdpMid,
+        sdpMLineIndex: sdpMLineIndex,
+        candidateString: candidateString,
+        enhancedCandidateString:
+            candidateString, // Store original for now, will enhance later
+      );
+
+      // Add to pending candidates map
+      final candidates = pendingIceCandidates.putIfAbsent(callId, () => [])
+      ..add(pendingCandidate);
+      GlobalLogger().i(
+        'Queued ICE candidate for call $callId. Total queued: ${candidates.length}',
+      );
+    } else {
+      GlobalLogger().w('No call found for ID: $callId');
+    }
+  }
+
+  /// Processes any queued ICE candidates after remote description is set.
+  ///
+  /// [callId] The ID of the call whose candidates should be processed
+  void _processQueuedIceCandidates(String callId) {
+    final call = calls[callId];
+    if (call == null) {
+      GlobalLogger()
+          .w('No call found for ID: $callId when processing queued candidates');
+      return;
+    }
+
+    final candidates = pendingIceCandidates[callId];
+    if (candidates == null || candidates.isEmpty) {
+      GlobalLogger().i('No queued ICE candidates to process for call $callId');
+      return;
+    }
+
+    GlobalLogger().i(
+      'Processing ${candidates.length} queued ICE candidates for call $callId',
+    );
+
+    // Process each queued candidate
+    for (final candidate in candidates) {
+      try {
+        if (call.peerConnection != null) {
+          call.peerConnection!.handleRemoteCandidate(
+            candidate.callId,
+            candidate.enhancedCandidateString,
+            candidate.sdpMid,
+            candidate.sdpMLineIndex,
+          );
+          GlobalLogger()
+              .i('Successfully processed queued candidate for call $callId');
+        } else {
+          GlobalLogger().w(
+            'Peer connection is null for call $callId, cannot process candidate',
+          );
+        }
+      } catch (e) {
+        GlobalLogger().e(
+          'Error processing queued candidate for call $callId: ${e.toString()}',
+        );
+      }
+    }
+
+    // Clear the processed candidates
+    pendingIceCandidates.remove(callId);
+    GlobalLogger().i('Cleared processed candidates for call $callId');
   }
 
   /// Handles the timeout when no INVITE is received after accepting from push
@@ -601,9 +690,8 @@ class TelnyxClient {
       'Pending answer timeout expired - no INVITE received within ${_pushAnswerTimeoutDuration.inSeconds} seconds',
     );
 
-    // Reset the pending answer flag and clear the timeout override
+    // Reset the pending answer flag
     _pendingAnswerFromPush = false;
-    _pushAnswerTimeoutOverride = null;
 
     // Create termination reason for originator cancel
     final terminationReason = CallTerminationReason(
@@ -669,15 +757,11 @@ class TelnyxClient {
   /// - [pushMetaData]: The metadata received from the push notification.
   /// - [credentialConfig]: The credential configuration for login (if using credentials).
   /// - [tokenConfig]: The token configuration for login (if using a token).
-  /// - [pushAnswerTimeoutMs]: Optional timeout in milliseconds to wait for INVITE after accepting.
-  ///   If not provided, uses the timeout from config or defaults to 10000ms.
-  ///   This allows for granular per-call control over the timeout.
   void handlePushNotification(
     PushMetaData pushMetaData,
     CredentialConfig? credentialConfig,
-    TokenConfig? tokenConfig, {
-    int? pushAnswerTimeoutMs,
-  }) {
+    TokenConfig? tokenConfig,
+  ) {
     GlobalLogger().i(
       'TelnyxClient.handlePushNotification: Called. PushMetaData: ${jsonEncode(pushMetaData.toJson())}',
     );
@@ -704,8 +788,6 @@ class TelnyxClient {
         'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true',
       );
       _pendingAnswerFromPush = true;
-      // Store the timeout override if provided
-      _pushAnswerTimeoutOverride = pushAnswerTimeoutMs;
       // Start the timeout timer for pending answer
       _startPendingAnswerTimeout();
     } else {
@@ -846,14 +928,14 @@ class TelnyxClient {
     try {
       if (pushMetaData?.voiceSdkId != null) {
         txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${pushMetaData?.voiceSdkId}';
+            '$_serverConfiguration.socketUrl?voice_sdk_id=${pushMetaData?.voiceSdkId}';
         GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${pushMetaData?.voiceSdkId}',
         );
       } else {
-        txSocket.hostAddress = _storedHostAddress;
+        txSocket.hostAddress = _serverConfiguration.socketUrl;
         GlobalLogger().i(
-          'TelnyxClient._connectWithCallBack: connecting to WebSocket $_storedHostAddress',
+          'TelnyxClient._connectWithCallBack: connecting to WebSocket $_serverConfiguration.socketUrl',
         );
       }
       txSocket
@@ -882,7 +964,7 @@ class TelnyxClient {
     } catch (e, string) {
       GlobalLogger().e('${e.toString()} :: $string');
       _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
     }
   }
 
@@ -900,7 +982,10 @@ class TelnyxClient {
     _logger
       ..setLogLevel(tokenConfig.logLevel)
       ..log(LogLevel.info, 'connect()')
-      ..log(LogLevel.info, 'connecting to WebSocket $_storedHostAddress');
+      ..log(
+        LogLevel.info,
+        'connecting to WebSocket $_serverConfiguration.socketUrl',
+      );
     try {
       // Build the host address with region support
       final hostAddress = _buildHostAddress(
@@ -938,7 +1023,7 @@ class TelnyxClient {
     } catch (e) {
       GlobalLogger().e(e.toString());
       _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
     }
   }
 
@@ -996,7 +1081,7 @@ class TelnyxClient {
     } catch (e) {
       GlobalLogger().e(e.toString());
       _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
     }
   }
 
@@ -1008,20 +1093,22 @@ class TelnyxClient {
   void connect() {
     GlobalLogger().i('connect()');
     if (isConnected()) {
-      GlobalLogger().i('WebSocket $_storedHostAddress is already connected');
+      GlobalLogger()
+          .i('WebSocket $_serverConfiguration.socketUrl is already connected');
       return;
     }
-    GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
+    GlobalLogger().i('connecting to WebSocket $_serverConfiguration.socketUrl');
     try {
       if (_pushMetaData != null) {
         txSocket.hostAddress =
-            '$_storedHostAddress?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
+            '$_serverConfiguration.socketUrl?voice_sdk_id=${_pushMetaData?.voiceSdkId}';
         GlobalLogger().i(
           'Connecting to WebSocket with voice_sdk_id :: ${_pushMetaData?.voiceSdkId}',
         );
       } else {
-        txSocket.hostAddress = _storedHostAddress;
-        GlobalLogger().i('connecting to WebSocket $_storedHostAddress');
+        txSocket.hostAddress = _serverConfiguration.socketUrl;
+        GlobalLogger()
+            .i('connecting to WebSocket $_serverConfiguration.socketUrl');
       }
       txSocket
         ..onOpen = () {
@@ -1047,7 +1134,7 @@ class TelnyxClient {
     } catch (e) {
       GlobalLogger().e(e.toString());
       _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_storedHostAddress error: $e');
+      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
     }
   }
 
@@ -1368,17 +1455,17 @@ class TelnyxClient {
   /// - [clientState]: A custom string that can be used to store and retrieve state
   ///   between applications. It is passed to the remote party.
   /// - [customHeaders]: Optional custom SIP headers to add to the INVITE message.
-  ///
-  ///     Note that if you are calling a Telnyx AI Assistant,  Headers with the `X-` prefix
-  ///     will be mapped to dynamic variables in the AI assistant (e.g., `X-Account-Number` becomes `{{account_number}}`).
-  ///     Note: Hyphens in header names are converted to underscores in variable names.
-  ///
   /// - [preferredCodecs]: Optional list of preferred audio codecs in order of preference.
   ///   If any codec in the list is not supported by the platform or remote party,
   ///   the system will automatically fall back to a supported codec.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
+  /// - [useTrickleIce]: When true, enables trickle ICE for the call. Trickle ICE allows
+  ///   ICE candidates to be sent incrementally as they are discovered, rather than
+  ///   waiting for all candidates to be gathered before sending the SDP. This can
+  ///   significantly reduce call setup time. Defaults to false.
   /// - [mutedMicOnStart]: When true, starts the call with the microphone muted.
   ///   Defaults to false.
+  /// - [audioConstraints]: Optional audio constraints for the call.
   ///
   /// Returns a [Call] object representing the new outgoing call.
   Call newInvite(
@@ -1388,9 +1475,10 @@ class TelnyxClient {
     String clientState, {
     Map<String, String> customHeaders = const {},
     List<AudioCodec>? preferredCodecs,
-    AudioConstraints? audioConstraints,
     bool debug = false,
+    bool useTrickleIce = false,
     bool mutedMicOnStart = false,
+    AudioConstraints? audioConstraints,
   }) {
     final Call inviteCall = _createCall()
       ..sessionCallerName = callerName
@@ -1408,6 +1496,7 @@ class TelnyxClient {
       debug || _debug,
       this,
       getForceRelayCandidate(),
+      useTrickleIce,
       audioConstraints,
       _serverConfiguration.turn,
       _serverConfiguration.stun,
@@ -1432,9 +1521,7 @@ class TelnyxClient {
 
     if (debug) {
       inviteCall.initCallMetrics();
-    }
-
-    //play ringback tone
+    } //play ringback tone
     inviteCall.playAudio(_ringBackpath);
     inviteCall.callHandler.changeState(CallState.newCall);
     return inviteCall;
@@ -1452,8 +1539,13 @@ class TelnyxClient {
   /// - [isAttach]: Set to true if this is a call being re-attached (e.g., after network reconnection).
   /// - [customHeaders]: Optional custom SIP headers to add to the response.
   /// - [debug]: Enables detailed logging for this specific call if set to true.
+  /// - [useTrickleIce]: When true, enables trickle ICE for the call. Trickle ICE allows
+  ///   ICE candidates to be sent incrementally as they are discovered, rather than
+  ///   waiting for all candidates to be gathered before sending the SDP. This can
+  ///   significantly reduce call setup time. Defaults to false.
   /// - [mutedMicOnStart]: When true, starts the call with the microphone muted.
   ///   Defaults to false.
+  /// - [audioConstraints]: Optional audio constraints for the call.
   ///
   /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
@@ -1463,9 +1555,10 @@ class TelnyxClient {
     String clientState, {
     bool isAttach = false,
     Map<String, String> customHeaders = const {},
-    AudioConstraints? audioConstraints,
     bool debug = false,
+    bool useTrickleIce = false,
     bool mutedMicOnStart = false,
+    AudioConstraints? audioConstraints,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -1477,19 +1570,13 @@ class TelnyxClient {
 
     final destinationNum = invite.callerIdNumber;
 
-    // Close existing peer connection if it exists to prevent stale connections
-    if (answerCall.peerConnection != null) {
-      GlobalLogger()
-          .i('Closing existing peer connection for call ${invite.callID}');
-      answerCall.peerConnection?.closeSession();
-    }
-
     // Create the peer connection
     answerCall.peerConnection = Peer(
       txSocket,
       debug || _debug,
       this,
       getForceRelayCandidate(),
+      useTrickleIce,
       audioConstraints,
       _serverConfiguration.turn,
       _serverConfiguration.stun,
@@ -1511,7 +1598,6 @@ class TelnyxClient {
     if (debug) {
       answerCall.initCallMetrics();
     }
-
     answerCall.stopAudio();
     if (answerCall.callId != null) {
       updateCall(answerCall);
@@ -1948,17 +2034,8 @@ class TelnyxClient {
                     message: invite,
                   );
 
-                  // Check for existing call with same ID and clean it up
-                  final String? incomingCallId = invite.inviteParams?.callID;
-                  if (incomingCallId != null &&
-                      calls.containsKey(incomingCallId)) {
-                    GlobalLogger().i(
-                      'Incoming INVITE for existing call ID: $incomingCallId. Cleaning up old session.',
-                    );
-                    calls[incomingCallId]?.peerConnection?.closeSession();
-                  }
-
-                  final Call offerCall = _createCall()..callId = incomingCallId;
+                  final Call offerCall = _createCall()
+                    ..callId = invite.inviteParams?.callID;
                   updateCall(offerCall);
 
                   onSocketMessageReceived.call(message);
@@ -2185,6 +2262,10 @@ class TelnyxClient {
                     socketMethod: SocketMethod.ringing,
                     message: ringing,
                   );
+
+                  // Process any queued ICE candidates after remote description is set (Android-style approach)
+                  _processQueuedIceCandidates(ringing.inviteParams!.callID!);
+
                   onSocketMessageReceived(message);
                   break;
                 }
@@ -2212,6 +2293,80 @@ class TelnyxClient {
                     message: aiConversation,
                   );
                   onSocketMessageReceived(message);
+                  break;
+                }
+              case SocketMethod.candidate:
+                {
+                  GlobalLogger()
+                      .i('TRICKLE ICE CANDIDATE RECEIVED :: $messageJson');
+                  final Map<String, dynamic> candidateData =
+                      jsonDecode(data.toString());
+
+                  // Extract params from the candidate data
+                  final Map<String, dynamic>? params = candidateData['params'];
+                  if (params == null) {
+                    GlobalLogger().w('Candidate message missing params');
+                    break;
+                  }
+
+                  // Validate required fields
+                  if (!CandidateUtils.hasRequiredCandidateFields(params)) {
+                    GlobalLogger().w(
+                      'Candidate message missing required fields (candidate, sdpMid, or sdpMLineIndex)',
+                    );
+                    break;
+                  }
+
+                  // Extract call ID using the utility method
+                  final String? callId =
+                      CandidateUtils.extractCallIdFromCandidate(params);
+                  if (callId == null) {
+                    GlobalLogger()
+                        .w('Could not extract call ID from candidate message');
+                    break;
+                  }
+
+                  // Normalize the candidate string to handle "a=" prefix issue
+                  final String candidateStr = params['candidate'] as String;
+                  final String normalizedCandidate =
+                      CandidateUtils.normalizeCandidateString(candidateStr);
+
+                  // Extract other required fields
+                  final String sdpMid = params['sdpMid'] as String;
+                  final int sdpMLineIndex = params['sdpMLineIndex'] as int;
+
+                  // Process and queue the candidate (Android-style approach)
+                  _processAndQueueCandidate(
+                    callId,
+                    sdpMid,
+                    sdpMLineIndex,
+                    normalizedCandidate,
+                  );
+                  break;
+                }
+              case SocketMethod.endOfCandidates:
+                {
+                  GlobalLogger()
+                      .i('END OF CANDIDATES RECEIVED :: $messageJson');
+                  final Map<String, dynamic> endData =
+                      jsonDecode(data.toString());
+
+                  // Extract call ID
+                  final String? callId =
+                      endData['params']?['dialogParams']?['callID'];
+
+                  if (callId != null) {
+                    // Find the call and signal end of candidates
+                    final Call? call = calls[callId];
+                    if (call != null) {
+                      GlobalLogger()
+                          .i('End of candidates signaled for call: $callId');
+                    } else {
+                      GlobalLogger().w(
+                        'Received endOfCandidates for unknown call: $callId',
+                      );
+                    }
+                  }
                   break;
                 }
             }

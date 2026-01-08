@@ -55,6 +55,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   bool _mute = false;
   bool _hold = false;
   bool _isAssistantMode = false;
+  bool _useTrickleIce = false;
   bool _mutedMicOnStart = false;
   List<AudioCodec> _supportedCodecs = [];
   List<AudioCodec> _preferredCodecs = [];
@@ -130,6 +131,13 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   bool get isAssistantMode {
     return _isAssistantMode;
+  }
+
+  bool get useTrickleIce => _useTrickleIce;
+
+  void toggleTrickleIce() {
+    _useTrickleIce = !_useTrickleIce;
+    notifyListeners();
   }
 
   bool get mutedMicOnStart => _mutedMicOnStart;
@@ -396,6 +404,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     if (config.notificationToken != null) {
       await prefs.setString('notificationToken', config.notificationToken!);
     }
+    await prefs.setBool('forceRelayCandidate', config.forceRelayCandidate);
   }
 
   Future<void> _clearConfigForAutoLogin() async {
@@ -406,6 +415,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     await prefs.remove('sipName');
     await prefs.remove('sipNumber');
     await prefs.remove('notificationToken');
+    await prefs.remove('forceRelayCandidate');
+    await prefs.remove('useTrickleIce');
   }
 
   void observeResponses() {
@@ -817,6 +828,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       preferredCodecs: _preferredCodecs.isNotEmpty ? _preferredCodecs : null,
       audioConstraints: _audioConstraints,
       debug: true,
+      useTrickleIce: _useTrickleIce,
       mutedMicOnStart: _mutedMicOnStart,
     );
 
@@ -857,7 +869,8 @@ class TelnyxClientViewModel with ChangeNotifier {
     String message, {
     List<String>? base64Images,
     @Deprecated(
-        'Use base64Images parameter instead for better support of multiple images')
+      'Use base64Images parameter instead for better support of multiple images',
+    )
     String? base64Image,
   }) {
     try {
@@ -950,6 +963,7 @@ class TelnyxClientViewModel with ChangeNotifier {
         customHeaders: {},
         audioConstraints: _audioConstraints,
         debug: true,
+        useTrickleIce: _useTrickleIce,
         mutedMicOnStart: _mutedMicOnStart,
       );
 
@@ -1152,18 +1166,23 @@ class TelnyxClientViewModel with ChangeNotifier {
 
     try {
       logger.i(
-          'TelnyxClientViewModel.forceIceRenegotiation: Starting renegotiation for call ${currentCall!.callId}');
+        'TelnyxClientViewModel.forceIceRenegotiation: Starting renegotiation for call ${currentCall!.callId}',
+      );
 
       // Access the peer through the call's peerConnection property and call the public method
       // Use the call's session ID as the session ID for renegotiation
-      currentCall?.peerConnection?.startIceRenegotiation(currentCall!.callId!,
-          currentCall!.peerConnection?.currentSession?.sid ?? '');
+      currentCall?.peerConnection?.startIceRenegotiation(
+        currentCall!.callId!,
+        currentCall!.peerConnection?.currentSession?.sid ?? '',
+      );
 
       logger.i(
-          'TelnyxClientViewModel.forceIceRenegotiation: Renegotiation initiated');
+        'TelnyxClientViewModel.forceIceRenegotiation: Renegotiation initiated',
+      );
     } catch (e) {
       logger.e(
-          'TelnyxClientViewModel.forceIceRenegotiation: Error during renegotiation: $e');
+        'TelnyxClientViewModel.forceIceRenegotiation: Error during renegotiation: $e',
+      );
     }
   }
 }
