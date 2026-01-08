@@ -348,8 +348,8 @@ The `CallQualityMetrics` object provides the following properties:
 | `rtt` | double | Round-trip time in seconds (multiply by 1000 for milliseconds) |
 | `mos` | double | Mean Opinion Score (1.0-5.0) |
 | `quality` | CallQuality | Call quality rating based on MOS |
-| `inboundAudio` | Map<String, dynamic>? | Inbound audio statistics |
-| `outboundAudio` | Map<String, dynamic>? | Outbound audio statistics |
+| `inboundAudio` | `Map<String, dynamic>?` | Inbound audio statistics |
+| `outboundAudio` | `Map<String, dynamic>?` | Outbound audio statistics |
 
 ### CallQuality Enum
 
@@ -358,10 +358,10 @@ The `CallQuality` enum provides the following values:
 | Value | MOS Range | Description |
 |-------|-----------|-------------|
 | `excellent` | MOS > 4.2 | Excellent call quality |
-| `good` | 4.1 <= MOS <= 4.2 | Good call quality |
-| `fair` | 3.7 <= MOS <= 4.0 | Fair call quality |
-| `poor` | 3.1 <= MOS <= 3.6 | Poor call quality |
-| `bad` | MOS <= 3.0 | Bad call quality |
+| `good` | 4.1 ≤ MOS ≤ 4.2 | Good call quality |
+| `fair` | 3.7 ≤ MOS ≤ 4.0 | Fair call quality |
+| `poor` | 3.1 ≤ MOS ≤ 3.6 | Poor call quality |
+| `bad` | MOS ≤ 3.0 | Bad call quality |
 | `unknown` | N/A | Unable to calculate quality |
 
 

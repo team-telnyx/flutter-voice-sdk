@@ -78,3 +78,4 @@ package-lock.json
 # Documentation markdown linting
 docs-markdown/node_modules/
 docs-markdown/package-lock.json
+docs-markdown/README.md
