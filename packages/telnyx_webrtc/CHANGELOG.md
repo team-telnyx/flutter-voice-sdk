@@ -1,3 +1,8 @@
+
+## [3.4.1](https://pub.dev/packages/telnyx_webrtc/versions/3.4.1) (2026-01-09)
+### Bug Fixing
+- Fixed an issue where the Web peer class did not match the mobile peer class causing build errors on Web and breaking the initial mute state of the call.
+
 ## [3.4.0](https://pub.dev/packages/telnyx_webrtc/versions/3.4.0) (2026-01-08)
 ### Enhancement
 - Added `Trickle Ice` option on `newInvite` and `acceptCall` methods to allow users to enable or disable Trickle ICE for calls. By default, Trickle ICE is disabled.
