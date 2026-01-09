@@ -832,11 +832,6 @@ class TelnyxClientViewModel with ChangeNotifier {
       mutedMicOnStart: _mutedMicOnStart,
     );
 
-    // Update mute state to match mutedMicOnStart setting
-    if (_mutedMicOnStart) {
-      _mute = true;
-    }
-
     logger.i(
       'TelnyxClientViewModel.call: Call initiated to $destination. Call ID: ${_currentCall?.callId}. Muted on start: $_mutedMicOnStart',
     );
@@ -863,6 +858,12 @@ class TelnyxClientViewModel with ChangeNotifier {
     }
 
     observeCurrentCall();
+
+    // Update mute state to match mutedMicOnStart setting AFTER observeCurrentCall
+    if (_mutedMicOnStart) {
+      _mute = true;
+      notifyListeners();
+    }
   }
 
   void sendConversationMessage(
@@ -967,12 +968,13 @@ class TelnyxClientViewModel with ChangeNotifier {
         mutedMicOnStart: _mutedMicOnStart,
       );
 
-      // Update mute state to match mutedMicOnStart setting
+      observeCurrentCall();
+
+      // Update mute state to match mutedMicOnStart setting AFTER observeCurrentCall
       if (_mutedMicOnStart) {
         _mute = true;
+        notifyListeners();
       }
-
-      observeCurrentCall();
 
       if (!kIsWeb) {
         if (Platform.isIOS) {
