@@ -53,8 +53,10 @@ class Peer {
     this._audioConstraints,
     String? providedTurn,
     String? providedStun,
+    bool initialMuteState = false,
   ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
-        _providedStun = providedStun ?? DefaultConfig.defaultStun;
+        _providedStun = providedStun ?? DefaultConfig.defaultStun,
+        _initialMuteState = initialMuteState;
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
@@ -64,6 +66,7 @@ class Peer {
   final AudioConstraints? _audioConstraints;
   final String _providedTurn;
   final String _providedStun;
+  final bool _initialMuteState;
 
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
@@ -174,6 +177,18 @@ class Peer {
       _localStream!.getAudioTracks()[0].enabled = !enabled;
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
+    }
+  }
+
+  /// Sets the microphone mute state to a specific value.
+  ///
+  /// [muted] True to mute the microphone, false to unmute.
+  void setMuteState(bool muted) {
+    if (_localStream != null) {
+      _localStream!.getAudioTracks()[0].enabled = !muted;
+      GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
+    } else {
+      GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
     }
   }
 
@@ -735,6 +750,16 @@ class Peer {
 
       pc = results[1] as RTCPeerConnection;
       CallTimingBenchmark.mark('peer_connection_created');
+
+      // Apply initial mute state if requested
+      if (_initialMuteState && _localStream != null) {
+        final audioTracks = _localStream!.getAudioTracks();
+        if (audioTracks.isNotEmpty) {
+          audioTracks[0].enabled = false;
+          GlobalLogger()
+              .d('Peer :: Applied initial mute state on stream creation');
+        }
+      }
 
       // Set up local renderer (web-only)
       await initRenderers();
