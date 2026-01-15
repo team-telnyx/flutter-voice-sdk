@@ -888,6 +888,9 @@ class Peer {
         GlobalLogger().i('Peer :: Peer Connection State change :: $state');
         CallTimingBenchmark.mark('peer_state_${state.name}');
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+          final Call? currentCall = _txClient.calls[callId];
+          currentCall?.callHandler.changeState(CallState.active);
+          onCallStateChange?.call(newSession, CallState.active);
           CallTimingBenchmark.end();
         }
       }

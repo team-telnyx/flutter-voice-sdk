@@ -1,3 +1,7 @@
+## [3.4.2](https://pub.dev/packages/telnyx_webrtc/versions/3.4.2) (2026-01-15)
+### Bug Fixing
+- Fixed an issue where `CallState.active` was not called for outbound calls, and users could only rely on `SocketMethod.answer` to determine when a call was active.
+
 
 ## [3.4.1](https://pub.dev/packages/telnyx_webrtc/versions/3.4.1) (2026-01-09)
 ### Bug Fixing

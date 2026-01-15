@@ -3,7 +3,7 @@ description: Enable real-time communication with WebRTC and Telnyx. Create and r
 homepage: https://telnyx.com/
 repository: https://github.com/team-telnyx/flutter-voice-sdk
 issue_tracker: https://github.com/team-telnyx/flutter-voice-sdk/issues
-version: 3.4.1
+version: 3.4.2
 
 environment:
   sdk: ">=3.0.0 <3.22.3"
