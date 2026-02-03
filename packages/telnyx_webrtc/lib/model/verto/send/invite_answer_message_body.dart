@@ -32,9 +32,16 @@ class InviteParams {
   String? sessid;
   String? userAgent;
   bool? trickle;
+  String? answeredDeviceToken;
 
-  InviteParams(
-      {this.dialogParams, this.sdp, this.sessid, this.userAgent, this.trickle});
+  InviteParams({
+    this.dialogParams,
+    this.sdp,
+    this.sessid,
+    this.userAgent,
+    this.trickle,
+    this.answeredDeviceToken,
+  });
 
   InviteParams.fromJson(Map<String, dynamic> json) {
     dialogParams = json['dialogParams'] != null
@@ -44,6 +51,7 @@ class InviteParams {
     sessid = json['sessid'];
     userAgent = json['User-Agent'];
     trickle = json['trickle'];
+    answeredDeviceToken = json['answered_device_token'];
   }
 
   Map<String, dynamic> toJson() {
@@ -56,6 +64,9 @@ class InviteParams {
     data['User-Agent'] = userAgent;
     if (trickle != null) {
       data['trickle'] = trickle;
+    }
+    if (answeredDeviceToken != null) {
+      data['answered_device_token'] = answeredDeviceToken;
     }
     return data;
   }

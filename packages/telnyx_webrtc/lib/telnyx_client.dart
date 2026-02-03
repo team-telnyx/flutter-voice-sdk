@@ -1546,6 +1546,9 @@ class TelnyxClient {
   /// - [mutedMicOnStart]: When true, starts the call with the microphone muted.
   ///   Defaults to false.
   /// - [audioConstraints]: Optional audio constraints for the call.
+  /// - [answeredDeviceToken]: Optional device token (FCM/APNS) to include when
+  ///   answering a push notification call. This allows the backend to identify
+  ///   which device answered the call.
   ///
   /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
@@ -1559,6 +1562,7 @@ class TelnyxClient {
     bool useTrickleIce = false,
     bool mutedMicOnStart = false,
     AudioConstraints? audioConstraints,
+    String? answeredDeviceToken,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -1593,6 +1597,7 @@ class TelnyxClient {
       invite,
       customHeaders,
       isAttach,
+      answeredDeviceToken: answeredDeviceToken,
     );
     answerCall.callHandler.changeState(CallState.connecting);
     if (debug) {

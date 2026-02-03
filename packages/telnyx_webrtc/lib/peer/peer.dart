@@ -464,8 +464,9 @@ class Peer {
     String callId,
     IncomingInviteParams invite,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    String? answeredDeviceToken,
+  }) async {
     CallTimingBenchmark.start();
     final sessionId = _selfId;
     final Session session = await _createSession(
@@ -509,6 +510,7 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
+      answeredDeviceToken: answeredDeviceToken,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -523,8 +525,9 @@ class Peer {
     String clientState,
     String callId,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    String? answeredDeviceToken,
+  }) async {
     try {
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
@@ -603,6 +606,7 @@ class Peer {
           sessid: session.sid,
           userAgent: userAgent,
           trickle: true, // Set trickle flag
+          answeredDeviceToken: answeredDeviceToken,
         );
         final answerMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
@@ -651,6 +655,7 @@ class Peer {
             sessid: session.sid,
             userAgent: userAgent,
             trickle: false, // Set trickle flag to false for traditional ICE
+            answeredDeviceToken: answeredDeviceToken,
           );
           final answerMessage = InviteAnswerMessage(
             id: const Uuid().v4(),
