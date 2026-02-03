@@ -161,6 +161,12 @@ class TelnyxClient {
   Timer? _gatewayResponseTimer;
   bool _waitingForReg = true;
   bool _pendingAnswerFromPush = false;
+
+  /// The device token (FCM/APNS) to include when answering a push notification call.
+  /// This is stored when handlePushNotification is called and automatically passed
+  /// to acceptCall when auto-answering, allowing the backend to identify which
+  /// device answered and dismiss the call on other devices.
+  String? _answeredDeviceToken;
   bool _pendingDeclineFromPush = false;
   bool _isCallFromPush = false;
   bool _registered = false;
@@ -788,6 +794,13 @@ class TelnyxClient {
         'TelnyxClient.handlePushNotification: _pendingAnswerFromPush will be set to true',
       );
       _pendingAnswerFromPush = true;
+      // Store the device token for use when auto-answering
+      // This allows the backend to dismiss the call on other devices
+      _answeredDeviceToken =
+          credentialConfig?.notificationToken ?? tokenConfig?.notificationToken;
+      GlobalLogger().i(
+        'TelnyxClient.handlePushNotification: Stored answeredDeviceToken: ${_answeredDeviceToken != null ? "[present]" : "null"}',
+      );
       // Start the timeout timer for pending answer
       _startPendingAnswerTimeout();
     } else {
@@ -2058,8 +2071,10 @@ class TelnyxClient {
                       invite.inviteParams!.calleeIdName ?? '',
                       invite.inviteParams!.callerIdNumber ?? '',
                       'State',
+                      answeredDeviceToken: _answeredDeviceToken,
                     );
                     _pendingAnswerFromPush = false;
+                    _answeredDeviceToken = null; // Clear after use
                     offerCall.callHandler.changeState(CallState.connecting);
                   }
                   if (_pendingDeclineFromPush) {
