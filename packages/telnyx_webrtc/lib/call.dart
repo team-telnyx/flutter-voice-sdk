@@ -260,6 +260,7 @@ class Call {
     Map<String, String> customHeaders = const {},
     bool debug = false,
     bool useTrickleIce = false,
+    String? answeredDeviceToken,
   }) {
     // Store the session information for later use
     sessionCallerName = callerName;
@@ -280,6 +281,7 @@ class Call {
       isAttach: isAttach,
       debug: debug,
       useTrickleIce: useTrickleIce,
+      answeredDeviceToken: answeredDeviceToken,
     );
   }
 
