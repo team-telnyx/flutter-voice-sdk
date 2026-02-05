@@ -581,13 +581,11 @@ class WebRTCStatsReporter {
         switch (report.type) {
           case 'inbound-rtp':
             final inboundValues = report.values.cast<String, dynamic>();
-            if (inboundValues.containsKey('jitter') &&
-                inboundValues['kind'] == 'audio') {
-              jitter = (inboundValues['jitter'] as num?)?.toDouble() ?? 0;
+            if (inboundValues['kind'] == 'audio') {
               inboundAudioLevel =
                   (inboundValues['audioLevel'] as num?)?.toDouble() ?? 0.0;
 
-              // Extract packet loss if available
+              // Extract packet loss if available (inbound stats are correct for this)
               if (inboundValues.containsKey('packetsLost') &&
                   inboundValues.containsKey('totalPacketsReceived')) {
                 final packetsLost =
@@ -625,9 +623,15 @@ class WebRTCStatsReporter {
             break;
 
           case 'remote-inbound-rtp':
+            // Extract jitter and RTT from RTCP feedback (remote-inbound-rtp)
+            // This aligns with Android and iOS SDK implementations for consistent
+            // MOS calculation across platforms. Jitter from RTCP feedback represents
+            // the network quality experienced by the remote end.
             final remoteInboundValues = report.values.cast<String, dynamic>();
-            if (remoteInboundValues.containsKey('roundTripTime') &&
-                remoteInboundValues['kind'] == 'audio') {
+            if (remoteInboundValues['kind'] == 'audio') {
+              // Extract jitter from RTCP feedback (consistent with Android/iOS)
+              jitter =
+                  (remoteInboundValues['jitter'] as num?)?.toDouble() ?? 0;
               rtt =
                   (remoteInboundValues['roundTripTime'] as num?)?.toDouble() ??
                       0;
