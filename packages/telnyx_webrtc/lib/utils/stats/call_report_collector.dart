@@ -277,15 +277,16 @@ class CallReportCollector {
     );
   }
 
-  /// Stop collecting stats and prepare for final report
-  void stop() {
+  /// Stop collecting stats and prepare for final report.
+  /// Awaits final stats collection to ensure no data is lost.
+  Future<void> stop() async {
     _collectionTimer?.cancel();
     _collectionTimer = null;
     _callEndTime = DateTime.now();
 
-    // Collect final stats before stopping
+    // Collect final stats before stopping (await to ensure buffer is complete)
     if (_peerConnection != null && _intervalStartTime != null) {
-      _collectStats();
+      await _collectStats();
     }
 
     GlobalLogger().i(
@@ -432,14 +433,14 @@ class CallReportCollector {
   }
 
   void _processOutboundAudio(Map<String, dynamic> stats, DateTime now) {
-    // Audio level
-    final audioLevel = stats['audioLevel'] as double?;
+    // Audio level (WebRTC may return int, double, or num)
+    final audioLevel = (stats['audioLevel'] as num?)?.toDouble();
     if (audioLevel != null) {
       _intervalOutboundAudioLevels.add(audioLevel);
     }
 
     // Calculate bitrate
-    final bytesSent = stats['bytesSent'] as int?;
+    final bytesSent = (stats['bytesSent'] as num?)?.toInt();
     if (bytesSent != null &&
         _previousOutboundBytes != null &&
         _previousTimestamp != null) {
@@ -454,20 +455,20 @@ class CallReportCollector {
   }
 
   void _processInboundAudio(Map<String, dynamic> stats, DateTime now) {
-    // Audio level
-    final audioLevel = stats['audioLevel'] as double?;
+    // Audio level (WebRTC may return int, double, or num)
+    final audioLevel = (stats['audioLevel'] as num?)?.toDouble();
     if (audioLevel != null) {
       _intervalInboundAudioLevels.add(audioLevel);
     }
 
     // Jitter (convert to ms)
-    final jitter = stats['jitter'] as double?;
+    final jitter = (stats['jitter'] as num?)?.toDouble();
     if (jitter != null) {
       _intervalJitters.add(jitter * 1000);
     }
 
     // Calculate bitrate
-    final bytesReceived = stats['bytesReceived'] as int?;
+    final bytesReceived = (stats['bytesReceived'] as num?)?.toInt();
     if (bytesReceived != null &&
         _previousInboundBytes != null &&
         _previousTimestamp != null) {
@@ -483,7 +484,7 @@ class CallReportCollector {
 
   void _processCandidatePair(Map<String, dynamic> stats) {
     // RTT (already in seconds in WebRTC stats)
-    final rtt = stats['currentRoundTripTime'] as double?;
+    final rtt = (stats['currentRoundTripTime'] as num?)?.toDouble();
     if (rtt != null) {
       _intervalRTTs.add(rtt);
     }
@@ -514,8 +515,8 @@ class CallReportCollector {
 
     if (_lastOutboundAudio != null) {
       outbound = OutboundAudioStats(
-        packetsSent: _lastOutboundAudio!['packetsSent'] as int?,
-        bytesSent: _lastOutboundAudio!['bytesSent'] as int?,
+        packetsSent: (_lastOutboundAudio!['packetsSent'] as num?)?.toInt(),
+        bytesSent: (_lastOutboundAudio!['bytesSent'] as num?)?.toInt(),
         audioLevelAvg: _average(_intervalOutboundAudioLevels),
         bitrateAvg: _average(_intervalOutboundBitrates),
       );
@@ -523,17 +524,17 @@ class CallReportCollector {
 
     if (_lastInboundAudio != null) {
       inbound = InboundAudioStats(
-        packetsReceived: _lastInboundAudio!['packetsReceived'] as int?,
-        bytesReceived: _lastInboundAudio!['bytesReceived'] as int?,
-        packetsLost: _lastInboundAudio!['packetsLost'] as int?,
-        packetsDiscarded: _lastInboundAudio!['packetsDiscarded'] as int?,
-        jitterBufferDelay: _lastInboundAudio!['jitterBufferDelay'] as double?,
+        packetsReceived: (_lastInboundAudio!['packetsReceived'] as num?)?.toInt(),
+        bytesReceived: (_lastInboundAudio!['bytesReceived'] as num?)?.toInt(),
+        packetsLost: (_lastInboundAudio!['packetsLost'] as num?)?.toInt(),
+        packetsDiscarded: (_lastInboundAudio!['packetsDiscarded'] as num?)?.toInt(),
+        jitterBufferDelay: (_lastInboundAudio!['jitterBufferDelay'] as num?)?.toDouble(),
         jitterBufferEmittedCount:
-            _lastInboundAudio!['jitterBufferEmittedCount'] as int?,
+            (_lastInboundAudio!['jitterBufferEmittedCount'] as num?)?.toInt(),
         totalSamplesReceived:
-            _lastInboundAudio!['totalSamplesReceived'] as int?,
-        concealedSamples: _lastInboundAudio!['concealedSamples'] as int?,
-        concealmentEvents: _lastInboundAudio!['concealmentEvents'] as int?,
+            (_lastInboundAudio!['totalSamplesReceived'] as num?)?.toInt(),
+        concealedSamples: (_lastInboundAudio!['concealedSamples'] as num?)?.toInt(),
+        concealmentEvents: (_lastInboundAudio!['concealmentEvents'] as num?)?.toInt(),
         audioLevelAvg: _average(_intervalInboundAudioLevels),
         jitterAvg: _average(_intervalJitters),
         bitrateAvg: _average(_intervalInboundBitrates),
@@ -554,10 +555,10 @@ class CallReportCollector {
 
     return ConnectionStats(
       roundTripTimeAvg: _average(_intervalRTTs),
-      packetsSent: _lastCandidatePair!['packetsSent'] as int?,
-      packetsReceived: _lastCandidatePair!['packetsReceived'] as int?,
-      bytesSent: _lastCandidatePair!['bytesSent'] as int?,
-      bytesReceived: _lastCandidatePair!['bytesReceived'] as int?,
+      packetsSent: (_lastCandidatePair!['packetsSent'] as num?)?.toInt(),
+      packetsReceived: (_lastCandidatePair!['packetsReceived'] as num?)?.toInt(),
+      bytesSent: (_lastCandidatePair!['bytesSent'] as num?)?.toInt(),
+      bytesReceived: (_lastCandidatePair!['bytesReceived'] as num?)?.toInt(),
     );
   }
 

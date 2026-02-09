@@ -974,11 +974,12 @@ class Peer {
   }
 
   /// Stops reporting WebRTC statistics for a specific call.
+  /// Awaits final stats collection to ensure no data is lost.
   ///
   /// [callId] The ID of the call to stop stats for.
-  void stopStats(String callId) {
-    // Stop call report collector (always)
-    _callReportCollector?.stop();
+  Future<void> stopStats(String callId) async {
+    // Stop call report collector (always) - await to capture final stats
+    await _callReportCollector?.stop();
     GlobalLogger().i('Peer :: CallReportCollector stopped for $callId');
 
     // Stop WebRTC stats reporter if it was started
