@@ -173,8 +173,13 @@ class Peer {
   /// Mutes or unmutes the microphone.
   void muteUnmuteMic() {
     if (_localStream != null) {
-      final bool enabled = _localStream!.getAudioTracks()[0].enabled;
-      _localStream!.getAudioTracks()[0].enabled = !enabled;
+      final audioTracks = _localStream!.getAudioTracks();
+      if (audioTracks.isNotEmpty) {
+        final bool enabled = audioTracks[0].enabled;
+        audioTracks[0].enabled = !enabled;
+      } else {
+        GlobalLogger().w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
+      }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
     }
@@ -185,8 +190,13 @@ class Peer {
   /// [muted] True to mute the microphone, false to unmute.
   void setMuteState(bool muted) {
     if (_localStream != null) {
-      _localStream!.getAudioTracks()[0].enabled = !muted;
-      GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
+      final audioTracks = _localStream!.getAudioTracks();
+      if (audioTracks.isNotEmpty) {
+        audioTracks[0].enabled = !muted;
+        GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
+      } else {
+        GlobalLogger().w('Peer :: No audio tracks available :: Unable to set mute state');
+      }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
     }
@@ -199,14 +209,24 @@ class Peer {
       // On web, .enableSpeakerphone(...) is still available on recent flutter_webrtc
       GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
       if (_localStream != null) {
-        _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
+        final audioTracks = _localStream!.getAudioTracks();
+        if (audioTracks.isNotEmpty) {
+          audioTracks[0].enableSpeakerphone(enable);
+        } else {
+          GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+        }
       }
       return;
     }
 
     if (_localStream != null) {
-      _localStream!.getAudioTracks()[0].enableSpeakerphone(enable);
-      GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
+      final audioTracks = _localStream!.getAudioTracks();
+      if (audioTracks.isNotEmpty) {
+        audioTracks[0].enableSpeakerphone(enable);
+        GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
+      } else {
+        GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+      }
     } else {
       GlobalLogger().d(
         'Peer :: No local stream :: Unable to toggle speaker mode',
