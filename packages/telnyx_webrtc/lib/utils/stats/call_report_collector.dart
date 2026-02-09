@@ -390,25 +390,27 @@ class CallReportCollector {
       // Process stats reports
       for (final report in stats) {
         final type = report.type;
+        // Cast values to Map<String, dynamic>
+        final values = Map<String, dynamic>.from(report.values);
 
         switch (type) {
           case 'outbound-rtp':
-            if (report.values['kind'] == 'audio') {
-              _lastOutboundAudio = report.values;
-              _processOutboundAudio(report.values, now);
+            if (values['kind'] == 'audio') {
+              _lastOutboundAudio = values;
+              _processOutboundAudio(values, now);
             }
             break;
           case 'inbound-rtp':
-            if (report.values['kind'] == 'audio') {
-              _lastInboundAudio = report.values;
-              _processInboundAudio(report.values, now);
+            if (values['kind'] == 'audio') {
+              _lastInboundAudio = values;
+              _processInboundAudio(values, now);
             }
             break;
           case 'candidate-pair':
-            if (report.values['nominated'] == true ||
-                report.values['state'] == 'succeeded') {
-              _lastCandidatePair = report.values;
-              _processCandidatePair(report.values);
+            if (values['nominated'] == true ||
+                values['state'] == 'succeeded') {
+              _lastCandidatePair = values;
+              _processCandidatePair(values);
             }
             break;
         }
