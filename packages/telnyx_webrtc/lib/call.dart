@@ -81,6 +81,11 @@ class CallHandler {
   void changeState(CallState state) {
     call?.callState = state;
     onCallStateChanged(state);
+    
+    // Post call report when call ends (regardless of who initiated the BYE)
+    if (state == CallState.done) {
+      call?._stopStatsAndPostReport();
+    }
   }
 }
 
@@ -347,12 +352,6 @@ class Call {
 
     txSocket.send(jsonByeMessage);
     if (peerConnection != null) {
-      // Stop stats collection and post call report
-      peerConnection?.stopStats(callId ?? '');
-      
-      // Post call report asynchronously (don't wait for it)
-      _postCallReport();
-      
       peerConnection?.closeSession();
     } else {
       GlobalLogger().d('Session end peer connection null');
@@ -372,18 +371,23 @@ class Call {
     _txClient.onSocketMessageReceived.call(message);
   }
   
-  /// Posts the call report to voice-sdk-proxy after the call ends.
-  /// This is called asynchronously and does not block call termination.
-  void _postCallReport() {
+  /// Stops stats collection and posts the call report to voice-sdk-proxy.
+  /// Called automatically when call state transitions to DONE (via CallHandler).
+  /// This handles both local hangup (endCall) and remote hangup (BYE received).
+  void _stopStatsAndPostReport() {
     if (peerConnection == null || callId == null) {
       return;
     }
+    
+    // Stop stats collection
+    peerConnection!.stopStats(callId!);
     
     // Determine direction based on whether we have a destination number
     // If sessionDestinationNumber is set, it's an outbound call
     // If sessionCallerNumber is set but not destination, it's likely inbound
     final direction = sessionDestinationNumber.isNotEmpty ? 'outbound' : 'inbound';
     
+    // Post call report asynchronously (don't block call cleanup)
     peerConnection!.postCallReport(
       callId: callId!,
       direction: direction,
