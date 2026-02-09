@@ -69,7 +69,7 @@ jobs:
       - name: Build app & test APK
         run: |
           patrol build android \
-            --target integration_test/patrol_test_refactored.dart \
+            --target integration_test/patrol_test.dart \
             --dart-define=TEST_MODE=true \
             --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} \
             --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} \
