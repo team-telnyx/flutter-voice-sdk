@@ -158,6 +158,16 @@ class TelnyxClient {
   /// The current session ID related to this client
   String sessid = const Uuid().v4();
 
+  /// The call report ID received from voice-sdk-proxy on REGED.
+  /// Used for authenticating call report POST requests after call ends.
+  String? callReportId;
+
+  /// The WebSocket host URL for deriving the call report endpoint.
+  String? _socketHost;
+  
+  /// Gets the WebSocket host URL (used for call report endpoint derivation).
+  String? get socketHost => _socketHost;
+
   Timer? _gatewayResponseTimer;
   bool _waitingForReg = true;
   bool _pendingAnswerFromPush = false;
@@ -1007,6 +1017,7 @@ class TelnyxClient {
       );
 
       txSocket.hostAddress = hostAddress;
+      _socketHost = hostAddress; // Store for call report endpoint
       GlobalLogger().i('connecting to WebSocket $hostAddress');
       txSocket
         ..onOpen = () {
@@ -1065,6 +1076,7 @@ class TelnyxClient {
       );
 
       txSocket.hostAddress = hostAddress;
+      _socketHost = hostAddress; // Store for call report endpoint
       GlobalLogger().i('connecting to WebSocket $hostAddress');
       txSocket
         ..onOpen = () {
@@ -1819,6 +1831,12 @@ class TelnyxClient {
                       _invalidateGatewayResponseTimer();
                       _resetGatewayCounters();
                       gatewayState = GatewayState.reged;
+                      
+                      // Store call_report_id for call report authentication
+                      callReportId = stateMessage.resultParams?.stateParams?.callReportId;
+                      if (callReportId != null) {
+                        GlobalLogger().d('CallReportId received: $callReportId');
+                      }
                       _waitingForReg = false;
                       final message = TelnyxMessage(
                         socketMethod: SocketMethod.clientReady,

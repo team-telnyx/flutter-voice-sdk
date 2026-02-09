@@ -347,6 +347,12 @@ class Call {
 
     txSocket.send(jsonByeMessage);
     if (peerConnection != null) {
+      // Stop stats collection and post call report
+      peerConnection?.stopStats(callId ?? '');
+      
+      // Post call report asynchronously (don't wait for it)
+      _postCallReport();
+      
       peerConnection?.closeSession();
     } else {
       GlobalLogger().d('Session end peer connection null');
@@ -364,6 +370,29 @@ class Call {
       message: ReceivedMessage(method: 'telnyx_rtc.bye'),
     );
     _txClient.onSocketMessageReceived.call(message);
+  }
+  
+  /// Posts the call report to voice-sdk-proxy after the call ends.
+  /// This is called asynchronously and does not block call termination.
+  void _postCallReport() {
+    if (peerConnection == null || callId == null) {
+      return;
+    }
+    
+    // Determine direction based on whether we have a destination number
+    // If sessionDestinationNumber is set, it's an outbound call
+    // If sessionCallerNumber is set but not destination, it's likely inbound
+    final direction = sessionDestinationNumber.isNotEmpty ? 'outbound' : 'inbound';
+    
+    peerConnection!.postCallReport(
+      callId: callId!,
+      direction: direction,
+      destinationNumber: sessionDestinationNumber.isNotEmpty ? sessionDestinationNumber : null,
+      callerNumber: sessionCallerNumber.isNotEmpty ? sessionCallerNumber : null,
+      state: callState.toString().split('.').last,
+    ).catchError((error) {
+      GlobalLogger().e('Failed to post call report: $error');
+    });
   }
 
   /// Sends a DTMF message with the chosen [tone] to the call
