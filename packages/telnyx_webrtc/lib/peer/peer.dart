@@ -1032,7 +1032,7 @@ class Peer {
       summary: summary,
       callReportId: callReportId,
       host: host,
-      voiceSdkId: _txClient.socketHost, // Could also use voice_sdk_id if available
+      voiceSdkId: _txClient.voiceSdkId,
     );
   }
 

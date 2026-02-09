@@ -168,6 +168,9 @@ class TelnyxClient {
   /// Gets the WebSocket host URL (used for call report endpoint derivation).
   String? get socketHost => _socketHost;
 
+  /// Gets the voice SDK ID received from the server (used for call report headers).
+  String? get voiceSdkId => _pushMetaData?.voiceSdkId;
+
   Timer? _gatewayResponseTimer;
   bool _waitingForReg = true;
   bool _pendingAnswerFromPush = false;
