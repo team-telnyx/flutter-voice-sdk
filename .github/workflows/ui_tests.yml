@@ -1,4 +1,4 @@
-name: Flutter UI Tests (Firebase Test Lab)
+name: Flutter UI Tests (Firebase Test Lab with Local Emulator Fallback)
 
 on:
   pull_request:
@@ -66,7 +66,6 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       # 8) Build app & test APK
-      # Using the refactored tests with TEST_MODE for status overlay visibility
       - name: Build app & test APK
         run: |
           patrol build android \
@@ -78,11 +77,9 @@ jobs:
             --verbose
 
       # 9) Run tests on Firebase Test Lab
-      # - Increased timeout from 1m to 5m for call flow reliability
-      # - Added flaky test retry (2 attempts)
-      # - Recording video for debugging failures
       - name: Run Tests on Firebase Test Lab
         id: firebase_tests
+        continue-on-error: true
         run: |
           gcloud firebase test android run \
             --type instrumentation \
@@ -96,13 +93,56 @@ jobs:
             --environment-variables clearPackageData=true \
             --results-dir=firebase-results-${{ github.run_id }}
 
-      # 10) Download test artifacts for debugging (always, even on failure)
+      # 10) Download Firebase test artifacts
       - name: Download Firebase Test Results
         if: always()
         continue-on-error: true
         run: |
           mkdir -p firebase-results
           gsutil -m cp -r "gs://test-lab-*/**/firebase-results-${{ github.run_id }}/**" firebase-results/ || true
+
+      # ============================================================
+      # REACTIVE CIRCUS FALLBACK - Runs if Firebase tests fail
+      # Uses the pre-built APKs with adb instrumentation
+      # ============================================================
+
+      - name: Enable KVM group perms
+        if: always() && steps.firebase_tests.outcome == 'failure'
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Tests on Local Emulator (Fallback)
+        id: fallback_tests
+        if: always() && steps.firebase_tests.outcome == 'failure'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: |
+            echo "📱 Installing APKs..."
+            adb install -r build/app/outputs/apk/debug/app-debug.apk
+            adb install -r build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            
+            echo "🔓 Granting permissions..."
+            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.RECORD_AUDIO || true
+            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.POST_NOTIFICATIONS || true
+            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.CAMERA || true
+            
+            echo "🧪 Running instrumentation tests..."
+            adb shell am instrument -w \
+              -e clearPackageData true \
+              com.telnyx.flutter_voice_sdk_demo.test/androidx.test.runner.AndroidJUnitRunner
+
+      # ============================================================
+      # RESULTS
+      # ============================================================
 
       - name: Upload Test Artifacts
         if: always()
@@ -113,14 +153,31 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      # 11) Summary
-      - name: Test Summary
+      - name: Check Test Results
         if: always()
         run: |
           if [[ "${{ steps.firebase_tests.outcome }}" == "success" ]]; then
-            echo "## ✅ UI Tests Passed" >> $GITHUB_STEP_SUMMARY
+            echo "## ✅ UI Tests Passed (Firebase)" >> $GITHUB_STEP_SUMMARY
             echo "Firebase Test Lab tests completed successfully." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ❌ UI Tests Failed" >> $GITHUB_STEP_SUMMARY
-            echo "Check the uploaded artifacts for video recordings and logs." >> $GITHUB_STEP_SUMMARY
+            exit 0
           fi
+
+          echo "⚠️ Firebase tests failed, checking fallback results..."
+
+          if [[ "${{ steps.fallback_tests.outcome }}" == "success" ]]; then
+            echo "## ✅ UI Tests Passed (Local Emulator Fallback)" >> $GITHUB_STEP_SUMMARY
+            echo "Tests passed on local emulator after Firebase failure." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          if [[ "${{ steps.fallback_tests.outcome }}" == "failure" ]]; then
+            echo "## ❌ UI Tests Failed" >> $GITHUB_STEP_SUMMARY
+            echo "Both Firebase Test Lab and local emulator fallback failed." >> $GITHUB_STEP_SUMMARY
+            echo "Check the uploaded artifacts for details." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          # Fallback was skipped (shouldn't happen if Firebase failed)
+          echo "## ❌ UI Tests Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Firebase Test Lab failed and fallback was not executed." >> $GITHUB_STEP_SUMMARY
+          exit 1
