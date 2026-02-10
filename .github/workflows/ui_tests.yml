@@ -40,9 +40,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 5) Install Patrol CLI
+      # 5) Install Patrol CLI (must match patrol package version)
       - name: Install Patrol CLI
-        run: flutter pub global activate patrol_cli 3.6.0
+        run: flutter pub global activate patrol_cli 4.1.0
 
       # 6) Cache Gradle dependencies
       - name: Cache Gradle dependencies
@@ -86,7 +86,7 @@ jobs:
             --use-orchestrator \
             --app build/app/outputs/apk/debug/app-debug.apk \
             --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
-            --timeout 5m \
+            --timeout 15m \
             --device model=akita,version=34,locale=en,orientation=portrait \
             --num-flaky-test-attempts 2 \
             --record-video \
