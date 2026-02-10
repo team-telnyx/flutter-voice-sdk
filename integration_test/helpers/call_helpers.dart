@@ -31,6 +31,14 @@ extension CallHelpers on PatrolIntegrationTester {
     await enterTextWithRetry(2, profileName);
     await enterTextWithRetry(3, number);
 
+    // Dismiss keyboard before tapping Save (keyboard may block button)
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await pumpAndSettle();
+    
+    // Also try tapping outside to ensure keyboard is gone
+    await tester.tapAt(const Offset(10, 10));
+    await pumpAndSettle();
+
     // Save
     await tapTextWithRetry('Save');
 
@@ -43,7 +51,11 @@ extension CallHelpers on PatrolIntegrationTester {
     // Connect if button exists
     await tapTextIfExists('Connect');
 
-    // Wait for connection (state-based, not time-based!)
+    // Wait for SIP connection (give it time like old test)
+    await Future.delayed(const Duration(seconds: 5));
+    await pumpAndSettle();
+
+    // Wait for connection state
     await waitForConnected();
 
     // Wait for bottom sheet to fully dismiss and destination field to be visible
