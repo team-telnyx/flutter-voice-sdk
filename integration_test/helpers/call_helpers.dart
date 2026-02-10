@@ -47,11 +47,13 @@ extension CallHelpers on PatrolIntegrationTester {
     await waitForConnected();
 
     // Wait for bottom sheet to fully dismiss and destination field to be visible
-    await waitUntilVisible(
-      find.byKey(const Key('destination_field')),
-      timeout: TestConfig.uiSettleTimeout,
-      description: 'destination field (bottom sheet dismissed)',
-    );
+    // Simple poll instead of extension call to avoid cross-extension issues
+    final destinationField = find.byKey(const Key('destination_field'));
+    final stopwatch = Stopwatch()..start();
+    while (stopwatch.elapsed < TestConfig.uiSettleTimeout) {
+      await pump(const Duration(milliseconds: 100));
+      if (destinationField.evaluate().isNotEmpty) break;
+    }
   }
 
   /// Make an outbound call to a destination

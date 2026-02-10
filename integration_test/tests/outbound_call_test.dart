@@ -1,3 +1,4 @@
+import 'package:test/test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:patrol/patrol.dart';
@@ -13,7 +14,7 @@ import '../helpers/call_helpers.dart';
 void outboundCallTests() {
   patrolTest(
     'Make outbound call to echo test',
-    timeout: TestConfig.testTimeout,
+    timeout: Timeout(TestConfig.testTimeout),
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {
@@ -42,7 +43,7 @@ void outboundCallTests() {
 
   patrolTest(
     'Make outbound call and verify call state transitions',
-    timeout: TestConfig.testTimeout,
+    timeout: Timeout(TestConfig.testTimeout),
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {
@@ -86,7 +87,7 @@ void outboundCallTests() {
 
   patrolTest(
     'Make call to SIP destination',
-    timeout: TestConfig.testTimeout,
+    timeout: Timeout(TestConfig.testTimeout),
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials || TestConfig.testDestinationSip.isEmpty,
     ($) async {
