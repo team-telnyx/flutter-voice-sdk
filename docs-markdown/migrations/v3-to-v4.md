@@ -19,6 +19,7 @@ Version 4.0.0 introduces improved push notification handling, specifically for m
 Per Apple's PushKit policy, apps receiving VoIP push notifications **must report all incoming calls to CallKit**. Starting in v4.0.0, Telnyx servers send "Missed call!" push notifications when calls are rejected remotely or missed.
 
 **Failure to handle these notifications can result in:**
+- ⚠️ Apple stopping push notifications to that device as they are not handled
 - ⚠️ Stale CallKit UI showing for calls that no longer exist
 - ⚠️ Users attempting to answer calls that have already ended
 - ⚠️ Poor user experience
