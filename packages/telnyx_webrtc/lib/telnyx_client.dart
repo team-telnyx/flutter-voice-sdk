@@ -841,6 +841,7 @@ class TelnyxClient {
       loginParams: {'decline_push': 'true'},
       sessionId: sessid,
       userVariables: notificationParams,
+      userAgent: VersionUtils.getUserAgent(),
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -882,6 +883,7 @@ class TelnyxClient {
       loginParams: {'decline_push': 'true'},
       userVariables: notificationParams,
       sessionId: sessid,
+      userAgent: VersionUtils.getUserAgent(),
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -1290,6 +1292,7 @@ class TelnyxClient {
       loginParams: {'attach_call': 'true'},
       sessionId: sessid,
       userVariables: notificationParams,
+      userAgent: VersionUtils.getUserAgent(),
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -1341,6 +1344,7 @@ class TelnyxClient {
       loginParams: {'attach_call': 'true'},
       userVariables: notificationParams,
       sessionId: sessid,
+      userAgent: VersionUtils.getUserAgent(),
     );
     final loginMessage = LoginMessage(
       id: uuid,

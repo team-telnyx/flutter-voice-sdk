@@ -36,6 +36,7 @@ class LoginParams {
   String? passwd;
   UserVariables? userVariables;
   String? sessionId;
+  String? userAgent;
 
   LoginParams({
     this.login,
@@ -44,6 +45,7 @@ class LoginParams {
     this.passwd,
     this.userVariables,
     this.sessionId,
+    this.userAgent,
   });
 
   LoginParams.fromJson(Map<String, dynamic> json) {
@@ -59,6 +61,7 @@ class LoginParams {
     userVariables = json['userVariables'] != null
         ? UserVariables.fromJson(json['userVariables'])
         : null;
+    userAgent = json['User-Agent'];
   }
 
   Map<String, dynamic> toJson() {
@@ -74,6 +77,9 @@ class LoginParams {
     data['sessid'] = sessionId;
     if (userVariables != null) {
       data['userVariables'] = userVariables!.toJson();
+    }
+    if (userAgent != null) {
+      data['User-Agent'] = userAgent;
     }
     return data;
   }

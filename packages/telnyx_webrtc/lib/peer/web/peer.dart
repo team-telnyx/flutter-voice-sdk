@@ -372,7 +372,7 @@ class Peer {
 
       // Send INVITE immediately for trickle ICE, or after delay for regular ICE
       Future<void> sendInvite() async {
-        final userAgent = await VersionUtils.getUserAgent();
+        final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -676,7 +676,7 @@ class Peer {
       }
     }
 
-    final userAgent = await VersionUtils.getUserAgent();
+    final userAgent = VersionUtils.getUserAgent();
     final dialogParams = DialogParams(
       attach: false,
       audio: true,
