@@ -45,6 +45,13 @@ extension CallHelpers on PatrolIntegrationTester {
 
     // Wait for connection (state-based, not time-based!)
     await waitForConnected();
+
+    // Wait for bottom sheet to fully dismiss and destination field to be visible
+    await waitUntilVisible(
+      find.byKey(const Key('destination_field')),
+      timeout: TestConfig.uiSettleTimeout,
+      description: 'destination field (bottom sheet dismissed)',
+    );
   }
 
   /// Make an outbound call to a destination
