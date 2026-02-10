@@ -12,6 +12,7 @@ import '../helpers/call_helpers.dart';
 void connectionTests() {
   patrolTest(
     'Connect with SIP credentials',
+    timeout: TestConfig.testTimeout,
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {
@@ -39,6 +40,7 @@ void connectionTests() {
 
   patrolTest(
     'Connect with Token',
+    timeout: TestConfig.testTimeout,
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasTokenCredentials,
     ($) async {
@@ -61,6 +63,7 @@ void connectionTests() {
 
   patrolTest(
     'Disconnect and reconnect',
+    timeout: TestConfig.testTimeout,
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {

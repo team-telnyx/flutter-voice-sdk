@@ -13,6 +13,7 @@ import '../helpers/call_helpers.dart';
 void callControlsTests() {
   patrolTest(
     'Hold and unhold call',
+    timeout: TestConfig.testTimeout,
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {
@@ -48,6 +49,7 @@ void callControlsTests() {
 
   patrolTest(
     'Mute and unmute call',
+    timeout: TestConfig.testTimeout,
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {
@@ -89,6 +91,7 @@ void callControlsTests() {
 
   patrolTest(
     'Toggle speaker',
+    timeout: TestConfig.testTimeout,
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {
@@ -117,6 +120,7 @@ void callControlsTests() {
 
   patrolTest(
     'Send DTMF tones',
+    timeout: TestConfig.testTimeout,
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {
@@ -144,6 +148,7 @@ void callControlsTests() {
 
   patrolTest(
     'Multiple hold/unhold cycles',
+    timeout: TestConfig.testTimeout,
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
     skip: !TestConfig.hasSipCredentials,
     ($) async {

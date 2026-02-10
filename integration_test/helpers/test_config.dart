@@ -32,6 +32,7 @@ class TestConfig {
   static const callEstablishTimeout = Duration(seconds: 20);
   static const uiSettleTimeout = Duration(seconds: 5);
   static const shortDelay = Duration(milliseconds: 500);
+  static const testTimeout = Duration(minutes: 2); // Per-test timeout
 
   // Retry configuration
   static const maxRetries = 3;
