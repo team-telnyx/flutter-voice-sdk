@@ -53,8 +53,8 @@ void outboundCallTests() {
       await $.grantPermissionsIfNeeded();
       await $.loginWithSipCredentials();
 
-      // Enter destination
-      final numberField = find.byType(TextFormField).first;
+      // Enter destination - use specific key to avoid wrong field
+      final numberField = find.byKey(const Key('destination_field'));
       await $.tester.enterText(numberField, TestConfig.testDestinationEcho);
       await $.pumpAndSettle();
 

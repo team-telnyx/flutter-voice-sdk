@@ -49,8 +49,8 @@ extension CallHelpers on PatrolIntegrationTester {
 
   /// Make an outbound call to a destination
   Future<void> makeCall(String destination) async {
-    // Enter destination number
-    final numberField = find.byType(TextFormField).first;
+    // Enter destination number - use the specific key to avoid grabbing wrong field
+    final numberField = find.byKey(const Key('destination_field'));
     await tester.enterText(numberField, destination);
     await pumpAndSettle();
 
