@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 
 class LoginMessage {
   String? id;
@@ -101,7 +102,7 @@ class UserVariables {
     data['push_notification_provider'] = pushNotificationProvider;
     const String pushEnvironment = kDebugMode ? 'debug' : 'production';
     data['push_notification_environment'] = pushEnvironment;
-    print('pushEnvironment: $pushEnvironment');
+    GlobalLogger().d('pushEnvironment: $pushEnvironment');
     return data;
   }
 }
