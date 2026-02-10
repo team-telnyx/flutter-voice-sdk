@@ -51,11 +51,7 @@ extension CallHelpers on PatrolIntegrationTester {
     // Connect if button exists
     await tapTextIfExists('Connect');
 
-    // Wait for SIP connection (give it time like old test)
-    await Future.delayed(const Duration(seconds: 5));
-    await pumpAndSettle();
-
-    // Wait for connection state
+    // Wait for connection state (clientReady = connected + registered)
     await waitForConnected();
 
     // Wait for bottom sheet to fully dismiss and destination field to be visible

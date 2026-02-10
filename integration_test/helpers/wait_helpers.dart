@@ -81,10 +81,11 @@ extension WaitHelpers on PatrolIntegrationTester {
   }
 
   /// Wait for SDK connection status (requires status widget with key)
+  /// Note: 'clientReady' means connected AND registered (ready to make calls)
   Future<void> waitForConnected({Duration? timeout}) async {
     await waitForKeyWithText(
       'connection_status',
-      'connected',
+      'clientReady',
       timeout: timeout ?? TestConfig.connectionTimeout,
     );
   }
