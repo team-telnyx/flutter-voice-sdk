@@ -1,3 +1,7 @@
+## [4.0.1](https://pub.dev/packages/telnyx_webrtc/versions/4.0.1) (2026-02-12)
+### Bug Fixing
+- fix web outbound calling and build by including answered device token and improved SDP handling 
+
 ## [4.0.0](https://pub.dev/packages/telnyx_webrtc/versions/4.0.0) (2026-02-05)
 ### Breaking
 - Using version 4.0.0 will adjust how Push Notifications are handled on iOS devices. Using 4.0.0 allows iOS devices to received `MISSED CALL` notifications - signifying that a call was either missed, or an existing ongoing invitation that was not yet reacted to has been cancelled. Please make sure you are handling these `MISSED CALL` notifications appropriately if necessary or don't update. 
