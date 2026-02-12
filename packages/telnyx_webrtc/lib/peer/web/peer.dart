@@ -578,23 +578,14 @@ class Peer {
             'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
           );
           if (candidate.candidate != null) {
-            final candidateString = candidate.candidate.toString();
-            final isValidCandidate =
-                candidateString.contains('stun.telnyx.com') ||
-                    candidateString.contains('turn.telnyx.com');
-
-            if (isValidCandidate) {
-              GlobalLogger().i(
-                'Web Peer :: Valid ICE candidate: $candidateString',
-              );
-              // Only add valid candidates and reset timer
-              await session.peerConnection?.addCandidate(candidate);
-              _lastCandidateTime = DateTime.now();
-            } else {
-              GlobalLogger().i(
-                'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
-              );
-            }
+            // Traditional ICE: local candidates are automatically included in the SDP
+            // via getLocalDescription() after gathering completes. Do NOT call
+            // addCandidate() for local candidates - that's only for remote candidates
+            // received from the other peer via signaling.
+            GlobalLogger().i(
+              'Web Peer :: Local ICE candidate gathered: ${candidate.candidate}',
+            );
+            _lastCandidateTime = DateTime.now();
           } else {
             GlobalLogger().i('Web Peer :: onIceCandidate: complete');
           }
@@ -846,22 +837,13 @@ class Peer {
           'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
         );
         if (candidate.candidate != null) {
-          final candidateString = candidate.candidate.toString();
-          final isValidCandidate =
-              candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
-
-          if (isValidCandidate) {
-            GlobalLogger().i(
-              'Web Peer :: Valid ICE candidate: $candidateString',
-            );
-            // Add valid candidates
-            await pc.addCandidate(candidate);
-          } else {
-            GlobalLogger().i(
-              'Web Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
-            );
-          }
+          // Traditional ICE: local candidates are automatically included in the SDP
+          // via getLocalDescription() after gathering completes. Do NOT call
+          // addCandidate() for local candidates - that's only for remote candidates
+          // received from the other peer via signaling.
+          GlobalLogger().i(
+            'Web Peer :: Local ICE candidate gathered: ${candidate.candidate}',
+          );
         } else {
           GlobalLogger().i('Web Peer :: onIceCandidate: complete');
         }
