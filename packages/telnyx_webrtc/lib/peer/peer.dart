@@ -555,9 +555,7 @@ class Peer {
               _sendTrickleCandidate(candidate, callId);
             } else {
               // Traditional ICE: local candidates are automatically included in the SDP
-              // via getLocalDescription() after gathering completes. Do NOT call
-              // addCandidate() for local candidates - that's only for remote candidates
-              // received from the other peer via signaling.
+              // via getLocalDescription() after gathering completes.
               GlobalLogger().i(
                 'Peer :: Local ICE candidate gathered: ${candidate.candidate}',
               );
@@ -807,9 +805,7 @@ class Peer {
           _startTrickleIceTimer(callId);
         } else {
           // Traditional ICE: local candidates are automatically included in the SDP
-          // via getLocalDescription() after gathering completes. Do NOT call
-          // addCandidate() for local candidates - that's only for remote candidates
-          // received from the other peer via signaling.
+          // via getLocalDescription() after gathering completes.
           GlobalLogger().i(
             'Peer :: Local ICE candidate gathered: ${candidate.candidate}',
           );
