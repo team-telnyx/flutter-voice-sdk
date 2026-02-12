@@ -368,11 +368,6 @@ class Peer {
         CallTimingBenchmark.mark('offer_created');
         await session.peerConnection!.setLocalDescription(description);
         CallTimingBenchmark.mark('local_offer_sdp_set');
-
-        final localDesc = await session.peerConnection?.getLocalDescription();
-        if (localDesc != null) {
-          sdpUsed = localDesc.sdp;
-        }
       }
 
       // Send INVITE immediately for trickle ICE, or after delay for regular ICE
@@ -422,6 +417,11 @@ class Peer {
         _lastCandidateTime = DateTime.now();
         _setOnNegotiationComplete(() async {
           CallTimingBenchmark.mark('ice_gathering_complete');
+          // Re-fetch SDP after candidates have been gathered
+          final localDesc = await session.peerConnection?.getLocalDescription();
+          if (localDesc != null) {
+            sdpUsed = localDesc.sdp;
+          }
           await sendInvite();
           CallTimingBenchmark.mark('invite_sent');
         });
