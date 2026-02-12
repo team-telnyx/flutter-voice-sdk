@@ -74,7 +74,8 @@ class Peer {
   /// Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
+  static const int _negotiationTimeout =
+      1000; // 1000ms timeout for negotiation -- Longer on Web
   Function()? _onNegotiationComplete;
 
   // Add trickle ICE end-of-candidates timer fields
@@ -178,7 +179,8 @@ class Peer {
         final bool enabled = audioTracks[0].enabled;
         audioTracks[0].enabled = !enabled;
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
+        GlobalLogger()
+            .w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
@@ -195,7 +197,8 @@ class Peer {
         audioTracks[0].enabled = !muted;
         GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to set mute state');
+        GlobalLogger()
+            .w('Peer :: No audio tracks available :: Unable to set mute state');
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
@@ -213,7 +216,8 @@ class Peer {
         if (audioTracks.isNotEmpty) {
           audioTracks[0].enableSpeakerphone(enable);
         } else {
-          GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+          GlobalLogger().w(
+              'Peer :: No audio tracks available :: Unable to toggle speaker mode');
         }
       }
       return;
@@ -225,7 +229,8 @@ class Peer {
         audioTracks[0].enableSpeakerphone(enable);
         GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+        GlobalLogger().w(
+            'Peer :: No audio tracks available :: Unable to toggle speaker mode');
       }
     } else {
       GlobalLogger().d(
@@ -363,11 +368,6 @@ class Peer {
         CallTimingBenchmark.mark('offer_created');
         await session.peerConnection!.setLocalDescription(description);
         CallTimingBenchmark.mark('local_offer_sdp_set');
-
-        final localDesc = await session.peerConnection?.getLocalDescription();
-        if (localDesc != null) {
-          sdpUsed = localDesc.sdp;
-        }
       }
 
       // Send INVITE immediately for trickle ICE, or after delay for regular ICE
@@ -417,6 +417,11 @@ class Peer {
         _lastCandidateTime = DateTime.now();
         _setOnNegotiationComplete(() async {
           CallTimingBenchmark.mark('ice_gathering_complete');
+          // Re-fetch SDP after candidates have been gathered
+          final localDesc = await session.peerConnection?.getLocalDescription();
+          if (localDesc != null) {
+            sdpUsed = localDesc.sdp;
+          }
           await sendInvite();
           CallTimingBenchmark.mark('invite_sent');
         });
@@ -470,6 +475,7 @@ class Peer {
   /// [invite] The incoming invite parameters containing the SDP offer.
   /// [customHeaders] Custom headers to include in the answer.
   /// [isAttach] Whether this is an attach call.
+  /// [answeredDeviceToken] Optional device token for push notification identification.
   Future<void> accept(
     String callerName,
     String callerNumber,
@@ -478,8 +484,9 @@ class Peer {
     String callId,
     IncomingInviteParams invite,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    String? answeredDeviceToken,
+  }) async {
     CallTimingBenchmark.start();
     final sessionId = _selfId;
     final session = await _createSession(
@@ -527,6 +534,7 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
+      answeredDeviceToken: answeredDeviceToken,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -541,8 +549,9 @@ class Peer {
     String clientState,
     String callId,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    String? answeredDeviceToken,
+  }) async {
     try {
       // ICE candidate callback
       if (_useTrickleIce) {
@@ -625,6 +634,7 @@ class Peer {
           customHeaders,
           isAttach,
           modifiedSdp, // Pass the SDP directly to avoid getting it later
+          answeredDeviceToken,
         );
         CallTimingBenchmark.mark('answer_sent');
       } else {
@@ -645,6 +655,8 @@ class Peer {
             clientState,
             customHeaders,
             isAttach,
+            null, // No pre-generated SDP for traditional ICE
+            answeredDeviceToken,
           );
         });
       }
@@ -663,6 +675,7 @@ class Peer {
     Map<String, String> customHeaders,
     bool isAttach, [
     String? preGeneratedSdp,
+    String? answeredDeviceToken,
   ]) async {
     String? sdpUsed = '';
 
@@ -698,6 +711,8 @@ class Peer {
       sdp: sdpUsed,
       sessid: session.sid,
       userAgent: userAgent,
+      trickle: _useTrickleIce,
+      answeredDeviceToken: answeredDeviceToken,
     );
 
     final answerMessage = InviteAnswerMessage(

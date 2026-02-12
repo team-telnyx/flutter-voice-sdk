@@ -177,7 +177,8 @@ class Peer {
         final bool enabled = audioTracks[0].enabled;
         audioTracks[0].enabled = !enabled;
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
+        GlobalLogger()
+            .w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
@@ -194,7 +195,8 @@ class Peer {
         audioTracks[0].enabled = !muted;
         GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to set mute state');
+        GlobalLogger()
+            .w('Peer :: No audio tracks available :: Unable to set mute state');
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
@@ -210,7 +212,9 @@ class Peer {
       if (audioTracks.isNotEmpty) {
         audioTracks[0].enableSpeakerphone(enable);
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+        GlobalLogger().w(
+          'Peer :: No audio tracks available :: Unable to toggle speaker mode',
+        );
       }
     } else {
       GlobalLogger().d(
@@ -350,7 +354,7 @@ class Peer {
           sdp: sdpUsed,
           sessid: sessionId,
           userAgent: userAgent,
-          trickle: true, // Set trickle flag
+          trickle: _useTrickleIce,
         );
         final inviteMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
@@ -414,7 +418,7 @@ class Peer {
             sdp: sdpUsed,
             sessid: sessionId,
             userAgent: userAgent,
-            trickle: false, // Set trickle flag to false for traditional ICE
+            trickle: _useTrickleIce,
           );
           final inviteMessage = InviteAnswerMessage(
             id: const Uuid().v4(),
@@ -620,7 +624,7 @@ class Peer {
           sdp: sdpUsed,
           sessid: session.sid,
           userAgent: userAgent,
-          trickle: true, // Set trickle flag
+          trickle: _useTrickleIce,
           answeredDeviceToken: answeredDeviceToken,
         );
         final answerMessage = InviteAnswerMessage(
@@ -669,7 +673,7 @@ class Peer {
             sdp: sdpUsed,
             sessid: session.sid,
             userAgent: userAgent,
-            trickle: false, // Set trickle flag to false for traditional ICE
+            trickle: _useTrickleIce,
             answeredDeviceToken: answeredDeviceToken,
           );
           final answerMessage = InviteAnswerMessage(
