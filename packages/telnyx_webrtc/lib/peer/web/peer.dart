@@ -470,6 +470,7 @@ class Peer {
   /// [invite] The incoming invite parameters containing the SDP offer.
   /// [customHeaders] Custom headers to include in the answer.
   /// [isAttach] Whether this is an attach call.
+  /// [answeredDeviceToken] Optional device token for push notification identification.
   Future<void> accept(
     String callerName,
     String callerNumber,
@@ -478,8 +479,9 @@ class Peer {
     String callId,
     IncomingInviteParams invite,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    String? answeredDeviceToken,
+  }) async {
     CallTimingBenchmark.start();
     final sessionId = _selfId;
     final session = await _createSession(
@@ -527,6 +529,7 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
+      answeredDeviceToken: answeredDeviceToken,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -541,8 +544,9 @@ class Peer {
     String clientState,
     String callId,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    String? answeredDeviceToken,
+  }) async {
     try {
       // ICE candidate callback
       if (_useTrickleIce) {
@@ -625,6 +629,7 @@ class Peer {
           customHeaders,
           isAttach,
           modifiedSdp, // Pass the SDP directly to avoid getting it later
+          answeredDeviceToken,
         );
         CallTimingBenchmark.mark('answer_sent');
       } else {
@@ -645,6 +650,8 @@ class Peer {
             clientState,
             customHeaders,
             isAttach,
+            null, // No pre-generated SDP for traditional ICE
+            answeredDeviceToken,
           );
         });
       }
@@ -663,6 +670,7 @@ class Peer {
     Map<String, String> customHeaders,
     bool isAttach, [
     String? preGeneratedSdp,
+    String? answeredDeviceToken,
   ]) async {
     String? sdpUsed = '';
 
@@ -698,6 +706,7 @@ class Peer {
       sdp: sdpUsed,
       sessid: session.sid,
       userAgent: userAgent,
+      answeredDeviceToken: answeredDeviceToken,
     );
 
     final answerMessage = InviteAnswerMessage(
