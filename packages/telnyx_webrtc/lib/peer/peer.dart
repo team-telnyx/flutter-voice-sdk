@@ -354,7 +354,7 @@ class Peer {
           sdp: sdpUsed,
           sessid: sessionId,
           userAgent: userAgent,
-          trickle: true, // Set trickle flag
+          trickle: _useTrickleIce,
         );
         final inviteMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
@@ -624,7 +624,7 @@ class Peer {
           sdp: sdpUsed,
           sessid: session.sid,
           userAgent: userAgent,
-          trickle: true, // Set trickle flag
+          trickle: _useTrickleIce,
           answeredDeviceToken: answeredDeviceToken,
         );
         final answerMessage = InviteAnswerMessage(
@@ -673,7 +673,7 @@ class Peer {
             sdp: sdpUsed,
             sessid: session.sid,
             userAgent: userAgent,
-            trickle: false, // Set trickle flag to false for traditional ICE
+            trickle: _useTrickleIce,
             answeredDeviceToken: answeredDeviceToken,
           );
           final answerMessage = InviteAnswerMessage(

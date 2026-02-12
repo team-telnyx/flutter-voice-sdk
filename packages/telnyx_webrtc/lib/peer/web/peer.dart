@@ -706,6 +706,7 @@ class Peer {
       sdp: sdpUsed,
       sessid: session.sid,
       userAgent: userAgent,
+      trickle: _useTrickleIce,
       answeredDeviceToken: answeredDeviceToken,
     );
 
