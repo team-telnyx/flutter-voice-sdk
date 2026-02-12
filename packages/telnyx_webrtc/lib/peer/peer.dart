@@ -554,23 +554,14 @@ class Peer {
               // With trickle ICE, send all candidates immediately
               _sendTrickleCandidate(candidate, callId);
             } else {
-              // Traditional ICE: filter and collect candidates
-              final candidateString = candidate.candidate.toString();
-              final isValidCandidate =
-                  candidateString.contains('stun.telnyx.com') ||
-                      candidateString.contains('turn.telnyx.com');
-
-              if (isValidCandidate) {
-                GlobalLogger()
-                    .i('Peer :: Valid ICE candidate: $candidateString');
-                // Only add valid candidates and reset timer
-                await session.peerConnection?.addCandidate(candidate);
-                _lastCandidateTime = DateTime.now();
-              } else {
-                GlobalLogger().i(
-                  'Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
-                );
-              }
+              // Traditional ICE: local candidates are automatically included in the SDP
+              // via getLocalDescription() after gathering completes. Do NOT call
+              // addCandidate() for local candidates - that's only for remote candidates
+              // received from the other peer via signaling.
+              GlobalLogger().i(
+                'Peer :: Local ICE candidate gathered: ${candidate.candidate}',
+              );
+              _lastCandidateTime = DateTime.now();
             }
           } else if (_useTrickleIce) {
             // End of candidates signal for trickle ICE
@@ -815,21 +806,13 @@ class Peer {
           // Reset the trickle ICE timer when a candidate is generated
           _startTrickleIceTimer(callId);
         } else {
-          // Traditional ICE: filter and collect candidates
-          final candidateString = candidate.candidate.toString();
-          final isValidCandidate =
-              candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
-
-          if (isValidCandidate) {
-            GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
-            // Add valid candidates for traditional ICE gathering
-            await peerConnection?.addCandidate(candidate);
-          } else {
-            GlobalLogger().i(
-              'Peer :: Ignoring non-STUN/TURN candidate: $candidateString',
-            );
-          }
+          // Traditional ICE: local candidates are automatically included in the SDP
+          // via getLocalDescription() after gathering completes. Do NOT call
+          // addCandidate() for local candidates - that's only for remote candidates
+          // received from the other peer via signaling.
+          GlobalLogger().i(
+            'Peer :: Local ICE candidate gathered: ${candidate.candidate}',
+          );
         }
       } else {
         GlobalLogger().i('Peer :: onIceCandidate: complete!');
