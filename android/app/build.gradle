@@ -25,16 +25,16 @@ if (flutterVersionName == null) {
 
 android {
     namespace 'com.telnyx.telnyx_flutter_webrtc'
-    ndkVersion "27.0.12077973"
+    ndkVersion "28.2.13676358"
     compileSdk = 36
 
     compileOptions {
         coreLibraryDesugaringEnabled true
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "11"
     }
 
     sourceSets {
