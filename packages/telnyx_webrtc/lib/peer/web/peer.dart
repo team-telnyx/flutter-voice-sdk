@@ -74,7 +74,7 @@ class Peer {
   /// Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
+  static const int _negotiationTimeout = 1000; // 1000ms timeout for negotiation -- Longer on Web
   Function()? _onNegotiationComplete;
 
   // Add trickle ICE end-of-candidates timer fields
