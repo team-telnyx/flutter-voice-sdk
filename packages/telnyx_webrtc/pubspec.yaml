@@ -4,7 +4,7 @@ homepage: https://telnyx.com/
 repository: https://github.com/team-telnyx/flutter-voice-sdk
 issue_tracker: https://github.com/team-telnyx/flutter-voice-sdk/issues
 # Please Remember to adjust in version_utils.dart too.
-version: 4.0.0
+version: 4.0.1
 
 environment:
   sdk: ">=3.0.0 <3.22.3"

@@ -42,7 +42,7 @@ class VersionUtils {
       }
     } catch (e) {
       // Fallback version if we can't read SDK pubspec.yaml
-      _sdkVersion = '1.2.0';
+      _sdkVersion = '4.0.1';
     }
     return _sdkVersion!;
   }
