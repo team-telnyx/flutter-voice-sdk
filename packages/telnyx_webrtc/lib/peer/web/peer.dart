@@ -74,7 +74,8 @@ class Peer {
   /// Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 1000; // 1000ms timeout for negotiation -- Longer on Web
+  static const int _negotiationTimeout =
+      1000; // 1000ms timeout for negotiation -- Longer on Web
   Function()? _onNegotiationComplete;
 
   // Add trickle ICE end-of-candidates timer fields
@@ -178,7 +179,8 @@ class Peer {
         final bool enabled = audioTracks[0].enabled;
         audioTracks[0].enabled = !enabled;
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
+        GlobalLogger()
+            .w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
@@ -195,7 +197,8 @@ class Peer {
         audioTracks[0].enabled = !muted;
         GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to set mute state');
+        GlobalLogger()
+            .w('Peer :: No audio tracks available :: Unable to set mute state');
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
@@ -213,7 +216,8 @@ class Peer {
         if (audioTracks.isNotEmpty) {
           audioTracks[0].enableSpeakerphone(enable);
         } else {
-          GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+          GlobalLogger().w(
+              'Peer :: No audio tracks available :: Unable to toggle speaker mode');
         }
       }
       return;
@@ -225,7 +229,8 @@ class Peer {
         audioTracks[0].enableSpeakerphone(enable);
         GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+        GlobalLogger().w(
+            'Peer :: No audio tracks available :: Unable to toggle speaker mode');
       }
     } else {
       GlobalLogger().d(

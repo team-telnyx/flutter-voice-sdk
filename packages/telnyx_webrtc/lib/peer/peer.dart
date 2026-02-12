@@ -418,7 +418,7 @@ class Peer {
             sdp: sdpUsed,
             sessid: sessionId,
             userAgent: userAgent,
-            trickle: false, // Set trickle flag to false for traditional ICE
+            trickle: _useTrickleIce,
           );
           final inviteMessage = InviteAnswerMessage(
             id: const Uuid().v4(),
