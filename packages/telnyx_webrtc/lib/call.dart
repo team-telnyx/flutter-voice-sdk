@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -81,6 +82,12 @@ class CallHandler {
   void changeState(CallState state) {
     call?.callState = state;
     onCallStateChanged(state);
+    
+    // Post call report when call ends (regardless of who initiated the BYE)
+    // Use unawaited - don't block state change on stats/network operations
+    if (state == CallState.done) {
+      unawaited(call?._stopStatsAndPostReport());
+    }
   }
 }
 
@@ -364,6 +371,34 @@ class Call {
       message: ReceivedMessage(method: 'telnyx_rtc.bye'),
     );
     _txClient.onSocketMessageReceived.call(message);
+  }
+  
+  /// Stops stats collection and posts the call report to voice-sdk-proxy.
+  /// Called automatically when call state transitions to DONE (via CallHandler).
+  /// This handles both local hangup (endCall) and remote hangup (BYE received).
+  Future<void> _stopStatsAndPostReport() async {
+    if (peerConnection == null || callId == null) {
+      return;
+    }
+    
+    // Stop stats collection - await to ensure final stats are captured
+    await peerConnection!.stopStats(callId!);
+    
+    // Determine direction based on whether we have a destination number
+    // If sessionDestinationNumber is set, it's an outbound call
+    // If sessionCallerNumber is set but not destination, it's likely inbound
+    final direction = sessionDestinationNumber.isNotEmpty ? 'outbound' : 'inbound';
+    
+    // Post call report (don't block call cleanup on network issues)
+    peerConnection!.postCallReport(
+      callId: callId!,
+      direction: direction,
+      destinationNumber: sessionDestinationNumber.isNotEmpty ? sessionDestinationNumber : null,
+      callerNumber: sessionCallerNumber.isNotEmpty ? sessionCallerNumber : null,
+      state: callState.toString().split('.').last,
+    ).catchError((error) {
+      GlobalLogger().e('Failed to post call report: $error');
+    });
   }
 
   /// Sends a DTMF message with the chosen [tone] to the call

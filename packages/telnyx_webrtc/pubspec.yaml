@@ -18,6 +18,7 @@ dependencies:
   just_audio: ^0.9.43
   shared_preferences: ^2.4.0
   connectivity_plus: ^6.1.2
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

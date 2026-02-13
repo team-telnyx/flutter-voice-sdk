@@ -17,6 +17,7 @@ import 'package:telnyx_webrtc/tx_socket.dart'
 import 'package:telnyx_webrtc/utils/codec_utils.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
+import 'package:telnyx_webrtc/utils/stats/call_report_collector.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:telnyx_webrtc/utils/sdp_utils.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
@@ -71,6 +72,7 @@ class Peer {
   final String _providedStun;
   final bool _initialMuteState;
   WebRTCStatsReporter? _statsManager;
+  CallReportCollector? _callReportCollector;
 
   // Add negotiation timer fields
   Timer? _negotiationTimer;
@@ -959,16 +961,22 @@ class Peer {
     String peerId, {
     CallQualityCallback? onCallQualityChange,
   }) async {
+    if (peerConnection == null) {
+      GlobalLogger().d('Peer connection null');
+      return false;
+    }
+
+    // Always start call report collector (for post-call reporting)
+    _callReportCollector = CallReportCollector();
+    _callReportCollector?.start(peerConnection!);
+    GlobalLogger().d('Peer :: CallReportCollector started for $callId');
+
+    // Only start WebRTC stats reporter if debug mode is enabled
     if (_debug == false) {
       GlobalLogger().d(
         'Peer :: Stats manager will not start. Debug mode not enabled on config',
       );
-      return false;
-    }
-
-    if (peerConnection == null) {
-      GlobalLogger().d('Peer connection null');
-      return false;
+      return true; // Return true because call report collector started
     }
 
     _statsManager = WebRTCStatsReporter(
@@ -985,14 +993,67 @@ class Peer {
   }
 
   /// Stops reporting WebRTC statistics for a specific call.
+  /// Awaits final stats collection to ensure no data is lost.
   ///
   /// [callId] The ID of the call to stop stats for.
-  void stopStats(String callId) {
-    if (_debug == false) {
+  Future<void> stopStats(String callId) async {
+    // Stop call report collector (always) - await to capture final stats
+    await _callReportCollector?.stop();
+    GlobalLogger().i('Peer :: CallReportCollector stopped for $callId');
+
+    // Stop WebRTC stats reporter if it was started
+    if (_debug) {
+      _statsManager?.stopStatsReporting();
+      GlobalLogger().i('Peer :: Stats Manager stopped for $callId');
+    }
+  }
+
+  /// Posts the collected call report to voice-sdk-proxy.
+  /// Should be called after stopStats() when the call ends.
+  Future<void> postCallReport({
+    required String callId,
+    required String direction,
+    String? destinationNumber,
+    String? callerNumber,
+    String? state,
+    String? telnyxSessionId,
+    String? telnyxLegId,
+  }) async {
+    if (_callReportCollector == null) {
+      GlobalLogger().d('Peer :: No call report collector to post');
       return;
     }
-    _statsManager?.stopStatsReporting();
-    GlobalLogger().i('Peer :: Stats Manager stopped for $callId');
+
+    final callReportId = _txClient.callReportId;
+    final host = _txClient.socketHost;
+
+    if (callReportId == null) {
+      GlobalLogger().d('Peer :: Cannot post call report: callReportId not available');
+      return;
+    }
+
+    if (host == null) {
+      GlobalLogger().e('Peer :: Cannot post call report: socket host not available');
+      return;
+    }
+
+    final summary = CallSummary(
+      callId: callId,
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
+      direction: direction,
+      state: state,
+      telnyxSessionId: telnyxSessionId,
+      telnyxLegId: telnyxLegId,
+      sdkVersion: VersionUtils.getSDKVersion(),
+    );
+
+    await _callReportCollector!.postReport(
+      summary: summary,
+      callReportId: callReportId,
+      host: host,
+      voiceSdkId: _txClient.voiceSdkId,
+    );
   }
 
   void _send(event) {
