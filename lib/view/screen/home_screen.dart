@@ -12,6 +12,7 @@ import 'package:telnyx_flutter_webrtc/view/widgets/audio_constraints_dialog.dart
 import 'package:telnyx_flutter_webrtc/view/widgets/common/bottom_action_widget.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/test_status_overlay.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -301,23 +302,32 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: spacingXXL,
-            vertical: spacingXS,
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: spacingXXL,
+                vertical: spacingXS,
+              ),
+              child: Column(
+                children: [
+                  const ControlHeaders(),
+                  const SizedBox(height: spacingS),
+                  if (clientState == CallStateStatus.disconnected)
+                    const LoginControls()
+                  else
+                    const CallControls(),
+                ],
+              ),
+            ),
           ),
-          child: Column(
-            children: [
-              const ControlHeaders(),
-              const SizedBox(height: spacingS),
-              if (clientState == CallStateStatus.disconnected)
-                const LoginControls()
-              else
-                const CallControls(),
-            ],
+          // Test status overlay for integration tests (only visible in test mode)
+          TestStatusOverlay(
+            callState: clientState,
+            connectionStatus: clientViewModel.connectionStatus,
           ),
-        ),
+        ],
       ),
       bottomNavigationBar: clientState == CallStateStatus.idle
           ? Padding(
