@@ -322,14 +322,15 @@ class TelnyxClient {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
 
     // First priority: custom ICE servers from Config
-    if (config?.iceServers != null && config!.iceServers!.isNotEmpty) {
+    final configIceServers = config?.iceServers;
+    if (configIceServers != null && configIceServers.isNotEmpty) {
       GlobalLogger().i(
-        'TelnyxClient :: Using custom ICE servers from Config (${config.iceServers!.length} servers)',
+        'TelnyxClient :: Using custom ICE servers from Config (${configIceServers.length} servers)',
       );
-      return config.iceServers;
+      return configIceServers;
     }
 
-    // Second priority: ICE servers from serverConfiguration
+    // Second priority: ICE servers from serverConfiguration in Config
     final serverConfig = config?.serverConfiguration;
     if (serverConfig != null) {
       GlobalLogger().i(
@@ -338,7 +339,7 @@ class TelnyxClient {
       return serverConfig.webRTCIceServers;
     }
 
-    // Third priority: ICE servers from _serverConfiguration
+    // Third priority: ICE servers from _serverConfiguration (client-level default)
     GlobalLogger().i(
       'TelnyxClient :: Using ICE servers from default serverConfiguration (${_serverConfiguration.webRTCIceServers.length} servers)',
     );
