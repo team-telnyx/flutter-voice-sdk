@@ -153,8 +153,6 @@ class Peer {
       'iceServers': [
         {
           'url': _providedStun,
-          'username': DefaultConfig.username,
-          'credential': DefaultConfig.password,
         },
         {
           'url': _providedTurn,

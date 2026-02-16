@@ -58,6 +58,9 @@ class TxServerConfiguration {
     this.environment = WebRTCEnvironment.production,
   })  : turn = turn ?? DefaultConfig.defaultTurn,
         stun = stun ?? DefaultConfig.defaultStun,
+        // Note: Using the `environment` parameter (not `this.environment`) to
+        // determine default ICE servers. This is valid Dart - parameters are
+        // accessible in the initializer list before instance fields are set.
         webRTCIceServers = webRTCIceServers ??
             (environment == WebRTCEnvironment.development
                 ? DefaultConfig.defaultDevIceServers

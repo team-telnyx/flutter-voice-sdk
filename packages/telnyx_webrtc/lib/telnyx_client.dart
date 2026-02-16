@@ -330,11 +330,12 @@ class TelnyxClient {
     }
 
     // Second priority: ICE servers from serverConfiguration
-    if (config?.serverConfiguration != null) {
+    final serverConfig = config?.serverConfiguration;
+    if (serverConfig != null) {
       GlobalLogger().i(
-        'TelnyxClient :: Using ICE servers from serverConfiguration (${config!.serverConfiguration!.webRTCIceServers.length} servers)',
+        'TelnyxClient :: Using ICE servers from serverConfiguration (${serverConfig.webRTCIceServers.length} servers)',
       );
-      return config.serverConfiguration!.webRTCIceServers;
+      return serverConfig.webRTCIceServers;
     }
 
     // Third priority: ICE servers from _serverConfiguration

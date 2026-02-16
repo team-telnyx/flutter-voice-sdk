@@ -1,3 +1,5 @@
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+
 /// Represents an ICE server configuration for WebRTC peer connections.
 ///
 /// This class mirrors the RTCIceServer structure used in JS and iOS SDKs
@@ -70,6 +72,9 @@ class TxIceServer {
     } else if (urlsValue is List) {
       urls = urlsValue.cast<String>();
     } else {
+      GlobalLogger().w(
+        'TxIceServer :: Invalid urls value type in ICE server config: ${urlsValue?.runtimeType}. Expected String or List<String>.',
+      );
       urls = [];
     }
 
