@@ -61,13 +61,13 @@ class TxServerConfiguration {
   /// - STUN: stun.telnyx.com
   /// - Google STUN: stun.l.google.com (for redundancy)
   static TxServerConfiguration production() => const TxServerConfiguration(
-    host: DefaultConfig.telnyxProdHostAddress,
-    port: DefaultConfig.telnyxPort,
-    turnUdp: DefaultConfig.defaultTurnUdp,
-    turnTcp: DefaultConfig.defaultTurnTcp,
-    stun: DefaultConfig.defaultStun,
-    googleStun: DefaultConfig.googleStun,
-  );
+        host: DefaultConfig.telnyxProdHostAddress,
+        port: DefaultConfig.telnyxPort,
+        turnUdp: DefaultConfig.defaultTurnUdp,
+        turnTcp: DefaultConfig.defaultTurnTcp,
+        stun: DefaultConfig.defaultStun,
+        googleStun: DefaultConfig.googleStun,
+      );
 
   /// Creates a development server configuration with default development values.
   ///
@@ -78,13 +78,13 @@ class TxServerConfiguration {
   /// - STUN: stundev.telnyx.com
   /// - Google STUN: stun.l.google.com (for redundancy)
   static TxServerConfiguration development() => const TxServerConfiguration(
-    host: DefaultConfig.telnyxDevHostAddress,
-    port: DefaultConfig.telnyxPort,
-    turnUdp: DefaultConfig.devTurnUdp,
-    turnTcp: DefaultConfig.devTurnTcp,
-    stun: DefaultConfig.devStun,
-    googleStun: DefaultConfig.googleStun,
-  );
+        host: DefaultConfig.telnyxDevHostAddress,
+        port: DefaultConfig.telnyxPort,
+        turnUdp: DefaultConfig.devTurnUdp,
+        turnTcp: DefaultConfig.devTurnTcp,
+        stun: DefaultConfig.devStun,
+        googleStun: DefaultConfig.googleStun,
+      );
 
   /// Returns the full WebSocket URL for this configuration.
   String get socketUrl => 'wss://$host:$port';

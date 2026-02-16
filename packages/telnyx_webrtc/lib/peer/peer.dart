@@ -59,11 +59,11 @@ class Peer {
     String? providedStun,
     String? providedGoogleStun,
     bool initialMuteState = false,
-  ]) : _providedTurnUdp = providedTurnUdp ?? DefaultConfig.defaultTurnUdp,
-       _providedTurnTcp = providedTurnTcp ?? DefaultConfig.defaultTurnTcp,
-       _providedStun = providedStun ?? DefaultConfig.defaultStun,
-       _providedGoogleStun = providedGoogleStun ?? DefaultConfig.googleStun,
-       _initialMuteState = initialMuteState;
+  ])  : _providedTurnUdp = providedTurnUdp ?? DefaultConfig.defaultTurnUdp,
+        _providedTurnTcp = providedTurnTcp ?? DefaultConfig.defaultTurnTcp,
+        _providedStun = providedStun ?? DefaultConfig.defaultStun,
+        _providedGoogleStun = providedGoogleStun ?? DefaultConfig.googleStun,
+        _initialMuteState = initialMuteState;
 
   final String _selfId = randomNumeric(6);
 
@@ -122,7 +122,7 @@ class Peer {
 
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-  onDataChannelMessage;
+      onDataChannelMessage;
 
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
@@ -138,25 +138,25 @@ class Peer {
   /// ICE servers configuration aligned with JS/iOS SDKs.
   /// Order: Telnyx STUN → Google STUN → TURN UDP → TURN TCP
   Map<String, dynamic> get _iceServers => {
-    'iceServers': [
-      // Telnyx STUN server
-      {'url': _providedStun},
-      // Google STUN server for additional redundancy (aligned with JS WebRTC SDK)
-      {'url': _providedGoogleStun},
-      // TURN UDP server (primary - lower latency)
-      {
-        'url': _providedTurnUdp,
-        'username': DefaultConfig.username,
-        'credential': DefaultConfig.password,
-      },
-      // TURN TCP server (fallback - for restrictive firewalls)
-      {
-        'url': _providedTurnTcp,
-        'username': DefaultConfig.username,
-        'credential': DefaultConfig.password,
-      },
-    ],
-  };
+        'iceServers': [
+          // Telnyx STUN server
+          {'url': _providedStun},
+          // Google STUN server for additional redundancy (aligned with JS WebRTC SDK)
+          {'url': _providedGoogleStun},
+          // TURN UDP server (primary - lower latency)
+          {
+            'url': _providedTurnUdp,
+            'username': DefaultConfig.username,
+            'credential': DefaultConfig.password,
+          },
+          // TURN TCP server (fallback - for restrictive firewalls)
+          {
+            'url': _providedTurnTcp,
+            'username': DefaultConfig.username,
+            'credential': DefaultConfig.password,
+          },
+        ],
+      };
 
   /// Builds the ICE configuration based on the forceRelayCandidate setting
   Map<String, dynamic> _buildIceConfiguration() {
@@ -318,8 +318,8 @@ class Peer {
       // With trickle ICE, create offer without waiting for ICE gathering
       if (_useTrickleIce) {
         // Create offer with proper constraints but don't wait for ICE candidate gathering
-        final RTCSessionDescription s = await session.peerConnection!
-            .createOffer(_dcConstraints);
+        final RTCSessionDescription s =
+            await session.peerConnection!.createOffer(_dcConstraints);
         CallTimingBenchmark.mark('offer_created');
 
         // For Android: Modify SDP to filter codecs
@@ -330,9 +330,8 @@ class Peer {
           GlobalLogger().d(
             'Peer :: Filtering SDP codecs for Android (setCodecPreferences not supported)',
           );
-          final audioCodecs = preferredCodecs
-              .map((m) => AudioCodec.fromJson(m))
-              .toList();
+          final audioCodecs =
+              preferredCodecs.map((m) => AudioCodec.fromJson(m)).toList();
           sdpToUse = CodecUtils.filterSdpCodecs(s.sdp!, audioCodecs);
         }
 
@@ -390,8 +389,8 @@ class Peer {
         CallTimingBenchmark.mark('invite_sent');
       } else {
         // Traditional ICE gathering - use negotiation timer
-        final RTCSessionDescription s = await session.peerConnection!
-            .createOffer(_dcConstraints);
+        final RTCSessionDescription s =
+            await session.peerConnection!.createOffer(_dcConstraints);
         CallTimingBenchmark.mark('offer_created');
         await session.peerConnection!.setLocalDescription(s);
         CallTimingBenchmark.mark('local_offer_sdp_set');
@@ -410,8 +409,8 @@ class Peer {
         _setOnNegotiationComplete(() async {
           String? sdpUsed = '';
           await session.peerConnection?.getLocalDescription().then(
-            (value) => sdpUsed = value?.sdp.toString(),
-          );
+                (value) => sdpUsed = value?.sdp.toString(),
+              );
 
           final userAgent = VersionUtils.getUserAgent();
           final dialogParams = DialogParams(
@@ -461,8 +460,8 @@ class Peer {
   void remoteSessionReceived(String sdp) async {
     CallTimingBenchmark.start(isOutbound: true);
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(sdp, 'answer'),
-    );
+          RTCSessionDescription(sdp, 'answer'),
+        );
     CallTimingBenchmark.mark('remote_answer_sdp_set');
 
     // Process any queued candidates after setting remote SDP
@@ -583,7 +582,7 @@ class Peer {
               final candidateString = candidate.candidate.toString();
               final isValidCandidate =
                   candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
+                      candidateString.contains('turn.telnyx.com');
 
               if (isValidCandidate) {
                 GlobalLogger().i(
@@ -610,8 +609,8 @@ class Peer {
 
       if (_useTrickleIce) {
         // With trickle ICE, create answer without waiting for ICE gathering
-        final RTCSessionDescription s = await session.peerConnection!
-            .createAnswer(_dcConstraints);
+        final RTCSessionDescription s =
+            await session.peerConnection!.createAnswer(_dcConstraints);
         CallTimingBenchmark.mark('local_answer_created');
 
         // For trickle ICE, we set the local description but don't wait for candidates
@@ -666,16 +665,16 @@ class Peer {
         CallTimingBenchmark.mark('answer_sent');
       } else {
         // Traditional ICE gathering - wait for candidates
-        final RTCSessionDescription s = await session.peerConnection!
-            .createAnswer(_dcConstraints);
+        final RTCSessionDescription s =
+            await session.peerConnection!.createAnswer(_dcConstraints);
         await session.peerConnection!.setLocalDescription(s);
 
         _lastCandidateTime = DateTime.now();
         _setOnNegotiationComplete(() async {
           String? sdpUsed = '';
           await session.peerConnection?.getLocalDescription().then(
-            (value) => sdpUsed = value?.sdp.toString(),
-          );
+                (value) => sdpUsed = value?.sdp.toString(),
+              );
 
           final userAgent = VersionUtils.getUserAgent();
           final dialogParams = DialogParams(
@@ -844,7 +843,7 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-              candidateString.contains('turn.telnyx.com');
+                  candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
             GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
@@ -1066,9 +1065,8 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate = DateTime.now()
-            .difference(_lastCandidateTime!)
-            .inMilliseconds;
+        final timeSinceLastCandidate =
+            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );
@@ -1206,14 +1204,11 @@ class Peer {
         final candidate = RTCIceCandidate(candidateStr, sdpMid, sdpMLineIndex);
 
         // Add the candidate to the peer connection
-        session.peerConnection!
-            .addCandidate(candidate)
-            .then((_) {
-              GlobalLogger().i('Peer :: Successfully added remote candidate');
-            })
-            .catchError((error) {
-              GlobalLogger().e('Peer :: Error adding remote candidate: $error');
-            });
+        session.peerConnection!.addCandidate(candidate).then((_) {
+          GlobalLogger().i('Peer :: Successfully added remote candidate');
+        }).catchError((error) {
+          GlobalLogger().e('Peer :: Error adding remote candidate: $error');
+        });
       } else {
         GlobalLogger().w(
           'Peer :: No session or peer connection available for call $callId',
