@@ -42,8 +42,10 @@ class Peer {
   /// [_forceRelayCandidate] Whether to force TURN relay candidates.
   /// [_useTrickleIce] Whether to use trickle ICE.
   /// [_audioConstraints] Optional audio constraints.
-  /// [providedTurn] Optional custom TURN server URL. Defaults to production.
+  /// [providedTurnUdp] Optional custom TURN UDP server URL. Defaults to production.
+  /// [providedTurnTcp] Optional custom TURN TCP server URL. Defaults to production.
   /// [providedStun] Optional custom STUN server URL. Defaults to production.
+  /// [providedGoogleStun] Optional Google STUN server URL for redundancy.
   /// [initialMuteState] Whether to start the call muted.
   Peer(
     this._socket,
@@ -52,12 +54,16 @@ class Peer {
     this._forceRelayCandidate,
     this._useTrickleIce, [
     this._audioConstraints,
-    String? providedTurn,
+    String? providedTurnUdp,
+    String? providedTurnTcp,
     String? providedStun,
+    String? providedGoogleStun,
     bool initialMuteState = false,
-  ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
-        _providedStun = providedStun ?? DefaultConfig.defaultStun,
-        _initialMuteState = initialMuteState;
+  ]) : _providedTurnUdp = providedTurnUdp ?? DefaultConfig.defaultTurnUdp,
+       _providedTurnTcp = providedTurnTcp ?? DefaultConfig.defaultTurnTcp,
+       _providedStun = providedStun ?? DefaultConfig.defaultStun,
+       _providedGoogleStun = providedGoogleStun ?? DefaultConfig.googleStun,
+       _initialMuteState = initialMuteState;
 
   final String _selfId = randomNumeric(6);
 
@@ -67,8 +73,10 @@ class Peer {
   final bool _forceRelayCandidate;
   final bool _useTrickleIce;
   final AudioConstraints? _audioConstraints;
-  final String _providedTurn;
+  final String _providedTurnUdp;
+  final String _providedTurnTcp;
   final String _providedStun;
+  final String _providedGoogleStun;
   final bool _initialMuteState;
   WebRTCStatsReporter? _statsManager;
 
@@ -114,7 +122,7 @@ class Peer {
 
   /// Callback for when a data channel message is received.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
-      onDataChannelMessage;
+  onDataChannelMessage;
 
   /// Callback for when a data channel is available.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
@@ -127,20 +135,28 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
+  /// ICE servers configuration aligned with JS/iOS SDKs.
+  /// Order: Telnyx STUN → Google STUN → TURN UDP → TURN TCP
   Map<String, dynamic> get _iceServers => {
-        'iceServers': [
-          {
-            'url': _providedStun,
-            'username': DefaultConfig.username,
-            'credential': DefaultConfig.password,
-          },
-          {
-            'url': _providedTurn,
-            'username': DefaultConfig.username,
-            'credential': DefaultConfig.password,
-          },
-        ],
-      };
+    'iceServers': [
+      // Telnyx STUN server
+      {'url': _providedStun},
+      // Google STUN server for additional redundancy (aligned with JS WebRTC SDK)
+      {'url': _providedGoogleStun},
+      // TURN UDP server (primary - lower latency)
+      {
+        'url': _providedTurnUdp,
+        'username': DefaultConfig.username,
+        'credential': DefaultConfig.password,
+      },
+      // TURN TCP server (fallback - for restrictive firewalls)
+      {
+        'url': _providedTurnTcp,
+        'username': DefaultConfig.username,
+        'credential': DefaultConfig.password,
+      },
+    ],
+  };
 
   /// Builds the ICE configuration based on the forceRelayCandidate setting
   Map<String, dynamic> _buildIceConfiguration() {
@@ -177,8 +193,9 @@ class Peer {
         final bool enabled = audioTracks[0].enabled;
         audioTracks[0].enabled = !enabled;
       } else {
-        GlobalLogger()
-            .w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
+        GlobalLogger().w(
+          'Peer :: No audio tracks available :: Unable to Mute / Unmute',
+        );
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
@@ -195,8 +212,9 @@ class Peer {
         audioTracks[0].enabled = !muted;
         GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
       } else {
-        GlobalLogger()
-            .w('Peer :: No audio tracks available :: Unable to set mute state');
+        GlobalLogger().w(
+          'Peer :: No audio tracks available :: Unable to set mute state',
+        );
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
@@ -300,10 +318,8 @@ class Peer {
       // With trickle ICE, create offer without waiting for ICE gathering
       if (_useTrickleIce) {
         // Create offer with proper constraints but don't wait for ICE candidate gathering
-        final RTCSessionDescription s =
-            await session.peerConnection!.createOffer(
-          _dcConstraints,
-        );
+        final RTCSessionDescription s = await session.peerConnection!
+            .createOffer(_dcConstraints);
         CallTimingBenchmark.mark('offer_created');
 
         // For Android: Modify SDP to filter codecs
@@ -314,8 +330,9 @@ class Peer {
           GlobalLogger().d(
             'Peer :: Filtering SDP codecs for Android (setCodecPreferences not supported)',
           );
-          final audioCodecs =
-              preferredCodecs.map((m) => AudioCodec.fromJson(m)).toList();
+          final audioCodecs = preferredCodecs
+              .map((m) => AudioCodec.fromJson(m))
+              .toList();
           sdpToUse = CodecUtils.filterSdpCodecs(s.sdp!, audioCodecs);
         }
 
@@ -329,8 +346,10 @@ class Peer {
         String? sdpUsed = s.sdp;
 
         // Add trickle ICE capability to SDP
-        sdpUsed =
-            SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
+        sdpUsed = SdpUtils.addTrickleIceCapability(
+          sdpUsed ?? '',
+          _useTrickleIce,
+        );
 
         final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -371,10 +390,8 @@ class Peer {
         CallTimingBenchmark.mark('invite_sent');
       } else {
         // Traditional ICE gathering - use negotiation timer
-        final RTCSessionDescription s =
-            await session.peerConnection!.createOffer(
-          _dcConstraints,
-        );
+        final RTCSessionDescription s = await session.peerConnection!
+            .createOffer(_dcConstraints);
         CallTimingBenchmark.mark('offer_created');
         await session.peerConnection!.setLocalDescription(s);
         CallTimingBenchmark.mark('local_offer_sdp_set');
@@ -393,8 +410,8 @@ class Peer {
         _setOnNegotiationComplete(() async {
           String? sdpUsed = '';
           await session.peerConnection?.getLocalDescription().then(
-                (value) => sdpUsed = value?.sdp.toString(),
-              );
+            (value) => sdpUsed = value?.sdp.toString(),
+          );
 
           final userAgent = VersionUtils.getUserAgent();
           final dialogParams = DialogParams(
@@ -444,19 +461,21 @@ class Peer {
   void remoteSessionReceived(String sdp) async {
     CallTimingBenchmark.start(isOutbound: true);
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
-          RTCSessionDescription(sdp, 'answer'),
-        );
+      RTCSessionDescription(sdp, 'answer'),
+    );
     CallTimingBenchmark.mark('remote_answer_sdp_set');
 
     // Process any queued candidates after setting remote SDP
     final session = _sessions[_selfId];
     if (session != null && session.remoteCandidates.isNotEmpty) {
-      GlobalLogger()
-          .i('Peer :: Processing queued remote candidates after remote SDP');
+      GlobalLogger().i(
+        'Peer :: Processing queued remote candidates after remote SDP',
+      );
       for (var candidate in session.remoteCandidates) {
         if (candidate.candidate != null) {
-          GlobalLogger()
-              .i('Peer :: Adding queued candidate: ${candidate.candidate}');
+          GlobalLogger().i(
+            'Peer :: Adding queued candidate: ${candidate.candidate}',
+          );
           await session.peerConnection?.addCandidate(candidate);
         }
       }
@@ -509,14 +528,16 @@ class Peer {
       );
       for (var candidate in session.remoteCandidates) {
         if (candidate.candidate != null) {
-          GlobalLogger()
-              .i('Peer :: Adding queued candidate: ${candidate.candidate}');
+          GlobalLogger().i(
+            'Peer :: Adding queued candidate: ${candidate.candidate}',
+          );
           await session.peerConnection?.addCandidate(candidate);
         }
       }
       session.remoteCandidates.clear();
-      GlobalLogger()
-          .i('Peer :: Cleared queued candidates after processing in accept');
+      GlobalLogger().i(
+        'Peer :: Cleared queued candidates after processing in accept',
+      );
     }
 
     await _createAnswer(
@@ -562,11 +583,12 @@ class Peer {
               final candidateString = candidate.candidate.toString();
               final isValidCandidate =
                   candidateString.contains('stun.telnyx.com') ||
-                      candidateString.contains('turn.telnyx.com');
+                  candidateString.contains('turn.telnyx.com');
 
               if (isValidCandidate) {
-                GlobalLogger()
-                    .i('Peer :: Valid ICE candidate: $candidateString');
+                GlobalLogger().i(
+                  'Peer :: Valid ICE candidate: $candidateString',
+                );
                 // Only add valid candidates and reset timer
                 await session.peerConnection?.addCandidate(candidate);
                 _lastCandidateTime = DateTime.now();
@@ -588,8 +610,8 @@ class Peer {
 
       if (_useTrickleIce) {
         // With trickle ICE, create answer without waiting for ICE gathering
-        final RTCSessionDescription s =
-            await session.peerConnection!.createAnswer(_dcConstraints);
+        final RTCSessionDescription s = await session.peerConnection!
+            .createAnswer(_dcConstraints);
         CallTimingBenchmark.mark('local_answer_created');
 
         // For trickle ICE, we set the local description but don't wait for candidates
@@ -600,8 +622,10 @@ class Peer {
         String? sdpUsed = s.sdp;
 
         // Add trickle ICE capability to SDP
-        sdpUsed =
-            SdpUtils.addTrickleIceCapability(sdpUsed ?? '', _useTrickleIce);
+        sdpUsed = SdpUtils.addTrickleIceCapability(
+          sdpUsed ?? '',
+          _useTrickleIce,
+        );
 
         final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
@@ -635,22 +659,23 @@ class Peer {
         );
 
         final String jsonAnswerMessage = jsonEncode(answerMessage);
-        GlobalLogger()
-            .i('Peer :: Sending ANSWER with trickle ICE enabled (immediate)');
+        GlobalLogger().i(
+          'Peer :: Sending ANSWER with trickle ICE enabled (immediate)',
+        );
         _send(jsonAnswerMessage);
         CallTimingBenchmark.mark('answer_sent');
       } else {
         // Traditional ICE gathering - wait for candidates
-        final RTCSessionDescription s =
-            await session.peerConnection!.createAnswer(_dcConstraints);
+        final RTCSessionDescription s = await session.peerConnection!
+            .createAnswer(_dcConstraints);
         await session.peerConnection!.setLocalDescription(s);
 
         _lastCandidateTime = DateTime.now();
         _setOnNegotiationComplete(() async {
           String? sdpUsed = '';
           await session.peerConnection?.getLocalDescription().then(
-                (value) => sdpUsed = value?.sdp.toString(),
-              );
+            (value) => sdpUsed = value?.sdp.toString(),
+          );
 
           final userAgent = VersionUtils.getUserAgent();
           final dialogParams = DialogParams(
@@ -709,8 +734,9 @@ class Peer {
   /// Returns a [Future] that completes with the [MediaStream].
   Future<MediaStream> createStream(String media) async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': (_audioConstraints ?? AudioConstraints.enabled())
-          .toMap(isAndroid: Platform.isAndroid),
+      'audio': (_audioConstraints ?? AudioConstraints.enabled()).toMap(
+        isAndroid: Platform.isAndroid,
+      ),
       'video': false,
     };
 
@@ -737,13 +763,10 @@ class Peer {
       // Run both operations in parallel since they are independent
       final results = await Future.wait([
         createStream(media),
-        createPeerConnection(
-          {
-            ..._buildIceConfiguration(),
-            ...{'sdpSemantics': sdpSemantics},
-          },
-          _dcConstraints,
-        ),
+        createPeerConnection({
+          ..._buildIceConfiguration(),
+          ...{'sdpSemantics': sdpSemantics},
+        }, _dcConstraints),
       ]);
 
       _localStream = results[0] as MediaStream;
@@ -757,19 +780,17 @@ class Peer {
         final audioTracks = _localStream!.getAudioTracks();
         if (audioTracks.isNotEmpty) {
           audioTracks[0].enabled = false;
-          GlobalLogger()
-              .d('Peer :: Applied initial mute state on stream creation');
+          GlobalLogger().d(
+            'Peer :: Applied initial mute state on stream creation',
+          );
         }
       }
     } else {
       // Data-only mode: just create peer connection
-      peerConnection = await createPeerConnection(
-        {
-          ..._buildIceConfiguration(),
-          ...{'sdpSemantics': sdpSemantics},
-        },
-        _dcConstraints,
-      );
+      peerConnection = await createPeerConnection({
+        ..._buildIceConfiguration(),
+        ...{'sdpSemantics': sdpSemantics},
+      }, _dcConstraints);
       CallTimingBenchmark.mark('peer_connection_created');
     }
 
@@ -823,7 +844,7 @@ class Peer {
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
-                  candidateString.contains('turn.telnyx.com');
+              candidateString.contains('turn.telnyx.com');
 
           if (isValidCandidate) {
             GlobalLogger().i('Peer :: Valid ICE candidate: $candidateString');
@@ -894,8 +915,9 @@ class Peer {
         case RTCIceConnectionState.RTCIceConnectionStateFailed:
           if (_previousIceConnectionState ==
               RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-            GlobalLogger()
-                .i('Peer :: ICE connection failed, starting renegotiation...');
+            GlobalLogger().i(
+              'Peer :: ICE connection failed, starting renegotiation...',
+            );
             startIceRenegotiation(callId, newSession.sid);
             break;
           } else {
@@ -1044,8 +1066,9 @@ class Peer {
       (timer) {
         if (_lastCandidateTime == null) return;
 
-        final timeSinceLastCandidate =
-            DateTime.now().difference(_lastCandidateTime!).inMilliseconds;
+        final timeSinceLastCandidate = DateTime.now()
+            .difference(_lastCandidateTime!)
+            .inMilliseconds;
         GlobalLogger().d(
           'Time since last candidate: ${timeSinceLastCandidate}ms',
         );
@@ -1080,8 +1103,9 @@ class Peer {
       const Duration(milliseconds: _trickleIceTimeout),
       () {
         if (!_endOfCandidatesSent && _currentTrickleCallId != null) {
-          GlobalLogger()
-              .i('Trickle ICE timeout reached - sending end of candidates');
+          GlobalLogger().i(
+            'Trickle ICE timeout reached - sending end of candidates',
+          );
           _sendEndOfCandidatesAndCleanup(_currentTrickleCallId!);
         }
       },
@@ -1152,8 +1176,9 @@ class Peer {
         params: endOfCandidatesParams,
       );
 
-      final String jsonEndOfCandidatesMessage =
-          jsonEncode(endOfCandidatesMessage);
+      final String jsonEndOfCandidatesMessage = jsonEncode(
+        endOfCandidatesMessage,
+      );
       GlobalLogger().i('Peer :: Sending end of candidates signal');
       _send(jsonEndOfCandidatesMessage);
     } catch (e) {
@@ -1178,18 +1203,17 @@ class Peer {
 
       if (session != null && session.peerConnection != null) {
         // Create RTCIceCandidate from the received candidate string
-        final candidate = RTCIceCandidate(
-          candidateStr,
-          sdpMid,
-          sdpMLineIndex,
-        );
+        final candidate = RTCIceCandidate(candidateStr, sdpMid, sdpMLineIndex);
 
         // Add the candidate to the peer connection
-        session.peerConnection!.addCandidate(candidate).then((_) {
-          GlobalLogger().i('Peer :: Successfully added remote candidate');
-        }).catchError((error) {
-          GlobalLogger().e('Peer :: Error adding remote candidate: $error');
-        });
+        session.peerConnection!
+            .addCandidate(candidate)
+            .then((_) {
+              GlobalLogger().i('Peer :: Successfully added remote candidate');
+            })
+            .catchError((error) {
+              GlobalLogger().e('Peer :: Error adding remote candidate: $error');
+            });
       } else {
         GlobalLogger().w(
           'Peer :: No session or peer connection available for call $callId',
@@ -1198,14 +1222,11 @@ class Peer {
         final Session? pendingSession = _sessions[_selfId];
         if (pendingSession != null) {
           pendingSession.remoteCandidates.add(
-            RTCIceCandidate(
-              candidateStr,
-              sdpMid,
-              sdpMLineIndex,
-            ),
+            RTCIceCandidate(candidateStr, sdpMid, sdpMLineIndex),
           );
-          GlobalLogger()
-              .i('Peer :: Stored remote candidate for later processing');
+          GlobalLogger().i(
+            'Peer :: Stored remote candidate for later processing',
+          );
         }
       }
     } catch (e) {
@@ -1221,8 +1242,9 @@ class Peer {
         onCallStateChange?.call(_sessions[sessionId]!, CallState.renegotiation);
         final peerConnection = _sessions[sessionId]?.peerConnection;
         if (peerConnection == null) {
-          GlobalLogger()
-              .e('Peer :: No peer connection found for session: $sessionId');
+          GlobalLogger().e(
+            'Peer :: No peer connection found for session: $sessionId',
+          );
           return;
         }
 
@@ -1249,8 +1271,9 @@ class Peer {
           if (localDescription != null && localDescription.sdp != null) {
             _sendUpdateMediaMessage(callId, sessionId, localDescription.sdp!);
           } else {
-            GlobalLogger()
-                .e('Peer :: No local description found with ICE candidates');
+            GlobalLogger().e(
+              'Peer :: No local description found with ICE candidates',
+            );
           }
         });
 
@@ -1300,8 +1323,9 @@ class Peer {
   Future<void> handleUpdateMediaResponse(UpdateMediaResponse response) async {
     try {
       if (response.action != 'updateMedia') {
-        GlobalLogger()
-            .w('Peer :: Unexpected action in response: ${response.action}');
+        GlobalLogger().w(
+          'Peer :: Unexpected action in response: ${response.action}',
+        );
         return;
       }
 
@@ -1311,8 +1335,9 @@ class Peer {
       }
 
       final callId = response.callID;
-      GlobalLogger()
-          .i('Peer :: Received updateMedia response for call: $callId');
+      GlobalLogger().i(
+        'Peer :: Received updateMedia response for call: $callId',
+      );
 
       final session = _sessions[_selfId];
       if (session == null) {
@@ -1355,8 +1380,9 @@ class Peer {
       );
 
       // Use CodecUtils to find the audio transceiver
-      final audioTransceiver =
-          await CodecUtils.findAudioTransceiver(peerConnection);
+      final audioTransceiver = await CodecUtils.findAudioTransceiver(
+        peerConnection,
+      );
 
       if (audioTransceiver == null) {
         GlobalLogger().w(
@@ -1370,8 +1396,9 @@ class Peer {
       );
 
       // Convert codec maps to capabilities
-      final codecCapabilities =
-          CodecUtils.convertAudioCodecMapsToCapabilities(preferredCodecs);
+      final codecCapabilities = CodecUtils.convertAudioCodecMapsToCapabilities(
+        preferredCodecs,
+      );
 
       if (codecCapabilities.isEmpty) {
         GlobalLogger().w(
@@ -1391,9 +1418,7 @@ class Peer {
         'Peer :: Successfully applied codec preferences. Order: ${codecCapabilities.map((c) => c.mimeType).toList()}',
       );
     } catch (e) {
-      GlobalLogger().e(
-        'Peer :: Error applying codec preferences: $e',
-      );
+      GlobalLogger().e('Peer :: Error applying codec preferences: $e');
     }
   }
 }
