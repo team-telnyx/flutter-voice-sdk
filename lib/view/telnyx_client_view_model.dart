@@ -944,6 +944,25 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i(
       'TelnyxClientViewModel._performAccept: Performing accept actions for call ${invite.callID}, caller: ${invite.callerIdName}/${invite.callerIdNumber}. Muted on start: $_mutedMicOnStart',
     );
+
+    // Activate iOS audio session before accepting the call.
+    // When using manual audio management (useManualAudio = true), the audio session in AppDelegate.swift
+    // must be explicitly activated for microphone audio to function correctly.
+    // This notifies CallKit that the call is connected, triggering the audio session
+    // activation callback in the AppDelegate.
+    if (!kIsWeb && Platform.isIOS && invite.callID != null) {
+      try {
+        await FlutterCallkitIncoming.setCallConnected(invite.callID!);
+        logger.i(
+          'TelnyxClientViewModel._performAccept: iOS audio session activated',
+        );
+      } catch (e) {
+        logger.w(
+          'TelnyxClientViewModel._performAccept: Failed to activate iOS audio session: $e',
+        );
+      }
+    }
+
     // Set state definitively before async gaps
     callState = CallStateStatus.connectingToCall;
     waitingForInvite = false; // Ensure this is reset

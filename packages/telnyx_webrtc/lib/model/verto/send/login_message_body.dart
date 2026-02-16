@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 
 class LoginMessage {
   String? id;
@@ -35,6 +36,7 @@ class LoginParams {
   String? passwd;
   UserVariables? userVariables;
   String? sessionId;
+  String? userAgent;
 
   LoginParams({
     this.login,
@@ -43,6 +45,7 @@ class LoginParams {
     this.passwd,
     this.userVariables,
     this.sessionId,
+    this.userAgent,
   });
 
   LoginParams.fromJson(Map<String, dynamic> json) {
@@ -58,6 +61,7 @@ class LoginParams {
     userVariables = json['userVariables'] != null
         ? UserVariables.fromJson(json['userVariables'])
         : null;
+    userAgent = json['User-Agent'];
   }
 
   Map<String, dynamic> toJson() {
@@ -73,6 +77,9 @@ class LoginParams {
     data['sessid'] = sessionId;
     if (userVariables != null) {
       data['userVariables'] = userVariables!.toJson();
+    }
+    if (userAgent != null) {
+      data['User-Agent'] = userAgent;
     }
     return data;
   }
@@ -95,7 +102,7 @@ class UserVariables {
     data['push_notification_provider'] = pushNotificationProvider;
     const String pushEnvironment = kDebugMode ? 'debug' : 'production';
     data['push_notification_environment'] = pushEnvironment;
-    print('pushEnvironment: $pushEnvironment');
+    GlobalLogger().d('pushEnvironment: $pushEnvironment');
     return data;
   }
 }
