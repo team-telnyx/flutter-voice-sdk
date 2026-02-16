@@ -5,6 +5,7 @@ import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
+import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -309,6 +310,38 @@ class TelnyxClient {
     GlobalLogger().i(
       'TelnyxClient :: Server configuration updated: ${configuration.socketUrl}',
     );
+  }
+
+  /// Gets the effective ICE servers for WebRTC peer connections.
+  ///
+  /// Priority order:
+  /// 1. Custom ICE servers from Config (iceServers property)
+  /// 2. ICE servers from serverConfiguration (webRTCIceServers property)
+  /// 3. Default ICE servers from serverConfiguration
+  List<TxIceServer>? _getEffectiveIceServers() {
+    final config = _storedCredentialConfig ?? _storedTokenConfig;
+
+    // First priority: custom ICE servers from Config
+    if (config?.iceServers != null && config!.iceServers!.isNotEmpty) {
+      GlobalLogger().i(
+        'TelnyxClient :: Using custom ICE servers from Config (${config.iceServers!.length} servers)',
+      );
+      return config.iceServers;
+    }
+
+    // Second priority: ICE servers from serverConfiguration
+    if (config?.serverConfiguration != null) {
+      GlobalLogger().i(
+        'TelnyxClient :: Using ICE servers from serverConfiguration (${config!.serverConfiguration!.webRTCIceServers.length} servers)',
+      );
+      return config.serverConfiguration!.webRTCIceServers;
+    }
+
+    // Third priority: ICE servers from _serverConfiguration
+    GlobalLogger().i(
+      'TelnyxClient :: Using ICE servers from default serverConfiguration (${_serverConfiguration.webRTCIceServers.length} servers)',
+    );
+    return _serverConfiguration.webRTCIceServers;
   }
 
   /// Returns whether or not the client is connected to the socket connection
@@ -1518,6 +1551,7 @@ class TelnyxClient {
       _serverConfiguration.turn,
       _serverConfiguration.stun,
       mutedMicOnStart,
+      _getEffectiveIceServers(),
     );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
@@ -1602,6 +1636,7 @@ class TelnyxClient {
       _serverConfiguration.turn,
       _serverConfiguration.stun,
       mutedMicOnStart,
+      _getEffectiveIceServers(),
     );
 
     // Set up the session with the callback if debug is enabled

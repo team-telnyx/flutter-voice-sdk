@@ -5,6 +5,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
+import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/candidate_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/end_of_candidates_message_body.dart';
@@ -45,6 +46,7 @@ class Peer {
   /// [providedTurn] Optional custom TURN server URL. Defaults to production.
   /// [providedStun] Optional custom STUN server URL. Defaults to production.
   /// [initialMuteState] Whether to start the call muted.
+  /// [iceServers] Optional custom ICE servers array. Takes precedence over providedTurn/providedStun.
   Peer(
     this._socket,
     this._debug,
@@ -55,9 +57,11 @@ class Peer {
     String? providedTurn,
     String? providedStun,
     bool initialMuteState = false,
+    List<TxIceServer>? iceServers,
   ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
         _providedStun = providedStun ?? DefaultConfig.defaultStun,
-        _initialMuteState = initialMuteState;
+        _initialMuteState = initialMuteState,
+        _customIceServers = iceServers;
 
   final String _selfId = randomNumeric(6);
 
@@ -70,6 +74,7 @@ class Peer {
   final String _providedTurn;
   final String _providedStun;
   final bool _initialMuteState;
+  final List<TxIceServer>? _customIceServers;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -127,20 +132,38 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
-  Map<String, dynamic> get _iceServers => {
-        'iceServers': [
-          {
-            'url': _providedStun,
-            'username': DefaultConfig.username,
-            'credential': DefaultConfig.password,
-          },
-          {
-            'url': _providedTurn,
-            'username': DefaultConfig.username,
-            'credential': DefaultConfig.password,
-          },
-        ],
+  /// Gets the ICE servers configuration.
+  ///
+  /// If custom ICE servers are provided via [_customIceServers], they will be used.
+  /// Otherwise, falls back to the legacy [_providedTurn] and [_providedStun] URLs.
+  Map<String, dynamic> get _iceServers {
+    if (_customIceServers != null && _customIceServers!.isNotEmpty) {
+      // Use custom ICE servers array
+      GlobalLogger().i(
+        'Peer :: Using custom ICE servers (${_customIceServers!.length} servers)',
+      );
+      return {
+        'iceServers':
+            _customIceServers!.map((server) => server.toWebRTCMap()).toList(),
       };
+    }
+
+    // Fall back to legacy single TURN/STUN URLs for backward compatibility
+    return {
+      'iceServers': [
+        {
+          'url': _providedStun,
+          'username': DefaultConfig.username,
+          'credential': DefaultConfig.password,
+        },
+        {
+          'url': _providedTurn,
+          'username': DefaultConfig.username,
+          'credential': DefaultConfig.password,
+        },
+      ],
+    };
+  }
 
   /// Builds the ICE configuration based on the forceRelayCandidate setting
   Map<String, dynamic> _buildIceConfiguration() {
