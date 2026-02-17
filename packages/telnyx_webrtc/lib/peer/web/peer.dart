@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
+import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
@@ -54,9 +55,11 @@ class Peer {
     String? providedTurn,
     String? providedStun,
     bool initialMuteState = false,
+    List<TxIceServer>? iceServers,
   ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
         _providedStun = providedStun ?? DefaultConfig.defaultStun,
-        _initialMuteState = initialMuteState;
+        _initialMuteState = initialMuteState,
+        _customIceServers = iceServers;
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
@@ -67,6 +70,7 @@ class Peer {
   final String _providedTurn;
   final String _providedStun;
   final bool _initialMuteState;
+  final List<TxIceServer>? _customIceServers;
 
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
@@ -122,15 +126,28 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
-  Map<String, dynamic> get _iceServers => {
-        'iceServers': [
-          {
-            'urls': [_providedStun, _providedTurn],
-            'username': DefaultConfig.username,
-            'credential': DefaultConfig.password,
-          },
-        ],
+  Map<String, dynamic> get _iceServers {
+    if (_customIceServers != null && _customIceServers!.isNotEmpty) {
+      GlobalLogger().i(
+        'Web Peer :: Using custom ICE servers (${_customIceServers!.length} servers)',
+      );
+      return {
+        'iceServers':
+            _customIceServers!.map((server) => server.toWebRTCMap()).toList(),
       };
+    }
+
+    // Fall back to legacy single TURN/STUN URLs for backward compatibility
+    return {
+      'iceServers': [
+        {
+          'urls': [_providedStun, _providedTurn],
+          'username': DefaultConfig.username,
+          'credential': DefaultConfig.password,
+        },
+      ],
+    };
+  }
 
   /// Builds the ICE configuration based on the forceRelayCandidate setting
   Map<String, dynamic> _buildIceConfiguration() {
