@@ -142,7 +142,7 @@ void main() {
     });
 
     group('toWebRTCMap', () {
-      test('uses url for single URL', () {
+      test('always uses urls key for single URL', () {
         final server = TxIceServer(
           urls: ['stun:stun.example.com:3478'],
           username: 'user',
@@ -151,13 +151,13 @@ void main() {
 
         final map = server.toWebRTCMap();
 
-        expect(map['url'], 'stun:stun.example.com:3478');
-        expect(map.containsKey('urls'), isFalse);
+        expect(map['urls'], ['stun:stun.example.com:3478']);
+        expect(map.containsKey('url'), isFalse);
         expect(map['username'], 'user');
         expect(map['credential'], 'pass');
       });
 
-      test('uses urls for multiple URLs', () {
+      test('always uses urls key for multiple URLs', () {
         final server = TxIceServer(
           urls: [
             'turn:turn.example.com:3478?transport=tcp',

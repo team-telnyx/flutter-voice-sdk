@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 
 /// Represents an ICE server configuration for WebRTC peer connections.
@@ -135,7 +136,7 @@ class TxIceServer {
     if (identical(this, other)) return true;
     if (other is! TxIceServer) return false;
 
-    return _listEquals(urls, other.urls) &&
+    return listEquals(urls, other.urls) &&
         username == other.username &&
         credential == other.credential;
   }
@@ -146,13 +147,4 @@ class TxIceServer {
         username,
         credential,
       );
-
-  static bool _listEquals<T>(List<T>? a, List<T>? b) {
-    if (a == null) return b == null;
-    if (b == null || a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
 }

@@ -132,6 +132,11 @@ class TxServerConfiguration {
   String get socketUrl => 'wss://$host:$port';
 
   /// Creates a copy of this configuration with the specified changes.
+  ///
+  /// Note: changing [environment] alone does NOT update [webRTCIceServers].
+  /// If you want environment-appropriate ICE servers, also pass [webRTCIceServers]
+  /// explicitly, or construct a fresh instance via [TxServerConfiguration.production]
+  /// or [TxServerConfiguration.development] instead.
   TxServerConfiguration copyWith({
     String? host,
     int? port,

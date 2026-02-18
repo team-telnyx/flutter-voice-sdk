@@ -133,7 +133,9 @@ class Peer {
     final servers = _iceServerList.isNotEmpty
         ? _iceServerList
         : DefaultConfig.defaultProdIceServers;
-    GlobalLogger().i('Peer :: Using ICE servers (${servers.length} servers)');
+    GlobalLogger().i(
+      'Peer :: Using ICE servers (${servers.length}): ${servers.map((s) => s.urls.first).join(', ')}',
+    );
     return {
       'iceServers': servers.map((server) => server.toWebRTCMap()).toList(),
     };
