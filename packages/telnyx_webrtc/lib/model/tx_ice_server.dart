@@ -110,14 +110,9 @@ class TxIceServer {
   /// This uses 'url' instead of 'urls' for compatibility with some
   /// WebRTC implementations that expect a single URL string.
   Map<String, dynamic> toWebRTCMap() {
-    final map = <String, dynamic>{};
-
-    // Use 'url' for single URL, 'urls' for multiple
-    if (urls.length == 1) {
-      map['url'] = urls.first;
-    } else {
-      map['urls'] = urls;
-    }
+    final map = <String, dynamic>{
+      'urls': urls,
+    };
 
     if (username != null) {
       map['username'] = username;

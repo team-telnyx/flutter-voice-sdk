@@ -44,7 +44,6 @@ class Peer {
   /// [_useTrickleIce] Whether to use trickle ICE.
   /// [_audioConstraints] Optional audio constraints.
   /// [providedTurn] Optional custom TURN server URL. Defaults to production.
-  /// [providedStun] Optional custom STUN server URL. Defaults to production.
   Peer(
     this._socket,
     this._debug,
@@ -52,14 +51,10 @@ class Peer {
     this._forceRelayCandidate,
     this._useTrickleIce, [
     this._audioConstraints,
-    String? providedTurn,
-    String? providedStun,
     bool initialMuteState = false,
-    List<TxIceServer>? iceServers,
-  ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
-        _providedStun = providedStun ?? DefaultConfig.defaultStun,
-        _initialMuteState = initialMuteState,
-        _customIceServers = iceServers;
+    List<TxIceServer> iceServers = const [],
+  ])  : _initialMuteState = initialMuteState,
+        _iceServerList = iceServers;
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
@@ -67,10 +62,8 @@ class Peer {
   final bool _forceRelayCandidate;
   final bool _useTrickleIce;
   final AudioConstraints? _audioConstraints;
-  final String _providedTurn;
-  final String _providedStun;
   final bool _initialMuteState;
-  final List<TxIceServer>? _customIceServers;
+  final List<TxIceServer> _iceServerList;
 
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
@@ -126,26 +119,17 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
+  /// Builds the WebRTC ICE servers map from the configured server list.
+  ///
+  /// Falls back to [DefaultConfig.defaultProdIceServers] if no servers were provided.
   Map<String, dynamic> get _iceServers {
-    if (_customIceServers != null && _customIceServers!.isNotEmpty) {
-      GlobalLogger().i(
-        'Web Peer :: Using custom ICE servers (${_customIceServers!.length} servers)',
-      );
-      return {
-        'iceServers':
-            _customIceServers!.map((server) => server.toWebRTCMap()).toList(),
-      };
-    }
-
-    // Fall back to legacy single TURN/STUN URLs for backward compatibility
+    final servers = _iceServerList.isNotEmpty
+        ? _iceServerList
+        : DefaultConfig.defaultProdIceServers;
+    GlobalLogger()
+        .i('Web Peer :: Using ICE servers (${servers.length} servers)');
     return {
-      'iceServers': [
-        {
-          'urls': [_providedStun, _providedTurn],
-          'username': DefaultConfig.username,
-          'credential': DefaultConfig.password,
-        },
-      ],
+      'iceServers': servers.map((server) => server.toWebRTCMap()).toList(),
     };
   }
 

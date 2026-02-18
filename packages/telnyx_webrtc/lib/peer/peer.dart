@@ -54,14 +54,10 @@ class Peer {
     this._forceRelayCandidate,
     this._useTrickleIce, [
     this._audioConstraints,
-    String? providedTurn,
-    String? providedStun,
     bool initialMuteState = false,
-    List<TxIceServer>? iceServers,
-  ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
-        _providedStun = providedStun ?? DefaultConfig.defaultStun,
-        _initialMuteState = initialMuteState,
-        _customIceServers = iceServers;
+    List<TxIceServer> iceServers = const [],
+  ])  : _initialMuteState = initialMuteState,
+        _iceServerList = iceServers;
 
   final String _selfId = randomNumeric(6);
 
@@ -71,10 +67,8 @@ class Peer {
   final bool _forceRelayCandidate;
   final bool _useTrickleIce;
   final AudioConstraints? _audioConstraints;
-  final String _providedTurn;
-  final String _providedStun;
   final bool _initialMuteState;
-  final List<TxIceServer>? _customIceServers;
+  final List<TxIceServer> _iceServerList;
   WebRTCStatsReporter? _statsManager;
 
   // Add negotiation timer fields
@@ -132,34 +126,16 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
-  /// Gets the ICE servers configuration.
+  /// Builds the WebRTC ICE servers map from the configured server list.
   ///
-  /// If custom ICE servers are provided via [_customIceServers], they will be used.
-  /// Otherwise, falls back to the legacy [_providedTurn] and [_providedStun] URLs.
+  /// Falls back to [DefaultConfig.defaultProdIceServers] if no servers were provided.
   Map<String, dynamic> get _iceServers {
-    if (_customIceServers != null && _customIceServers!.isNotEmpty) {
-      // Use custom ICE servers array
-      GlobalLogger().i(
-        'Peer :: Using custom ICE servers (${_customIceServers!.length} servers)',
-      );
-      return {
-        'iceServers':
-            _customIceServers!.map((server) => server.toWebRTCMap()).toList(),
-      };
-    }
-
-    // Fall back to legacy single TURN/STUN URLs for backward compatibility
+    final servers = _iceServerList.isNotEmpty
+        ? _iceServerList
+        : DefaultConfig.defaultProdIceServers;
+    GlobalLogger().i('Peer :: Using ICE servers (${servers.length} servers)');
     return {
-      'iceServers': [
-        {
-          'url': _providedStun,
-        },
-        {
-          'url': _providedTurn,
-          'username': DefaultConfig.username,
-          'credential': DefaultConfig.password,
-        },
-      ],
+      'iceServers': servers.map((server) => server.toWebRTCMap()).toList(),
     };
   }
 

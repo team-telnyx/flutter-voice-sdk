@@ -318,7 +318,7 @@ class TelnyxClient {
   /// 1. Custom ICE servers from Config (iceServers property)
   /// 2. ICE servers from serverConfiguration (webRTCIceServers property)
   /// 3. Default ICE servers from serverConfiguration
-  List<TxIceServer>? _getEffectiveIceServers() {
+  List<TxIceServer> _getEffectiveIceServers() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
 
     // First priority: custom ICE servers from Config
@@ -1550,8 +1550,6 @@ class TelnyxClient {
       getForceRelayCandidate(),
       useTrickleIce,
       audioConstraints,
-      _serverConfiguration.turn,
-      _serverConfiguration.stun,
       mutedMicOnStart,
       _getEffectiveIceServers(),
     );
@@ -1635,8 +1633,6 @@ class TelnyxClient {
       getForceRelayCandidate(),
       useTrickleIce,
       audioConstraints,
-      _serverConfiguration.turn,
-      _serverConfiguration.stun,
       mutedMicOnStart,
       _getEffectiveIceServers(),
     );
