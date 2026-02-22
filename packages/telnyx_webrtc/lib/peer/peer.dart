@@ -958,19 +958,16 @@ class Peer {
   /// [onCallQualityChange] Callback for call quality updates.
   /// Returns a [Future] that completes with true if stats reporting started successfully, false otherwise.
   /// Call report configuration options (set from Config)
-  bool _enableCallReports = true;
   int _callReportInterval = 5000;
   String _callReportLogLevel = 'debug';
   int _callReportMaxLogEntries = 1000;
 
   /// Set call report configuration from Config
   void setCallReportConfig({
-    bool enableCallReports = true,
     int callReportInterval = 5000,
     String callReportLogLevel = 'debug',
     int callReportMaxLogEntries = 1000,
   }) {
-    _enableCallReports = enableCallReports;
     _callReportInterval = callReportInterval;
     _callReportLogLevel = callReportLogLevel;
     _callReportMaxLogEntries = callReportMaxLogEntries;
@@ -998,7 +995,6 @@ class Peer {
     // Always start call report collector (for post-call reporting)
     _callReportCollector = CallReportCollector(
       options: CallReportOptions(
-        enabled: _enableCallReports,
         intervalMs: _callReportInterval,
       ),
       logCollector: _callReportLogCollector,

@@ -24,7 +24,6 @@ class Config {
     this.forceRelayCandidate = false,
     this.iceServers,
     this.serverConfiguration,
-    this.enableCallReports = true,
     this.callReportInterval = 5000,
     this.callReportLogLevel = 'debug',
     this.callReportMaxLogEntries = 1000,
@@ -106,12 +105,8 @@ class Config {
   /// it takes precedence over the ICE servers in this configuration.
   final TxServerConfiguration? serverConfiguration;
 
-  /// Whether call report collection is enabled (default: true)
-  /// When enabled, the SDK collects WebRTC stats during calls and posts
-  /// them to voice-sdk-proxy for quality analysis.
-  final bool enableCallReports;
-
   /// Call report stats collection interval in milliseconds (default: 5000)
+  /// Call reports are always enabled — this controls the collection frequency.
   final int callReportInterval;
 
   /// Minimum log level for call report structured logging (default: "debug")
@@ -173,7 +168,6 @@ class CredentialConfig extends Config {
     super.forceRelayCandidate = false,
     super.iceServers,
     super.serverConfiguration,
-    super.enableCallReports = true,
     super.callReportInterval = 5000,
     super.callReportLogLevel = 'debug',
     super.callReportMaxLogEntries = 1000,
@@ -236,7 +230,6 @@ class TokenConfig extends Config {
     super.forceRelayCandidate = false,
     super.iceServers,
     super.serverConfiguration,
-    super.enableCallReports = true,
     super.callReportInterval = 5000,
     super.callReportLogLevel = 'debug',
     super.callReportMaxLogEntries = 1000,

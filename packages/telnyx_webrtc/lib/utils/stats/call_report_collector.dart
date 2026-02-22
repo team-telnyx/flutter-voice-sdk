@@ -13,9 +13,6 @@ import 'call_report_file_helper_stub.dart'
 
 /// Configuration options for call report collection
 class CallReportOptions {
-  /// Whether call reporting is enabled
-  final bool enabled;
-
   /// Stats collection interval in milliseconds (default: 5000)
   final int intervalMs;
 
@@ -23,7 +20,6 @@ class CallReportOptions {
   final int maxBufferSize;
 
   const CallReportOptions({
-    this.enabled = true,
     this.intervalMs = 5000,
     this.maxBufferSize = 360,
   });
@@ -299,11 +295,6 @@ class CallReportCollector {
 
   /// Start collecting stats from the peer connection
   void start(RTCPeerConnection peerConnection) {
-    if (!options.enabled) {
-      GlobalLogger().d('CallReportCollector: Disabled, not starting');
-      return;
-    }
-
     _peerConnection = peerConnection;
     _intervalStartTime = DateTime.now();
 
@@ -355,9 +346,9 @@ class CallReportCollector {
     required String host,
     String? voiceSdkId,
   }) async {
-    if (!options.enabled || _statsBuffer.isEmpty) {
+    if (_statsBuffer.isEmpty) {
       GlobalLogger().d(
-        'CallReportCollector: Skipping post (enabled=${options.enabled}, buffer=${_statsBuffer.length})',
+        'CallReportCollector: Skipping post (buffer empty)',
       );
       return;
     }

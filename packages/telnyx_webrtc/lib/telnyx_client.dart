@@ -1571,7 +1571,6 @@ class TelnyxClient {
     // Apply call report config from stored config
     final callReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
     inviteCall.peerConnection?.setCallReportConfig(
-      enableCallReports: callReportConfig?.enableCallReports ?? true,
       callReportInterval: callReportConfig?.callReportInterval ?? 5000,
       callReportLogLevel: callReportConfig?.callReportLogLevel ?? 'debug',
       callReportMaxLogEntries: callReportConfig?.callReportMaxLogEntries ?? 1000,
@@ -1662,7 +1661,6 @@ class TelnyxClient {
     // Apply call report config from stored config
     final answerCallReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
     answerCall.peerConnection?.setCallReportConfig(
-      enableCallReports: answerCallReportConfig?.enableCallReports ?? true,
       callReportInterval: answerCallReportConfig?.callReportInterval ?? 5000,
       callReportLogLevel: answerCallReportConfig?.callReportLogLevel ?? 'debug',
       callReportMaxLogEntries: answerCallReportConfig?.callReportMaxLogEntries ?? 1000,
