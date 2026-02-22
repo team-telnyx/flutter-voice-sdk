@@ -1,6 +1,8 @@
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 import 'package:telnyx_webrtc/model/region.dart';
+import 'package:telnyx_webrtc/model/tx_ice_server.dart';
+import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 
 /// Base configuration class for common parameters
 class Config {
@@ -20,6 +22,8 @@ class Config {
     this.region = Region.auto,
     this.fallbackOnRegionFailure = true,
     this.forceRelayCandidate = false,
+    this.iceServers,
+    this.serverConfiguration,
   });
 
   /// Name associated with the SIP account
@@ -71,6 +75,32 @@ class Config {
   ///   as all media will be relayed through TURN servers.
   /// - Important: This setting is disabled by default to maintain optimal call quality.
   final bool forceRelayCandidate;
+
+  /// Custom ICE servers for WebRTC peer connections.
+  ///
+  /// When provided, these ICE servers will be used instead of the default
+  /// Telnyx TURN/STUN servers. This allows for custom TURN/STUN server
+  /// configuration to support specific network requirements.
+  ///
+  /// Example:
+  /// ```dart
+  /// iceServers: [
+  ///   TxIceServer(urls: ['stun:stun.example.com:3478']),
+  ///   TxIceServer(
+  ///     urls: ['turn:turn.example.com:3478?transport=tcp'],
+  ///     username: 'user',
+  ///     credential: 'password',
+  ///   ),
+  /// ]
+  /// ```
+  final List<TxIceServer>? iceServers;
+
+  /// Server configuration for signaling and ICE servers.
+  ///
+  /// When provided, this configuration will be used for the WebSocket
+  /// connection and ICE server settings. If [iceServers] is also provided,
+  /// it takes precedence over the ICE servers in this configuration.
+  final TxServerConfiguration? serverConfiguration;
 }
 
 /// Creates an instance of CredentialConfig which can be used to log in
@@ -87,6 +117,8 @@ class Config {
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
 /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+/// [iceServers] custom ICE servers for WebRTC peer connections
+/// [serverConfiguration] server configuration for signaling and ICE servers
 class CredentialConfig extends Config {
   /// Creates an instance of CredentialConfig which can be used to log in
   ///
@@ -101,6 +133,8 @@ class CredentialConfig extends Config {
   /// [ringbackPath] is the path to the ringback file (audio to play when calling)
   /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
   /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
+  /// [iceServers] custom ICE servers for WebRTC peer connections
+  /// [serverConfiguration] server configuration for signaling and ICE servers
   CredentialConfig({
     required this.sipUser,
     required this.sipPassword,
@@ -118,6 +152,8 @@ class CredentialConfig extends Config {
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
+    super.iceServers,
+    super.serverConfiguration,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -141,6 +177,8 @@ class CredentialConfig extends Config {
 /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
 /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+/// [iceServers] custom ICE servers for WebRTC peer connections
+/// [serverConfiguration] server configuration for signaling and ICE servers
 class TokenConfig extends Config {
   /// Creates an instance of TokenConfig which can be used to log in
   ///
@@ -155,6 +193,8 @@ class TokenConfig extends Config {
   /// [ringbackPath] is the path to the ringback file (audio to play when calling)
   /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
   /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
+  /// [iceServers] custom ICE servers for WebRTC peer connections
+  /// [serverConfiguration] server configuration for signaling and ICE servers
   TokenConfig({
     required this.sipToken,
     required super.sipCallerIDName,
@@ -171,6 +211,8 @@ class TokenConfig extends Config {
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
+    super.iceServers,
+    super.serverConfiguration,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API
