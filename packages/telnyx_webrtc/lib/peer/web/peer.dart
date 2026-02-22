@@ -26,6 +26,7 @@ import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:telnyx_webrtc/utils/sdp_utils.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
 import 'package:telnyx_webrtc/utils/stats/call_report_collector.dart';
+import 'package:telnyx_webrtc/utils/stats/call_report_log_collector.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
@@ -100,6 +101,7 @@ class Peer {
   
   /// Call report collector (always enabled for post-call reporting).
   CallReportCollector? _callReportCollector;
+  CallReportLogCollector? _callReportLogCollector;
 
   /// Renderers for Web
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
@@ -978,14 +980,48 @@ class Peer {
   /// [peerId] The ID of the peer.
   /// [pc] The [RTCPeerConnection] to monitor.
   /// Returns a [Future] that completes with true if stats reporting started, false otherwise.
+  /// Call report configuration options (set from Config)
+  bool _enableCallReports = true;
+  int _callReportInterval = 5000;
+  String _callReportLogLevel = 'debug';
+  int _callReportMaxLogEntries = 1000;
+
+  /// Set call report configuration from Config
+  void setCallReportConfig({
+    bool enableCallReports = true,
+    int callReportInterval = 5000,
+    String callReportLogLevel = 'debug',
+    int callReportMaxLogEntries = 1000,
+  }) {
+    _enableCallReports = enableCallReports;
+    _callReportInterval = callReportInterval;
+    _callReportLogLevel = callReportLogLevel;
+    _callReportMaxLogEntries = callReportMaxLogEntries;
+  }
+
+  /// Get the log collector for external event logging
+  CallReportLogCollector? get callReportLogCollector => _callReportLogCollector;
+
   Future<bool> startStats(
     String callId,
     String peerId,
     RTCPeerConnection pc, {
     CallQualityCallback? onCallQualityChange,
   }) async {
+    // Create log collector
+    _callReportLogCollector = CallReportLogCollector(
+      maxEntries: _callReportMaxLogEntries,
+      logLevel: _callReportLogLevel,
+    );
+
     // Always start call report collector (for post-call reporting)
-    _callReportCollector = CallReportCollector();
+    _callReportCollector = CallReportCollector(
+      options: CallReportOptions(
+        enabled: _enableCallReports,
+        intervalMs: _callReportInterval,
+      ),
+      logCollector: _callReportLogCollector,
+    );
     _callReportCollector?.start(pc);
     GlobalLogger().d('Peer :: CallReportCollector started for $callId');
 
@@ -1062,6 +1098,13 @@ class Peer {
       telnyxSessionId: telnyxSessionId,
       telnyxLegId: telnyxLegId,
       sdkVersion: VersionUtils.getSDKVersion(),
+    );
+
+    // Store upload config for intermediate segment flushing
+    _callReportCollector!.storeUploadConfig(
+      callReportId: callReportId,
+      host: host,
+      voiceSdkId: _txClient.voiceSdkId,
     );
 
     await _callReportCollector!.postReport(

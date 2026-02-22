@@ -1568,6 +1568,14 @@ class TelnyxClient {
       mutedMicOnStart,
       _getEffectiveIceServers(),
     );
+    // Apply call report config from stored config
+    final callReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
+    inviteCall.peerConnection?.setCallReportConfig(
+      enableCallReports: callReportConfig?.enableCallReports ?? true,
+      callReportInterval: callReportConfig?.callReportInterval ?? 5000,
+      callReportLogLevel: callReportConfig?.callReportLogLevel ?? 'debug',
+      callReportMaxLogEntries: callReportConfig?.callReportMaxLogEntries ?? 1000,
+    );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
     if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
@@ -1650,6 +1658,14 @@ class TelnyxClient {
       audioConstraints,
       mutedMicOnStart,
       _getEffectiveIceServers(),
+    );
+    // Apply call report config from stored config
+    final answerCallReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
+    answerCall.peerConnection?.setCallReportConfig(
+      enableCallReports: answerCallReportConfig?.enableCallReports ?? true,
+      callReportInterval: answerCallReportConfig?.callReportInterval ?? 5000,
+      callReportLogLevel: answerCallReportConfig?.callReportLogLevel ?? 'debug',
+      callReportMaxLogEntries: answerCallReportConfig?.callReportMaxLogEntries ?? 1000,
     );
 
     // Set up the session with the callback if debug is enabled

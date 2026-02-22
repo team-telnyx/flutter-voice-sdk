@@ -19,6 +19,7 @@ dependencies:
   shared_preferences: ^2.4.0
   connectivity_plus: ^6.1.2
   http: ^1.2.0
+  path_provider: ^2.1.0
 
 dev_dependencies:
   flutter_test:

@@ -24,6 +24,10 @@ class Config {
     this.forceRelayCandidate = false,
     this.iceServers,
     this.serverConfiguration,
+    this.enableCallReports = true,
+    this.callReportInterval = 5000,
+    this.callReportLogLevel = 'debug',
+    this.callReportMaxLogEntries = 1000,
   });
 
   /// Name associated with the SIP account
@@ -101,6 +105,21 @@ class Config {
   /// connection and ICE server settings. If [iceServers] is also provided,
   /// it takes precedence over the ICE servers in this configuration.
   final TxServerConfiguration? serverConfiguration;
+
+  /// Whether call report collection is enabled (default: true)
+  /// When enabled, the SDK collects WebRTC stats during calls and posts
+  /// them to voice-sdk-proxy for quality analysis.
+  final bool enableCallReports;
+
+  /// Call report stats collection interval in milliseconds (default: 5000)
+  final int callReportInterval;
+
+  /// Minimum log level for call report structured logging (default: "debug")
+  /// Valid values: "debug", "info", "warning", "error"
+  final String callReportLogLevel;
+
+  /// Maximum number of structured log entries to buffer per call (default: 1000)
+  final int callReportMaxLogEntries;
 }
 
 /// Creates an instance of CredentialConfig which can be used to log in
@@ -154,6 +173,10 @@ class CredentialConfig extends Config {
     super.forceRelayCandidate = false,
     super.iceServers,
     super.serverConfiguration,
+    super.enableCallReports = true,
+    super.callReportInterval = 5000,
+    super.callReportLogLevel = 'debug',
+    super.callReportMaxLogEntries = 1000,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -213,6 +236,10 @@ class TokenConfig extends Config {
     super.forceRelayCandidate = false,
     super.iceServers,
     super.serverConfiguration,
+    super.enableCallReports = true,
+    super.callReportInterval = 5000,
+    super.callReportLogLevel = 'debug',
+    super.callReportMaxLogEntries = 1000,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API
