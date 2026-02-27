@@ -1411,16 +1411,25 @@ class TelnyxClient {
   /// - [targetId]: The ID of the target (e.g., assistant ID)
   /// - [targetType]: The type of target (defaults to 'ai_assistant')
   /// - [targetVersionId]: Optional version ID of the target
+  /// - [conversationId]: Optional conversation ID to join an existing conversation
   /// - [userVariables]: Optional user variables to include
   /// - [reconnection]: Whether this is a reconnection attempt (defaults to false)
+  ///
+  /// Throws [ArgumentError] if [conversationId] is provided but empty.
   Future<void> anonymousLogin({
     required String targetId,
     String targetType = 'ai_assistant',
     String? targetVersionId,
+    String? conversationId,
     Map<String, dynamic>? userVariables,
     bool reconnection = false,
     LogLevel logLevel = LogLevel.none,
   }) async {
+    // Validate conversationId if provided
+    if (conversationId != null && conversationId.trim().isEmpty) {
+      throw ArgumentError('conversationId cannot be empty when provided');
+    }
+
     final uuid = const Uuid().v4();
 
     setLogLevel(logLevel);
@@ -1434,6 +1443,7 @@ class TelnyxClient {
       targetType: targetType,
       targetId: targetId,
       targetVersionId: targetVersionId,
+      conversationId: conversationId,
       userVariables: userVariables,
       reconnection: reconnection,
       userAgent: userAgent,
