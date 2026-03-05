@@ -242,6 +242,8 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
         case SocketMethod.ANSWER:
         {
            // Handle a received call answer - Update UI or Navigate to new screen, etc.
+           // You can access the Telnyx Call Control ID if available (for outbound parked & bridged flows):
+           // final callControlId = _telnyxClient.call.telnyxCallControlId;
           break;
         }
         case SocketMethod.BYE:
