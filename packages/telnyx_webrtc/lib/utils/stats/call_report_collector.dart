@@ -8,8 +8,8 @@ import 'package:telnyx_webrtc/utils/stats/call_report_log_collector.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 
 // Conditional import for file I/O (mobile only)
-import 'call_report_file_helper_stub.dart'
-    if (dart.library.io) 'call_report_file_helper.dart' as file_helper;
+import 'package:telnyx_webrtc/utils/stats/call_report_file_helper_stub.dart'
+    if (dart.library.io) 'package:telnyx_webrtc/utils/stats/call_report_file_helper.dart' as file_helper;
 
 /// Configuration options for call report collection
 class CallReportOptions {
@@ -253,7 +253,7 @@ class CallReportCollector {
 
   // Payload size limits
   static const int _maxPayloadSize = 2 * 1024 * 1024; // 2MB
-  static const int _safePayloadSize = (1.9 * 1024 * 1024).toInt(); // 1.9MB
+  static final int _safePayloadSize = (1.9 * 1024 * 1024).toInt(); // 1.9MB
 
   // Intermediate segment flushing threshold (~300 entries = ~25 min at 5s)
   static const int _segmentFlushThreshold = 300;
