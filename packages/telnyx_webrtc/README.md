@@ -730,7 +730,9 @@ Once your AI Agent is up and running, you can use the SDK to communicate with yo
 
 To connect with an AI Assistant, you can use the `anonymousLogin` method. This allows you to establish a connection without traditional authentication credentials.
 
-This method takes a `targetId` which is the ID of your AI assistant, and an optional `targetVersionId`. If a `targetVersionId` is not provided, the SDK will use the latest version available. 
+This method takes a `targetId` which is the ID of your AI assistant, and an optional `targetVersionId`. If a `targetVersionId` is not provided, the SDK will use the latest version available.
+
+You can also provide a `conversationId` to join an existing conversation. This is useful when you want to continue a previous conversation with the AI Assistant.
 
 **Note:** After a successful `anonymousLogin`, any subsequent call, regardless of the destination, will be directed to the specified AI Assistant.
 
@@ -742,8 +744,25 @@ try {
     targetId: 'your_assistant_id',
     // targetType: 'ai_assistant', // This is the default value
     // targetVersionId: 'your_assistant_version_id' // Optional
+    // conversationId: 'existing_conversation_id' // Optional - join an existing conversation
   );
   // You are now connected and can make a call to the AI Assistant.
+} catch (e) {
+  // Handle login error
+}
+```
+
+#### Joining an Existing Conversation
+
+To join an existing conversation, provide the `conversationId` parameter:
+
+```dart
+try {
+  await _telnyxClient.anonymousLogin(
+    targetId: 'your_assistant_id',
+    conversationId: 'conv-12345', // Join this existing conversation
+  );
+  // You are now connected to the existing conversation.
 } catch (e) {
   // Handle login error
 }

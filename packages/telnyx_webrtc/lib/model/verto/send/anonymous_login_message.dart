@@ -31,6 +31,7 @@ class AnonymousLoginParams {
   String? targetType;
   String? targetId;
   String? targetVersionId;
+  String? conversationId;
   Map<String, dynamic>? userVariables;
   bool? reconnection;
   UserAgent? userAgent;
@@ -40,6 +41,7 @@ class AnonymousLoginParams {
     this.targetType,
     this.targetId,
     this.targetVersionId,
+    this.conversationId,
     this.userVariables,
     this.reconnection,
     this.userAgent,
@@ -50,6 +52,7 @@ class AnonymousLoginParams {
     targetType = json['target_type'];
     targetId = json['target_id'];
     targetVersionId = json['target_version_id'];
+    conversationId = json['conversation_id'];
     userVariables = json['userVariables'];
     reconnection = json['reconnection'];
     sessionId = json['sessid'];
@@ -64,6 +67,9 @@ class AnonymousLoginParams {
     data['target_id'] = targetId;
     if (targetVersionId != null) {
       data['target_version_id'] = targetVersionId;
+    }
+    if (conversationId != null) {
+      data['conversation_id'] = conversationId;
     }
     if (userVariables != null) {
       data['userVariables'] = userVariables;
