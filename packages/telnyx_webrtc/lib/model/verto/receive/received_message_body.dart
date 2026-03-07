@@ -176,16 +176,21 @@ class ResultParams {
 
 class StateParams {
   String? state;
+  String? callReportId;
 
-  StateParams({this.state});
+  StateParams({this.state, this.callReportId});
 
   StateParams.fromJson(Map<String, dynamic> json) {
     state = json['state'];
+    callReportId = json['call_report_id'];
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['state'] = state;
+    if (callReportId != null) {
+      data['call_report_id'] = callReportId;
+    }
     return data;
   }
 
