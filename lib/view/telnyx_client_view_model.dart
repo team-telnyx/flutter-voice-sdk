@@ -792,6 +792,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     required String targetId,
     String targetType = 'ai_assistant',
     String? targetVersionId,
+    String? conversationId,
     Map<String, dynamic>? userVariables,
     bool reconnection = false,
   }) {
@@ -805,6 +806,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       targetId: targetId,
       targetType: targetType,
       targetVersionId: targetVersionId,
+      conversationId: conversationId,
       userVariables: userVariables,
       reconnection: reconnection,
       logLevel: LogLevel.all,

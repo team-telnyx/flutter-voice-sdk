@@ -1,3 +1,7 @@
+## [4.0.2](https://pub.dev/packages/telnyx_webrtc/versions/4.0.2) (2026-02-27)
+### Enhancement
+- Added `conversationId` parameter to the `anonymousLogin` method, allowing users to join an existing conversation by providing a valid conversation ID. This enables seamless continuation of AI assistant conversations.
+
 ## [4.0.1](https://pub.dev/packages/telnyx_webrtc/versions/4.0.1) (2026-02-12)
 ### Bug Fixing
 - fix web outbound calling and build by including answered device token and improved SDP handling 
