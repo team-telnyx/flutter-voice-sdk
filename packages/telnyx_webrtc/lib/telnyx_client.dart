@@ -159,6 +159,19 @@ class TelnyxClient {
   /// The current session ID related to this client
   String sessid = const Uuid().v4();
 
+  /// The call report ID received from voice-sdk-proxy on REGED.
+  /// Used for authenticating call report POST requests after call ends.
+  String? callReportId;
+
+  /// The WebSocket host URL for deriving the call report endpoint.
+  String? _socketHost;
+  
+  /// Gets the WebSocket host URL (used for call report endpoint derivation).
+  String? get socketHost => _socketHost;
+
+  /// Gets the voice SDK ID received from the server (used for call report headers).
+  String? get voiceSdkId => _pushMetaData?.voiceSdkId;
+
   Timer? _gatewayResponseTimer;
   bool _waitingForReg = true;
   bool _pendingAnswerFromPush = false;
@@ -1044,6 +1057,7 @@ class TelnyxClient {
       );
 
       txSocket.hostAddress = hostAddress;
+      _socketHost = hostAddress; // Store for call report endpoint
       GlobalLogger().i('connecting to WebSocket $hostAddress');
       txSocket
         ..onOpen = () {
@@ -1102,6 +1116,7 @@ class TelnyxClient {
       );
 
       txSocket.hostAddress = hostAddress;
+      _socketHost = hostAddress; // Store for call report endpoint
       GlobalLogger().i('connecting to WebSocket $hostAddress');
       txSocket
         ..onOpen = () {
@@ -1553,6 +1568,13 @@ class TelnyxClient {
       mutedMicOnStart,
       _getEffectiveIceServers(),
     );
+    // Apply call report config from stored config
+    final callReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
+    inviteCall.peerConnection?.setCallReportConfig(
+      callReportInterval: callReportConfig?.callReportInterval ?? 5000,
+      callReportLogLevel: callReportConfig?.callReportLogLevel ?? 'debug',
+      callReportMaxLogEntries: callReportConfig?.callReportMaxLogEntries ?? 1000,
+    );
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
     if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
@@ -1635,6 +1657,13 @@ class TelnyxClient {
       audioConstraints,
       mutedMicOnStart,
       _getEffectiveIceServers(),
+    );
+    // Apply call report config from stored config
+    final answerCallReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
+    answerCall.peerConnection?.setCallReportConfig(
+      callReportInterval: answerCallReportConfig?.callReportInterval ?? 5000,
+      callReportLogLevel: answerCallReportConfig?.callReportLogLevel ?? 'debug',
+      callReportMaxLogEntries: answerCallReportConfig?.callReportMaxLogEntries ?? 1000,
     );
 
     // Set up the session with the callback if debug is enabled
@@ -1856,6 +1885,12 @@ class TelnyxClient {
                       _invalidateGatewayResponseTimer();
                       _resetGatewayCounters();
                       gatewayState = GatewayState.reged;
+                      
+                      // Store call_report_id for call report authentication
+                      callReportId = stateMessage.resultParams?.stateParams?.callReportId;
+                      if (callReportId != null) {
+                        GlobalLogger().d('CallReportId received: $callReportId');
+                      }
                       _waitingForReg = false;
                       final message = TelnyxMessage(
                         socketMethod: SocketMethod.clientReady,

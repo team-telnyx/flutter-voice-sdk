@@ -31,3 +31,6 @@ export './model/verto/send/modify_message_body.dart';
 export './model/verto/send/send_bye_message_body.dart';
 
 export './peer/peer.dart';
+
+export './utils/stats/call_report_collector.dart';
+export './utils/stats/call_report_log_collector.dart';
