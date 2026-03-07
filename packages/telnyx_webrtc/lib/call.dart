@@ -84,8 +84,9 @@ class CallHandler {
     onCallStateChanged(state);
     
     // Post call report when call ends (regardless of who initiated the BYE)
+    // Also post on dropped state (network loss) — matches iOS behaviour
     // Use unawaited - don't block state change on stats/network operations
-    if (state == CallState.done) {
+    if (state == CallState.done || state == CallState.dropped) {
       unawaited(call?._stopStatsAndPostReport());
     }
   }
