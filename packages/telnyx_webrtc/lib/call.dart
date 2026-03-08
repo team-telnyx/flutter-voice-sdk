@@ -188,6 +188,22 @@ class Call {
   /// Custom SIP headers to be sent with the call
   Map<String, String> customHeaders = {};
 
+  /// The Telnyx Call Control ID for this call.
+  ///
+  /// This field is available for outbound flows (parked & bridged) and can be
+  /// used to identify the call in the Telnyx Call Control API. It is populated
+  /// when a `telnyx_rtc.answer` event is received with a `telnyx_call_control_id`
+  /// in the params.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // Access the call control ID after the call is answered
+  /// if (call.telnyxCallControlId != null) {
+  ///   print('Call Control ID: ${call.telnyxCallControlId}');
+  /// }
+  /// ```
+  String? telnyxCallControlId;
+
   /// Callback for call quality metrics updates.
   /// This will be called periodically with updated metrics when debug mode is enabled.
   ///

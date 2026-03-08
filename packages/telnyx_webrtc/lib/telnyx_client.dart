@@ -2242,6 +2242,16 @@ class TelnyxClient {
                     _sendNoCallError();
                     return;
                   }
+
+                  // Extract and store the telnyx_call_control_id if present
+                  if (inviteAnswer.inviteParams?.telnyxCallControlId != null) {
+                    answerCall.telnyxCallControlId =
+                        inviteAnswer.inviteParams?.telnyxCallControlId;
+                    GlobalLogger().d(
+                      'Telnyx Call Control ID :: ${answerCall.telnyxCallControlId}',
+                    );
+                  }
+
                   final message = TelnyxMessage(
                     socketMethod: SocketMethod.answer,
                     message: inviteAnswer,
