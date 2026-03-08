@@ -1,6 +1,9 @@
-## [4.0.2](https://pub.dev/packages/telnyx_webrtc/versions/4.0.2) (2026-02-27)
+## [4.1.0](https://pub.dev/packages/telnyx_webrtc/versions/4.1.0) (2026-03-08)
 ### Enhancement
 - Added `conversationId` parameter to the `anonymousLogin` method, allowing users to join an existing conversation by providing a valid conversation ID. This enables seamless continuation of AI assistant conversations.
+- Added automatic call reporting for every call to enhance customer call debugging. Logs are sent via post request at the end of call to avoid cluttering web socket. 
+- Added `call-control-id` as a parameter that can be fetched when a call uses call control. Exposed in TelnyxClient
+- Adjustments to TURN/STUN server configuration to include UDP
 
 ## [4.0.1](https://pub.dev/packages/telnyx_webrtc/versions/4.0.1) (2026-02-12)
 ### Bug Fixing
