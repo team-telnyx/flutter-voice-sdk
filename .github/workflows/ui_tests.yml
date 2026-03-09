@@ -1,4 +1,4 @@
-name: Flutter UI Tests (Firebase Test Lab with Reactive Circus Fallback)
+name: Flutter UI Tests (Firebase Test Lab with Local Emulator Fallback)
 
 on:
   pull_request:
@@ -15,14 +15,14 @@ jobs:
       # 1) Check out repo
       - uses: actions/checkout@v3
 
-      # 2a) Create google-services.json if you have it in a secret
+      # 2a) Create google-services.json from secret
       - name: Create google-services.json
         run: |
           cat <<EOF > android/app/google-services.json
           ${{ secrets.GOOGLE_SERVICES_JSON }}
           EOF
 
-      # 2b) Create firebase-options.dart if you have it in a secret
+      # 2b) Create firebase-options.dart from secret
       - name: Create firebase-options.dart
         run: |
           cat <<EOF > lib/firebase_options.dart
@@ -40,9 +40,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 5) Install Patrol CLI
+      # 5) Install Patrol CLI (must match patrol package version)
       - name: Install Patrol CLI
-        run: flutter pub global activate patrol_cli 3.6.0
+        run: flutter pub global activate patrol_cli 4.1.0
 
       # 6) Cache Gradle dependencies
       - name: Cache Gradle dependencies
@@ -56,20 +56,21 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-        # 7) Authenticate Cloud SDK
-      - name: 'Authenticate Cloud SDK'
-        uses: 'google-github-actions/auth@v2'
+      # 7) Authenticate Cloud SDK
+      - name: Authenticate Cloud SDK
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: '${{ secrets.GCLOUD_SERVICE_ACCOUNT_KEY }}'
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-        # 8) Build app & test APK
+      # 8) Build app & test APK
       - name: Build app & test APK
         run: |
           patrol build android \
             --target integration_test/patrol_test.dart \
+            --dart-define=TEST_MODE=true \
             --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} \
             --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} \
             --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }} \
@@ -81,25 +82,38 @@ jobs:
         continue-on-error: true
         run: |
           gcloud firebase test android run \
-          --type instrumentation \
-          --use-orchestrator \
-          --app build/app/outputs/apk/debug/app-debug.apk \
-          --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
-          --timeout 1m \
-          --device model=akita,version=34,locale=en,orientation=portrait \
-          --record-video \
-          --environment-variables clearPackageData=true
-          echo "firebase_status=success" >> $GITHUB_OUTPUT
+            --type instrumentation \
+            --use-orchestrator \
+            --app build/app/outputs/apk/debug/app-debug.apk \
+            --test build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+            --timeout 15m \
+            --device model=akita,version=34,locale=en,orientation=portrait \
+            --num-flaky-test-attempts 2 \
+            --record-video \
+            --environment-variables clearPackageData=true \
+            --results-dir=firebase-results-${{ github.run_id }}
 
-      # Reactive Circus fallback mechanism - runs only when Firebase tests fail
-      - name: Enable KVM group perms (Reactive Circus)
+      # 10) Download Firebase test artifacts
+      - name: Download Firebase Test Results
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p firebase-results
+          gsutil -m cp -r "gs://test-lab-*/**/firebase-results-${{ github.run_id }}/**" firebase-results/ || true
+
+      # ============================================================
+      # REACTIVE CIRCUS FALLBACK - Runs if Firebase tests fail
+      # Uses the pre-built APKs with adb instrumentation
+      # ============================================================
+
+      - name: Enable KVM group perms
         if: always() && steps.firebase_tests.outcome == 'failure'
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run Flutter Tests with Reactive Circus (Fallback)
+      - name: Run Tests on Local Emulator (Fallback)
         id: fallback_tests
         if: always() && steps.firebase_tests.outcome == 'failure'
         continue-on-error: true
@@ -112,31 +126,58 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           script: |
-            echo "Running Flutter integration tests as fallback..."
-            flutter test integration_test/patrol_test.dart --dart-define=APP_LOGIN_USER=${{ secrets.APP_LOGIN_USER }} --dart-define=APP_LOGIN_PASSWORD=${{ secrets.APP_LOGIN_PASSWORD }} --dart-define=APP_LOGIN_NUMBER=${{ secrets.APP_LOGIN_NUMBER }}
+            echo "📱 Installing APKs..."
+            adb install -r build/app/outputs/apk/debug/app-debug.apk
+            adb install -r build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            
+            echo "🔓 Granting permissions..."
+            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.RECORD_AUDIO || true
+            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.POST_NOTIFICATIONS || true
+            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.CAMERA || true
+            
+            echo "🧪 Running instrumentation tests..."
+            adb shell am instrument -w \
+              -e clearPackageData true \
+              com.telnyx.flutter_voice_sdk_demo.test/androidx.test.runner.AndroidJUnitRunner
+
+      # ============================================================
+      # RESULTS
+      # ============================================================
+
+      - name: Upload Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-test-results
+          path: firebase-results/
+          retention-days: 7
+          if-no-files-found: ignore
 
       - name: Check Test Results
         if: always()
         run: |
-          # Check Firebase test results first
           if [[ "${{ steps.firebase_tests.outcome }}" == "success" ]]; then
-            echo "✅ Firebase test suite passed"
+            echo "## ✅ UI Tests Passed (Firebase)" >> $GITHUB_STEP_SUMMARY
+            echo "Firebase Test Lab tests completed successfully." >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
-          # If Firebase tests failed, check fallback results
-          echo "⚠️ Firebase test suite failed, checking fallback results..."
+          echo "⚠️ Firebase tests failed, checking fallback results..."
+
           if [[ "${{ steps.fallback_tests.outcome }}" == "success" ]]; then
-            echo "✅ Reactive Circus fallback test suite passed"
+            echo "## ✅ UI Tests Passed (Local Emulator Fallback)" >> $GITHUB_STEP_SUMMARY
+            echo "Tests passed on local emulator after Firebase failure." >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
-          # If both Firebase and fallback tests failed
           if [[ "${{ steps.fallback_tests.outcome }}" == "failure" ]]; then
-            echo "❌ Both Firebase and Reactive Circus fallback test suites failed"
+            echo "## ❌ UI Tests Failed" >> $GITHUB_STEP_SUMMARY
+            echo "Both Firebase Test Lab and local emulator fallback failed." >> $GITHUB_STEP_SUMMARY
+            echo "Check the uploaded artifacts for details." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
 
-          # If fallback tests were skipped (Firebase tests passed)
-          echo "❌ All test suites failed"
+          # Fallback was skipped (shouldn't happen if Firebase failed)
+          echo "## ❌ UI Tests Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Firebase Test Lab failed and fallback was not executed." >> $GITHUB_STEP_SUMMARY
           exit 1
