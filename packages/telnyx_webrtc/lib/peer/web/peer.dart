@@ -315,6 +315,14 @@ class Peer {
       if (_useTrickleIce) {
         session.peerConnection?.onIceCandidate = (candidate) async {
           if (candidate.candidate != null) {
+            // Cache the candidate for call report ICE stats
+            _callReportCollector?.cacheIceCandidate(
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              isLocal: true,
+            );
+
             GlobalLogger().i(
               'Trickle ICE: Sending candidate immediately: ${candidate.candidate}',
             );
@@ -575,6 +583,14 @@ class Peer {
             'Trickle ICE :: onIceCandidate in _createAnswer: ${candidate.candidate}',
           );
           if (candidate.candidate != null) {
+            // Cache the candidate for call report ICE stats
+            _callReportCollector?.cacheIceCandidate(
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              isLocal: true,
+            );
+
             GlobalLogger().i(
               'Trickle ICE: Sending candidate immediately: ${candidate.candidate}',
             );
@@ -597,6 +613,14 @@ class Peer {
             'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
           );
           if (candidate.candidate != null) {
+            // Cache the candidate for call report ICE stats
+            _callReportCollector?.cacheIceCandidate(
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              isLocal: true,
+            );
+
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
                 candidateString.contains('stun.telnyx.com') ||
@@ -869,6 +893,14 @@ class Peer {
           'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
         );
         if (candidate.candidate != null) {
+          // Cache the candidate for call report ICE stats
+          _callReportCollector?.cacheIceCandidate(
+            candidate: candidate.candidate!,
+            sdpMid: candidate.sdpMid,
+            sdpMLineIndex: candidate.sdpMLineIndex,
+            isLocal: true,
+          );
+
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
@@ -1343,6 +1375,14 @@ class Peer {
     String? sdpMid,
     int? sdpMLineIndex,
   ) async {
+    // Cache the remote candidate for call report ICE stats
+    _callReportCollector?.cacheIceCandidate(
+      candidate: candidateStr,
+      sdpMid: sdpMid,
+      sdpMLineIndex: sdpMLineIndex,
+      isLocal: false,
+    );
+
     final session = _sessions[_selfId];
     if (session?.peerConnection != null) {
       try {

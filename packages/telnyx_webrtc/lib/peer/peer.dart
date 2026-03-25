@@ -563,6 +563,14 @@ class Peer {
             'Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
           );
           if (candidate.candidate != null) {
+            // Cache the candidate for call report ICE stats
+            _callReportCollector?.cacheIceCandidate(
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              isLocal: true,
+            );
+
             if (_useTrickleIce) {
               // With trickle ICE, send all candidates immediately
               _sendTrickleCandidate(candidate, callId);
@@ -827,6 +835,14 @@ class Peer {
         'Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
       );
       if (candidate.candidate != null) {
+        // Cache the candidate for call report ICE stats
+        _callReportCollector?.cacheIceCandidate(
+          candidate: candidate.candidate!,
+          sdpMid: candidate.sdpMid,
+          sdpMLineIndex: candidate.sdpMLineIndex,
+          isLocal: true,
+        );
+
         if (_useTrickleIce) {
           // With trickle ICE, send ALL candidates immediately (host, srflx, relay)
           GlobalLogger().i(
@@ -1326,6 +1342,14 @@ class Peer {
     try {
       GlobalLogger().i(
         'Peer :: Handling remote candidate for call $callId: $candidateStr',
+      );
+
+      // Cache the remote candidate for call report ICE stats
+      _callReportCollector?.cacheIceCandidate(
+        candidate: candidateStr,
+        sdpMid: sdpMid,
+        sdpMLineIndex: sdpMLineIndex,
+        isLocal: false,
       );
 
       // Find the session for this call
