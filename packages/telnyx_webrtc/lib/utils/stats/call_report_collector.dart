@@ -211,6 +211,9 @@ class IceCandidateStats {
   final String? networkType;
   final int? port;
   final String? protocol;
+  final int? priority;
+  final String? relatedAddress;
+  final int? relatedPort;
 
   IceCandidateStats({
     this.address,
@@ -218,6 +221,9 @@ class IceCandidateStats {
     this.networkType,
     this.port,
     this.protocol,
+    this.priority,
+    this.relatedAddress,
+    this.relatedPort,
   });
 
   Map<String, dynamic> toJson() => {
@@ -225,6 +231,9 @@ class IceCandidateStats {
         if (candidateType != null) 'candidateType': candidateType,
         if (networkType != null) 'networkType': networkType,
         if (port != null) 'port': port,
+        if (priority != null) 'priority': priority,
+        if (relatedAddress != null) 'relatedAddress': relatedAddress,
+        if (relatedPort != null) 'relatedPort': relatedPort,
         if (protocol != null) 'protocol': protocol,
       };
 }
@@ -732,6 +741,9 @@ class CallReportCollector {
             final candidateId = values['id'] as String?;
             if (candidateId != null) {
               _candidateCache[candidateId] = values;
+              GlobalLogger().d(
+                'CallReportCollector: Cached local candidate $candidateId (${values['candidateType']})',
+              );
             }
             break;
           case 'remote-candidate':
@@ -739,6 +751,9 @@ class CallReportCollector {
             final candidateId = values['id'] as String?;
             if (candidateId != null) {
               _candidateCache[candidateId] = values;
+              GlobalLogger().d(
+                'CallReportCollector: Cached remote candidate $candidateId (${values['candidateType']})',
+              );
             }
             break;
         }
@@ -901,6 +916,11 @@ class CallReportCollector {
       return null;
     }
 
+    // Debug: log candidate cache state
+    GlobalLogger().d(
+      'CallReportCollector: Creating ICE stats - localId=$_selectedLocalCandidateId, remoteId=$_selectedRemoteCandidateId, cacheSize=${_candidateCache.length}',
+    );
+
     // Look up local candidate from cache
     IceCandidateStats? localCandidate;
     if (_selectedLocalCandidateId != null &&
@@ -912,6 +932,13 @@ class CallReportCollector {
         networkType: localData['networkType'] as String?,
         port: (localData['port'] as num?)?.toInt(),
         protocol: localData['protocol'] as String?,
+        priority: (localData['priority'] as num?)?.toInt(),
+        relatedAddress: localData['relatedAddress'] as String?,
+        relatedPort: (localData['relatedPort'] as num?)?.toInt(),
+      );
+    } else if (_selectedLocalCandidateId != null) {
+      GlobalLogger().w(
+        'CallReportCollector: Local candidate $_selectedLocalCandidateId not found in cache. Available: ${_candidateCache.keys.toList()}',
       );
     }
 
@@ -926,6 +953,13 @@ class CallReportCollector {
         networkType: remoteData['networkType'] as String?,
         port: (remoteData['port'] as num?)?.toInt(),
         protocol: remoteData['protocol'] as String?,
+        priority: (remoteData['priority'] as num?)?.toInt(),
+        relatedAddress: remoteData['relatedAddress'] as String?,
+        relatedPort: (remoteData['relatedPort'] as num?)?.toInt(),
+      );
+    } else if (_selectedRemoteCandidateId != null) {
+      GlobalLogger().w(
+        'CallReportCollector: Remote candidate $_selectedRemoteCandidateId not found in cache. Available: ${_candidateCache.keys.toList()}',
       );
     }
 
