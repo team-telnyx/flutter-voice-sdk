@@ -526,7 +526,9 @@ class Peer {
     _sessions[sessionId] = session;
 
     // Extract and cache remote ICE candidates from the SDP
-    _callReportCollector?.cacheIceCandidatesFromSdp(invite.sdp, isLocal: false);
+    if (invite.sdp != null) {
+      _callReportCollector?.cacheIceCandidatesFromSdp(invite.sdp!, isLocal: false);
+    }
 
     // Set the remote SDP from the inbound INVITE
     await session.peerConnection?.setRemoteDescription(
