@@ -493,6 +493,40 @@ class CallReportCollector {
     }
   }
 
+  /// Extract and cache ICE candidates from an SDP string.
+  /// This is needed because remote candidates are often embedded in the SDP
+  /// rather than sent via trickle ICE.
+  ///
+  /// [sdp] The SDP string (offer or answer)
+  /// [isLocal] True for local SDP, false for remote SDP
+  void cacheIceCandidatesFromSdp(String sdp, {required bool isLocal}) {
+    try {
+      final lines = sdp.split('\n');
+      int candidateCount = 0;
+      
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.startsWith('a=candidate:')) {
+          // Extract the candidate string (remove 'a=' prefix)
+          final candidateStr = trimmed.substring(2); // Remove 'a='
+          cacheIceCandidate(
+            candidate: candidateStr,
+            isLocal: isLocal,
+          );
+          candidateCount++;
+        }
+      }
+      
+      if (candidateCount > 0) {
+        GlobalLogger().d(
+          'CallReportCollector: Extracted $candidateCount ${isLocal ? "local" : "remote"} candidates from SDP',
+        );
+      }
+    } catch (e) {
+      GlobalLogger().w('CallReportCollector: Failed to parse SDP for candidates: $e');
+    }
+  }
+
   /// Stop collecting stats and prepare for final report.
   /// Awaits final stats collection to ensure no data is lost.
   Future<void> stop() async {

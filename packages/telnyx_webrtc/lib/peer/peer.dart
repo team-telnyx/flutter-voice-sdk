@@ -449,6 +449,10 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     CallTimingBenchmark.start(isOutbound: true);
+    
+    // Extract and cache remote ICE candidates from the SDP
+    _callReportCollector?.cacheIceCandidatesFromSdp(sdp, isLocal: false);
+    
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
           RTCSessionDescription(sdp, 'answer'),
         );
@@ -505,6 +509,9 @@ class Peer {
       callerNumber: callerNumber,
     );
     _sessions[sessionId] = session;
+
+    // Extract and cache remote ICE candidates from the SDP
+    _callReportCollector?.cacheIceCandidatesFromSdp(invite.sdp, isLocal: false);
 
     await session.peerConnection?.setRemoteDescription(
       RTCSessionDescription(invite.sdp, 'offer'),
