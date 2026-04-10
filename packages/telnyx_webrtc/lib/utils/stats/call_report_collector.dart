@@ -252,7 +252,6 @@ class CallReportCollector {
   static const List<int> _retryDelaysMs = [1000, 2000, 4000];
 
   // Payload size limits
-  static const int _maxPayloadSize = 2 * 1024 * 1024; // 2MB
   static final int _safePayloadSize = (1.9 * 1024 * 1024).toInt(); // 1.9MB
 
   // Intermediate segment flushing threshold (~300 entries = ~25 min at 5s)
