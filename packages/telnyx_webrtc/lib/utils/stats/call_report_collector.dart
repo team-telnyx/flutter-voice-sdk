@@ -77,12 +77,14 @@ class StatsInterval {
   final String intervalEndUtc;
   final AudioStats? audio;
   final ConnectionStats? connection;
+  final IceStats? ice;
 
   StatsInterval({
     required this.intervalStartUtc,
     required this.intervalEndUtc,
     this.audio,
     this.connection,
+    this.ice,
   });
 
   Map<String, dynamic> toJson() => {
@@ -90,6 +92,7 @@ class StatsInterval {
         'intervalEndUtc': intervalEndUtc,
         if (audio != null) 'audio': audio!.toJson(),
         if (connection != null) 'connection': connection!.toJson(),
+        if (ice != null) 'ice': ice!.toJson(),
       };
 }
 
@@ -201,6 +204,74 @@ class ConnectionStats {
       };
 }
 
+/// ICE candidate statistics (local or remote)
+class IceCandidateStats {
+  final String? address;
+  final String? candidateType;
+  final String? networkType;
+  final int? port;
+  final String? protocol;
+  final int? priority;
+  final String? relatedAddress;
+  final int? relatedPort;
+
+  IceCandidateStats({
+    this.address,
+    this.candidateType,
+    this.networkType,
+    this.port,
+    this.protocol,
+    this.priority,
+    this.relatedAddress,
+    this.relatedPort,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (address != null) 'address': address,
+        if (candidateType != null) 'candidateType': candidateType,
+        if (networkType != null) 'networkType': networkType,
+        if (port != null) 'port': port,
+        if (priority != null) 'priority': priority,
+        if (relatedAddress != null) 'relatedAddress': relatedAddress,
+        if (relatedPort != null) 'relatedPort': relatedPort,
+        if (protocol != null) 'protocol': protocol,
+      };
+}
+
+/// ICE connection statistics including selected candidate pair
+class IceStats {
+  final String? id;
+  final IceCandidateStats? local;
+  final IceCandidateStats? remote;
+  final bool? nominated;
+  final int? requestsSent;
+  final int? responsesReceived;
+  final String? state;
+  final bool? writable;
+
+  IceStats({
+    this.id,
+    this.local,
+    this.remote,
+    this.nominated,
+    this.requestsSent,
+    this.responsesReceived,
+    this.state,
+    this.writable,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (id != null) 'id': id,
+        if (local != null) 'local': local!.toJson(),
+        if (remote != null) 'remote': remote!.toJson(),
+        if (nominated != null) 'nominated': nominated,
+        if (requestsSent != null) 'requestsSent': requestsSent,
+        if (responsesReceived != null) 'responsesReceived': responsesReceived,
+        if (state != null) 'state': state,
+        if (writable != null) 'writable': writable,
+      };
+}
+
 /// The full call report payload sent to voice-sdk-proxy
 class CallReportPayload {
   final CallSummary summary;
@@ -287,6 +358,15 @@ class CallReportCollector {
   Map<String, dynamic>? _lastInboundAudio;
   Map<String, dynamic>? _lastCandidatePair;
 
+  // ICE candidate data
+  Map<String, dynamic>? _lastLocalCandidate;
+  Map<String, dynamic>? _lastRemoteCandidate;
+  String? _selectedLocalCandidateId;
+  String? _selectedRemoteCandidateId;
+
+  // Cache of all candidates for lookup
+  final Map<String, Map<String, dynamic>> _candidateCache = {};
+
   CallReportCollector({
     this.options = const CallReportOptions(),
     this.logCollector,
@@ -316,6 +396,134 @@ class CallReportCollector {
     _storedCallReportId = callReportId;
     _storedHost = host;
     _storedVoiceSdkId = voiceSdkId;
+  }
+
+  /// Cache an ICE candidate from the onIceCandidate callback.
+  /// This is needed because Flutter WebRTC doesn't return local-candidate/remote-candidate
+  /// stats from getStats(), so we cache them during ICE gathering instead.
+  ///
+  /// [candidate] The ICE candidate string (e.g., "candidate:... typ srflx ...")
+  /// [sdpMid] The SDP media ID
+  /// [sdpMLineIndex] The SDP m-line index
+  /// [isLocal] True for local candidates, false for remote
+  void cacheIceCandidate({
+    required String candidate,
+    String? sdpMid,
+    int? sdpMLineIndex,
+    required bool isLocal,
+  }) {
+    // Parse the candidate string to extract details
+    // Format: "candidate:foundation component protocol priority ip port typ type [raddr relatedAddr] [rport relatedPort] ..."
+    final parsed = _parseIceCandidateString(candidate);
+    if (parsed == null) return;
+
+    // Generate a unique ID for this candidate (similar to WebRTC stats ID format)
+    final candidateId = 'RTCIce${isLocal ? "Lc" : "Rc"}_${parsed['foundation']}_${parsed['port']}';
+    
+    _candidateCache[candidateId] = {
+      'id': candidateId,
+      'address': parsed['address'],
+      'ip': parsed['address'], // Some platforms use 'ip' instead of 'address'
+      'port': parsed['port'],
+      'protocol': parsed['protocol'],
+      'candidateType': parsed['candidateType'],
+      'priority': parsed['priority'],
+      'relatedAddress': parsed['relatedAddress'],
+      'relatedPort': parsed['relatedPort'],
+      'foundation': parsed['foundation'],
+      'component': parsed['component'],
+    };
+
+    GlobalLogger().d(
+      'CallReportCollector: Cached ${isLocal ? "local" : "remote"} candidate $candidateId (${parsed['candidateType']}) at ${parsed['address']}:${parsed['port']}',
+    );
+  }
+
+  /// Parse an ICE candidate string into its components
+  Map<String, dynamic>? _parseIceCandidateString(String candidateStr) {
+    try {
+      // Remove "candidate:" prefix if present
+      String str = candidateStr;
+      if (str.startsWith('candidate:')) {
+        str = str.substring('candidate:'.length);
+      } else if (str.startsWith('a=candidate:')) {
+        str = str.substring('a=candidate:'.length);
+      }
+
+      final parts = str.split(' ');
+      if (parts.length < 8) return null;
+
+      // Standard format: foundation component protocol priority address port typ type [extensions]
+      final foundation = parts[0];
+      final component = int.tryParse(parts[1]);
+      final protocol = parts[2].toLowerCase();
+      final priority = int.tryParse(parts[3]);
+      final address = parts[4];
+      final port = int.tryParse(parts[5]);
+      // parts[6] is "typ"
+      final candidateType = parts[7]; // host, srflx, prflx, relay
+
+      String? relatedAddress;
+      int? relatedPort;
+
+      // Parse optional extensions (raddr, rport, etc.)
+      for (int i = 8; i < parts.length - 1; i++) {
+        if (parts[i] == 'raddr' && i + 1 < parts.length) {
+          relatedAddress = parts[i + 1];
+        } else if (parts[i] == 'rport' && i + 1 < parts.length) {
+          relatedPort = int.tryParse(parts[i + 1]);
+        }
+      }
+
+      return {
+        'foundation': foundation,
+        'component': component,
+        'protocol': protocol,
+        'priority': priority,
+        'address': address,
+        'port': port,
+        'candidateType': candidateType,
+        'relatedAddress': relatedAddress,
+        'relatedPort': relatedPort,
+      };
+    } catch (e) {
+      GlobalLogger().w('CallReportCollector: Failed to parse ICE candidate: $e');
+      return null;
+    }
+  }
+
+  /// Extract and cache ICE candidates from an SDP string.
+  /// This is needed because remote candidates are often embedded in the SDP
+  /// rather than sent via trickle ICE.
+  ///
+  /// [sdp] The SDP string (offer or answer)
+  /// [isLocal] True for local SDP, false for remote SDP
+  void cacheIceCandidatesFromSdp(String sdp, {required bool isLocal}) {
+    try {
+      final lines = sdp.split('\n');
+      int candidateCount = 0;
+      
+      for (final line in lines) {
+        final trimmed = line.trim();
+        if (trimmed.startsWith('a=candidate:')) {
+          // Extract the candidate string (remove 'a=' prefix)
+          final candidateStr = trimmed.substring(2); // Remove 'a='
+          cacheIceCandidate(
+            candidate: candidateStr,
+            isLocal: isLocal,
+          );
+          candidateCount++;
+        }
+      }
+      
+      if (candidateCount > 0) {
+        GlobalLogger().d(
+          'CallReportCollector: Extracted $candidateCount ${isLocal ? "local" : "remote"} candidates from SDP',
+        );
+      }
+    } catch (e) {
+      GlobalLogger().w('CallReportCollector: Failed to parse SDP for candidates: $e');
+    }
   }
 
   /// Stop collecting stats and prepare for final report.
@@ -650,6 +858,29 @@ class CallReportCollector {
                 values['state'] == 'succeeded') {
               _lastCandidatePair = values;
               _processCandidatePair(values);
+              // Store candidate IDs for lookup
+              _selectedLocalCandidateId = values['localCandidateId'] as String?;
+              _selectedRemoteCandidateId = values['remoteCandidateId'] as String?;
+            }
+            break;
+          case 'local-candidate':
+            // Cache local candidates
+            final candidateId = values['id'] as String?;
+            if (candidateId != null) {
+              _candidateCache[candidateId] = values;
+              GlobalLogger().d(
+                'CallReportCollector: Cached local candidate $candidateId (${values['candidateType']})',
+              );
+            }
+            break;
+          case 'remote-candidate':
+            // Cache remote candidates
+            final candidateId = values['id'] as String?;
+            if (candidateId != null) {
+              _candidateCache[candidateId] = values;
+              GlobalLogger().d(
+                'CallReportCollector: Cached remote candidate $candidateId (${values['candidateType']})',
+              );
             }
             break;
         }
@@ -740,6 +971,7 @@ class CallReportCollector {
       intervalEndUtc: endTime.toUtc().toIso8601String(),
       audio: _createAudioStats(),
       connection: _createConnectionStats(),
+      ice: _createIceStats(),
     );
 
     _statsBuffer.add(entry);
@@ -803,6 +1035,109 @@ class CallReportCollector {
       packetsReceived: (_lastCandidatePair!['packetsReceived'] as num?)?.toInt(),
       bytesSent: (_lastCandidatePair!['bytesSent'] as num?)?.toInt(),
       bytesReceived: (_lastCandidatePair!['bytesReceived'] as num?)?.toInt(),
+    );
+  }
+
+  IceStats? _createIceStats() {
+    if (_lastCandidatePair == null) {
+      return null;
+    }
+
+    // Debug: log candidate cache state and candidate-pair details
+    GlobalLogger().d(
+      'CallReportCollector: Creating ICE stats - localId=$_selectedLocalCandidateId, remoteId=$_selectedRemoteCandidateId, cacheSize=${_candidateCache.length}',
+    );
+
+    // Try to find local candidate - first by ID, then by searching cache
+    IceCandidateStats? localCandidate;
+    Map<String, dynamic>? localData;
+    
+    // Method 1: Direct ID lookup (works on some platforms)
+    if (_selectedLocalCandidateId != null &&
+        _candidateCache.containsKey(_selectedLocalCandidateId)) {
+      localData = _candidateCache[_selectedLocalCandidateId];
+    }
+    
+    // Method 2: Search cache for a local candidate (any will do for basic info)
+    // Since we mark local candidates with 'RTCIceLc_' prefix
+    if (localData == null) {
+      for (final entry in _candidateCache.entries) {
+        if (entry.key.contains('Lc_')) {
+          localData = entry.value;
+          GlobalLogger().d(
+            'CallReportCollector: Found local candidate by prefix: ${entry.key}',
+          );
+          break;
+        }
+      }
+    }
+    
+    if (localData != null) {
+      localCandidate = IceCandidateStats(
+        address: localData['address'] as String? ?? localData['ip'] as String?,
+        candidateType: localData['candidateType'] as String?,
+        networkType: localData['networkType'] as String?,
+        port: (localData['port'] as num?)?.toInt(),
+        protocol: localData['protocol'] as String?,
+        priority: (localData['priority'] as num?)?.toInt(),
+        relatedAddress: localData['relatedAddress'] as String?,
+        relatedPort: (localData['relatedPort'] as num?)?.toInt(),
+      );
+    } else {
+      GlobalLogger().w(
+        'CallReportCollector: No local candidate found in cache. Available: ${_candidateCache.keys.toList()}',
+      );
+    }
+
+    // Try to find remote candidate - first by ID, then by searching cache
+    IceCandidateStats? remoteCandidate;
+    Map<String, dynamic>? remoteData;
+    
+    // Method 1: Direct ID lookup
+    if (_selectedRemoteCandidateId != null &&
+        _candidateCache.containsKey(_selectedRemoteCandidateId)) {
+      remoteData = _candidateCache[_selectedRemoteCandidateId];
+    }
+    
+    // Method 2: Search cache for a remote candidate
+    if (remoteData == null) {
+      for (final entry in _candidateCache.entries) {
+        if (entry.key.contains('Rc_')) {
+          remoteData = entry.value;
+          GlobalLogger().d(
+            'CallReportCollector: Found remote candidate by prefix: ${entry.key}',
+          );
+          break;
+        }
+      }
+    }
+    
+    if (remoteData != null) {
+      remoteCandidate = IceCandidateStats(
+        address: remoteData['address'] as String? ?? remoteData['ip'] as String?,
+        candidateType: remoteData['candidateType'] as String?,
+        networkType: remoteData['networkType'] as String?,
+        port: (remoteData['port'] as num?)?.toInt(),
+        protocol: remoteData['protocol'] as String?,
+        priority: (remoteData['priority'] as num?)?.toInt(),
+        relatedAddress: remoteData['relatedAddress'] as String?,
+        relatedPort: (remoteData['relatedPort'] as num?)?.toInt(),
+      );
+    } else {
+      GlobalLogger().w(
+        'CallReportCollector: No remote candidate found in cache. Available: ${_candidateCache.keys.toList()}',
+      );
+    }
+
+    return IceStats(
+      id: _lastCandidatePair!['id'] as String?,
+      local: localCandidate,
+      remote: remoteCandidate,
+      nominated: _lastCandidatePair!['nominated'] as bool?,
+      requestsSent: (_lastCandidatePair!['requestsSent'] as num?)?.toInt(),
+      responsesReceived: (_lastCandidatePair!['responsesReceived'] as num?)?.toInt(),
+      state: _lastCandidatePair!['state'] as String?,
+      writable: _lastCandidatePair!['writable'] as bool?,
     );
   }
 

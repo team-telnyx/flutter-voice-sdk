@@ -254,6 +254,9 @@ class Peer {
       sessionId: sessionId,
       callId: callId,
       media: 'audio',
+      direction: 'outbound',
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
     );
 
     _sessions[sessionId] = session;
@@ -446,6 +449,10 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     CallTimingBenchmark.start(isOutbound: true);
+    
+    // Extract and cache remote ICE candidates from the SDP
+    _callReportCollector?.cacheIceCandidatesFromSdp(sdp, isLocal: false);
+    
     await _sessions[_selfId]?.peerConnection?.setRemoteDescription(
           RTCSessionDescription(sdp, 'answer'),
         );
@@ -497,8 +504,16 @@ class Peer {
       sessionId: sessionId,
       callId: callId,
       media: 'audio',
+      direction: 'inbound',
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
     );
     _sessions[sessionId] = session;
+
+    // Extract and cache remote ICE candidates from the SDP
+    if (invite.sdp != null) {
+      _callReportCollector?.cacheIceCandidatesFromSdp(invite.sdp!, isLocal: false);
+    }
 
     await session.peerConnection?.setRemoteDescription(
       RTCSessionDescription(invite.sdp, 'offer'),
@@ -557,6 +572,14 @@ class Peer {
             'Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
           );
           if (candidate.candidate != null) {
+            // Cache the candidate for call report ICE stats
+            _callReportCollector?.cacheIceCandidate(
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              isLocal: true,
+            );
+
             if (_useTrickleIce) {
               // With trickle ICE, send all candidates immediately
               _sendTrickleCandidate(candidate, callId);
@@ -731,6 +754,9 @@ class Peer {
     required String sessionId,
     required String callId,
     required String media,
+    String? direction,
+    String? destinationNumber,
+    String? callerNumber,
   }) async {
     final newSession = session ?? Session(sid: sessionId, pid: peerId);
     currentSession = newSession;
@@ -778,7 +804,14 @@ class Peer {
 
     // Start stats asynchronously (non-blocking) to avoid delaying call setup
     unawaited(
-      startStats(callId, peerId, onCallQualityChange: onCallQualityChange),
+      startStats(
+        callId,
+        peerId,
+        onCallQualityChange: onCallQualityChange,
+        direction: direction,
+        destinationNumber: destinationNumber,
+        callerNumber: callerNumber,
+      ),
     );
 
     if (media != 'data') {
@@ -811,6 +844,14 @@ class Peer {
         'Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
       );
       if (candidate.candidate != null) {
+        // Cache the candidate for call report ICE stats
+        _callReportCollector?.cacheIceCandidate(
+          candidate: candidate.candidate!,
+          sdpMid: candidate.sdpMid,
+          sdpMLineIndex: candidate.sdpMLineIndex,
+          isLocal: true,
+        );
+
         if (_useTrickleIce) {
           // With trickle ICE, send ALL candidates immediately (host, srflx, relay)
           GlobalLogger().i(
@@ -851,6 +892,11 @@ class Peer {
       GlobalLogger().i('Peer :: ICE Connection State change :: $state');
       // Benchmark all ICE connection state transitions
       CallTimingBenchmark.mark('ice_state_${state.name}');
+      // Log to call report
+      _callReportLogCollector?.logIceConnectionStateChanged(
+        callId: callId,
+        state: state.name,
+      );
       _previousIceConnectionState = state;
       switch (state) {
         case RTCIceConnectionState.RTCIceConnectionStateConnected:
@@ -926,6 +972,24 @@ class Peer {
       }
     };
 
+    peerConnection?.onSignalingState = (state) {
+      GlobalLogger().i('Peer :: Signaling State change :: $state');
+      // Log to call report
+      _callReportLogCollector?.logSignalingStateChanged(
+        callId: callId,
+        state: state.name,
+      );
+    };
+
+    peerConnection?.onIceGatheringState = (state) {
+      GlobalLogger().i('Peer :: ICE Gathering State change :: $state');
+      // Log to call report
+      _callReportLogCollector?.logIceGatheringStateChanged(
+        callId: callId,
+        state: state.name,
+      );
+    };
+
     peerConnection?.onRemoveStream = (stream) {
       onRemoveRemoteStream?.call(newSession, stream);
       _remoteStreams.removeWhere((it) {
@@ -980,6 +1044,9 @@ class Peer {
     String callId,
     String peerId, {
     CallQualityCallback? onCallQualityChange,
+    String? direction,
+    String? destinationNumber,
+    String? callerNumber,
   }) async {
     if (peerConnection == null) {
       GlobalLogger().d('Peer connection null');
@@ -990,6 +1057,14 @@ class Peer {
     _callReportLogCollector = CallReportLogCollector(
       maxEntries: _callReportMaxLogEntries,
       logLevel: _callReportLogLevel,
+    );
+
+    // Log call started event
+    _callReportLogCollector?.logCallStarted(
+      callId: callId,
+      direction: direction ?? 'unknown',
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
     );
 
     // Always start call report collector (for post-call reporting)
@@ -1067,6 +1142,12 @@ class Peer {
       GlobalLogger().e('Peer :: Cannot post call report: socket host not available');
       return;
     }
+
+    // Log call ended event
+    _callReportLogCollector?.logCallEnded(
+      callId: callId,
+      reason: state,
+    );
 
     final summary = CallSummary(
       callId: callId,
@@ -1270,6 +1351,14 @@ class Peer {
     try {
       GlobalLogger().i(
         'Peer :: Handling remote candidate for call $callId: $candidateStr',
+      );
+
+      // Cache the remote candidate for call report ICE stats
+      _callReportCollector?.cacheIceCandidate(
+        candidate: candidateStr,
+        sdpMid: sdpMid,
+        sdpMLineIndex: sdpMLineIndex,
+        isLocal: false,
       );
 
       // Find the session for this call
