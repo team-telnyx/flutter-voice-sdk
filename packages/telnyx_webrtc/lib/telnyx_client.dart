@@ -49,6 +49,8 @@ import 'package:telnyx_webrtc/utils/candidate_utils.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
+import 'package:telnyx_webrtc/model/latency_metrics.dart';
+import 'package:telnyx_webrtc/utils/latency_tracker.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -148,6 +150,10 @@ class TelnyxClient {
 
     _checkReconnection();
   }
+
+  /// The latency tracker instance for this client.
+  /// Access via `telnyxClient.latencyTracker` to read metrics or set a listener.
+  final LatencyTracker latencyTracker = LatencyTracker();
 
   /// The current instance of [TxSocket] associated with this client
   TxSocket txSocket = TxSocket(DefaultConfig.socketHostAddress);
@@ -1036,6 +1042,9 @@ class TelnyxClient {
     // Store current config for potential fallback
     _currentConfig = tokenConfig;
 
+    // Start registration latency tracking
+    latencyTracker.startRegistrationTracking();
+
     // First check if there is a custom logger set within the config - if so, we set it here
     _logger = tokenConfig.customLogger ?? DefaultLogger();
     GlobalLogger.logger = _logger;
@@ -1068,6 +1077,7 @@ class TelnyxClient {
           GlobalLogger().i(
             'TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected',
           );
+          latencyTracker.markRegistrationMilestone(LatencyTracker.milestoneSocketConnected);
           _onOpen();
           tokenLogin(tokenConfig);
         }
@@ -1095,6 +1105,9 @@ class TelnyxClient {
   void connectWithCredential(CredentialConfig credentialConfig) {
     // Store current config for potential fallback
     _currentConfig = credentialConfig;
+
+    // Start registration latency tracking
+    latencyTracker.startRegistrationTracking();
 
     // First check if there is a custom logger set within the config - if so, we set it here
     // Use custom logger if provided or fallback to default.
@@ -1127,6 +1140,7 @@ class TelnyxClient {
           GlobalLogger().i(
             'TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected',
           );
+          latencyTracker.markRegistrationMilestone(LatencyTracker.milestoneSocketConnected);
           _onOpen();
           credentialLogin(credentialConfig);
         }
@@ -1314,6 +1328,11 @@ class TelnyxClient {
   @Deprecated('Use connectWithCredential(..) instead')
   void credentialLogin(CredentialConfig config) {
     _storedCredentialConfig = config;
+    // Only start registration tracking if not already started by connectWithCredential
+    if (!latencyTracker.isTrackingRegistration) {
+      latencyTracker.startRegistrationTracking();
+    }
+    latencyTracker.markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
     final uuid = const Uuid().v4();
     final user = config.sipUser;
     final password = config.sipPassword;
@@ -1368,6 +1387,11 @@ class TelnyxClient {
   @Deprecated('Use connectWithToken(..) instead')
   void tokenLogin(TokenConfig config) {
     _storedTokenConfig = config;
+    // Only start registration tracking if not already started by connectWithToken
+    if (!latencyTracker.isTrackingRegistration) {
+      latencyTracker.startRegistrationTracking();
+    }
+    latencyTracker.markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
     final uuid = const Uuid().v4();
     final token = config.sipToken;
     final fcmToken = config.notificationToken;
@@ -1567,6 +1591,9 @@ class TelnyxClient {
     final base64State = base64.encode(utf8.encode(clientState));
     updateCall(inviteCall);
 
+    // Start latency tracking for outbound call
+    latencyTracker.startCallTracking(inviteCall.callId!, isOutbound: true);
+
     // Create the peer connection with debug enabled if requested
     inviteCall.peerConnection = Peer(
       inviteCall.txSocket,
@@ -1656,6 +1683,10 @@ class TelnyxClient {
       ..sessionClientState = clientState;
 
     final destinationNum = invite.callerIdNumber;
+
+    // Start latency tracking for inbound call
+    latencyTracker.startCallTracking(answerCall.callId!, isOutbound: false);
+    latencyTracker.markAnswerInitiated(answerCall.callId!);
 
     // Create the peer connection
     answerCall.peerConnection = Peer(
@@ -1895,6 +1926,9 @@ class TelnyxClient {
                       _invalidateGatewayResponseTimer();
                       _resetGatewayCounters();
                       gatewayState = GatewayState.reged;
+                      
+                      // Complete registration latency tracking
+                      latencyTracker.completeRegistrationTracking();
                       
                       // Store call_report_id for call report authentication
                       callReportId = stateMessage.resultParams?.stateParams?.callReportId;
@@ -2138,6 +2172,12 @@ class TelnyxClient {
                     ..callId = invite.inviteParams?.callID;
                   updateCall(offerCall);
 
+                  // Mark invite received for latency tracking
+                  if (offerCall.callId != null) {
+                    latencyTracker.startCallTracking(offerCall.callId!, isOutbound: false);
+                    latencyTracker.markInviteReceived(offerCall.callId!);
+                  }
+
                   onSocketMessageReceived.call(message);
 
                   offerCall.callHandler.changeState(CallState.ringing);
@@ -2252,6 +2292,12 @@ class TelnyxClient {
                     );
                   }
 
+                  // Mark latency milestones for answer received
+                  if (answerCall.callId != null) {
+                    latencyTracker.markCallMilestone(answerCall.callId!, LatencyTracker.milestoneRemoteSdpReceived);
+                    latencyTracker.markCallAnsweredByRemote(answerCall.callId!);
+                  }
+
                   final message = TelnyxMessage(
                     socketMethod: SocketMethod.answer,
                     message: inviteAnswer,
@@ -2334,6 +2380,11 @@ class TelnyxClient {
                   );
 
                   calls.remove(byeCall.callId);
+
+                  // Cancel latency tracking for this call
+                  if (byeCall.callId != null) {
+                    latencyTracker.cancelCallTracking(byeCall.callId!);
+                  }
                   break;
                 }
               case SocketMethod.ringing:
@@ -2348,6 +2399,11 @@ class TelnyxClient {
                     );
                     _sendNoCallError();
                     return;
+                  }
+
+                  // Mark remote ringing for latency tracking (outbound calls)
+                  if (ringingCall.callId != null) {
+                    latencyTracker.markRemoteRinging(ringingCall.callId!);
                   }
 
                   // Send ringing acknowledgement
