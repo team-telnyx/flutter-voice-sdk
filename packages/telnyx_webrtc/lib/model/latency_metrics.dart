@@ -33,7 +33,7 @@ class LatencyMetrics {
   /// Timestamp when these metrics were collected
   final int timestamp;
 
-  const LatencyMetrics({
+  LatencyMetrics({
     this.callId,
     this.isOutbound = false,
     this.registrationLatencyMs,
