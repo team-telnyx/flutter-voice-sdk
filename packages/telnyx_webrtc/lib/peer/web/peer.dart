@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
+import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
@@ -24,6 +25,8 @@ import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/string_utils.dart';
 import 'package:telnyx_webrtc/utils/sdp_utils.dart';
 import 'package:telnyx_webrtc/utils/stats/webrtc_stats_reporter.dart';
+import 'package:telnyx_webrtc/utils/stats/call_report_collector.dart';
+import 'package:telnyx_webrtc/utils/stats/call_report_log_collector.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
@@ -43,7 +46,6 @@ class Peer {
   /// [_useTrickleIce] Whether to use trickle ICE.
   /// [_audioConstraints] Optional audio constraints.
   /// [providedTurn] Optional custom TURN server URL. Defaults to production.
-  /// [providedStun] Optional custom STUN server URL. Defaults to production.
   Peer(
     this._socket,
     this._debug,
@@ -51,12 +53,10 @@ class Peer {
     this._forceRelayCandidate,
     this._useTrickleIce, [
     this._audioConstraints,
-    String? providedTurn,
-    String? providedStun,
     bool initialMuteState = false,
-  ])  : _providedTurn = providedTurn ?? DefaultConfig.defaultTurn,
-        _providedStun = providedStun ?? DefaultConfig.defaultStun,
-        _initialMuteState = initialMuteState;
+    List<TxIceServer> iceServers = const [],
+  ])  : _initialMuteState = initialMuteState,
+        _iceServerList = iceServers;
 
   final TxSocket _socket;
   final TelnyxClient _txClient;
@@ -64,9 +64,8 @@ class Peer {
   final bool _forceRelayCandidate;
   final bool _useTrickleIce;
   final AudioConstraints? _audioConstraints;
-  final String _providedTurn;
-  final String _providedStun;
   final bool _initialMuteState;
+  final List<TxIceServer> _iceServerList;
 
   /// Random numeric ID for this peer (like the mobile version).
   final String _selfId = randomNumeric(6);
@@ -74,7 +73,8 @@ class Peer {
   /// Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
-  static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
+  static const int _negotiationTimeout =
+      1000; // 1000ms timeout for negotiation -- Longer on Web
   Function()? _onNegotiationComplete;
 
   // Add trickle ICE end-of-candidates timer fields
@@ -98,6 +98,10 @@ class Peer {
 
   /// Optional stats reporter (for debug).
   WebRTCStatsReporter? _statsManager;
+  
+  /// Call report collector (always enabled for post-call reporting).
+  CallReportCollector? _callReportCollector;
+  CallReportLogCollector? _callReportLogCollector;
 
   /// Renderers for Web
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
@@ -121,15 +125,20 @@ class Peer {
   String get sdpSemantics =>
       WebRTC.platformIsWindows ? 'plan-b' : 'unified-plan';
 
-  Map<String, dynamic> get _iceServers => {
-        'iceServers': [
-          {
-            'urls': [_providedStun, _providedTurn],
-            'username': DefaultConfig.username,
-            'credential': DefaultConfig.password,
-          },
-        ],
-      };
+  /// Builds the WebRTC ICE servers map from the configured server list.
+  ///
+  /// Falls back to [DefaultConfig.defaultProdIceServers] if no servers were provided.
+  Map<String, dynamic> get _iceServers {
+    final servers = _iceServerList.isNotEmpty
+        ? _iceServerList
+        : DefaultConfig.defaultProdIceServers;
+    GlobalLogger().i(
+      'Web Peer :: Using ICE servers (${servers.length}): ${servers.map((s) => s.urls.first).join(', ')}',
+    );
+    return {
+      'iceServers': servers.map((server) => server.toWebRTCMap()).toList(),
+    };
+  }
 
   /// Builds the ICE configuration based on the forceRelayCandidate setting
   Map<String, dynamic> _buildIceConfiguration() {
@@ -178,7 +187,8 @@ class Peer {
         final bool enabled = audioTracks[0].enabled;
         audioTracks[0].enabled = !enabled;
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
+        GlobalLogger()
+            .w('Peer :: No audio tracks available :: Unable to Mute / Unmute');
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to Mute / Unmute');
@@ -195,7 +205,8 @@ class Peer {
         audioTracks[0].enabled = !muted;
         GlobalLogger().d('Peer :: Microphone mute state set to: $muted');
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to set mute state');
+        GlobalLogger()
+            .w('Peer :: No audio tracks available :: Unable to set mute state');
       }
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
@@ -213,7 +224,8 @@ class Peer {
         if (audioTracks.isNotEmpty) {
           audioTracks[0].enableSpeakerphone(enable);
         } else {
-          GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+          GlobalLogger().w(
+              'Peer :: No audio tracks available :: Unable to toggle speaker mode');
         }
       }
       return;
@@ -225,7 +237,8 @@ class Peer {
         audioTracks[0].enableSpeakerphone(enable);
         GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
       } else {
-        GlobalLogger().w('Peer :: No audio tracks available :: Unable to toggle speaker mode');
+        GlobalLogger().w(
+            'Peer :: No audio tracks available :: Unable to toggle speaker mode');
       }
     } else {
       GlobalLogger().d(
@@ -261,6 +274,9 @@ class Peer {
       sessionId: sessionId,
       callId: callId,
       media: 'audio',
+      direction: 'outbound',
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
     );
 
     _sessions[sessionId] = session;
@@ -299,6 +315,14 @@ class Peer {
       if (_useTrickleIce) {
         session.peerConnection?.onIceCandidate = (candidate) async {
           if (candidate.candidate != null) {
+            // Cache the candidate for call report ICE stats
+            _callReportCollector?.cacheIceCandidate(
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              isLocal: true,
+            );
+
             GlobalLogger().i(
               'Trickle ICE: Sending candidate immediately: ${candidate.candidate}',
             );
@@ -363,16 +387,11 @@ class Peer {
         CallTimingBenchmark.mark('offer_created');
         await session.peerConnection!.setLocalDescription(description);
         CallTimingBenchmark.mark('local_offer_sdp_set');
-
-        final localDesc = await session.peerConnection?.getLocalDescription();
-        if (localDesc != null) {
-          sdpUsed = localDesc.sdp;
-        }
       }
 
       // Send INVITE immediately for trickle ICE, or after delay for regular ICE
       Future<void> sendInvite() async {
-        final userAgent = await VersionUtils.getUserAgent();
+        final userAgent = VersionUtils.getUserAgent();
         final dialogParams = DialogParams(
           attach: false,
           audio: true,
@@ -417,6 +436,11 @@ class Peer {
         _lastCandidateTime = DateTime.now();
         _setOnNegotiationComplete(() async {
           CallTimingBenchmark.mark('ice_gathering_complete');
+          // Re-fetch SDP after candidates have been gathered
+          final localDesc = await session.peerConnection?.getLocalDescription();
+          if (localDesc != null) {
+            sdpUsed = localDesc.sdp;
+          }
           await sendInvite();
           CallTimingBenchmark.mark('invite_sent');
         });
@@ -431,6 +455,10 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     CallTimingBenchmark.start(isOutbound: true);
+    
+    // Extract and cache remote ICE candidates from the SDP
+    _callReportCollector?.cacheIceCandidatesFromSdp(sdp, isLocal: false);
+    
     final session = _sessions[_selfId];
     if (session != null) {
       await session.peerConnection?.setRemoteDescription(
@@ -470,6 +498,7 @@ class Peer {
   /// [invite] The incoming invite parameters containing the SDP offer.
   /// [customHeaders] Custom headers to include in the answer.
   /// [isAttach] Whether this is an attach call.
+  /// [answeredDeviceToken] Optional device token for push notification identification.
   Future<void> accept(
     String callerName,
     String callerNumber,
@@ -478,8 +507,9 @@ class Peer {
     String callId,
     IncomingInviteParams invite,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    String? answeredDeviceToken,
+  }) async {
     CallTimingBenchmark.start();
     final sessionId = _selfId;
     final session = await _createSession(
@@ -488,9 +518,17 @@ class Peer {
       sessionId: sessionId,
       callId: callId,
       media: 'audio',
+      direction: 'inbound',
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
     );
 
     _sessions[sessionId] = session;
+
+    // Extract and cache remote ICE candidates from the SDP
+    if (invite.sdp != null) {
+      _callReportCollector?.cacheIceCandidatesFromSdp(invite.sdp!, isLocal: false);
+    }
 
     // Set the remote SDP from the inbound INVITE
     await session.peerConnection?.setRemoteDescription(
@@ -527,6 +565,7 @@ class Peer {
       callId,
       customHeaders,
       isAttach,
+      answeredDeviceToken: answeredDeviceToken,
     );
 
     onCallStateChange?.call(session, CallState.active);
@@ -541,8 +580,9 @@ class Peer {
     String clientState,
     String callId,
     Map<String, String> customHeaders,
-    bool isAttach,
-  ) async {
+    bool isAttach, {
+    String? answeredDeviceToken,
+  }) async {
     try {
       // ICE candidate callback
       if (_useTrickleIce) {
@@ -552,6 +592,14 @@ class Peer {
             'Trickle ICE :: onIceCandidate in _createAnswer: ${candidate.candidate}',
           );
           if (candidate.candidate != null) {
+            // Cache the candidate for call report ICE stats
+            _callReportCollector?.cacheIceCandidate(
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              isLocal: true,
+            );
+
             GlobalLogger().i(
               'Trickle ICE: Sending candidate immediately: ${candidate.candidate}',
             );
@@ -574,6 +622,14 @@ class Peer {
             'Web Peer :: onIceCandidate in _createAnswer received: ${candidate.candidate}',
           );
           if (candidate.candidate != null) {
+            // Cache the candidate for call report ICE stats
+            _callReportCollector?.cacheIceCandidate(
+              candidate: candidate.candidate!,
+              sdpMid: candidate.sdpMid,
+              sdpMLineIndex: candidate.sdpMLineIndex,
+              isLocal: true,
+            );
+
             final candidateString = candidate.candidate.toString();
             final isValidCandidate =
                 candidateString.contains('stun.telnyx.com') ||
@@ -625,6 +681,7 @@ class Peer {
           customHeaders,
           isAttach,
           modifiedSdp, // Pass the SDP directly to avoid getting it later
+          answeredDeviceToken,
         );
         CallTimingBenchmark.mark('answer_sent');
       } else {
@@ -645,6 +702,8 @@ class Peer {
             clientState,
             customHeaders,
             isAttach,
+            null, // No pre-generated SDP for traditional ICE
+            answeredDeviceToken,
           );
         });
       }
@@ -663,6 +722,7 @@ class Peer {
     Map<String, String> customHeaders,
     bool isAttach, [
     String? preGeneratedSdp,
+    String? answeredDeviceToken,
   ]) async {
     String? sdpUsed = '';
 
@@ -676,7 +736,7 @@ class Peer {
       }
     }
 
-    final userAgent = await VersionUtils.getUserAgent();
+    final userAgent = VersionUtils.getUserAgent();
     final dialogParams = DialogParams(
       attach: false,
       audio: true,
@@ -698,6 +758,8 @@ class Peer {
       sdp: sdpUsed,
       sessid: session.sid,
       userAgent: userAgent,
+      trickle: _useTrickleIce,
+      answeredDeviceToken: answeredDeviceToken,
     );
 
     final answerMessage = InviteAnswerMessage(
@@ -741,6 +803,9 @@ class Peer {
     required String sessionId,
     required String callId,
     required String media,
+    String? direction,
+    String? destinationNumber,
+    String? callerNumber,
   }) async {
     GlobalLogger().i(
       'Web Peer :: _createSession => sid=$sessionId, callId=$callId',
@@ -837,6 +902,14 @@ class Peer {
           'Web Peer :: onIceCandidate in _createSession received: ${candidate.candidate}',
         );
         if (candidate.candidate != null) {
+          // Cache the candidate for call report ICE stats
+          _callReportCollector?.cacheIceCandidate(
+            candidate: candidate.candidate!,
+            sdpMid: candidate.sdpMid,
+            sdpMLineIndex: candidate.sdpMLineIndex,
+            isLocal: true,
+          );
+
           final candidateString = candidate.candidate.toString();
           final isValidCandidate =
               candidateString.contains('stun.telnyx.com') ||
@@ -861,6 +934,11 @@ class Peer {
         GlobalLogger().i('Peer :: ICE Connection State change :: $state');
         // Benchmark all ICE connection state transitions
         CallTimingBenchmark.mark('ice_state_${state.name}');
+        // Log to call report
+        _callReportLogCollector?.logIceConnectionStateChanged(
+          callId: callId,
+          state: state.name,
+        );
         _previousIceConnectionState = state;
         switch (state) {
           case RTCIceConnectionState.RTCIceConnectionStateConnected:
@@ -914,6 +992,22 @@ class Peer {
           CallTimingBenchmark.end();
         }
       }
+      ..onSignalingState = (state) {
+        GlobalLogger().i('Peer :: Signaling State change :: $state');
+        // Log to call report
+        _callReportLogCollector?.logSignalingStateChanged(
+          callId: callId,
+          state: state.name,
+        );
+      }
+      ..onIceGatheringState = (state) {
+        GlobalLogger().i('Peer :: ICE Gathering State change :: $state');
+        // Log to call report
+        _callReportLogCollector?.logIceGatheringStateChanged(
+          callId: callId,
+          state: state.name,
+        );
+      }
       ..onRemoveStream = (stream) {
         GlobalLogger().i('Peer :: onRemoveStream => ${stream.id}');
         onRemoveRemoteStream?.call(newSession, stream);
@@ -932,6 +1026,9 @@ class Peer {
         peerId,
         pc,
         onCallQualityChange: onCallQualityChange,
+        direction: direction,
+        destinationNumber: destinationNumber,
+        callerNumber: callerNumber,
       ),
     );
 
@@ -957,17 +1054,64 @@ class Peer {
   /// [peerId] The ID of the peer.
   /// [pc] The [RTCPeerConnection] to monitor.
   /// Returns a [Future] that completes with true if stats reporting started, false otherwise.
+  /// Call report configuration options (set from Config)
+  int _callReportInterval = 5000;
+  String _callReportLogLevel = 'debug';
+  int _callReportMaxLogEntries = 1000;
+
+  /// Set call report configuration from Config
+  void setCallReportConfig({
+    int callReportInterval = 5000,
+    String callReportLogLevel = 'debug',
+    int callReportMaxLogEntries = 1000,
+  }) {
+    _callReportInterval = callReportInterval;
+    _callReportLogLevel = callReportLogLevel;
+    _callReportMaxLogEntries = callReportMaxLogEntries;
+  }
+
+  /// Get the log collector for external event logging
+  CallReportLogCollector? get callReportLogCollector => _callReportLogCollector;
+
   Future<bool> startStats(
     String callId,
     String peerId,
     RTCPeerConnection pc, {
     CallQualityCallback? onCallQualityChange,
+    String? direction,
+    String? destinationNumber,
+    String? callerNumber,
   }) async {
+    // Create log collector
+    _callReportLogCollector = CallReportLogCollector(
+      maxEntries: _callReportMaxLogEntries,
+      logLevel: _callReportLogLevel,
+    );
+
+    // Log call started event
+    _callReportLogCollector?.logCallStarted(
+      callId: callId,
+      direction: direction ?? 'unknown',
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
+    );
+
+    // Always start call report collector (for post-call reporting)
+    _callReportCollector = CallReportCollector(
+      options: CallReportOptions(
+        intervalMs: _callReportInterval,
+      ),
+      logCollector: _callReportLogCollector,
+    );
+    _callReportCollector?.start(pc);
+    GlobalLogger().d('Peer :: CallReportCollector started for $callId');
+
+    // Only start WebRTC stats reporter if debug mode is enabled
     if (!_debug) {
       GlobalLogger().d(
         'Peer :: Stats manager will NOT start; debug mode not enabled.',
       );
-      return false;
+      return true; // Return true because call report collector started
     }
     _statsManager = WebRTCStatsReporter(
       _socket,
@@ -983,12 +1127,79 @@ class Peer {
   }
 
   /// Stops WebRTC statistics reporting for the given call ID.
-  /// This only acts if debug mode is enabled.
+  /// Awaits final stats collection to ensure no data is lost.
   /// [callId] The ID of the call for which to stop stats.
-  void stopStats(String callId) {
-    if (!_debug) return;
-    _statsManager?.stopStatsReporting();
-    GlobalLogger().d('Peer :: Stats Manager stopped for $callId');
+  Future<void> stopStats(String callId) async {
+    // Stop call report collector (always) - await to capture final stats
+    await _callReportCollector?.stop();
+    GlobalLogger().i('Peer :: CallReportCollector stopped for $callId');
+
+    // Stop WebRTC stats reporter if it was started
+    if (_debug) {
+      _statsManager?.stopStatsReporting();
+      GlobalLogger().i('Peer :: Stats Manager stopped for $callId');
+    }
+  }
+
+  /// Posts the collected call report to voice-sdk-proxy.
+  /// Should be called after stopStats() when the call ends.
+  Future<void> postCallReport({
+    required String callId,
+    required String direction,
+    String? destinationNumber,
+    String? callerNumber,
+    String? state,
+    String? telnyxSessionId,
+    String? telnyxLegId,
+  }) async {
+    if (_callReportCollector == null) {
+      GlobalLogger().d('Peer :: No call report collector to post');
+      return;
+    }
+
+    final callReportId = _txClient.callReportId;
+    final host = _txClient.socketHost;
+
+    if (callReportId == null) {
+      GlobalLogger().d('Peer :: Cannot post call report: callReportId not available');
+      return;
+    }
+
+    if (host == null) {
+      GlobalLogger().e('Peer :: Cannot post call report: socket host not available');
+      return;
+    }
+
+    // Log call ended event
+    _callReportLogCollector?.logCallEnded(
+      callId: callId,
+      reason: state,
+    );
+
+    final summary = CallSummary(
+      callId: callId,
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
+      direction: direction,
+      state: state,
+      telnyxSessionId: telnyxSessionId,
+      telnyxLegId: telnyxLegId,
+      sdkVersion: VersionUtils.getSDKVersion(),
+    );
+
+    // Store upload config for intermediate segment flushing
+    _callReportCollector!.storeUploadConfig(
+      callReportId: callReportId,
+      host: host,
+      voiceSdkId: _txClient.voiceSdkId,
+    );
+
+    await _callReportCollector!.postReport(
+      summary: summary,
+      callReportId: callReportId,
+      host: host,
+      voiceSdkId: _txClient.voiceSdkId,
+    );
   }
 
   Future<void> _cleanSessions() async {
@@ -1173,6 +1384,14 @@ class Peer {
     String? sdpMid,
     int? sdpMLineIndex,
   ) async {
+    // Cache the remote candidate for call report ICE stats
+    _callReportCollector?.cacheIceCandidate(
+      candidate: candidateStr,
+      sdpMid: sdpMid,
+      sdpMLineIndex: sdpMLineIndex,
+      isLocal: false,
+    );
+
     final session = _sessions[_selfId];
     if (session?.peerConnection != null) {
       try {
