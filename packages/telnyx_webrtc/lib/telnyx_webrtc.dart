@@ -34,3 +34,6 @@ export './peer/peer.dart';
 
 export './utils/stats/call_report_collector.dart';
 export './utils/stats/call_report_log_collector.dart';
+
+export './model/latency_metrics.dart';
+export './utils/latency_tracker.dart';

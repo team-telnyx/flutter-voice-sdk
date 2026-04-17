@@ -383,6 +383,11 @@ class Call {
     _txClient.onCallStateChangedToActive(callId);
 
     _txClient.calls.remove(callId);
+
+    // Cancel latency tracking for this call
+    if (callId != null) {
+      _txClient.latencyTracker.cancelCallTracking(callId!);
+    }
     final message = TelnyxMessage(
       socketMethod: SocketMethod.bye,
       message: ReceivedMessage(method: 'telnyx_rtc.bye'),
