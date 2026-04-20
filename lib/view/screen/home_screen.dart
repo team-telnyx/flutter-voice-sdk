@@ -24,6 +24,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _targetIdController = TextEditingController();
+  final TextEditingController _conversationIdController =
+      TextEditingController();
   bool _hasInitializedEnvironment = false;
 
   @override
@@ -49,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _targetIdController.dispose();
+    _conversationIdController.dispose();
     super.dispose();
   }
 
@@ -83,6 +86,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _conversationIdController,
+                decoration: const InputDecoration(
+                  labelText: 'Conversation ID (Optional)',
+                  hintText: 'e.g., conv-456',
+                  border: OutlineInputBorder(),
+                ),
+              ),
             ],
           ),
           actions: [
@@ -95,11 +107,19 @@ class _HomeScreenState extends State<HomeScreen> {
             ElevatedButton(
               onPressed: () {
                 final targetId = _targetIdController.text.trim();
+                final conversationId =
+                    _conversationIdController.text.trim().isNotEmpty
+                        ? _conversationIdController.text.trim()
+                        : null;
                 if (targetId.isNotEmpty) {
                   Navigator.of(context).pop();
                   Provider.of<TelnyxClientViewModel>(context, listen: false)
-                      .anonymousLogin(targetId: targetId);
+                      .anonymousLogin(
+                    targetId: targetId,
+                    conversationId: conversationId,
+                  );
                   _targetIdController.clear();
+                  _conversationIdController.clear();
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

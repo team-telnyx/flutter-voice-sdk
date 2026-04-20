@@ -176,16 +176,21 @@ class ResultParams {
 
 class StateParams {
   String? state;
+  String? callReportId;
 
-  StateParams({this.state});
+  StateParams({this.state, this.callReportId});
 
   StateParams.fromJson(Map<String, dynamic> json) {
     state = json['state'];
+    callReportId = json['call_report_id'];
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['state'] = state;
+    if (callReportId != null) {
+      data['call_report_id'] = callReportId;
+    }
     return data;
   }
 
@@ -207,6 +212,13 @@ class IncomingInviteParams {
   String? telnyxLegId;
   String? displayDirection;
 
+  /// The Telnyx Call Control ID for this call.
+  ///
+  /// This field is available for outbound flows (parked & bridged) and can be
+  /// used to identify the call in the Telnyx Call Control API. It may be null
+  /// for calls that don't have a Call Control ID assigned.
+  String? telnyxCallControlId;
+
   IncomingInviteParams({
     this.callID,
     this.variables,
@@ -218,6 +230,7 @@ class IncomingInviteParams {
     this.telnyxSessionId,
     this.telnyxLegId,
     this.displayDirection,
+    this.telnyxCallControlId,
   });
 
   IncomingInviteParams.fromJson(Map<String, dynamic> json) {
@@ -233,6 +246,7 @@ class IncomingInviteParams {
     telnyxSessionId = json['telnyx_session_id'];
     telnyxLegId = json['telnyx_leg_id'];
     displayDirection = json['display_direction'];
+    telnyxCallControlId = json['telnyx_call_control_id'];
   }
 
   Map<String, dynamic> toJson() {
@@ -249,6 +263,7 @@ class IncomingInviteParams {
     data['telnyx_session_id'] = telnyxSessionId;
     data['telnyx_leg_id'] = telnyxLegId;
     data['display_direction'] = displayDirection;
+    data['telnyx_call_control_id'] = telnyxCallControlId;
     return data;
   }
 }

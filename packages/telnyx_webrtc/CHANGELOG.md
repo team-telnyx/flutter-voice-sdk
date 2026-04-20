@@ -1,7 +1,27 @@
+## [4.1.0](https://pub.dev/packages/telnyx_webrtc/versions/4.1.0) (2026-03-08)
+### Enhancement
+- Added `conversationId` parameter to the `anonymousLogin` method, allowing users to join an existing conversation by providing a valid conversation ID. This enables seamless continuation of AI assistant conversations.
+- Added automatic call reporting for every call to enhance customer call debugging. Logs are sent via post request at the end of call to avoid cluttering web socket. 
+- Added `call-control-id` as a parameter that can be fetched when a call uses call control. Exposed in TelnyxClient
+- Adjustments to TURN/STUN server configuration to include UDP
+
+## [4.0.1](https://pub.dev/packages/telnyx_webrtc/versions/4.0.1) (2026-02-12)
+### Bug Fixing
+- fix web outbound calling and build by including answered device token and improved SDP handling 
+
+## [4.0.0](https://pub.dev/packages/telnyx_webrtc/versions/4.0.0) (2026-02-05)
+### Breaking
+- Using version 4.0.0 will adjust how Push Notifications are handled on iOS devices. Using 4.0.0 allows iOS devices to received `MISSED CALL` notifications - signifying that a call was either missed, or an existing ongoing invitation that was not yet reacted to has been cancelled. Please make sure you are handling these `MISSED CALL` notifications appropriately if necessary or don't update. 
+
+### Bug Fixing
+- Align jitter source with Android/iOS Native SDKs for consistent MOS calculation when using Stats.
+
+### Enhancement
+- Send an answered `answered_device_token` parameter for push notification calls, allowing us to send `MISSED CALL` notifications to all registered devices except the one that answered if users are using multiple devices
+
 ## [3.4.2](https://pub.dev/packages/telnyx_webrtc/versions/3.4.2) (2026-01-15)
 ### Bug Fixing
 - Fixed an issue where `CallState.active` was not called for outbound calls, and users could only rely on `SocketMethod.answer` to determine when a call was active.
-
 
 ## [3.4.1](https://pub.dev/packages/telnyx_webrtc/versions/3.4.1) (2026-01-09)
 ### Bug Fixing

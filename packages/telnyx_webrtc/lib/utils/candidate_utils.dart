@@ -1,5 +1,4 @@
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
-import 'package:uuid/uuid.dart';
 
 /// Utility class for handling ICE candidate processing and validation.
 /// This class contains helper methods extracted from TelnyxClient to reduce complexity
