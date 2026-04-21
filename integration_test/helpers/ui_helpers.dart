@@ -12,7 +12,7 @@ extension UIHelpers on PatrolIntegrationTester {
     Duration retryDelay = TestConfig.retryDelay,
     String? description,
   }) async {
-    Exception? lastError;
+    Object? lastError;
 
     for (var attempt = 0; attempt < maxRetries; attempt++) {
       try {
@@ -20,7 +20,7 @@ extension UIHelpers on PatrolIntegrationTester {
         await pumpAndSettle();
         return;
       } catch (e) {
-        lastError = e as Exception;
+        lastError = e;
         if (attempt < maxRetries - 1) {
           await Future.delayed(retryDelay);
           await pump();
@@ -55,7 +55,7 @@ extension UIHelpers on PatrolIntegrationTester {
     String text, {
     int maxRetries = TestConfig.maxRetries,
   }) async {
-    Exception? lastError;
+    Object? lastError;
 
     for (var attempt = 0; attempt < maxRetries; attempt++) {
       try {
@@ -64,7 +64,7 @@ extension UIHelpers on PatrolIntegrationTester {
         await pumpAndSettle();
         return;
       } catch (e) {
-        lastError = e as Exception;
+        lastError = e;
         if (attempt < maxRetries - 1) {
           await Future.delayed(TestConfig.retryDelay);
           await pump();
