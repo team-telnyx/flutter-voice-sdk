@@ -42,7 +42,7 @@ jobs:
 
       # 5) Install Patrol CLI (must match patrol package version)
       - name: Install Patrol CLI
-        run: flutter pub global activate patrol_cli 4.1.0
+        run: flutter pub global activate patrol_cli 4.3.1
 
       # 6) Cache Gradle dependencies
       - name: Cache Gradle dependencies
