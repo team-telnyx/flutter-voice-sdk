@@ -36,15 +36,13 @@ extension CallHelpers on PatrolIntegrationTester {
     await pumpAndSettle();
     
     // Also try tapping outside to ensure keyboard is gone
-    await tester.tapAt(const Offset(10, 10));
+    //await tester.tapAt(const Offset(10, 10));
     await pumpAndSettle();
 
     // Save
     await tapTextWithRetry('Save');
-
     // Select the profile
     await tapTextWithRetry(profileName);
-
     // Confirm if button exists
     await tapTextIfExists('Confirm');
 
