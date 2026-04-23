@@ -1,3 +1,7 @@
+## [4.2.0](https://pub.dev/packages/telnyx_webrtc/versions/4.2.0) (2026-04-23)
+### Enhancement
+- Patrol integration tests with Firebase Test Lab and local emulator fallback
+
 ## [4.1.0](https://pub.dev/packages/telnyx_webrtc/versions/4.1.0) (2026-03-08)
 ### Enhancement
 - Added `conversationId` parameter to the `anonymousLogin` method, allowing users to join an existing conversation by providing a valid conversation ID. This enables seamless continuation of AI assistant conversations.
