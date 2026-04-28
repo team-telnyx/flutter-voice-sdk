@@ -136,9 +136,7 @@ jobs:
             adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.CAMERA || true
             
             echo "🧪 Running instrumentation tests..."
-            adb shell am instrument -w \
-              -e clearPackageData true \
-              com.telnyx.flutter_voice_sdk_demo.test/androidx.test.runner.AndroidJUnitRunner
+            adb shell am instrument -w -e clearPackageData true com.telnyx.flutter_voice_sdk_demo.test/androidx.test.runner.AndroidJUnitRunner
 
       # ============================================================
       # RESULTS
