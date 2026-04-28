@@ -131,12 +131,12 @@ jobs:
             adb install -r build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             
             echo "🔓 Granting permissions..."
-            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.RECORD_AUDIO || true
-            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.POST_NOTIFICATIONS || true
-            adb shell pm grant com.telnyx.flutter_voice_sdk_demo android.permission.CAMERA || true
+            adb shell pm grant com.telnyx.telnyx_flutter_webrtc android.permission.RECORD_AUDIO || true
+            adb shell pm grant com.telnyx.telnyx_flutter_webrtc android.permission.POST_NOTIFICATIONS || true
+            adb shell pm grant com.telnyx.telnyx_flutter_webrtc android.permission.CAMERA || true
             
             echo "🧪 Running instrumentation tests..."
-            adb shell am instrument -w -e clearPackageData true com.telnyx.flutter_voice_sdk_demo.test/pl.leancode.patrol.PatrolJUnitRunner
+            adb shell am instrument -w -e clearPackageData true com.telnyx.telnyx_flutter_webrtc.test/pl.leancode.patrol.PatrolJUnitRunner
 
       # ============================================================
       # RESULTS
