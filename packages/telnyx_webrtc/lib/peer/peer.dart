@@ -491,8 +491,8 @@ class Peer {
       }
     }
     if (remoteSdpCallId != null) {
-      _txClient.latencyTracker.markCallMilestone(remoteSdpCallId!, LatencyTracker.milestoneRemoteSdpReceived);
-      _txClient.latencyTracker.markCallMilestone(remoteSdpCallId!, LatencyTracker.milestoneRemoteSdpSet);
+      _txClient.latencyTracker.markCallMilestone(remoteSdpCallId, LatencyTracker.milestoneRemoteSdpReceived);
+      _txClient.latencyTracker.markCallMilestone(remoteSdpCallId, LatencyTracker.milestoneRemoteSdpSet);
     }
 
     // Process any queued candidates after setting remote SDP
