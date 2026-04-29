@@ -137,6 +137,7 @@ class _CallControlsState extends State<CallControls> {
           Padding(
             padding: const EdgeInsets.all(spacingXS),
             child: TextFormField(
+              key: const Key('destination_field'),
               readOnly: clientState != CallStateStatus.idle,
               enabled: clientState == CallStateStatus.idle,
               controller: _destinationController,
