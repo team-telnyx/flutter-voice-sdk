@@ -405,7 +405,43 @@ class AndroidPushNotificationHandler implements PushNotificationHandler {
       return initialMessage.data;
     }
     // Fallback to getPushData from TelnyxClient for consistency with old flow, though getInitialMessage is preferred for FCM.
-    return TelnyxClient.getPushData();
+    final pushData = await TelnyxClient.getPushData();
+    if (pushData != null) {
+      _logger.i(
+        '[PushNotificationHandler-Android] getInitialPushData: Found push data from SharedPreferences: $pushData',
+      );
+      return pushData;
+    }
+    // Fallback to active CallKit calls (handles terminated state when
+    // FCM getInitialMessage returns null and SharedPreferences write
+    // from background isolate didn't complete)
+    try {
+      final activeCalls = await FlutterCallkitIncoming.activeCalls();
+      if (activeCalls.isNotEmpty) {
+        final activeCall = activeCalls.first;
+        final extra = activeCall['extra'];
+        if (extra != null) {
+          final metadata = extra['metadata'];
+          if (metadata != null) {
+            Map<String, dynamic> decodedMetadata;
+            if (metadata is String) {
+              decodedMetadata = Map<String, dynamic>.from(jsonDecode(metadata));
+            } else {
+              decodedMetadata = Map<String, dynamic>.from(metadata as Map);
+            }
+            _logger.i(
+              '[PushNotificationHandler-Android] getInitialPushData: Found active CallKit call with metadata: $decodedMetadata',
+            );
+            return decodedMetadata;
+          }
+        }
+      }
+    } catch (e) {
+      _logger.e(
+        '[PushNotificationHandler-Android] getInitialPushData: Error checking active CallKit calls: $e',
+      );
+    }
+    return null;
   }
 
   @override
