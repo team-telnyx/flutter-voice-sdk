@@ -359,8 +359,6 @@ class CallReportCollector {
   Map<String, dynamic>? _lastCandidatePair;
 
   // ICE candidate data
-  Map<String, dynamic>? _lastLocalCandidate;
-  Map<String, dynamic>? _lastRemoteCandidate;
   String? _selectedLocalCandidateId;
   String? _selectedRemoteCandidateId;
 
