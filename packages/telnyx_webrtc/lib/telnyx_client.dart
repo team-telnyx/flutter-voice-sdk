@@ -49,7 +49,6 @@ import 'package:telnyx_webrtc/utils/candidate_utils.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
-import 'package:telnyx_webrtc/model/latency_metrics.dart';
 import 'package:telnyx_webrtc/utils/latency_tracker.dart';
 
 /// Callback for when the socket receives a message
