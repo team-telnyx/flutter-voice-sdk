@@ -1092,6 +1092,7 @@ class Peer {
 
         // Add CallTimings logs to the call report
         final timingsLogs = _txClient.latencyTracker.generateCallTimingsLogs(callId);
+        GlobalLogger().i('Peer :: CallTimings generated ${timingsLogs.length} entries for call $callId');
         for (final entry in timingsLogs) {
           _callReportLogCollector?.addLog(
             level: entry['level'] as String? ?? 'info',

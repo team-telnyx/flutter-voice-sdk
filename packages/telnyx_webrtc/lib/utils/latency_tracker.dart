@@ -372,7 +372,10 @@ class LatencyTracker {
   List<Map<String, dynamic>> generateCallTimingsLogs(String callId) {
     final state = _callTrackers[callId];
     final milestones = state?.milestones;
-    if (milestones == null || milestones.isEmpty) return [];
+    if (milestones == null || milestones.isEmpty) {
+      GlobalLogger().w('LatencyTracker::generateCallTimingsLogs: No milestones for call $callId (tracker exists: ${state != null}, milestones: ${milestones?.length ?? 0})');
+      return [];
+    }
 
     final direction = state!.isOutbound ? 'outbound' : 'inbound';
     final mode = 'trickle'; // Flutter SDK uses trickle ICE
