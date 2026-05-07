@@ -296,6 +296,158 @@ class LatencyTracker {
     _callTrackers.clear();
   }
 
+  // ===== CallTimings Log Generation =====
+
+  // Column widths must match the JS SDK format so the call-report-stats
+  // portal can parse data rows with its regex:
+  //   ~r/^(?<step>.+?)\s{2,}(?<delta>[\d.]+ms|-)\s+(?<from>[\d.]+)ms\s*$/
+  // The key requirement is at least 2 spaces between columns.
+  static const int _stepColumnWidth = 40;
+  static const int _deltaColumnWidth = 10;
+
+  /// Step name mapping for outbound calls.
+  static const Map<String, String> _outboundStepMapping = {
+    milestoneCallInitiated: 'Call Start',
+    milestonePeerCreated: 'Peer object created',
+    milestonePeerSetupComplete: 'Peer setup complete',
+    milestoneMediaDevicesAcquired: 'Media devices acquired',
+    milestoneSdpNegotiationStarted: 'SDP negotiation started',
+    milestoneLocalSdpCreated: 'Local SDP created',
+    milestoneLocalSdpSet: 'Local SDP set',
+    milestoneInviteSent: 'INVITE sent',
+    milestoneRemoteRinging: 'Remote ringing',
+    milestoneCallAnsweredByRemote: 'Remote answered',
+    milestoneRemoteSdpReceived: 'Remote SDP received',
+    milestoneRemoteSdpSet: 'Remote SDP set',
+    milestoneIceGatheringStarted: 'ICE gathering started',
+    milestoneFirstIceCandidate: 'First ICE candidate',
+    milestoneFirstSrflxRelayCandidate: 'First srflx/relay candidate',
+    milestoneIceGatheringComplete: 'ICE gathering complete',
+    milestoneIceChecking: 'ICE checking',
+    milestoneIceConnected: 'ICE connected',
+    milestoneDtlsConnecting: 'DTLS connecting',
+    milestoneDtlsConnected: 'DTLS connected',
+    milestonePeerConnected: 'Peer connected',
+    milestoneFirstRtpSent: 'First RTP sent',
+    milestoneFirstRtpReceived: 'First RTP received',
+    milestoneMediaActive: 'Media active',
+    milestoneCallActive: 'Call is active',
+  };
+
+  /// Step name mapping for inbound calls.
+  static const Map<String, String> _inboundStepMapping = {
+    milestoneCallInitiated: 'Call Start',
+    milestoneInviteReceived: 'Invite received',
+    milestoneAnswerInitiated: 'Answer initiated',
+    milestonePeerCreated: 'Peer object created',
+    milestonePeerSetupComplete: 'Peer setup complete',
+    milestoneMediaDevicesAcquired: 'Media devices acquired',
+    milestoneSdpNegotiationStarted: 'SDP negotiation started',
+    milestoneLocalSdpCreated: 'Local SDP created',
+    milestoneLocalSdpSet: 'Local SDP set',
+    milestoneAnswerSent: 'ANSWER sent',
+    milestoneRemoteSdpReceived: 'Remote SDP received',
+    milestoneRemoteSdpSet: 'Remote SDP set',
+    milestoneIceGatheringStarted: 'ICE gathering started',
+    milestoneFirstIceCandidate: 'First ICE candidate',
+    milestoneFirstSrflxRelayCandidate: 'First srflx/relay candidate',
+    milestoneIceGatheringComplete: 'ICE gathering complete',
+    milestoneIceChecking: 'ICE checking',
+    milestoneIceConnected: 'ICE connected',
+    milestoneDtlsConnecting: 'DTLS connecting',
+    milestoneDtlsConnected: 'DTLS connected',
+    milestonePeerConnected: 'Peer connected',
+    milestoneFirstRtpSent: 'First RTP sent',
+    milestoneFirstRtpReceived: 'First RTP received',
+    milestoneMediaActive: 'Media active',
+    milestoneCallActive: 'Call is active',
+  };
+
+  /// Generates CallTimings log entries for a call based on tracked milestones.
+  /// The output format matches the JS SDK's CallTimings log format:
+  ///   [CallTimings][direction][mode] <step> <delta_ms> <from_start_ms>
+  ///
+  /// Returns a list of maps with 'level', 'message', and 'timestamp' keys,
+  /// compatible with CallReportLogCollector.addLog().
+  List<Map<String, dynamic>> generateCallTimingsLogs(String callId) {
+    final state = _callTrackers[callId];
+    final milestones = state?.milestones;
+    if (milestones == null || milestones.isEmpty) return [];
+
+    final direction = state!.isOutbound ? 'outbound' : 'inbound';
+    final mode = 'trickle'; // Flutter SDK uses trickle ICE
+    final prefix = '[CallTimings][$direction][$mode]';
+
+    final stepMapping =
+        state.isOutbound ? _outboundStepMapping : _inboundStepMapping;
+    final entries = <Map<String, dynamic>>[];
+    final timestamp = DateTime.now().toUtc().toIso8601String();
+
+    // Header entries
+    entries.add({
+      'level': 'info',
+      'message': '$prefix Call establishment timing breakdown:',
+      'timestamp': timestamp,
+    });
+    entries.add({
+      'level': 'info',
+      'message':
+          '$prefix ${_padRight('Step', _stepColumnWidth)}${_padLeft('Delta', _deltaColumnWidth)}    From Start',
+      'timestamp': timestamp,
+    });
+    entries.add({
+      'level': 'info',
+      'message':
+          '$prefix --------------------------------------------------------------------------',
+      'timestamp': timestamp,
+    });
+
+    // Step entries — sorted by actual chronological order to avoid negative deltas.
+    final recordedSteps = <_TimedStep>[];
+    for (final entry in stepMapping.entries) {
+      final fromStartMs = milestones[entry.key];
+      if (fromStartMs != null) {
+        recordedSteps.add(_TimedStep(entry.value, fromStartMs));
+      }
+    }
+    recordedSteps.sort((a, b) => a.fromStartMs.compareTo(b.fromStartMs));
+
+    int? previousMs;
+    for (final step in recordedSteps) {
+      final deltaMs = previousMs != null ? step.fromStartMs - previousMs : null;
+      previousMs = step.fromStartMs;
+
+      final stepPadded = _padRight(step.stepName, _stepColumnWidth);
+      final message = deltaMs == null
+          ? '$prefix $stepPadded${_padLeft('-', _deltaColumnWidth)}        ${(step.fromStartMs.toDouble()).toStringAsFixed(2)}ms'
+          : '$prefix $stepPadded${_padLeft('${deltaMs.toDouble().toStringAsFixed(2)}ms', _deltaColumnWidth)}        ${(step.fromStartMs.toDouble()).toStringAsFixed(2)}ms';
+
+      entries.add({
+        'level': 'info',
+        'message': message,
+        'timestamp': timestamp,
+      });
+    }
+
+    // Footer
+    entries.add({
+      'level': 'info',
+      'message':
+          '$prefix --------------------------------------------------------------------------',
+      'timestamp': timestamp,
+    });
+
+    return entries;
+  }
+
+  /// Right-pads a string to [width] characters.
+  static String _padRight(String s, int width) =>
+      s.length >= width ? s : s + ' ' * (width - s.length);
+
+  /// Left-pads a string to [width] characters.
+  static String _padLeft(String s, int width) =>
+      s.length >= width ? s : ' ' * (width - s.length) + s;
+
   /// Disposes resources.
   void dispose() {
     _latencyMetricsController.close();
@@ -361,4 +513,12 @@ class _CallTrackingState {
     required this.startTime,
     required this.isOutbound,
   });
+}
+
+/// Internal helper for sorting steps chronologically.
+class _TimedStep {
+  final String stepName;
+  final int fromStartMs;
+
+  _TimedStep(this.stepName, this.fromStartMs);
 }
