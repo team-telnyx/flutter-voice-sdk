@@ -674,7 +674,7 @@ class CallReportCollector {
         );
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          GlobalLogger().i('CallReportCollector: Successfully posted report');
+          GlobalLogger().i('CallReportCollector: Successfully posted report for call: ${summary.callId}');
           return;
         } else if (response.statusCode >= 400 && response.statusCode < 500) {
           // Client error - don't retry
