@@ -1086,22 +1086,22 @@ class Peer {
         CallTimingBenchmark.end();
 
         // Latency milestones
-        _txClient.latencyTracker.markCallMilestone(callId, LatencyTracker.milestoneDtlsConnected);
-        _txClient.latencyTracker.markCallMilestone(callId, LatencyTracker.milestonePeerConnected);
+        _txClient.latencyTracker
+            .markCallMilestone(callId, LatencyTracker.milestoneDtlsConnected);
+        _txClient.latencyTracker
+            .markCallMilestone(callId, LatencyTracker.milestonePeerConnected);
 
-        // Generate CallTimings logs BEFORE completeCallTracking, because
-        // completeCallTracking removes the tracker from _callTrackers.
-        final timingsLogs = _txClient.latencyTracker.generateCallTimingsLogs(callId);
-        GlobalLogger().i('Peer :: CallTimings generated ${timingsLogs.length} entries for call $callId');
+        final timingsLogs =
+            _txClient.latencyTracker.completeCallTracking(callId);
+        GlobalLogger().i(
+          'Peer :: CallTimings generated ${timingsLogs.length} entries for call $callId',
+        );
         for (final entry in timingsLogs) {
           _callReportLogCollector?.addLog(
             level: entry['level'] as String? ?? 'info',
             message: entry['message'] as String? ?? '',
           );
         }
-
-        // Now complete tracking (this removes the tracker from _callTrackers)
-        _txClient.latencyTracker.completeCallTracking(callId);
       }
     };
 

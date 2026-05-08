@@ -131,10 +131,16 @@ class LatencyTracker {
   /// Starts tracking latency for a new call.
   /// [callId] The unique identifier for the call.
   /// [isOutbound] True for outbound calls, false for inbound.
-  void startCallTracking(String callId, {bool isOutbound = false}) {
+  /// [useTrickleIce] True when trickle ICE is enabled for this call.
+  void startCallTracking(
+    String callId, {
+    bool isOutbound = false,
+    bool useTrickleIce = true,
+  }) {
     _callTrackers[callId] = _CallTrackingState(
       startTime: DateTime.now().millisecondsSinceEpoch,
       isOutbound: isOutbound,
+      iceMode: useTrickleIce ? 'trickle' : 'standard',
     );
     markCallMilestone(callId, milestoneCallInitiated);
   }
@@ -208,11 +214,13 @@ class LatencyTracker {
 
   /// Completes call tracking and emits the final metrics.
   /// Call this when the call reaches ACTIVE state.
-  void completeCallTracking(String callId) {
+  /// Returns generated CallTimings log entries before removing tracking state.
+  List<Map<String, dynamic>> completeCallTracking(String callId) {
     final state = _callTrackers[callId];
-    if (state == null) return;
+    if (state == null) return [];
 
     markCallMilestone(callId, milestoneCallActive);
+    final timingsLogs = generateCallTimingsLogs(callId);
 
     final milestones = Map<String, int>.unmodifiable(state.milestones);
     final totalTime =
@@ -243,6 +251,7 @@ class LatencyTracker {
 
     // Clean up
     _callTrackers.remove(callId);
+    return timingsLogs;
   }
 
   /// Cancels tracking for a call (e.g., if call fails).
@@ -373,12 +382,11 @@ class LatencyTracker {
     final state = _callTrackers[callId];
     final milestones = state?.milestones;
     if (milestones == null || milestones.isEmpty) {
-      GlobalLogger().w('LatencyTracker::generateCallTimingsLogs: No milestones for call $callId (tracker exists: ${state != null}, milestones: ${milestones?.length ?? 0})');
       return [];
     }
 
     final direction = state!.isOutbound ? 'outbound' : 'inbound';
-    final mode = 'trickle'; // Flutter SDK uses trickle ICE
+    final mode = state.iceMode;
     final prefix = '[CallTimings][$direction][$mode]';
 
     final stepMapping =
@@ -510,11 +518,13 @@ class LatencyTracker {
 class _CallTrackingState {
   final int startTime;
   final bool isOutbound;
+  final String iceMode;
   final Map<String, int> milestones = {};
 
   _CallTrackingState({
     required this.startTime,
     required this.isOutbound,
+    required this.iceMode,
   });
 }
 
