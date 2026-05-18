@@ -1591,7 +1591,11 @@ class TelnyxClient {
     updateCall(inviteCall);
 
     // Start latency tracking for outbound call
-    latencyTracker.startCallTracking(inviteCall.callId!, isOutbound: true);
+    latencyTracker.startCallTracking(
+      inviteCall.callId!,
+      isOutbound: true,
+      useTrickleIce: useTrickleIce,
+    );
 
     // Create the peer connection with debug enabled if requested
     inviteCall.peerConnection = Peer(
@@ -1684,7 +1688,11 @@ class TelnyxClient {
     final destinationNum = invite.callerIdNumber;
 
     // Start latency tracking for inbound call
-    latencyTracker.startCallTracking(answerCall.callId!, isOutbound: false);
+    latencyTracker.startCallTracking(
+      answerCall.callId!,
+      isOutbound: false,
+      useTrickleIce: useTrickleIce,
+    );
     latencyTracker.markAnswerInitiated(answerCall.callId!);
 
     // Create the peer connection
@@ -2173,7 +2181,10 @@ class TelnyxClient {
 
                   // Mark invite received for latency tracking
                   if (offerCall.callId != null) {
-                    latencyTracker.startCallTracking(offerCall.callId!, isOutbound: false);
+                    latencyTracker.startCallTracking(
+                      offerCall.callId!,
+                      isOutbound: false,
+                    );
                     latencyTracker.markInviteReceived(offerCall.callId!);
                   }
 

@@ -1086,9 +1086,22 @@ class Peer {
         CallTimingBenchmark.end();
 
         // Latency milestones
-        _txClient.latencyTracker.markCallMilestone(callId, LatencyTracker.milestoneDtlsConnected);
-        _txClient.latencyTracker.markCallMilestone(callId, LatencyTracker.milestonePeerConnected);
-        _txClient.latencyTracker.completeCallTracking(callId);
+        _txClient.latencyTracker
+            .markCallMilestone(callId, LatencyTracker.milestoneDtlsConnected);
+        _txClient.latencyTracker
+            .markCallMilestone(callId, LatencyTracker.milestonePeerConnected);
+
+        final timingsLogs =
+            _txClient.latencyTracker.completeCallTracking(callId);
+        GlobalLogger().i(
+          'Peer :: CallTimings generated ${timingsLogs.length} entries for call $callId',
+        );
+        for (final entry in timingsLogs) {
+          _callReportLogCollector?.addLog(
+            level: entry['level'] as String? ?? 'info',
+            message: entry['message'] as String? ?? '',
+          );
+        }
       }
     };
 
