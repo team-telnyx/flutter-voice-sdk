@@ -1,3 +1,11 @@
+## [4.3.0](https://pub.dev/packages/telnyx_webrtc/versions/4.3.0) (2026-05-18)
+### Enhancement
+- Added CallTimings logs to call report JSON
+- Added dynamic ICE mode and milestone ordering
+- Improved call report logging and diagnostics
+- Fixed analysis warnings blocking pub.dev publish
+- Updated publishing to pub.dev via GitHub Actions
+
 ## [4.2.0](https://pub.dev/packages/telnyx_webrtc/versions/4.2.0) (2026-04-23)
 ### Enhancement
 - Added ICE candidate details and call lifecycle logs to call reports
