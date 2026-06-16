@@ -33,6 +33,7 @@ void main() {
       expect(config.region, equals(Region.auto));
       expect(config.fallbackOnRegionFailure, isTrue);
       expect(config.forceRelayCandidate, isFalse);
+      expect(config.enableMissedCallNotifications, isFalse);
       expect(config.notificationToken, isNull);
       expect(config.autoReconnect, isNull);
       expect(config.customLogger, isNull);
@@ -59,6 +60,7 @@ void main() {
         region: Region.auto,
         fallbackOnRegionFailure: false,
         forceRelayCandidate: true,
+        enableMissedCallNotifications: true,
       );
 
       expect(config.sipCallerIDName, equals('Test User'));
@@ -75,6 +77,7 @@ void main() {
       expect(config.region, equals(Region.auto));
       expect(config.fallbackOnRegionFailure, isFalse);
       expect(config.forceRelayCandidate, isTrue);
+      expect(config.enableMissedCallNotifications, isTrue);
     });
 
     test('should handle different log levels', () {
@@ -195,6 +198,7 @@ void main() {
         region: Region.eu,
         fallbackOnRegionFailure: true,
         forceRelayCandidate: false,
+        enableMissedCallNotifications: true,
       );
 
       expect(config.sipToken, equals('test_token_123'));
@@ -212,6 +216,7 @@ void main() {
       expect(config.region, equals(Region.eu));
       expect(config.fallbackOnRegionFailure, isTrue);
       expect(config.forceRelayCandidate, isFalse);
+      expect(config.enableMissedCallNotifications, isTrue);
     });
   });
 
@@ -253,6 +258,7 @@ void main() {
         region: Region.apac,
         fallbackOnRegionFailure: false,
         forceRelayCandidate: true,
+        enableMissedCallNotifications: true,
       );
 
       expect(config.sipUser, equals('test_user'));
@@ -271,6 +277,7 @@ void main() {
       expect(config.region, equals(Region.apac));
       expect(config.fallbackOnRegionFailure, isFalse);
       expect(config.forceRelayCandidate, isTrue);
+      expect(config.enableMissedCallNotifications, isTrue);
     });
   });
 
