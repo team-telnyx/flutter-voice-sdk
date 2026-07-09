@@ -136,22 +136,26 @@ void main() {
 
   group('VSD-419: Quality mapping', () {
     test(
-      'MOS > 4.0 → excellent, 3.5-4.0 → good, 3.0-3.5 → fair, 2.0-3.0 → poor, <2.0 → bad',
+      'DiagnosticQuality.fromMos uses canonical MOS bands (matches '
+      'CallQuality / JS getQuality): >4.2 excellent, >=4.1 good, '
+      '>=3.7 fair, >=3.1 poor, else bad',
       () {
-        // DiagnosticQuality should map from MOS values.
-        // These methods do not exist yet — will fail at compile.
         expect(
           DiagnosticQuality.fromMos(4.3),
           equals(DiagnosticQuality.excellent),
         );
-        expect(DiagnosticQuality.fromMos(4.0), equals(DiagnosticQuality.good));
-        expect(DiagnosticQuality.fromMos(3.5), equals(DiagnosticQuality.fair));
-        expect(DiagnosticQuality.fromMos(3.0), equals(DiagnosticQuality.poor));
-        expect(DiagnosticQuality.fromMos(2.0), equals(DiagnosticQuality.bad));
+        expect(DiagnosticQuality.fromMos(4.15), equals(DiagnosticQuality.good));
+        expect(DiagnosticQuality.fromMos(4.0), equals(DiagnosticQuality.fair));
+        expect(DiagnosticQuality.fromMos(3.5), equals(DiagnosticQuality.poor));
+        expect(DiagnosticQuality.fromMos(3.0), equals(DiagnosticQuality.bad));
         expect(DiagnosticQuality.fromMos(1.5), equals(DiagnosticQuality.bad));
 
-        // Verify that existing CallQuality.fromMos is consistent.
+        // DiagnosticQuality mirrors the existing CallQuality mapping so the
+        // two quality scales stay consistent.
         expect(CallQuality.fromMos(4.3), equals(CallQuality.excellent));
+        expect(CallQuality.fromMos(4.15), equals(CallQuality.good));
+        expect(CallQuality.fromMos(4.0), equals(CallQuality.fair));
+        expect(CallQuality.fromMos(3.5), equals(CallQuality.poor));
       },
     );
   });

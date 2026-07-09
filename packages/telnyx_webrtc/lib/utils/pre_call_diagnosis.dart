@@ -28,11 +28,15 @@ enum DiagnosticQuality {
   bad;
 
   /// Map a MOS value to a [DiagnosticQuality].
+  ///
+  /// Uses the same bands as the JS SDK `getQuality` (utils/mos.ts) and the
+  /// Flutter [CallQuality.fromMos]: `> 4.2` excellent, `>= 4.1` good,
+  /// `>= 3.7` fair, `>= 3.1` poor, otherwise bad.
   static DiagnosticQuality fromMos(double mos) {
-    if (mos > 4.0) return DiagnosticQuality.excellent;
-    if (mos >= 4.0) return DiagnosticQuality.good;
-    if (mos >= 3.5) return DiagnosticQuality.fair;
-    if (mos > 2.0) return DiagnosticQuality.poor;
+    if (mos > 4.2) return DiagnosticQuality.excellent;
+    if (mos >= 4.1) return DiagnosticQuality.good;
+    if (mos >= 3.7) return DiagnosticQuality.fair;
+    if (mos >= 3.1) return DiagnosticQuality.poor;
     return DiagnosticQuality.bad;
   }
 }
