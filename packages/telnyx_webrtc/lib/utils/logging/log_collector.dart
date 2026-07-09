@@ -1,26 +1,36 @@
-import 'dart:async';
-import 'dart:convert';
-
-import 'package:telnyx_webrtc/utils/logging/log_level.dart';
-
 /// Log level for the [LogCollector].
 ///
 /// Lower levels include higher levels (i.e. [CollectorLogLevel.debug] captures
 /// everything, [CollectorLogLevel.error] only captures errors).
 enum CollectorLogLevel {
+  /// Captures all entries, including verbose debug logs.
   debug,
+
+  /// Captures informational entries and above.
   info,
+
+  /// Captures warnings and errors only.
   warn,
+
+  /// Captures errors only.
   error,
 }
 
 /// A single captured log entry.
 class LogEntry {
+  /// ISO-8601 UTC timestamp of when the entry was captured.
   final String timestamp;
+
+  /// The log level of the entry (for example 'info' or 'error').
   final String level;
+
+  /// The (redacted) log message text.
   final String message;
+
+  /// Optional structured context attached to the entry.
   final Map<String, dynamic>? context;
 
+  /// Creates a captured log entry.
   LogEntry({
     required this.timestamp,
     required this.level,
@@ -28,6 +38,7 @@ class LogEntry {
     this.context,
   });
 
+  /// Serializes this entry to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
         'timestamp': timestamp,
         'level': level,
@@ -49,13 +60,19 @@ const Map<CollectorLogLevel, int> _collectorLevelPriority = {
 ///
 /// Entries are filtered by [level] and capped at [maxEntries] (FIFO eviction).
 class LogCollector {
+  /// Whether this collector captures entries at all.
   final bool enabled;
+
+  /// Minimum level an entry must meet to be captured.
   final CollectorLogLevel level;
+
+  /// Maximum number of entries retained before FIFO eviction.
   final int maxEntries;
 
   final List<LogEntry> _buffer = [];
   bool _active = false;
 
+  /// Creates a log collector with the given capture [level] and [maxEntries].
   LogCollector({
     this.enabled = true,
     this.level = CollectorLogLevel.debug,
@@ -98,8 +115,11 @@ class LogCollector {
     final entry = LogEntry(
       timestamp: DateTime.now().toUtc().toIso8601String(),
       level: level,
-      message: message,
-      context: context,
+      // Redact credentials/secrets before buffering so they are never retained
+      // in memory or uploaded in call reports — even when a verbose log level
+      // captures raw signaling payloads (login messages, tokens, etc.).
+      message: _redactSecrets(message),
+      context: _redactContext(context),
     );
 
     _buffer.add(entry);
@@ -122,6 +142,45 @@ class LogCollector {
   List<Map<String, dynamic>> drain() {
     final result = _buffer.map((e) => e.toJson()).toList();
     _buffer.clear();
+    return result;
+  }
+
+  /// Matches JSON `"key":"value"` pairs whose key names a credential/secret.
+  static final RegExp _secretKeyValue = RegExp(
+    r'("(?:login_token|loginToken|passwd|password|sipPassword|sip_password|token|secret)"\s*:\s*")[^"]*(")',
+    caseSensitive: false,
+  );
+
+  /// Redacts values of known sensitive JSON keys from a log [message] so that
+  /// credentials/tokens are never captured verbatim.
+  static String _redactSecrets(String message) {
+    return message.replaceAllMapped(
+      _secretKeyValue,
+      (match) => '${match[1]}***REDACTED***${match[2]}',
+    );
+  }
+
+  static bool _isSensitiveKey(String key) {
+    final lower = key.toLowerCase();
+    return lower.contains('password') ||
+        lower.contains('passwd') ||
+        lower.contains('token') ||
+        lower.contains('secret');
+  }
+
+  /// Redacts sensitive values from a structured log [context] map.
+  static Map<String, dynamic>? _redactContext(Map<String, dynamic>? context) {
+    if (context == null || context.isEmpty) return context;
+    final result = <String, dynamic>{};
+    context.forEach((key, value) {
+      if (_isSensitiveKey(key)) {
+        result[key] = '***REDACTED***';
+      } else if (value is String) {
+        result[key] = _redactSecrets(value);
+      } else {
+        result[key] = value;
+      }
+    });
     return result;
   }
 

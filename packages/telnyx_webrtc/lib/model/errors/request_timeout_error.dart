@@ -11,6 +11,7 @@ class RequestTimeoutError implements Exception {
   /// Verto method name (e.g. `'telnyx_rtc.modify'`), or empty string if unknown.
   final String method;
 
+  /// Creates a request timeout error for the given request and duration.
   RequestTimeoutError(this.requestId, this.timeoutMs, [this.method = '']);
 
   @override
@@ -33,8 +34,12 @@ class StaleRequestError implements Exception {
   /// The current (replacement) socket generation.
   final int currentGeneration;
 
+  /// Creates a stale request error for a cancelled, superseded request.
   StaleRequestError(
-      this.requestId, this.staleGeneration, this.currentGeneration);
+    this.requestId,
+    this.staleGeneration,
+    this.currentGeneration,
+  );
 
   @override
   String toString() =>

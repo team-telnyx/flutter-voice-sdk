@@ -17,6 +17,7 @@ class MediaPermissionsRecoveryConfig {
   /// Called when retry fails, timeout expires, or the app calls reject().
   final void Function(Object error)? onError;
 
+  /// Creates a media permissions recovery configuration.
   const MediaPermissionsRecoveryConfig({
     required this.enabled,
     required this.timeout,

@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:telnyx_webrtc/model/errors/media_permissions_recovery_config.dart';
 
 void main() {
   group('VSDK-417: Media permission recovery in Peer.createStream', () {
@@ -21,28 +20,40 @@ void main() {
       // 2. Classify the media error via classifyMediaErrorCode()
       // 3. Create TelnyxError with fatal: false (override)
       // 4. Emit TelnyxMediaRecoveryErrorEvent with resume/reject callbacks
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
 
     test(
         'recovery disabled does not emit recoverable event — falls through '
         'to standard error handling', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
 
     test(
         'recovery enabled but isAnswer=false (outbound call) does not emit '
         'recoverable event', () {
       // Recovery flow only applies to inbound call answers, not outbound calls.
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
 
     test('successful getUserMedia does not trigger recovery flow', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
 
     test(
@@ -50,28 +61,43 @@ void main() {
         () {
       // Media errors (42001-42003) default to fatal: true in the registry,
       // but the recovery flow overrides fatal to false.
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
 
     test('onSuccess callback called on successful resume', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
 
     test('onError callback called on reject', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
 
     test('onError callback called on timeout', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
 
     test('onError callback called on retry failure', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires Peer integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires Peer integration',
+      );
     });
   });
 }

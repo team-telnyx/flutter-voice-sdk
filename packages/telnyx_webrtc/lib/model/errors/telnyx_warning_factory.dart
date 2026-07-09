@@ -8,8 +8,10 @@
 /// ```dart
 /// final warning = createTelnyxWarning(TelnyxWarningCodes.highRtt);
 /// ```
-import 'telnyx_warning.dart';
-import 'sdk_warnings.dart';
+library;
+
+import 'package:telnyx_webrtc/model/errors/telnyx_warning.dart';
+import 'package:telnyx_webrtc/model/errors/sdk_warnings.dart';
 
 /// Creates a [TelnyxWarning] from a registered warning [code].
 ///

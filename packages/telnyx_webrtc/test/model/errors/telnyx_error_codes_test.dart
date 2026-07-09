@@ -184,8 +184,11 @@ void main() {
           TelnyxErrorCodes.unexpectedError,
         ];
 
-        expect(codes.toSet().length, equals(codes.length),
-            reason: 'Duplicate error codes detected');
+        expect(
+          codes.toSet().length,
+          equals(codes.length),
+          reason: 'Duplicate error codes detected',
+        );
       });
 
       test('has exactly 24 error codes', () {

@@ -14,14 +14,15 @@ class SdpUtils {
     }
 
     final lines = sdp.split('\r\n').toList();
-    var result = _handleTrickleIceModification(lines);
+    final result = _handleTrickleIceModification(lines);
 
     if (result != null) {
       GlobalLogger().i('SdpUtils :: Modified SDP with trickle ICE capability');
       return result;
     } else {
       GlobalLogger().i(
-          'SdpUtils :: SDP already contains trickle ICE or no modification needed');
+        'SdpUtils :: SDP already contains trickle ICE or no modification needed',
+      );
       return sdp;
     }
   }
@@ -60,7 +61,8 @@ class SdpUtils {
       // This handles cases like "a=ice-options:trickle renomination"
       lines[index] = 'a=ice-options:trickle';
       GlobalLogger().i(
-          'SdpUtils :: Replaced ice-options line from \'$currentOptions\' to \'a=ice-options:trickle\'');
+        'SdpUtils :: Replaced ice-options line from \'$currentOptions\' to \'a=ice-options:trickle\'',
+      );
       return lines.join('\r\n');
     }
   }
@@ -73,11 +75,13 @@ class SdpUtils {
       // Insert ice-options:trickle at session level (after origin line)
       lines.insert(insertIndex, 'a=ice-options:trickle');
       GlobalLogger().i(
-          'SdpUtils :: Added a=ice-options:trickle to SDP at index $insertIndex');
+        'SdpUtils :: Added a=ice-options:trickle to SDP at index $insertIndex',
+      );
       return lines.join('\r\n');
     } else {
       GlobalLogger().w(
-          'SdpUtils :: Could not find origin line in SDP, returning original');
+        'SdpUtils :: Could not find origin line in SDP, returning original',
+      );
       return null;
     }
   }
@@ -97,7 +101,7 @@ class SdpUtils {
   /// [sdp] The SDP string to check
   /// @return true if the SDP advertises trickle ICE support
   static bool hasTrickleIceCapability(String sdp) {
-    return sdp.contains("a=ice-options:trickle");
+    return sdp.contains('a=ice-options:trickle');
   }
 
   /// Removes ICE candidates from SDP for trickle ICE

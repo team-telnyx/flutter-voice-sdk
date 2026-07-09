@@ -6,8 +6,10 @@
 /// final error = createTelnyxError(TelnyxErrorCodes.sdpCreateOfferFailed);
 /// throw error;
 /// ```
-import 'telnyx_error.dart';
-import 'sdk_errors.dart';
+library;
+
+import 'package:telnyx_webrtc/model/errors/telnyx_error.dart';
+import 'package:telnyx_webrtc/model/errors/sdk_errors.dart';
 export 'media_error_classifier.dart' show classifyMediaErrorCode;
 
 /// Creates a [TelnyxError] from a registered error [code].

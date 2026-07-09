@@ -1,4 +1,4 @@
-import 'telnyx_error.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error.dart';
 
 /// Standard (non-recoverable) error event.
 ///
@@ -17,6 +17,7 @@ class TelnyxErrorEvent {
   /// Always `false` for standard error events.
   final bool recoverable = false;
 
+  /// Creates a standard (non-recoverable) error event.
   TelnyxErrorEvent({
     required this.error,
     required this.sessionId,
@@ -51,6 +52,7 @@ class TelnyxMediaRecoveryErrorEvent {
   /// Abort recovery and let the call fail immediately.
   final Future<void> Function() reject;
 
+  /// Creates a media recovery error event with resume and reject callbacks.
   TelnyxMediaRecoveryErrorEvent({
     required this.error,
     required this.sessionId,

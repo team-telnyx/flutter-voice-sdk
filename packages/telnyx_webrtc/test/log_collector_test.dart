@@ -24,7 +24,6 @@ import 'package:telnyx_webrtc/utils/logging/log_collector.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 import 'package:telnyx_webrtc/utils/stats/call_report_collector.dart';
-import 'package:telnyx_webrtc/utils/stats/call_report_log_collector.dart';
 
 /// Mock custom logger that records all log calls.
 class _RecordingLogger implements CustomLogger {
@@ -48,14 +47,12 @@ void main() {
     test(
       'entries are only captured between start() and stop()',
       () {
+        // Before start — no capture.
         final collector = LogCollector(
           enabled: true,
           level: CollectorLogLevel.debug,
           maxEntries: 100,
-        );
-
-        // Before start — no capture.
-        collector.addEntry(level: 'debug', message: 'before start');
+        )..addEntry(level: 'debug', message: 'before start');
         expect(collector.logCount, equals(0));
 
         // Start capturing.
@@ -70,8 +67,11 @@ void main() {
         expect(collector.isActive, isFalse);
 
         collector.addEntry(level: 'debug', message: 'after stop');
-        expect(collector.logCount, equals(1),
-            reason: 'No new entries after stop()');
+        expect(
+          collector.logCount,
+          equals(1),
+          reason: 'No new entries after stop()',
+        );
       },
     );
   });
@@ -84,17 +84,18 @@ void main() {
           enabled: true,
           level: CollectorLogLevel.warn,
           maxEntries: 100,
+        )
+          ..start()
+          ..addEntry(level: 'debug', message: 'debug msg')
+          ..addEntry(level: 'info', message: 'info msg')
+          ..addEntry(level: 'warn', message: 'warn msg')
+          ..addEntry(level: 'error', message: 'error msg');
+
+        expect(
+          collector.logCount,
+          equals(2),
+          reason: 'Only warn and error entries should be captured',
         );
-
-        collector.start();
-
-        collector.addEntry(level: 'debug', message: 'debug msg');
-        collector.addEntry(level: 'info', message: 'info msg');
-        collector.addEntry(level: 'warn', message: 'warn msg');
-        collector.addEntry(level: 'error', message: 'error msg');
-
-        expect(collector.logCount, equals(2),
-            reason: 'Only warn and error entries should be captured');
 
         final logs = collector.getLogs();
         expect(logs[0].level, equals('warn'));
@@ -113,23 +114,27 @@ void main() {
           enabled: true,
           level: CollectorLogLevel.debug,
           maxEntries: 3,
-        );
-
-        collector.start();
-
-        collector.addEntry(level: 'debug', message: 'entry 1');
-        collector.addEntry(level: 'debug', message: 'entry 2');
-        collector.addEntry(level: 'debug', message: 'entry 3');
+        )
+          ..start()
+          ..addEntry(level: 'debug', message: 'entry 1')
+          ..addEntry(level: 'debug', message: 'entry 2')
+          ..addEntry(level: 'debug', message: 'entry 3');
         expect(collector.logCount, equals(3));
 
         // Adding a 4th should evict the oldest (entry 1).
         collector.addEntry(level: 'debug', message: 'entry 4');
-        expect(collector.logCount, equals(3),
-            reason: 'Buffer should not exceed maxEntries');
+        expect(
+          collector.logCount,
+          equals(3),
+          reason: 'Buffer should not exceed maxEntries',
+        );
 
         final logs = collector.getLogs();
-        expect(logs[0].message, equals('entry 2'),
-            reason: 'Oldest entry (entry 1) should have been evicted');
+        expect(
+          logs[0].message,
+          equals('entry 2'),
+          reason: 'Oldest entry (entry 1) should have been evicted',
+        );
         expect(logs[1].message, equals('entry 3'));
         expect(logs[2].message, equals('entry 4'));
       },
@@ -144,16 +149,14 @@ void main() {
           enabled: true,
           level: CollectorLogLevel.debug,
           maxEntries: 100,
-        );
-
-        collector.start();
-
-        collector.addEntry(
-          level: 'info',
-          message: 'test message',
-          context: {'key': 'value'},
-        );
-        collector.addEntry(level: 'error', message: 'another error');
+        )
+          ..start()
+          ..addEntry(
+            level: 'info',
+            message: 'test message',
+            context: {'key': 'value'},
+          )
+          ..addEntry(level: 'error', message: 'another error');
 
         expect(collector.logCount, equals(2));
 
@@ -196,9 +199,11 @@ void main() {
         GlobalLogger().w('warn from logger');
         GlobalLogger().e('error from logger');
 
-        expect(collector.logCount, equals(3),
-            reason:
-                'All log levels should be forwarded when collector is active');
+        expect(
+          collector.logCount,
+          equals(3),
+          reason: 'All log levels should be forwarded when collector is active',
+        );
 
         final logs = collector.getLogs();
         expect(logs[0].level, equals('debug'));
@@ -237,8 +242,11 @@ void main() {
         GlobalLogger().d('should not be captured');
         GlobalLogger().e('should not be captured either');
 
-        expect(collector.logCount, equals(0),
-            reason: 'No entries should be captured when not started');
+        expect(
+          collector.logCount,
+          equals(0),
+          reason: 'No entries should be captured when not started',
+        );
 
         // Cleanup.
         setGlobalLogCollector(null);
@@ -274,20 +282,20 @@ void main() {
           maxEntries: 100,
         );
         setGlobalLogCollector(collector);
-        collector.start();
-
-        collector.addEntry(level: 'info', message: 'call started');
-        collector.addEntry(level: 'warn', message: 'high jitter detected');
-        collector.addEntry(level: 'error', message: 'ICE restart failed');
+        collector
+          ..start()
+          ..addEntry(level: 'info', message: 'call started')
+          ..addEntry(level: 'warn', message: 'high jitter detected')
+          ..addEntry(level: 'error', message: 'ICE restart failed');
 
         // CallReportCollector should include LogCollector entries in its
         // payload's `logs` field.  This integration does not exist yet.
-        final reportCollector = CallReportCollector();
-        reportCollector.configureLogCollector(
-          enabled: true,
-          level: CollectorLogLevel.debug,
-          maxEntries: 100,
-        );
+        final reportCollector = CallReportCollector()
+          ..configureLogCollector(
+            enabled: true,
+            level: CollectorLogLevel.debug,
+            maxEntries: 100,
+          );
 
         // The payload should include the LogCollector entries.
         // This method or integration does not exist yet.
@@ -313,33 +321,31 @@ void main() {
           enabled: true,
           level: CollectorLogLevel.debug,
           maxEntries: 100,
-        );
-
-        collector.start();
-
-        collector.addEntry(
-          level: 'debug',
-          message: 'complex context',
-          context: {
-            'callId': 'abc-123',
-            'stats': {
-              'jitter': 5.2,
-              'rtt': 0.15,
-              'mos': 4.1,
-            },
-            'iceCandidates': [
-              {'type': 'host', 'address': '192.168.1.1'},
-              {'type': 'srflx', 'address': '203.0.113.1'},
-            ],
-            'nested': {
-              'level1': {
-                'level2': {
-                  'level3': 'deep value',
+        )
+          ..start()
+          ..addEntry(
+            level: 'debug',
+            message: 'complex context',
+            context: {
+              'callId': 'abc-123',
+              'stats': {
+                'jitter': 5.2,
+                'rtt': 0.15,
+                'mos': 4.1,
+              },
+              'iceCandidates': [
+                {'type': 'host', 'address': '192.168.1.1'},
+                {'type': 'srflx', 'address': '203.0.113.1'},
+              ],
+              'nested': {
+                'level1': {
+                  'level2': {
+                    'level3': 'deep value',
+                  },
                 },
               },
             },
-          },
-        );
+          );
 
         final logs = collector.getLogs();
         expect(logs.length, equals(1));
@@ -350,7 +356,9 @@ void main() {
         final context = json['context'] as Map<String, dynamic>;
         expect(context['callId'], equals('abc-123'));
         expect(
-            (context['stats'] as Map<String, dynamic>)['jitter'], equals(5.2));
+          (context['stats'] as Map<String, dynamic>)['jitter'],
+          equals(5.2),
+        );
         expect((context['stats'] as Map<String, dynamic>)['mos'], equals(4.1));
 
         final candidates = context['iceCandidates'] as List<dynamic>;
@@ -369,17 +377,15 @@ void main() {
     test(
       'after drain(), new entries are captured for the next segment',
       () {
+        // First segment.
         final collector = LogCollector(
           enabled: true,
           level: CollectorLogLevel.debug,
           maxEntries: 100,
-        );
-
-        collector.start();
-
-        // First segment.
-        collector.addEntry(level: 'info', message: 'segment 1 - entry 1');
-        collector.addEntry(level: 'info', message: 'segment 1 - entry 2');
+        )
+          ..start()
+          ..addEntry(level: 'info', message: 'segment 1 - entry 1')
+          ..addEntry(level: 'info', message: 'segment 1 - entry 2');
         expect(collector.logCount, equals(2));
 
         final firstDrain = collector.drain();
@@ -389,9 +395,10 @@ void main() {
         // Second segment — collector should still be active and capturing.
         expect(collector.isActive, isTrue);
 
-        collector.addEntry(level: 'warn', message: 'segment 2 - entry 1');
-        collector.addEntry(level: 'error', message: 'segment 2 - entry 2');
-        collector.addEntry(level: 'debug', message: 'segment 2 - entry 3');
+        collector
+          ..addEntry(level: 'warn', message: 'segment 2 - entry 1')
+          ..addEntry(level: 'error', message: 'segment 2 - entry 2')
+          ..addEntry(level: 'debug', message: 'segment 2 - entry 3');
         expect(collector.logCount, equals(3));
 
         final secondDrain = collector.drain();
@@ -420,9 +427,9 @@ void main() {
           maxEntries: 100,
         );
         setGlobalLogCollector(collector1);
-        collector1.start();
-
-        collector1.addEntry(level: 'info', message: 'call 1 log');
+        collector1
+          ..start()
+          ..addEntry(level: 'info', message: 'call 1 log');
         expect(collector1.logCount, equals(1));
 
         collector1.stop();
@@ -440,11 +447,14 @@ void main() {
           maxEntries: 100,
         );
         setGlobalLogCollector(collector2);
-        collector2.start();
-
-        collector2.addEntry(level: 'info', message: 'call 2 log');
-        expect(collector2.logCount, equals(1),
-            reason: 'Call 2 collector should only have its own entries');
+        collector2
+          ..start()
+          ..addEntry(level: 'info', message: 'call 2 log');
+        expect(
+          collector2.logCount,
+          equals(1),
+          reason: 'Call 2 collector should only have its own entries',
+        );
 
         final call2Logs = collector2.getLogs();
         expect(call2Logs[0].message, equals('call 2 log'));

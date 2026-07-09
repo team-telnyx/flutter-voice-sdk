@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:telnyx_webrtc/model/sdk_warning_codes.dart';
 import 'package:telnyx_webrtc/model/sdk_warning_registry.dart';
 import 'package:telnyx_webrtc/model/telnyx_warning.dart';
@@ -9,8 +7,13 @@ import 'package:telnyx_webrtc/utils/stats/mos_calculator.dart';
 /// Monitors WebRTC stats intervals and emits [TelnyxWarning]s when quality
 /// thresholds are breached for a sustained number of consecutive intervals.
 class QualityWarningMonitor {
+  /// The call ID these quality warnings are associated with.
   final String callId;
+
+  /// The session ID these quality warnings are associated with, if known.
   final String? sessionId;
+
+  /// Callback invoked whenever a quality [TelnyxWarning] is emitted.
   final void Function(TelnyxWarning warning)? onWarning;
 
   // ── Thresholds ─────────────────────────────────────────────────────────
@@ -31,13 +34,14 @@ class QualityWarningMonitor {
   int _highPacketLossBreaches = 0;
   int _lowMosBreaches = 0;
   int _lowLocalAudioBreaches = 0;
-  int _lowInboundAudioBreaches = 0;
   int _lowBytesReceivedBreaches = 0;
   int _lowBytesSentBreaches = 0;
   int _postConfirmSilenceCount = 0;
 
   // ── State ──────────────────────────────────────────────────────────────
   bool _audioConfirmed = false;
+  bool _inboundAudioConfirmed = false;
+  int _postConfirmInboundSilenceCount = 0;
   String? _lastIceCandidatePairId;
 
   // Previous cumulative values for delta calculations
@@ -49,6 +53,8 @@ class QualityWarningMonitor {
   // Throttle: interval count since last emission per warning code
   final Map<int, int> _intervalsSinceEmission = {};
 
+  /// Creates a monitor for [callId] (and optional [sessionId]) that reports
+  /// quality warnings through [onWarning].
   QualityWarningMonitor({
     required this.callId,
     this.sessionId,
@@ -77,8 +83,21 @@ class QualityWarningMonitor {
         jitter != null &&
         packetsReceived != null &&
         packetsLost != null) {
-      final packetLossRatio =
-          packetsReceived > 0 ? (packetsLost / packetsReceived) : 0.0;
+      // Use per-interval packet-loss deltas (matching HIGH_PACKET_LOSS) so all
+      // three MOS inputs describe the same time window. Cumulative counters
+      // would dilute a late loss burst with earlier clean traffic (LOW_MOS
+      // never fires) and keep an early burst elevated for the rest of the call
+      // (persistent false LOW_MOS). Read the previous cumulative values here,
+      // before the HIGH_PACKET_LOSS block updates them below.
+      double packetLossRatio = 0.0;
+      if (_prevPacketsReceived != null && _prevPacketsLost != null) {
+        final receivedDelta = packetsReceived - _prevPacketsReceived!;
+        final lostDelta = packetsLost - _prevPacketsLost!;
+        final totalDelta = receivedDelta + lostDelta;
+        if (totalDelta > 0) {
+          packetLossRatio = lostDelta / totalDelta;
+        }
+      }
       final mos = MosCalculator.calculateMos(
         rtt: rtt,
         jitter: jitter / 1000, // convert ms → seconds
@@ -180,18 +199,25 @@ class QualityWarningMonitor {
     }
 
     // ── LOW_INBOUND_AUDIO ────────────────────────────────────────────────
+    // Only treat inbound silence as a problem once real inbound audio has been
+    // observed at least once. At call start the remote party is legitimately
+    // silent (no inbound RTP audio yet), so firing before confirmation would
+    // produce a spurious warning on virtually every call. Mirrors the
+    // post-confirmation gating used for LOW_LOCAL_AUDIO.
     final inboundLevel = audio?.inbound?.audioLevelAvg;
     if (inboundLevel != null) {
-      if (inboundLevel < _audioLevelThreshold) {
-        _lowInboundAudioBreaches++;
-        if (_lowInboundAudioBreaches >= _consecutiveBreachesRequired &&
+      if (inboundLevel >= _audioLevelThreshold) {
+        _inboundAudioConfirmed = true;
+        _postConfirmInboundSilenceCount = 0;
+      } else if (_inboundAudioConfirmed) {
+        // Post-confirmation: sustained silence after audio was flowing.
+        _postConfirmInboundSilenceCount++;
+        if (_postConfirmInboundSilenceCount >= _postConfirmSilenceIntervals &&
             !emittedThisInterval) {
           if (_emit(SdkWarningCode.lowInboundAudio)) {
             emittedThisInterval = true;
           }
         }
-      } else {
-        _lowInboundAudioBreaches = 0;
       }
     }
 

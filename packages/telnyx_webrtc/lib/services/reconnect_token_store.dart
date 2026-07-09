@@ -174,16 +174,22 @@ class ReconnectTokenStore {
 /// Only [id] and [customHeaders] are stored — no SDP, credentials,
 /// streams, or peer connection references.
 class StoredActiveCall {
+  /// The unique identifier of the stored call.
   final String id;
+
+  /// Custom SIP headers associated with the call.
   final List<Map<String, String>> customHeaders;
 
+  /// Creates a stored active-call projection.
   StoredActiveCall({required this.id, required this.customHeaders});
 
+  /// Serializes this stored call to a JSON-encodable map.
   Map<String, dynamic> toJson() => {
         'id': id,
         'customHeaders': customHeaders,
       };
 
+  /// Creates a stored active call from a decoded JSON map.
   factory StoredActiveCall.fromJson(Map<String, dynamic> json) {
     return StoredActiveCall(
       id: json['id'] as String,
@@ -196,22 +202,30 @@ class StoredActiveCall {
 
 /// Stored active-calls recovery marker persisted across app restarts.
 class StoredActiveCalls {
+  /// The SDK session identifier these calls belong to.
   final String sessionId;
+
+  /// The active calls captured for recovery.
   final List<StoredActiveCall> calls;
+
+  /// Epoch timestamp in ms when this marker was persisted.
   final int storedAt;
 
+  /// Creates a stored active-calls recovery marker.
   StoredActiveCalls({
     required this.sessionId,
     required this.calls,
     required this.storedAt,
   });
 
+  /// Serializes this recovery marker to a JSON-encodable map.
   Map<String, dynamic> toJson() => {
         'sessionId': sessionId,
         'calls': calls.map((c) => c.toJson()).toList(),
         'storedAt': storedAt,
       };
 
+  /// Creates a stored active-calls marker from a decoded JSON map.
   factory StoredActiveCalls.fromJson(Map<String, dynamic> json) {
     return StoredActiveCalls(
       sessionId: json['sessionId'] as String,

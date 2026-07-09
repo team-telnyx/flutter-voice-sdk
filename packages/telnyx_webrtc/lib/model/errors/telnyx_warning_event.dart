@@ -1,4 +1,4 @@
-import 'telnyx_warning.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning.dart';
 
 /// Warning event emitted via `onTelnyxWarning`.
 class TelnyxWarningEvent {
@@ -17,6 +17,7 @@ class TelnyxWarningEvent {
   /// Call identifier when the warning is associated with a call.
   final String? callId;
 
+  /// Creates a warning event emitted via `onTelnyxWarning`.
   const TelnyxWarningEvent({
     required this.warning,
     this.reason,

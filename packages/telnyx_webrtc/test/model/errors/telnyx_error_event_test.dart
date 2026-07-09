@@ -59,27 +59,22 @@ void main() {
     test(
         'constructs with error, sessionId, callId, retryDeadline, resume, reject',
         () {
-      var resumed = false;
-      var rejected = false;
-
       final event = TelnyxMediaRecoveryErrorEvent(
         error: mediaError,
         sessionId: 'session-789',
         callId: 'call-012',
         retryDeadline: DateTime.now().millisecondsSinceEpoch + 25000,
-        resume: () async {
-          resumed = true;
-        },
-        reject: () async {
-          rejected = true;
-        },
+        resume: () async {},
+        reject: () async {},
       );
 
       expect(event.error, same(mediaError));
       expect(event.sessionId, equals('session-789'));
       expect(event.callId, equals('call-012'));
-      expect(event.retryDeadline,
-          greaterThan(DateTime.now().millisecondsSinceEpoch));
+      expect(
+        event.retryDeadline,
+        greaterThan(DateTime.now().millisecondsSinceEpoch),
+      );
       expect(event.recoverable, isTrue);
     });
 

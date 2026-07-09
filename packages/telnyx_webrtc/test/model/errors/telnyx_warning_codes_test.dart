@@ -193,8 +193,11 @@ void main() {
           TelnyxWarningCodes.reconnectionFailedWithNoAutoReconnect,
         ];
 
-        expect(codes.toSet().length, equals(codes.length),
-            reason: 'Duplicate warning codes detected');
+        expect(
+          codes.toSet().length,
+          equals(codes.length),
+          reason: 'Duplicate warning codes detected',
+        );
       });
 
       test('has exactly 26 warning codes', () {

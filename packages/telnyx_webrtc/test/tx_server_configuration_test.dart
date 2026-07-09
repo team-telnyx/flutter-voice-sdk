@@ -94,11 +94,13 @@ void main() {
         final urls =
             config.webRTCIceServers.expand((server) => server.urls).toList();
         expect(
-            urls.any((url) => url.contains('stundev') || url.contains('stun')),
-            isTrue);
+          urls.any((url) => url.contains('stundev') || url.contains('stun')),
+          isTrue,
+        );
         expect(
-            urls.any((url) => url.contains('turndev') || url.contains('turn')),
-            isTrue);
+          urls.any((url) => url.contains('turndev') || url.contains('turn')),
+          isTrue,
+        );
       });
 
       test('accepts custom ICE servers', () {

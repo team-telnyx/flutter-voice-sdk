@@ -3,13 +3,25 @@ import 'package:telnyx_webrtc/model/telnyx_warning.dart';
 
 /// Definition record for a single SDK warning code.
 class SdkWarningDefinition {
+  /// The numeric SDK warning code.
   final int code;
+
+  /// The machine-readable name in UPPER_SNAKE_CASE.
   final String name;
+
+  /// A short human-readable message for UI alerts.
   final String message;
+
+  /// A fuller explanation of what the warning means.
   final String description;
+
+  /// Possible root causes of the warning.
   final List<String> causes;
+
+  /// Suggested remediation steps for the warning.
   final List<String> solutions;
 
+  /// Creates a warning definition for [code].
   const SdkWarningDefinition({
     required this.code,
     required this.name,

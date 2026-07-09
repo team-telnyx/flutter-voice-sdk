@@ -4,13 +4,17 @@ import 'package:telnyx_webrtc/config.dart';
 void main() {
   group('DefaultConfig ICE server constants', () {
     test('defaultTurns443 uses TLS on port 443 for prod', () {
-      expect(DefaultConfig.defaultTurns443,
-          equals('turns:turn.telnyx.com:443?transport=tcp'));
+      expect(
+        DefaultConfig.defaultTurns443,
+        equals('turns:turn.telnyx.com:443?transport=tcp'),
+      );
     });
 
     test('devTurns443 uses TLS on port 443 for dev', () {
-      expect(DefaultConfig.devTurns443,
-          equals('turns:turndev.telnyx.com:443?transport=tcp'));
+      expect(
+        DefaultConfig.devTurns443,
+        equals('turns:turndev.telnyx.com:443?transport=tcp'),
+      );
     });
   });
 
@@ -72,10 +76,14 @@ void main() {
 
   group('DefaultConfig ICE server ordering invariants', () {
     test('TURNS 443 is the last entry in both default lists', () {
-      expect(DefaultConfig.defaultProdIceServers.last.urls,
-          equals([DefaultConfig.defaultTurns443]));
-      expect(DefaultConfig.defaultDevIceServers.last.urls,
-          equals([DefaultConfig.devTurns443]));
+      expect(
+        DefaultConfig.defaultProdIceServers.last.urls,
+        equals([DefaultConfig.defaultTurns443]),
+      );
+      expect(
+        DefaultConfig.defaultDevIceServers.last.urls,
+        equals([DefaultConfig.devTurns443]),
+      );
     });
 
     test('lower-latency UDP/TCP TURN entries precede TURNS 443 in prod', () {

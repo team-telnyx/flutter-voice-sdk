@@ -3,14 +3,28 @@ import 'package:telnyx_webrtc/model/telnyx_error.dart';
 
 /// Definition record for a single SDK error code.
 class SdkErrorDefinition {
+  /// The unique integer code identifying this error.
   final int code;
+
+  /// The stable, machine-readable name of the error (e.g. 'SDP_SEND_FAILED').
   final String name;
+
+  /// A short, human-readable summary of the error.
   final String message;
+
+  /// A longer explanation of what the error represents.
   final String description;
+
+  /// The likely causes that can trigger this error.
   final List<String> causes;
+
+  /// Suggested steps to resolve or recover from the error.
   final List<String> solutions;
+
+  /// Whether this error is fatal to the call or session.
   final bool fatal;
 
+  /// Creates a definition describing a single SDK error code.
   const SdkErrorDefinition({
     required this.code,
     required this.name,

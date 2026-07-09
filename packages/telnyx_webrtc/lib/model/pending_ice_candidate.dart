@@ -16,6 +16,8 @@ class PendingIceCandidate {
   /// The enhanced candidate string (will be set later when ICE parameters are available)
   final String enhancedCandidateString;
 
+  /// Creates a pending ICE candidate to be applied after the remote
+  /// description is set.
   PendingIceCandidate({
     required this.callId,
     required this.sdpMid,

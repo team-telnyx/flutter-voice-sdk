@@ -5,6 +5,7 @@ class TriggerIceRestartResult {
   /// Whether the ICE restart was actually started.
   final bool started;
 
+  /// Creates a result indicating whether the ICE restart [started].
   const TriggerIceRestartResult({required this.started});
 }
 
@@ -57,6 +58,8 @@ abstract class ISignalingHealthSession {
 /// sends a lightweight probe (telnyx_rtc.ping) and waits for a response
 /// before deciding.
 class SignalingHealthMonitor {
+  /// Creates a monitor that inspects and controls signaling/peer health
+  /// through [session].
   SignalingHealthMonitor(this._session);
 
   final ISignalingHealthSession _session;
@@ -84,6 +87,7 @@ class SignalingHealthMonitor {
     _isProbeInFlight = false;
     _lastInboundTimestamp = null;
     _pendingMediaRecovery = null;
+    _probeStartedAt = null;
   }
 
   // ── Socket activity tracking ───────────────────────────────────────
@@ -96,6 +100,10 @@ class SignalingHealthMonitor {
 
   /// Check interval for the periodic timer (3 s).
   static const Duration _checkInterval = Duration(seconds: 3);
+
+  /// How long a deferred media recovery waits for signaling to recover before
+  /// escalating to a full socket reconnect (3 check intervals).
+  static const Duration _probeTimeout = Duration(seconds: 9);
 
   /// Call this whenever *any* inbound socket message arrives.
   void onSocketActivity() {
@@ -166,8 +174,8 @@ class SignalingHealthMonitor {
       // Signaling is fine → ICE restart.
       _session.triggerIceRestart(callId);
     } else {
-      // Signaling health unknown → probe first.
-      _isProbeInFlight = true;
+      // Signaling health unknown → defer the ICE restart and probe.
+      _deferMediaRecovery(callId);
     }
   }
 
@@ -184,7 +192,7 @@ class SignalingHealthMonitor {
     if (_isSignalingHealthy) {
       _session.triggerIceRestart(callId);
     } else {
-      _isProbeInFlight = true;
+      _deferMediaRecovery(callId);
     }
   }
 
@@ -201,9 +209,22 @@ class SignalingHealthMonitor {
 
   // ── Pending media recovery ──────────────────────────────────────────
 
-  /// Stores call ID for a pending media-recovery decision so [stop] can
-  /// clear it.
+  /// Stores the call ID for a pending media-recovery decision so the periodic
+  /// check can resolve it (and [stop] can clear it).
   String? _pendingMediaRecovery;
+
+  /// When the current deferred media-recovery probe started, used to bound how
+  /// long we wait for signaling to recover before reconnecting.
+  DateTime? _probeStartedAt;
+
+  /// Defers a media recovery for [callId] when signaling health is unknown:
+  /// marks a probe in flight and lets [_onCheck] decide (ICE restart if
+  /// signaling recovers, socket reconnect if it stays unhealthy).
+  void _deferMediaRecovery(String callId) {
+    _pendingMediaRecovery = callId;
+    _isProbeInFlight = true;
+    _probeStartedAt = DateTime.now();
+  }
 
   // ── Periodic check ─────────────────────────────────────────────────
 
@@ -212,9 +233,37 @@ class SignalingHealthMonitor {
     if (_session.isConnected != true) return;
     if (_session.hasActiveCall() != true) return;
 
+    // Resolve a deferred media recovery once signaling health becomes known,
+    // so the recovery is never silently dropped.
+    final pending = _pendingMediaRecovery;
+    if (pending != null) {
+      if (_isSignalingHealthy) {
+        // Signaling recovered → perform the deferred ICE restart.
+        _clearPendingRecovery();
+        _session.triggerIceRestart(pending);
+        return;
+      }
+      final startedAt = _probeStartedAt;
+      if (startedAt != null &&
+          DateTime.now().difference(startedAt) >= _probeTimeout) {
+        // Probe window elapsed with signaling still unhealthy → reconnect.
+        _clearPendingRecovery();
+        _session.socketDisconnect();
+        return;
+      }
+      // Still waiting for signaling to recover within the probe window.
+      return;
+    }
+
     // If no socket activity for > 20s and no probe in flight, send a probe.
     if (!_isSignalingHealthy && !_isProbeInFlight) {
       _isProbeInFlight = true;
     }
+  }
+
+  void _clearPendingRecovery() {
+    _pendingMediaRecovery = null;
+    _isProbeInFlight = false;
+    _probeStartedAt = null;
   }
 }

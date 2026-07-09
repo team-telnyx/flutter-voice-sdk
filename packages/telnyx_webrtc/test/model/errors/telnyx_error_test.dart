@@ -85,7 +85,8 @@ void main() {
         expect(
           error.toString(),
           equals(
-              '[42001] MEDIA_MICROPHONE_PERMISSION_DENIED: Microphone access denied'),
+            '[42001] MEDIA_MICROPHONE_PERMISSION_DENIED: Microphone access denied',
+          ),
         );
       });
     });

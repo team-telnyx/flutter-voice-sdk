@@ -6,9 +6,16 @@ import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 /// addresses, as well as default ICE server configurations for TURN/STUN.
 class DefaultConfig {
   // MARK: - Host Configuration
+  /// Production signaling host address.
   static const String telnyxProdHostAddress = 'rtc.telnyx.com';
+
+  /// Development signaling host address.
   static const String telnyxDevHostAddress = 'rtcdev.telnyx.com';
+
+  /// Port used for the signaling WebSocket connection.
   static const int telnyxPort = 443;
+
+  /// Default production signaling WebSocket URL.
   static const String socketHostAddress =
       'wss://${DefaultConfig.telnyxProdHostAddress}:${DefaultConfig.telnyxPort}';
 
@@ -48,7 +55,10 @@ class DefaultConfig {
   static const String googleStun = 'stun:stun.l.google.com:19302';
 
   // MARK: - TURN Authentication
+  /// Default username used to authenticate against the TURN servers.
   static const username = 'testuser';
+
+  /// Default password (credential) used to authenticate against the TURN servers.
   static const password = 'testpassword';
 
   // MARK: - Default ICE Servers

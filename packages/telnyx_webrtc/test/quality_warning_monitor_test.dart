@@ -129,23 +129,44 @@ void main() {
         SdkWarningCode.reconnectionFailedWithNoAutoReconnect, // 36005
       ];
 
-      expect(expectedCodes.length, equals(26),
-          reason: 'There should be exactly 26 warning code constants');
+      expect(
+        expectedCodes.length,
+        equals(26),
+        reason: 'There should be exactly 26 warning code constants',
+      );
 
       for (final code in expectedCodes) {
         final definition = SdkWarningRegistry.get(code);
-        expect(definition, isNotNull,
-            reason: 'Warning code $code should exist in registry');
-        expect(definition!.name, isNotEmpty,
-            reason: 'Warning $code must have a name');
-        expect(definition.message, isNotEmpty,
-            reason: 'Warning $code must have a message');
-        expect(definition.description, isNotEmpty,
-            reason: 'Warning $code must have a description');
-        expect(definition.causes, isNotEmpty,
-            reason: 'Warning $code must have at least one cause');
-        expect(definition.solutions, isNotEmpty,
-            reason: 'Warning $code must have at least one solution');
+        expect(
+          definition,
+          isNotNull,
+          reason: 'Warning code $code should exist in registry',
+        );
+        expect(
+          definition!.name,
+          isNotEmpty,
+          reason: 'Warning $code must have a name',
+        );
+        expect(
+          definition.message,
+          isNotEmpty,
+          reason: 'Warning $code must have a message',
+        );
+        expect(
+          definition.description,
+          isNotEmpty,
+          reason: 'Warning $code must have a description',
+        );
+        expect(
+          definition.causes,
+          isNotEmpty,
+          reason: 'Warning $code must have at least one cause',
+        );
+        expect(
+          definition.solutions,
+          isNotEmpty,
+          reason: 'Warning $code must have at least one solution',
+        );
       }
     });
   });
@@ -190,25 +211,49 @@ void main() {
         SdkErrorCode.unexpectedError, // 49001
       ];
 
-      expect(expectedCodes.length, equals(24),
-          reason: 'There should be exactly 24 error code constants');
+      expect(
+        expectedCodes.length,
+        equals(24),
+        reason: 'There should be exactly 24 error code constants',
+      );
 
       for (final code in expectedCodes) {
         final definition = SdkErrorRegistry.get(code);
-        expect(definition, isNotNull,
-            reason: 'Error code $code should exist in registry');
-        expect(definition!.name, isNotEmpty,
-            reason: 'Error $code must have a name');
-        expect(definition.message, isNotEmpty,
-            reason: 'Error $code must have a message');
-        expect(definition.description, isNotEmpty,
-            reason: 'Error $code must have a description');
-        expect(definition.causes, isNotEmpty,
-            reason: 'Error $code must have at least one cause');
-        expect(definition.solutions, isNotEmpty,
-            reason: 'Error $code must have at least one solution');
-        expect(definition.fatal, isA<bool>(),
-            reason: 'Error $code must have a boolean fatal flag');
+        expect(
+          definition,
+          isNotNull,
+          reason: 'Error code $code should exist in registry',
+        );
+        expect(
+          definition!.name,
+          isNotEmpty,
+          reason: 'Error $code must have a name',
+        );
+        expect(
+          definition.message,
+          isNotEmpty,
+          reason: 'Error $code must have a message',
+        );
+        expect(
+          definition.description,
+          isNotEmpty,
+          reason: 'Error $code must have a description',
+        );
+        expect(
+          definition.causes,
+          isNotEmpty,
+          reason: 'Error $code must have at least one cause',
+        );
+        expect(
+          definition.solutions,
+          isNotEmpty,
+          reason: 'Error $code must have at least one solution',
+        );
+        expect(
+          definition.fatal,
+          isA<bool>(),
+          reason: 'Error $code must have a boolean fatal flag',
+        );
       }
     });
   });
@@ -251,8 +296,11 @@ void main() {
       expect(error.description, isNotEmpty);
       expect(error.causes.length, greaterThan(0));
       expect(error.solutions.length, greaterThan(0));
-      expect(error.fatal, isTrue,
-          reason: 'RECONNECTION_EXHAUSTED should be fatal');
+      expect(
+        error.fatal,
+        isTrue,
+        reason: 'RECONNECTION_EXHAUSTED should be fatal',
+      );
     });
 
     test('createError with fatalOverride', () {
@@ -263,8 +311,11 @@ void main() {
 
       expect(error.code, equals(SdkErrorCode.mediaMicrophonePermissionDenied));
       // The registry default is fatal=true, but the override should win.
-      expect(error.fatal, isFalse,
-          reason: 'fatalOverride should take precedence over registry default');
+      expect(
+        error.fatal,
+        isFalse,
+        reason: 'fatalOverride should take precedence over registry default',
+      );
     });
   });
 
@@ -276,17 +327,22 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-1',
           onWarning: warnings.add,
+        )
+          // Interval 1 — RTT above threshold (0.4s).
+          ..checkStats(_makeStats(rtt: 0.5));
+        expect(
+          warnings.length,
+          equals(0),
+          reason: 'First breach should not emit warning',
         );
-
-        // Interval 1 — RTT above threshold (0.4s).
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        expect(warnings.length, equals(0),
-            reason: 'First breach should not emit warning');
 
         // Interval 2 — still above.
         monitor.checkStats(_makeStats(rtt: 0.45));
-        expect(warnings.length, equals(0),
-            reason: 'Second breach should not emit warning');
+        expect(
+          warnings.length,
+          equals(0),
+          reason: 'Second breach should not emit warning',
+        );
 
         // Interval 3 — third consecutive breach → warning.
         monitor.checkStats(_makeStats(rtt: 0.6));
@@ -305,11 +361,10 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-2',
           onWarning: warnings.add,
-        );
-
-        // Two consecutive breaches.
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        monitor.checkStats(_makeStats(rtt: 0.45));
+        )
+          // Two consecutive breaches.
+          ..checkStats(_makeStats(rtt: 0.5))
+          ..checkStats(_makeStats(rtt: 0.45));
         expect(warnings.length, equals(0));
 
         // RTT returns to normal — counter resets.
@@ -317,9 +372,10 @@ void main() {
         expect(warnings.length, equals(0));
 
         // Now three more breaches should fire again.
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        monitor.checkStats(_makeStats(rtt: 0.5));
+        monitor
+          ..checkStats(_makeStats(rtt: 0.5))
+          ..checkStats(_makeStats(rtt: 0.5))
+          ..checkStats(_makeStats(rtt: 0.5));
         expect(warnings.length, equals(1));
         expect(warnings[0].code, equals(SdkWarningCode.highRtt));
       },
@@ -334,11 +390,10 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-3',
           onWarning: warnings.add,
-        );
-
-        // jitter is in milliseconds in StatsInterval.
-        monitor.checkStats(_makeStats(jitter: 35));
-        monitor.checkStats(_makeStats(jitter: 40));
+        )
+          // jitter is in milliseconds in StatsInterval.
+          ..checkStats(_makeStats(jitter: 35))
+          ..checkStats(_makeStats(jitter: 40));
         expect(warnings.length, equals(0));
 
         monitor.checkStats(_makeStats(jitter: 50));
@@ -357,22 +412,27 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-4',
           onWarning: warnings.add,
-        );
-
-        // Delta-based: packetsReceived and packetsLost are cumulative.
-        // Interval 1: 100 received, 0 lost
-        monitor.checkStats(_makeStats(packetsReceived: 100, packetsLost: 0));
+        )
+          // Delta-based: packetsReceived and packetsLost are cumulative.
+          // Interval 1: 100 received, 0 lost
+          ..checkStats(_makeStats(packetsReceived: 100, packetsLost: 0));
         expect(warnings.length, equals(0));
 
         // Interval 2: 100 more received (200 total), 2 lost (2% loss)
         monitor.checkStats(_makeStats(packetsReceived: 200, packetsLost: 2));
-        expect(warnings.length, equals(0),
-            reason: 'First breach (2% loss > 1%) should not emit');
+        expect(
+          warnings.length,
+          equals(0),
+          reason: 'First breach (2% loss > 1%) should not emit',
+        );
 
         // Interval 3: 100 more (300 total), 3 more lost (3% loss this interval)
         monitor.checkStats(_makeStats(packetsReceived: 300, packetsLost: 5));
-        expect(warnings.length, equals(0),
-            reason: 'Second breach should not emit');
+        expect(
+          warnings.length,
+          equals(0),
+          reason: 'Second breach should not emit',
+        );
 
         // Interval 4: 100 more (400 total), 2 more lost (2% loss this interval)
         monitor.checkStats(_makeStats(packetsReceived: 400, packetsLost: 7));
@@ -390,19 +450,51 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-5',
           onWarning: warnings.add,
-        );
-
-        // The monitor computes a simplified MOS internally from jitter/rtt/loss.
-        // High jitter + high RTT → low MOS.
-        // Provide stats that yield MOS < 3.5.
-        monitor.checkStats(_makeStats(
-            rtt: 0.3, jitter: 60, packetsReceived: 100, packetsLost: 5));
-        monitor.checkStats(_makeStats(
-            rtt: 0.3, jitter: 60, packetsReceived: 200, packetsLost: 10));
+        )
+          // The monitor computes a simplified MOS from jitter/rtt/loss, using
+          // per-interval packet-loss deltas. RTT/jitter are kept below their
+          // individual HIGH_RTT/HIGH_JITTER thresholds so only LOW_MOS can fire.
+          //
+          // Baseline interval establishes the packet counters; with no previous
+          // sample the per-interval loss is 0, so MOS stays above 3.5 and this
+          // interval does not breach on its own.
+          ..checkStats(
+            _makeStats(
+              rtt: 0.3,
+              jitter: 25,
+              packetsReceived: 100,
+              packetsLost: 0,
+            ),
+          )
+          // Breach 1: ~13% per-interval loss drags MOS below 3.5.
+          ..checkStats(
+            _makeStats(
+              rtt: 0.3,
+              jitter: 25,
+              packetsReceived: 200,
+              packetsLost: 15,
+            ),
+          )
+          // Breach 2.
+          ..checkStats(
+            _makeStats(
+              rtt: 0.3,
+              jitter: 25,
+              packetsReceived: 300,
+              packetsLost: 30,
+            ),
+          );
         expect(warnings.length, equals(0));
 
-        monitor.checkStats(_makeStats(
-            rtt: 0.3, jitter: 60, packetsReceived: 300, packetsLost: 15));
+        // Breach 3 → warning.
+        monitor.checkStats(
+          _makeStats(
+            rtt: 0.3,
+            jitter: 25,
+            packetsReceived: 400,
+            packetsLost: 45,
+          ),
+        );
         expect(warnings.length, equals(1));
         expect(warnings[0].code, equals(SdkWarningCode.lowMos));
         expect(warnings[0].name, equals('LOW_MOS'));
@@ -418,11 +510,10 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-6',
           onWarning: warnings.add,
-        );
-
-        // Outbound audio level below threshold, before audio is confirmed.
-        monitor.checkStats(_makeStats(outboundAudioLevel: 0.0001));
-        monitor.checkStats(_makeStats(outboundAudioLevel: 0.0005));
+        )
+          // Outbound audio level below threshold, before audio is confirmed.
+          ..checkStats(_makeStats(outboundAudioLevel: 0.0001))
+          ..checkStats(_makeStats(outboundAudioLevel: 0.0005));
         expect(warnings.length, equals(0));
 
         monitor.checkStats(_makeStats(outboundAudioLevel: 0.0001));
@@ -441,10 +532,9 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-7',
           onWarning: warnings.add,
-        );
-
-        // First, confirm audio by sending a high level.
-        monitor.checkStats(_makeStats(outboundAudioLevel: 0.5));
+        )
+          // First, confirm audio by sending a high level.
+          ..checkStats(_makeStats(outboundAudioLevel: 0.5));
         expect(warnings.length, equals(0));
 
         // Now simulate continuous silence.  With 5s intervals, 6 intervals
@@ -452,8 +542,11 @@ void main() {
         for (int i = 0; i < 5; i++) {
           monitor.checkStats(_makeStats(outboundAudioLevel: 0.0001));
         }
-        expect(warnings.length, equals(0),
-            reason: 'Should not fire before 30s of continuous silence');
+        expect(
+          warnings.length,
+          equals(0),
+          reason: 'Should not fire before 30s of continuous silence',
+        );
 
         // 6th interval = 30s of silence → warning.
         monitor.checkStats(_makeStats(outboundAudioLevel: 0.0001));
@@ -465,18 +558,47 @@ void main() {
 
   group('VSD-421: LOW_INBOUND_AUDIO detection', () {
     test(
-      'inbound audio < 0.001 for 3 consecutive intervals emits LOW_INBOUND_AUDIO',
+      'does not fire before inbound audio is ever confirmed '
+      '(no false positive at call start)',
       () {
         final warnings = <TelnyxWarning>[];
         final monitor = QualityWarningMonitor(
           callId: 'test-call-8',
           onWarning: warnings.add,
         );
+        // The remote party is legitimately silent at the start of the call
+        // (no inbound RTP audio yet). This must NOT raise LOW_INBOUND_AUDIO.
+        for (var i = 0; i < 10; i++) {
+          monitor.checkStats(_makeStats(inboundAudioLevel: 0.0001));
+        }
+        expect(warnings.length, equals(0));
+      },
+    );
 
-        monitor.checkStats(_makeStats(inboundAudioLevel: 0.0001));
-        monitor.checkStats(_makeStats(inboundAudioLevel: 0.0005));
+    test(
+      'after inbound audio is confirmed, 30s continuous silence emits '
+      'LOW_INBOUND_AUDIO',
+      () {
+        final warnings = <TelnyxWarning>[];
+        final monitor = QualityWarningMonitor(
+          callId: 'test-call-8b',
+          onWarning: warnings.add,
+        )
+          // Confirm inbound audio was flowing at least once.
+          ..checkStats(_makeStats(inboundAudioLevel: 0.5));
         expect(warnings.length, equals(0));
 
+        // With 5s intervals, 6 intervals = 30s of continuous silence.
+        for (var i = 0; i < 5; i++) {
+          monitor.checkStats(_makeStats(inboundAudioLevel: 0.0001));
+        }
+        expect(
+          warnings.length,
+          equals(0),
+          reason: 'Should not fire before 30s of continuous silence',
+        );
+
+        // 6th interval = 30s → warning.
         monitor.checkStats(_makeStats(inboundAudioLevel: 0.0001));
         expect(warnings.length, equals(1));
         expect(warnings[0].code, equals(SdkWarningCode.lowInboundAudio));
@@ -493,10 +615,9 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-9',
           onWarning: warnings.add,
-        );
-
-        // Interval 1: 1000 bytes received (establishes baseline).
-        monitor.checkStats(_makeStats(bytesReceived: 1000));
+        )
+          // Interval 1: 1000 bytes received (establishes baseline).
+          ..checkStats(_makeStats(bytesReceived: 1000));
         expect(warnings.length, equals(0));
 
         // Interval 2: same bytesReceived → delta = 0 (breach 1).
@@ -524,10 +645,9 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-10',
           onWarning: warnings.add,
-        );
-
-        // Establish baseline.
-        monitor.checkStats(_makeStats(bytesSent: 5000));
+        )
+          // Establish baseline.
+          ..checkStats(_makeStats(bytesSent: 5000));
         expect(warnings.length, equals(0));
 
         // 3 consecutive intervals with no new bytes sent.
@@ -553,26 +673,31 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-11',
           onWarning: warnings.add,
-        );
-
-        // Fire HIGH_RTT by sending 3 intervals with high RTT.
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        monitor.checkStats(_makeStats(rtt: 0.5));
+        )
+          // Fire HIGH_RTT by sending 3 intervals with high RTT.
+          ..checkStats(_makeStats(rtt: 0.5))
+          ..checkStats(_makeStats(rtt: 0.5))
+          ..checkStats(_makeStats(rtt: 0.5));
         expect(warnings.length, equals(1));
 
         // Continue breaching — should NOT re-emit within 15s.
         // With 5s intervals, 2 more intervals = 10s total since first emit.
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        expect(warnings.length, equals(1),
-            reason:
-                'Should not re-emit same warning within 15s throttle window');
+        monitor
+          ..checkStats(_makeStats(rtt: 0.5))
+          ..checkStats(_makeStats(rtt: 0.5));
+        expect(
+          warnings.length,
+          equals(1),
+          reason: 'Should not re-emit same warning within 15s throttle window',
+        );
 
         // 3rd interval after first emit = 15s — should re-emit.
         monitor.checkStats(_makeStats(rtt: 0.5));
-        expect(warnings.length, equals(2),
-            reason: 'Should re-emit after 15s throttle window expires');
+        expect(
+          warnings.length,
+          equals(2),
+          reason: 'Should re-emit after 15s throttle window expires',
+        );
         expect(warnings[1].code, equals(SdkWarningCode.highRtt));
       },
     );
@@ -586,25 +711,30 @@ void main() {
         final monitor = QualityWarningMonitor(
           callId: 'test-call-12',
           onWarning: warnings.add,
-        );
-
-        // Establish with pair ID "pair-A".
-        monitor.checkStats(_makeStats(
-          rtt: 0.05,
-          jitter: 5,
-          iceCandidatePairId: 'pair-A',
-        ));
+        )
+          // Establish with pair ID "pair-A".
+          ..checkStats(
+            _makeStats(
+              rtt: 0.05,
+              jitter: 5,
+              iceCandidatePairId: 'pair-A',
+            ),
+          );
         expect(warnings.length, equals(0));
 
         // Change to pair ID "pair-B".
-        monitor.checkStats(_makeStats(
-          rtt: 0.05,
-          jitter: 5,
-          iceCandidatePairId: 'pair-B',
-        ));
+        monitor.checkStats(
+          _makeStats(
+            rtt: 0.05,
+            jitter: 5,
+            iceCandidatePairId: 'pair-B',
+          ),
+        );
         expect(warnings.length, equals(1));
         expect(
-            warnings[0].code, equals(SdkWarningCode.iceCandidatePairChanged));
+          warnings[0].code,
+          equals(SdkWarningCode.iceCandidatePairChanged),
+        );
         expect(warnings[0].name, equals('ICE_CANDIDATE_PAIR_CHANGED'));
       },
     );
@@ -615,14 +745,13 @@ void main() {
       "iceConnectionState 'disconnected' emits ICE_CONNECTIVITY_LOST warning",
       () {
         final warnings = <TelnyxWarning>[];
-        final monitor = QualityWarningMonitor(
+        QualityWarningMonitor(
           callId: 'test-call-13',
           onWarning: warnings.add,
-        );
-
-        // This method will be called from the Peer's onIceConnectionState
-        // callback when the state transitions to 'disconnected'.
-        monitor.onIceConnectionStateChanged('disconnected');
+        )
+            // This method will be called from the Peer's onIceConnectionState
+            // callback when the state transitions to 'disconnected'.
+            .onIceConnectionStateChanged('disconnected');
 
         expect(warnings.length, equals(1));
         expect(warnings[0].code, equals(SdkWarningCode.iceConnectivityLost));
@@ -636,12 +765,10 @@ void main() {
       "peerConnectionState 'failed' emits PEER_CONNECTION_FAILED warning",
       () {
         final warnings = <TelnyxWarning>[];
-        final monitor = QualityWarningMonitor(
+        QualityWarningMonitor(
           callId: 'test-call-14',
           onWarning: warnings.add,
-        );
-
-        monitor.onPeerConnectionStateChanged('failed');
+        ).onPeerConnectionStateChanged('failed');
 
         expect(warnings.length, equals(1));
         expect(warnings[0].code, equals(SdkWarningCode.peerConnectionFailed));
@@ -658,8 +785,11 @@ void main() {
           SdkErrorCode.sdpCreateOfferFailed,
         );
 
-        expect(error.fatal, isTrue,
-            reason: 'SDP_CREATE_OFFER_FAILED should be fatal');
+        expect(
+          error.fatal,
+          isTrue,
+          reason: 'SDP_CREATE_OFFER_FAILED should be fatal',
+        );
         expect(error.code, equals(SdkErrorCode.sdpCreateOfferFailed));
         expect(error.name, equals('SDP_CREATE_OFFER_FAILED'));
 
@@ -694,18 +824,17 @@ void main() {
       'onWarning callback fires with structured TelnyxWarning object',
       () {
         TelnyxWarning? capturedWarning;
-        final monitor = QualityWarningMonitor(
+        QualityWarningMonitor(
           callId: 'test-call-15',
           sessionId: 'session-abc',
           onWarning: (warning) {
             capturedWarning = warning;
           },
-        );
-
-        // Trigger HIGH_RTT.
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        monitor.checkStats(_makeStats(rtt: 0.5));
-        monitor.checkStats(_makeStats(rtt: 0.5));
+        )
+          // Trigger HIGH_RTT.
+          ..checkStats(_makeStats(rtt: 0.5))
+          ..checkStats(_makeStats(rtt: 0.5))
+          ..checkStats(_makeStats(rtt: 0.5));
 
         expect(capturedWarning, isNotNull);
         expect(capturedWarning!.code, equals(SdkWarningCode.highRtt));
@@ -733,14 +862,16 @@ void main() {
         );
 
         expect(capturedError, isNotNull);
-        expect(capturedError!.code,
-            equals(SdkErrorCode.websocketConnectionFailed));
-        expect(capturedError!.name, equals('WEBSOCKET_CONNECTION_FAILED'));
-        expect(capturedError!.message, equals('Unable to connect to server'));
-        expect(capturedError!.description, isNotEmpty);
-        expect(capturedError!.causes, isNotEmpty);
-        expect(capturedError!.solutions, isNotEmpty);
-        expect(capturedError!.fatal, isTrue);
+        expect(
+          capturedError.code,
+          equals(SdkErrorCode.websocketConnectionFailed),
+        );
+        expect(capturedError.name, equals('WEBSOCKET_CONNECTION_FAILED'));
+        expect(capturedError.message, equals('Unable to connect to server'));
+        expect(capturedError.description, isNotEmpty);
+        expect(capturedError.causes, isNotEmpty);
+        expect(capturedError.solutions, isNotEmpty);
+        expect(capturedError.fatal, isTrue);
 
         // TelnyxError should also support optional callId/sessionId.
         final errorWithCall = SdkErrorRegistry.createError(
@@ -750,8 +881,11 @@ void main() {
         );
         expect(errorWithCall.callId, equals('test-call-16'));
         expect(errorWithCall.sessionId, equals('session-xyz'));
-        expect(errorWithCall.fatal, isFalse,
-            reason: 'BYE_SEND_FAILED is non-fatal');
+        expect(
+          errorWithCall.fatal,
+          isFalse,
+          reason: 'BYE_SEND_FAILED is non-fatal',
+        );
       },
     );
   });

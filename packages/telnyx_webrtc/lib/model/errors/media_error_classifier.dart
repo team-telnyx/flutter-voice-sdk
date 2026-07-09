@@ -4,9 +4,11 @@
 /// This bridges the gap between raw platform/WebRTC errors and the
 /// structured SDK error registry, so callers can always map any
 /// getUserMedia failure to a known error code.
+library;
+
 import 'package:flutter/services.dart';
 
-import 'telnyx_error_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
 
 /// Classifies [error] — a PlatformException, string, or generic object —
 /// into the matching [TelnyxErrorCodes] media code.

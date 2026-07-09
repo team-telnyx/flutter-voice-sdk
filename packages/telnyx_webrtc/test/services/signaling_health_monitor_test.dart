@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:telnyx_webrtc/services/signaling_health_monitor.dart';
@@ -37,23 +35,26 @@ void main() {
       });
 
       test('isRunning returns false after stop()', () {
-        monitor.start();
-        monitor.stop();
+        monitor
+          ..start()
+          ..stop();
 
         expect(monitor.isRunning, isFalse);
       });
 
       test('start() is idempotent — calling twice does nothing', () {
-        monitor.start();
-        monitor.start();
+        monitor
+          ..start()
+          ..start();
 
         expect(monitor.isRunning, isTrue);
       });
 
       test('stop() is idempotent — calling twice does nothing', () {
-        monitor.start();
-        monitor.stop();
-        monitor.stop();
+        monitor
+          ..start()
+          ..stop()
+          ..stop();
 
         expect(monitor.isRunning, isFalse);
       });
@@ -64,12 +65,12 @@ void main() {
         // with healthy=false state
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.onPeerFailure('call-1', PeerFailureEvidence.iceFailed);
-        monitor.stop();
-
-        // After stop, no recovery should be pending
-        // Verify by starting again and checking no immediate action
-        monitor.start();
+        monitor
+          ..onPeerFailure('call-1', PeerFailureEvidence.iceFailed)
+          ..stop()
+          // After stop, no recovery should be pending
+          // Verify by starting again and checking no immediate action
+          ..start();
         verifyNever(session.socketDisconnect());
       });
     });
@@ -78,8 +79,9 @@ void main() {
       test('updates last inbound timestamp — no probe sent immediately after',
           () {
         when(session.isConnected).thenReturn(true);
-        monitor.start();
-        monitor.onSocketActivity();
+        monitor
+          ..start()
+          ..onSocketActivity();
 
         // Should not send a probe immediately after activity
         expect(monitor.isProbeInFlight, isFalse);
@@ -139,9 +141,9 @@ void main() {
       test('triggers signaling recovery for critical method (Modify)', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-
-        monitor.onRequestTimeout('req-1', 10000, 'telnyx_rtc.modify');
+        monitor
+          ..start()
+          ..onRequestTimeout('req-1', 10000, 'telnyx_rtc.modify');
 
         verify(session.socketDisconnect()).called(1);
       });
@@ -149,9 +151,9 @@ void main() {
       test('triggers signaling recovery for critical method (Bye)', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-
-        monitor.onRequestTimeout('req-2', 10000, 'telnyx_rtc.bye');
+        monitor
+          ..start()
+          ..onRequestTimeout('req-2', 10000, 'telnyx_rtc.bye');
 
         verify(session.socketDisconnect()).called(1);
       });
@@ -159,9 +161,9 @@ void main() {
       test('triggers signaling recovery for critical method (Ping)', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-
-        monitor.onRequestTimeout('req-3', 5000, 'telnyx_rtc.ping');
+        monitor
+          ..start()
+          ..onRequestTimeout('req-3', 5000, 'telnyx_rtc.ping');
 
         verify(session.socketDisconnect()).called(1);
       });
@@ -169,27 +171,27 @@ void main() {
       test('does NOT trigger recovery for non-critical method (Info)', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-
-        monitor.onRequestTimeout('req-4', 10000, 'telnyx_rtc.info');
+        monitor
+          ..start()
+          ..onRequestTimeout('req-4', 10000, 'telnyx_rtc.info');
 
         verifyNever(session.socketDisconnect());
       });
 
       test('does NOT trigger recovery when not connected', () {
         when(session.isConnected).thenReturn(false);
-        monitor.start();
-
-        monitor.onRequestTimeout('req-5', 10000, 'telnyx_rtc.modify');
+        monitor
+          ..start()
+          ..onRequestTimeout('req-5', 10000, 'telnyx_rtc.modify');
 
         verifyNever(session.socketDisconnect());
       });
 
       test('does NOT trigger recovery for empty method', () {
         when(session.isConnected).thenReturn(true);
-        monitor.start();
-
-        monitor.onRequestTimeout('req-6', 10000, '');
+        monitor
+          ..start()
+          ..onRequestTimeout('req-6', 10000, '');
 
         verifyNever(session.socketDisconnect());
       });
@@ -202,11 +204,11 @@ void main() {
         when(session.triggerIceRestart(any)).thenReturn(
           TriggerIceRestartResult(started: true),
         );
-        monitor.start();
-        // Record recent activity so signaling appears healthy
-        monitor.onSocketActivity();
-
-        monitor.onPeerFailure('call-1', PeerFailureEvidence.iceFailed);
+        monitor
+          ..start()
+          // Record recent activity so signaling appears healthy
+          ..onSocketActivity()
+          ..onPeerFailure('call-1', PeerFailureEvidence.iceFailed);
 
         verify(session.triggerIceRestart('call-1')).called(1);
         verifyNever(session.socketDisconnect());
@@ -215,15 +217,15 @@ void main() {
       test('with unhealthy signaling triggers socket reconnect', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-        // Don't call onSocketActivity — signaling state is unknown, not healthy
-        // We need to simulate an unhealthy state.
-        // Since we can't easily manipulate internal timestamps in a unit test,
-        // we verify the monitor's behavior when signaling health is unknown
-        // and a probe is needed.
-        // The monitor should defer or probe, not immediately ICE restart.
-
-        monitor.onPeerFailure('call-2', PeerFailureEvidence.connectionFailed);
+        monitor
+          ..start()
+          // Don't call onSocketActivity — signaling state is unknown, not healthy
+          // We need to simulate an unhealthy state.
+          // Since we can't easily manipulate internal timestamps in a unit test,
+          // we verify the monitor's behavior when signaling health is unknown
+          // and a probe is needed.
+          // The monitor should defer or probe, not immediately ICE restart.
+          ..onPeerFailure('call-2', PeerFailureEvidence.connectionFailed);
 
         // When signaling health is unknown, the monitor should probe
         // (not immediately ICE restart or socket disconnect)
@@ -235,9 +237,9 @@ void main() {
       test('does nothing when no active call', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(false);
-        monitor.start();
-
-        monitor.onPeerFailure('call-3', PeerFailureEvidence.iceFailed);
+        monitor
+          ..start()
+          ..onPeerFailure('call-3', PeerFailureEvidence.iceFailed);
 
         verifyNever(session.triggerIceRestart(any));
         verifyNever(session.socketDisconnect());
@@ -251,10 +253,10 @@ void main() {
         when(session.triggerIceRestart(any)).thenReturn(
           TriggerIceRestartResult(started: true),
         );
-        monitor.start();
-        monitor.onSocketActivity();
-
-        monitor.onNoRtp('call-1', 'inbound');
+        monitor
+          ..start()
+          ..onSocketActivity()
+          ..onNoRtp('call-1', 'inbound');
 
         verify(session.triggerIceRestart('call-1')).called(1);
         verifyNever(session.socketDisconnect());
@@ -263,9 +265,9 @@ void main() {
       test('with unknown signaling defers and probes', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-
-        monitor.onNoRtp('call-2', 'outbound');
+        monitor
+          ..start()
+          ..onNoRtp('call-2', 'outbound');
 
         // Should probe, not immediately act
         expect(monitor.isProbeInFlight, isTrue);
@@ -276,9 +278,9 @@ void main() {
       test('does nothing when no active call', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(false);
-        monitor.start();
-
-        monitor.onNoRtp('call-3', 'inbound');
+        monitor
+          ..start()
+          ..onNoRtp('call-3', 'inbound');
 
         verifyNever(session.triggerIceRestart(any));
         verifyNever(session.socketDisconnect());
@@ -289,9 +291,9 @@ void main() {
       test('triggers socket reconnect', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-
-        monitor.onIceRestartFailed('call-1');
+        monitor
+          ..start()
+          ..onIceRestartFailed('call-1');
 
         verify(session.socketDisconnect()).called(1);
       });
@@ -327,10 +329,10 @@ void main() {
         when(session.triggerIceRestart(any)).thenReturn(
           TriggerIceRestartResult(started: true),
         );
-        monitor.start();
-        monitor.onSocketActivity();
-
-        monitor.onPeerFailure('call-1', PeerFailureEvidence.iceFailed);
+        monitor
+          ..start()
+          ..onSocketActivity()
+          ..onPeerFailure('call-1', PeerFailureEvidence.iceFailed);
 
         verify(session.triggerIceRestart('call-1')).called(1);
         verifyNever(session.socketDisconnect());
@@ -341,9 +343,9 @@ void main() {
           () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-
-        monitor.onRequestTimeout('req-1', 10000, 'telnyx_rtc.modify');
+        monitor
+          ..start()
+          ..onRequestTimeout('req-1', 10000, 'telnyx_rtc.modify');
 
         verify(session.socketDisconnect()).called(1);
         verifyNever(session.triggerIceRestart(any));
@@ -353,9 +355,9 @@ void main() {
           () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
-
-        monitor.onIceRestartFailed('call-1');
+        monitor
+          ..start()
+          ..onIceRestartFailed('call-1');
 
         verify(session.socketDisconnect()).called(1);
         verifyNever(session.triggerIceRestart(any));

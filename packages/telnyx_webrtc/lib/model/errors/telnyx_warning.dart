@@ -34,6 +34,7 @@ class TelnyxWarning {
   /// Optional context map with extra details.
   final Map<String, dynamic>? context;
 
+  /// Creates a structured Telnyx warning.
   const TelnyxWarning({
     required this.code,
     required this.name,
@@ -47,6 +48,7 @@ class TelnyxWarning {
     this.context,
   });
 
+  /// Serializes this warning to a JSON-encodable map.
   Map<String, dynamic> toJson() => {
         'code': code,
         'name': name,

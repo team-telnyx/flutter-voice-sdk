@@ -17,7 +17,6 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
-import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 
@@ -51,25 +50,51 @@ void main() {
         );
 
         // New fields from VSD-422 — these will fail to compile until added.
-        expect(config.enableCallReports, isTrue,
-            reason: 'enableCallReports default should be true');
-        expect(config.debugOutput, equals('socket'),
-            reason: 'debugOutput default should be "socket"');
-        expect(config.debugLogLevel, equals('info'),
-            reason: 'debugLogLevel default should be "info"');
-        expect(config.debugLogMaxEntries, equals(1000),
-            reason: 'debugLogMaxEntries default should be 1000');
-        expect(config.callReportFlushInterval, equals(180000),
-            reason:
-                'callReportFlushInterval default should be 180000 ms (3 min)');
-        expect(config.prefetchIceCandidates, isTrue,
-            reason: 'prefetchIceCandidates default should be true');
-        expect(config.autoRecoverCalls, isTrue,
-            reason: 'autoRecoverCalls default should be true');
-        expect(config.hangupOnBeforeUnload, isTrue,
-            reason: 'hangupOnBeforeUnload default should be true');
-        expect(config.maxReconnectAttempts, equals(10),
-            reason: 'maxReconnectAttempts default should be 10');
+        expect(
+          config.enableCallReports,
+          isTrue,
+          reason: 'enableCallReports default should be true',
+        );
+        expect(
+          config.debugOutput,
+          equals('socket'),
+          reason: 'debugOutput default should be "socket"',
+        );
+        expect(
+          config.debugLogLevel,
+          equals('info'),
+          reason: 'debugLogLevel default should be "info"',
+        );
+        expect(
+          config.debugLogMaxEntries,
+          equals(1000),
+          reason: 'debugLogMaxEntries default should be 1000',
+        );
+        expect(
+          config.callReportFlushInterval,
+          equals(180000),
+          reason: 'callReportFlushInterval default should be 180000 ms (3 min)',
+        );
+        expect(
+          config.prefetchIceCandidates,
+          isTrue,
+          reason: 'prefetchIceCandidates default should be true',
+        );
+        expect(
+          config.autoRecoverCalls,
+          isTrue,
+          reason: 'autoRecoverCalls default should be true',
+        );
+        expect(
+          config.hangupOnBeforeUnload,
+          isTrue,
+          reason: 'hangupOnBeforeUnload default should be true',
+        );
+        expect(
+          config.maxReconnectAttempts,
+          equals(10),
+          reason: 'maxReconnectAttempts default should be 10',
+        );
       },
     );
   });
@@ -154,8 +179,11 @@ void main() {
       expect(config.prefetchIceCandidates, isFalse);
       expect(config.autoRecoverCalls, isFalse);
       expect(config.hangupOnBeforeUnload, isFalse);
-      expect(config.maxReconnectAttempts, equals(0),
-          reason: 'maxReconnectAttempts=0 means unlimited');
+      expect(
+        config.maxReconnectAttempts,
+        equals(0),
+        reason: 'maxReconnectAttempts=0 means unlimited',
+      );
     });
   });
 
@@ -169,30 +197,33 @@ void main() {
         // The Config should instruct the GlobalLogger to suppress debug/info
         // when debugLogLevel is 'warn'.  After applying config, calling
         // GlobalLogger().d('hello') should NOT reach the underlying logger.
-        final config = Config(
+        // Apply the config — this method does not exist yet.
+        Config(
           sipCallerIDName: 'Test',
           sipCallerIDNumber: '+1234567890',
           debug: true,
           logLevel: LogLevel.all,
           debugLogLevel: 'warn',
-        );
+        ).applyDebugLogLevel();
 
-        // Apply the config — this method does not exist yet.
-        config.applyDebugLogLevel();
-
-        mockLogger.lastLevel = null;
-        mockLogger.lastMessage = null;
+        mockLogger
+          ..lastLevel = null
+          ..lastMessage = null;
 
         GlobalLogger().d('debug message');
-        expect(mockLogger.lastLevel, isNull,
-            reason:
-                'debug message should be suppressed when debugLogLevel=warn');
+        expect(
+          mockLogger.lastLevel,
+          isNull,
+          reason: 'debug message should be suppressed when debugLogLevel=warn',
+        );
         expect(mockLogger.lastMessage, isNull);
 
         GlobalLogger().i('info message');
-        expect(mockLogger.lastLevel, isNull,
-            reason:
-                'info message should be suppressed when debugLogLevel=warn');
+        expect(
+          mockLogger.lastLevel,
+          isNull,
+          reason: 'info message should be suppressed when debugLogLevel=warn',
+        );
         expect(mockLogger.lastMessage, isNull);
 
         // Warning and error should pass through.
@@ -227,9 +258,12 @@ void main() {
         // but we verify that the config flag is propagated to CallReportOptions.
         // This will fail until debugOutput is integrated into report collection.
         final reportOptions = CallReportOptions.fromConfig(config);
-        expect(reportOptions.outputMode, equals('file'),
-            reason:
-                'CallReportOptions should reflect debugOutput=file from Config');
+        expect(
+          reportOptions.outputMode,
+          equals('file'),
+          reason:
+              'CallReportOptions should reflect debugOutput=file from Config',
+        );
       },
     );
   });
@@ -250,9 +284,12 @@ void main() {
 
         // CallReportOptions should indicate that reporting is disabled.
         final reportOptions = CallReportOptions.fromConfig(config);
-        expect(reportOptions.enabled, isFalse,
-            reason:
-                'CallReportOptions.enabled should be false when enableCallReports=false');
+        expect(
+          reportOptions.enabled,
+          isFalse,
+          reason:
+              'CallReportOptions.enabled should be false when enableCallReports=false',
+        );
       },
     );
   });
@@ -273,9 +310,12 @@ void main() {
 
         // CallReportOptions should carry the flush interval.
         final reportOptions = CallReportOptions.fromConfig(config);
-        expect(reportOptions.flushIntervalMs, equals(60000),
-            reason:
-                'CallReportOptions should reflect callReportFlushInterval from Config');
+        expect(
+          reportOptions.flushIntervalMs,
+          equals(60000),
+          reason:
+              'CallReportOptions should reflect callReportFlushInterval from Config',
+        );
       },
     );
   });
@@ -300,8 +340,11 @@ void main() {
         //
         // We verify the config value is accessible and the constant exists.
         // Full integration test is in the quality_warning_monitor suite.
-        expect(config.maxReconnectAttempts, lessThanOrEqualTo(10),
-            reason: 'maxReconnectAttempts should be a reasonable value');
+        expect(
+          config.maxReconnectAttempts,
+          lessThanOrEqualTo(10),
+          reason: 'maxReconnectAttempts should be a reasonable value',
+        );
 
         // maxReconnectAttempts = 0 means unlimited.
         final unlimitedConfig = Config(
@@ -311,8 +354,11 @@ void main() {
           logLevel: LogLevel.all,
           maxReconnectAttempts: 0,
         );
-        expect(unlimitedConfig.maxReconnectAttempts, equals(0),
-            reason: 'maxReconnectAttempts=0 means unlimited');
+        expect(
+          unlimitedConfig.maxReconnectAttempts,
+          equals(0),
+          reason: 'maxReconnectAttempts=0 means unlimited',
+        );
       },
     );
   });
@@ -345,9 +391,12 @@ void main() {
         // The Peer class should check this flag.  We verify it's accessible
         // on the config and can be used by the Peer to decide when to start
         // ICE gathering.
-        expect(config.prefetchIceCandidates, isTrue,
-            reason:
-                'prefetchIceCandidates should be accessible on Config for Peer to read');
+        expect(
+          config.prefetchIceCandidates,
+          isTrue,
+          reason:
+              'prefetchIceCandidates should be accessible on Config for Peer to read',
+        );
       },
     );
   });

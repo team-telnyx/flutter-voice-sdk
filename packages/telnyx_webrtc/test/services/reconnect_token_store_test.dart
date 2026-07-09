@@ -206,9 +206,12 @@ void main() {
           'getActiveCallsRecoveryMarker returns marker when fresh', () async {
         final now = DateTime.now().millisecondsSinceEpoch;
         final calls = [
-          StoredActiveCall(id: 'call-1', customHeaders: [
-            {'key': 'value'},
-          ]),
+          StoredActiveCall(
+            id: 'call-1',
+            customHeaders: [
+              {'key': 'value'},
+            ],
+          ),
           StoredActiveCall(id: 'call-2', customHeaders: []),
         ];
 
@@ -357,9 +360,12 @@ void main() {
       final calls = StoredActiveCalls(
         sessionId: 'session-xyz',
         calls: [
-          StoredActiveCall(id: 'call-1', customHeaders: [
-            {'key': 'val'},
-          ]),
+          StoredActiveCall(
+            id: 'call-1',
+            customHeaders: [
+              {'key': 'val'},
+            ],
+          ),
           StoredActiveCall(id: 'call-2', customHeaders: []),
         ],
         storedAt: 1700000000,
@@ -379,7 +385,7 @@ void main() {
       final json = {
         'sessionId': 's1',
         'calls': [
-          {'id': 'c1', 'customHeaders': []}
+          {'id': 'c1', 'customHeaders': []},
         ],
         'storedAt': 1234567890,
       };
@@ -398,54 +404,84 @@ void main() {
 
     test('Connect with stored reconnect session ID adds voice_sdk_id to URL',
         () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('Connect without stored session ID does not add voice_sdk_id', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('Successful login stores voice_sdk_id and session ID', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('Reconnect uses stored voice_sdk_id', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('Disconnect clears all stored data', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('App startup with recovery marker attempts reattach', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('SESSION_NOT_REATTACHED error emitted when server does not reattach',
         () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('recoveredCallId is set on recovered calls', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('Active calls marker updated when call state changes', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
 
     test('Active calls marker cleared when all calls end', () {
-      expect(true, isTrue,
-          reason: 'Implementation test — requires TelnyxClient integration');
+      expect(
+        true,
+        isTrue,
+        reason: 'Implementation test — requires TelnyxClient integration',
+      );
     });
   });
 }

@@ -18,6 +18,7 @@ class TelnyxErrorDefinition {
   /// Whether the situation is terminal.
   final bool fatal;
 
+  /// Creates an error definition entry for the SDK error registry.
   const TelnyxErrorDefinition({
     required this.name,
     required this.message,
@@ -40,11 +41,11 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
         'The browser was unable to generate a local SDP offer. This typically indicates a WebRTC API error or invalid media constraints.',
     causes: [
       'Browser WebRTC API error',
-      'Missing or invalid media constraints'
+      'Missing or invalid media constraints',
     ],
     solutions: [
       'Check getUserMedia permissions',
-      'Verify ICE server configuration'
+      'Verify ICE server configuration',
     ],
     fatal: true,
   ),
@@ -93,7 +94,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
         'The user or operating system denied microphone permission. The browser permission prompt was dismissed or OS-level access is disabled.',
     causes: [
       'User denied browser permission prompt',
-      'OS-level microphone access disabled'
+      'OS-level microphone access disabled',
     ],
     solutions: ['Ask user to grant microphone permission in browser settings'],
     fatal: true,
@@ -106,11 +107,11 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     causes: [
       'No microphone connected',
       'Device was disconnected',
-      'Invalid deviceId'
+      'Invalid deviceId',
     ],
     solutions: [
       'Check that a microphone is connected',
-      'Select a valid audio input device'
+      'Select a valid audio input device',
     ],
     fatal: true,
   ),
@@ -141,7 +142,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
         'The call could not be initiated because required parameters are missing or invalid. For example, no destination number was provided to newCall().',
     causes: [
       'Missing destinationNumber in call options',
-      'Invalid or empty call parameters'
+      'Invalid or empty call parameters',
     ],
     solutions: [
       'Provide a valid destinationNumber when calling newCall()',
@@ -157,7 +158,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     causes: ['WebSocket connection lost before BYE sent'],
     solutions: [
       'No action needed — call is terminated locally',
-      'Check network connectivity'
+      'Check network connectivity',
     ],
     fatal: false,
   ),
@@ -168,7 +169,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
         'The Verto subscribe request for the call channel failed. This may prevent receiving call state updates from the server.',
     causes: [
       'WebSocket connection lost during subscribe',
-      'Server rejected the subscription request'
+      'Server rejected the subscription request',
     ],
     solutions: ['Check network connectivity', 'Retry the call'],
     fatal: false,
@@ -217,11 +218,11 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     causes: [
       'Network interruption',
       'Server closed the connection',
-      'Idle timeout'
+      'Idle timeout',
     ],
     solutions: [
       'Check network connectivity',
-      'SDK will attempt automatic reconnection if configured'
+      'SDK will attempt automatic reconnection if configured',
     ],
     fatal: false,
   ),
@@ -233,7 +234,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     causes: [
       'Prolonged network outage',
       'Server unreachable',
-      'Firewall or proxy blocking reconnection'
+      'Firewall or proxy blocking reconnection',
     ],
     solutions: [
       'Check network connectivity',
@@ -250,7 +251,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     causes: [
       'Gateway down or unreachable',
       'Server-side infrastructure issue',
-      'Network partition between signaling server and gateway'
+      'Network partition between signaling server and gateway',
     ],
     solutions: [
       'Wait for automatic reconnection (if autoReconnect is enabled)',
@@ -269,12 +270,12 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     causes: [
       'Invalid credentials (username/password or token)',
       'Expired authentication token',
-      'Account suspended or disabled'
+      'Account suspended or disabled',
     ],
     solutions: [
       'Verify credentials',
       'Generate a new authentication token',
-      'Check account status'
+      'Check account status',
     ],
     fatal: true,
   ),
@@ -327,7 +328,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     ],
     solutions: [
       'The call may recover via WebSocket reconnect + Attach',
-      'If the call does not recover, hang up and retry'
+      'If the call does not recover, hang up and retry',
     ],
     fatal: false,
   ),
@@ -341,12 +342,12 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     causes: [
       'Wi-Fi or ethernet disconnected',
       'Airplane mode enabled',
-      'Network interface went down'
+      'Network interface went down',
     ],
     solutions: [
       'Check network connectivity',
       'Reconnect to Wi-Fi or ethernet',
-      'Disable airplane mode'
+      'Disable airplane mode',
     ],
     fatal: false,
   ),
@@ -365,7 +366,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     solutions: [
       'Terminate the local call and notify the user',
       'Start a new call',
-      'Investigate why the session was not preserved on the server'
+      'Investigate why the session was not preserved on the server',
     ],
     fatal: true,
   ),
@@ -379,7 +380,7 @@ const Map<int, TelnyxErrorDefinition> sdkErrors = {
     causes: ['Unknown or unhandled error condition'],
     solutions: [
       'Check the originalError property for the underlying cause',
-      'Report the issue if it persists'
+      'Report the issue if it persists',
     ],
     fatal: true,
   ),

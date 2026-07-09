@@ -120,10 +120,16 @@ void main() {
           packetLoss: 0.0,
         );
 
-        expect(mos, greaterThanOrEqualTo(4.0),
-            reason: 'Good network conditions should yield MOS >= 4.0');
-        expect(mos, lessThanOrEqualTo(4.5),
-            reason: 'MOS should never exceed 4.5');
+        expect(
+          mos,
+          greaterThanOrEqualTo(4.0),
+          reason: 'Good network conditions should yield MOS >= 4.0',
+        );
+        expect(
+          mos,
+          lessThanOrEqualTo(4.5),
+          reason: 'MOS should never exceed 4.5',
+        );
       },
     );
   });
@@ -134,8 +140,10 @@ void main() {
       () {
         // DiagnosticQuality should map from MOS values.
         // These methods do not exist yet — will fail at compile.
-        expect(DiagnosticQuality.fromMos(4.3),
-            equals(DiagnosticQuality.excellent));
+        expect(
+          DiagnosticQuality.fromMos(4.3),
+          equals(DiagnosticQuality.excellent),
+        );
         expect(DiagnosticQuality.fromMos(4.0), equals(DiagnosticQuality.good));
         expect(DiagnosticQuality.fromMos(3.5), equals(DiagnosticQuality.fair));
         expect(DiagnosticQuality.fromMos(3.0), equals(DiagnosticQuality.poor));

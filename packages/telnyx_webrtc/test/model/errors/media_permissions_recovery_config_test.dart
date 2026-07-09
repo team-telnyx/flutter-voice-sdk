@@ -6,9 +6,6 @@ import 'package:telnyx_webrtc/model/errors/media_permissions_recovery_config.dar
 void main() {
   group('VSDK-417: MediaPermissionsRecoveryConfig', () {
     test('constructs with enabled, timeout, onSuccess, and onError', () {
-      var successCalled = false;
-      var errorCalled = false;
-
       const config = MediaPermissionsRecoveryConfig(
         enabled: true,
         timeout: 25000,
@@ -18,12 +15,8 @@ void main() {
       final configWithCallbacks = MediaPermissionsRecoveryConfig(
         enabled: true,
         timeout: 25000,
-        onSuccess: () {
-          successCalled = true;
-        },
-        onError: (error) {
-          errorCalled = true;
-        },
+        onSuccess: () {},
+        onError: (error) {},
       );
 
       expect(config.enabled, isTrue);
@@ -81,9 +74,9 @@ void main() {
     test('resume callback completes the Completer successfully', () async {
       final completer = Completer<void>();
 
-      final resume = () async {
+      Future<void> resume() async {
         completer.complete();
-      };
+      }
 
       await resume();
       expect(completer.isCompleted, isTrue);
@@ -93,16 +86,18 @@ void main() {
       final completer = Completer<void>();
       var caughtError = false;
 
-      final reject = () async {
+      Future<void> reject() async {
         completer.completeError(Exception('Call was rejected'));
-      };
+      }
 
       // Attach an error handler to the future BEFORE calling reject so
       // the error is caught synchronously and doesn't surface as unhandled.
-      completer.future.catchError((e) {
-        caughtError = true;
-        return null;
-      });
+      unawaited(
+        completer.future.catchError((e) {
+          caughtError = true;
+          return null;
+        }),
+      );
 
       await reject();
       // Give the microtask queue a turn to let the catchError run.

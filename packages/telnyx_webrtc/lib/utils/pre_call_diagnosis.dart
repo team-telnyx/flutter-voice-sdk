@@ -2,23 +2,29 @@ import 'dart:async';
 
 import 'package:telnyx_webrtc/call.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
-import 'package:telnyx_webrtc/model/call_quality.dart';
 import 'package:telnyx_webrtc/model/call_quality_metrics.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
-import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
-import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/stats/mos_calculator.dart';
 
 /// Quality rating for a diagnostic report.
 enum DiagnosticQuality {
+  /// Top-tier call quality with a MOS above 4.0.
   excellent,
+
+  /// Good call quality with a MOS around 4.0.
   good,
+
+  /// Acceptable call quality with a MOS between 3.5 and 4.0.
   fair,
+
+  /// Degraded call quality with a MOS between 2.0 and 3.5.
   poor,
+
+  /// Unusable call quality with a MOS at or below 2.0.
   bad;
 
   /// Map a MOS value to a [DiagnosticQuality].
@@ -33,10 +39,16 @@ enum DiagnosticQuality {
 
 /// Min / max / average for a series of values.
 class MinMaxAverage {
+  /// The smallest value observed in the series.
   final double min;
+
+  /// The largest value observed in the series.
   final double max;
+
+  /// The arithmetic mean of the values in the series.
   final double average;
 
+  /// Creates a [MinMaxAverage] from explicit [min], [max] and [average].
   const MinMaxAverage({
     required this.min,
     required this.max,
@@ -57,12 +69,22 @@ class MinMaxAverage {
 
 /// Session-level stats extracted after a diagnostic call.
 class DiagnosticSessionStats {
+  /// Total number of RTP packets received during the diagnostic call.
   final int packetsReceived;
+
+  /// Total number of RTP packets lost during the diagnostic call.
   final int packetsLost;
+
+  /// Total number of RTP packets sent during the diagnostic call.
   final int packetsSent;
+
+  /// Total number of bytes sent during the diagnostic call.
   final int bytesSent;
+
+  /// Total number of bytes received during the diagnostic call.
   final int bytesReceived;
 
+  /// Creates the session-level packet and byte counters for a diagnostic call.
   const DiagnosticSessionStats({
     required this.packetsReceived,
     required this.packetsLost,
@@ -74,19 +96,43 @@ class DiagnosticSessionStats {
 
 /// ICE candidate stats (mirrors the WebRTC RTCIceCandidateStats dictionary).
 class RTCIceCandidateStats {
+  /// The IP address of the ICE candidate.
   final String? address;
+
+  /// The type of ICE candidate (for example 'host', 'srflx' or 'relay').
   final String? candidateType;
+
+  /// Whether this ICE candidate has been deleted.
   final bool? deleted;
+
+  /// The unique identifier of this ICE candidate stats object.
   final String? id;
+
+  /// The network port associated with the ICE candidate.
   final int? port;
+
+  /// The priority value used during ICE candidate pairing.
   final int? priority;
+
+  /// The transport protocol of the candidate (for example 'udp' or 'tcp').
   final String? protocol;
+
+  /// The protocol used to communicate with the TURN relay, if any.
   final String? relayProtocol;
+
+  /// The ISO-8601 timestamp at which these stats were captured.
   final String? timestamp;
+
+  /// The identifier of the transport this candidate belongs to.
   final String? transportId;
+
+  /// The WebRTC stats type, mirroring [candidateType].
   final String? type;
+
+  /// The URL of the ICE/TURN server that provided this candidate.
   final String? url;
 
+  /// Creates an immutable snapshot of a single ICE candidate's stats.
   const RTCIceCandidateStats({
     this.address,
     this.candidateType,
@@ -105,14 +151,28 @@ class RTCIceCandidateStats {
 
 /// The full diagnostic report returned by [PreCallDiagnostic.run].
 class DiagnosticReport {
+  /// The individual ICE candidate stats gathered during the diagnostic.
   final List<RTCIceCandidateStats> iceCandidateStats;
+
+  /// The selected ICE candidate pair stats, if a connection was established.
   final Map<String, dynamic>? iceCandidatePairStats;
+
+  /// The min/max/average jitter observed across the collected samples.
   final MinMaxAverage jitter;
+
+  /// The min/max/average round-trip time observed across the samples.
   final MinMaxAverage rtt;
+
+  /// The Mean Opinion Score computed from the collected metrics.
   final double mos;
+
+  /// The overall quality rating derived from [mos].
   final DiagnosticQuality quality;
+
+  /// The session-level packet and byte counters for the diagnostic call.
   final DiagnosticSessionStats sessionStats;
 
+  /// Creates a diagnostic report from the collected metrics.
   const DiagnosticReport({
     required this.iceCandidateStats,
     required this.iceCandidatePairStats,
@@ -126,13 +186,34 @@ class DiagnosticReport {
 
 /// Options for [PreCallDiagnostic.run].
 class PreCallDiagnosisOptions {
+  /// The TeXML application number to dial for the diagnostic test call.
   final String texMLApplicationNumber;
+
+  /// SIP token to authenticate with, when using token-based login.
   final String? sipToken;
+
+  /// SIP username to authenticate with, when using credential-based login.
   final String? sipUser;
+
+  /// SIP password to authenticate with, when using credential-based login.
   final String? sipPassword;
+
+  /// Caller ID name to present on the diagnostic test call.
   final String sipCallerIDName;
+
+  /// Caller ID number to present on the diagnostic test call.
   final String sipCallerIDNumber;
 
+  /// Log level applied to the diagnostic's temporary [TelnyxClient].
+  ///
+  /// Defaults to [LogLevel.info] instead of [LogLevel.all] so the diagnostic
+  /// does not force maximally verbose logging of credentials/SDP over whatever
+  /// level the integrating app configured. Callers that need full logs can opt
+  /// in explicitly.
+  final LogLevel logLevel;
+
+  /// Creates diagnostic options. Provide either [sipToken] or the
+  /// [sipUser]/[sipPassword] pair for authentication.
   const PreCallDiagnosisOptions({
     required this.texMLApplicationNumber,
     this.sipToken,
@@ -140,23 +221,37 @@ class PreCallDiagnosisOptions {
     this.sipPassword,
     required this.sipCallerIDName,
     required this.sipCallerIDNumber,
+    this.logLevel = LogLevel.info,
   });
 }
 
 /// Reason for a pre-call diagnostic failure.
 enum PreCallDiagnosticFailureReason {
+  /// The diagnostic did not receive stats within the allotted time.
   timeout,
+
+  /// The client could not connect to or register with the Telnyx server.
   connectionFailed,
+
+  /// The test call returned a SIP error response.
   sipError,
 }
 
 /// Exception thrown when [PreCallDiagnostic.run] fails.
 class PreCallDiagnosticException implements Exception {
+  /// The SIP response code associated with the failure, if any.
   final int? sipCode;
+
+  /// The SIP reason phrase associated with the failure, if any.
   final String? sipReason;
+
+  /// The categorized reason the diagnostic failed.
   final PreCallDiagnosticFailureReason reason;
+
+  /// A human-readable description of the failure.
   final String message;
 
+  /// Creates an exception describing why a pre-call diagnostic failed.
   PreCallDiagnosticException({
     this.sipCode,
     this.sipReason,
@@ -221,16 +316,20 @@ class PreCallDiagnostic {
       }
     });
 
-    // Run the actual diagnostic, linking the result to the completer.
-    runDiagnostic(options).then((report) {
-      if (!completer.isCompleted) {
-        completer.complete(report);
-      }
-    }).catchError((error) {
-      if (!completer.isCompleted) {
-        completer.completeError(error);
-      }
-    });
+    // Run the actual diagnostic, linking the result to the completer. This is
+    // deliberately not awaited here — the outer completer (bounded by [timer])
+    // is what the caller awaits.
+    unawaited(
+      runDiagnostic(options, timeout: timeout).then((report) {
+        if (!completer.isCompleted) {
+          completer.complete(report);
+        }
+      }).catchError((error) {
+        if (!completer.isCompleted) {
+          completer.completeError(error);
+        }
+      }),
+    );
 
     try {
       return await completer.future;
@@ -242,8 +341,10 @@ class PreCallDiagnostic {
   /// The core diagnostic logic — connects, makes a test call, collects stats,
   /// cleans up, and returns the report.
   static Future<DiagnosticReport> runDiagnostic(
-    PreCallDiagnosisOptions options,
-  ) async {
+    PreCallDiagnosisOptions options, {
+    Duration? timeout,
+  }) async {
+    final effectiveTimeout = timeout ?? _timeout;
     // Validate options.
     if (options.sipToken == null &&
         (options.sipUser == null || options.sipPassword == null)) {
@@ -296,7 +397,7 @@ class PreCallDiagnostic {
           sipToken: options.sipToken!,
           sipCallerIDName: options.sipCallerIDName,
           sipCallerIDNumber: options.sipCallerIDNumber,
-          logLevel: LogLevel.all,
+          logLevel: options.logLevel,
           debug: true,
         );
         client.connectWithToken(tokenConfig);
@@ -306,7 +407,7 @@ class PreCallDiagnostic {
           sipPassword: options.sipPassword!,
           sipCallerIDName: options.sipCallerIDName,
           sipCallerIDNumber: options.sipCallerIDNumber,
-          logLevel: LogLevel.all,
+          logLevel: options.logLevel,
           debug: true,
         );
         client.connectWithCredential(credentialConfig);
@@ -315,13 +416,15 @@ class PreCallDiagnostic {
       // Wait for the client to be ready (registered), with a 5s
       // connection timeout so tests don't hang indefinitely when
       // no server is reachable.
-      await connectionCompleter.future.timeout(const Duration(seconds: 5),
-          onTimeout: () {
-        throw PreCallDiagnosticException(
-          reason: PreCallDiagnosticFailureReason.connectionFailed,
-          message: 'Could not connect within 5 seconds — no server reachable',
-        );
-      });
+      await connectionCompleter.future.timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          throw PreCallDiagnosticException(
+            reason: PreCallDiagnosticFailureReason.connectionFailed,
+            message: 'Could not connect within 5 seconds — no server reachable',
+          );
+        },
+      );
 
       // --- Step 3: Set up SIP error monitoring via socket messages ---
       client.onSocketMessageReceived = (TelnyxMessage message) {
@@ -355,91 +458,94 @@ class PreCallDiagnostic {
         options.texMLApplicationNumber,
         'diagnostic-test',
         debug: true,
-      );
+      )
+        // --- Step 5: Set up stats collection via onCallQualityChange ---
+        ..onCallQualityChange = (CallQualityMetrics metrics) {
+          // Collect jitter and RTT samples.
+          jitterSamples.add(metrics.jitter);
+          rttSamples.add(metrics.rtt);
 
-      if (testCall == null) {
-        throw PreCallDiagnosticException(
-          reason: PreCallDiagnosticFailureReason.connectionFailed,
-          message: 'Failed to create test call',
-        );
-      }
+          // Extract ICE candidate stats from the metrics' raw stats maps.
+          _extractIceCandidateStats(metrics, iceCandidateStats);
 
-      // --- Step 5: Set up stats collection via onCallQualityChange ---
-      testCall.onCallQualityChange = (CallQualityMetrics metrics) {
-        // Collect jitter and RTT samples.
-        jitterSamples.add(metrics.jitter);
-        rttSamples.add(metrics.rtt);
+          // Extract session stats from the metrics.
+          sessionStats = _extractSessionStats(metrics);
+          iceCandidatePairStats = _extractIceCandidatePairStats(metrics);
 
-        // Extract ICE candidate stats from the metrics' raw stats maps.
-        _extractIceCandidateStats(metrics, iceCandidateStats);
-
-        // Extract session stats from the metrics.
-        sessionStats = _extractSessionStats(metrics);
-        iceCandidatePairStats = _extractIceCandidatePairStats(metrics);
-
-        // After collecting at least one sample, we can complete.
-        if (!statsCompleter.isCompleted) {
-          final jitterMma = MinMaxAverage.fromValues(jitterSamples);
-          final rttMma = MinMaxAverage.fromValues(rttSamples);
-
-          // Calculate MOS from the averaged stats.
-          final packetLoss = _calculatePacketLoss(metrics);
-          final mos = MosCalculator.calculateMos(
-            rtt: rttMma.average,
-            jitter: jitterMma.average,
-            packetLoss: packetLoss,
-          );
-
-          final quality = DiagnosticQuality.fromMos(mos);
-          final report = DiagnosticReport(
-            iceCandidateStats: List.unmodifiable(iceCandidateStats),
-            iceCandidatePairStats: iceCandidatePairStats,
-            jitter: jitterMma,
-            rtt: rttMma,
-            mos: mos,
-            quality: quality,
-            sessionStats: sessionStats ??
-                const DiagnosticSessionStats(
-                  packetsReceived: 0,
-                  packetsLost: 0,
-                  packetsSent: 0,
-                  bytesSent: 0,
-                  bytesReceived: 0,
-                ),
-          );
-          statsCompleter.complete(report);
-        }
-      };
-
-      // Monitor call state for errors.
-      testCall.callHandler.onCallStateChanged = (CallState state) {
-        if (state == CallState.done || state == CallState.dropped) {
+          // After collecting at least one sample, we can complete.
           if (!statsCompleter.isCompleted) {
-            // If we have SIP error info, throw with it.
-            if (sipErrorCode != null && sipErrorCode! >= 400) {
-              statsCompleter.completeError(
-                PreCallDiagnosticException(
-                  sipCode: sipErrorCode,
-                  sipReason: sipErrorReason,
-                  reason: PreCallDiagnosticFailureReason.sipError,
-                  message: 'SIP ${sipErrorCode} ${sipErrorReason ?? ""}',
-                ),
-              );
-            } else {
-              statsCompleter.completeError(
-                PreCallDiagnosticException(
-                  reason: PreCallDiagnosticFailureReason.connectionFailed,
-                  message: 'Call ended before stats were collected '
-                      '(state: $state)',
-                ),
-              );
-            }
+            final jitterMma = MinMaxAverage.fromValues(jitterSamples);
+            final rttMma = MinMaxAverage.fromValues(rttSamples);
+
+            // Calculate MOS from the averaged stats.
+            final packetLoss = _calculatePacketLoss(metrics);
+            final mos = MosCalculator.calculateMos(
+              rtt: rttMma.average,
+              jitter: jitterMma.average,
+              packetLoss: packetLoss,
+            );
+
+            final quality = DiagnosticQuality.fromMos(mos);
+            final report = DiagnosticReport(
+              iceCandidateStats: List.unmodifiable(iceCandidateStats),
+              iceCandidatePairStats: iceCandidatePairStats,
+              jitter: jitterMma,
+              rtt: rttMma,
+              mos: mos,
+              quality: quality,
+              sessionStats: sessionStats ??
+                  const DiagnosticSessionStats(
+                    packetsReceived: 0,
+                    packetsLost: 0,
+                    packetsSent: 0,
+                    bytesSent: 0,
+                    bytesReceived: 0,
+                  ),
+            );
+            statsCompleter.complete(report);
           }
         }
-      };
+        // Monitor call state for errors.
+        ..callHandler.onCallStateChanged = (CallState state) {
+          if (state == CallState.done || state == CallState.dropped) {
+            if (!statsCompleter.isCompleted) {
+              // If we have SIP error info, throw with it.
+              if (sipErrorCode != null && sipErrorCode! >= 400) {
+                statsCompleter.completeError(
+                  PreCallDiagnosticException(
+                    sipCode: sipErrorCode,
+                    sipReason: sipErrorReason,
+                    reason: PreCallDiagnosticFailureReason.sipError,
+                    message: 'SIP $sipErrorCode ${sipErrorReason ?? ""}',
+                  ),
+                );
+              } else {
+                statsCompleter.completeError(
+                  PreCallDiagnosticException(
+                    reason: PreCallDiagnosticFailureReason.connectionFailed,
+                    message: 'Call ended before stats were collected '
+                        '(state: $state)',
+                  ),
+                );
+              }
+            }
+          }
+        };
 
-      // Wait for stats to be collected.
-      return await statsCompleter.future;
+      // Wait for stats to be collected, but bound the wait so the cleanup in
+      // the finally block always runs. Without this inner timeout, if the test
+      // call connects but the server never sends a quality sample, a BYE, or a
+      // done/dropped state, statsCompleter would never complete: this await
+      // would hang forever and endCall()/disconnect() would never execute,
+      // permanently leaking the TelnyxClient socket and the live test call.
+      return await statsCompleter.future.timeout(
+        effectiveTimeout,
+        onTimeout: () => throw PreCallDiagnosticException(
+          reason: PreCallDiagnosticFailureReason.timeout,
+          message: 'PreCallDiagnostic timed out after '
+              '${effectiveTimeout.inSeconds}s without receiving stats',
+        ),
+      );
     } catch (e) {
       // If we already have a PreCallDiagnosticException, rethrow it.
       if (e is PreCallDiagnosticException) {

@@ -40,6 +40,7 @@ class TelnyxError implements Exception {
   /// Optional context map with extra details.
   final Map<String, dynamic>? context;
 
+  /// Creates a structured Telnyx error.
   TelnyxError({
     required this.code,
     required this.name,
@@ -58,6 +59,7 @@ class TelnyxError implements Exception {
   @override
   String toString() => '[$code] $name: $message';
 
+  /// Serializes this error to a JSON-encodable map.
   Map<String, dynamic> toJson() => {
         'code': code,
         'name': name,

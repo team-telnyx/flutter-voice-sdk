@@ -15,6 +15,7 @@ class TelnyxWarningDefinition {
   /// Suggested remediation steps.
   final List<String> solutions;
 
+  /// Creates a warning definition entry for the SDK warning registry.
   const TelnyxWarningDefinition({
     required this.name,
     required this.message,
@@ -37,12 +38,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'Poor network connection',
       'Geographic distance to media server',
-      'Network congestion'
+      'Network congestion',
     ],
     solutions: [
       'Check network connectivity',
       'Use a wired connection instead of Wi-Fi',
-      'Close bandwidth-heavy applications'
+      'Close bandwidth-heavy applications',
     ],
   ),
   31002: TelnyxWarningDefinition(
@@ -53,12 +54,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'Network congestion',
       'Unstable Wi-Fi connection',
-      'Overloaded network equipment'
+      'Overloaded network equipment',
     ],
     solutions: [
       'Use a wired connection instead of Wi-Fi',
       'Close bandwidth-heavy applications',
-      'Check network equipment'
+      'Check network equipment',
     ],
   ),
   31003: TelnyxWarningDefinition(
@@ -69,12 +70,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'Network congestion',
       'Unstable connection',
-      'Firewall or QoS misconfiguration'
+      'Firewall or QoS misconfiguration',
     ],
     solutions: [
       'Check network connectivity',
       'Use a wired connection',
-      'Contact network administrator'
+      'Contact network administrator',
     ],
   ),
   31004: TelnyxWarningDefinition(
@@ -84,12 +85,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
         'Mean Opinion Score (MOS) dropped below the acceptable threshold for multiple consecutive samples. This is a composite indicator of overall call quality.',
     causes: [
       'Combination of high latency, jitter, and/or packet loss',
-      'Poor network conditions'
+      'Poor network conditions',
     ],
     solutions: [
       'Check network connectivity',
       'Use a wired connection',
-      'Close bandwidth-heavy applications'
+      'Close bandwidth-heavy applications',
     ],
   ),
   31005: TelnyxWarningDefinition(
@@ -138,12 +139,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'Network interruption',
       'Remote party microphone issue',
-      'Firewall blocking inbound media'
+      'Firewall blocking inbound media',
     ],
     solutions: [
       'Check network connectivity',
       'Ask remote party to check their microphone',
-      'Check firewall rules for media ports'
+      'Check firewall rules for media ports',
     ],
   ),
   32002: TelnyxWarningDefinition(
@@ -154,12 +155,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'Microphone muted or disconnected',
       'Network interruption',
-      'Local media track ended'
+      'Local media track ended',
     ],
     solutions: [
       'Check that the microphone is not muted',
       'Verify the microphone is still connected',
-      'Check network connectivity'
+      'Check network connectivity',
     ],
   ),
   32003: TelnyxWarningDefinition(
@@ -204,7 +205,7 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'Temporary network interruption',
       'Network interface change (e.g. Wi-Fi to cellular)',
-      'NAT rebinding'
+      'NAT rebinding',
     ],
     solutions: ['Wait for automatic recovery', 'Check network connectivity'],
   ),
@@ -216,12 +217,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'Firewall blocking STUN/TURN',
       'Network unreachable',
-      'STUN/TURN server not responding'
+      'STUN/TURN server not responding',
     ],
     solutions: [
       'Check STUN/TURN server reachability',
       'Ensure UDP traffic is not blocked',
-      'Try forceRelayCandidate option'
+      'Try forceRelayCandidate option',
     ],
   ),
   33003: TelnyxWarningDefinition(
@@ -232,12 +233,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'Firewall blocking all STUN/TURN traffic',
       'No network interface available',
-      'VPN blocking UDP'
+      'VPN blocking UDP',
     ],
     solutions: [
       'Check STUN/TURN server reachability',
       'Ensure UDP traffic is not blocked',
-      'Use forceRelayCandidate option'
+      'Use forceRelayCandidate option',
     ],
   ),
   33004: TelnyxWarningDefinition(
@@ -248,12 +249,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: [
       'ICE failure',
       'DTLS handshake failure',
-      'Prolonged network interruption'
+      'Prolonged network interruption',
     ],
     solutions: [
       'Wait for automatic recovery',
       'Check network connectivity',
-      'Verify TURN server credentials'
+      'Verify TURN server credentials',
     ],
   ),
   33005: TelnyxWarningDefinition(
@@ -281,12 +282,12 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
         'answer() was called on a call that already has an active or connecting peer connection. Creating a second peer connection for the same call would duplicate media negotiation, confuse the remote party, and break call reporting. This is typically caused by application code invoking answer() multiple times (e.g. from multiple event handlers).',
     causes: [
       'Application called answer() twice on the same call object',
-      'Multiple click handlers or event listeners triggering answer()'
+      'Multiple click handlers or event listeners triggering answer()',
     ],
     solutions: [
       'Ensure answer() is called only once per call',
       'Disable the answer button after the first click',
-      'Check that answer() is not invoked from multiple event handlers'
+      'Check that answer() is not invoked from multiple event handlers',
     ],
   ),
   33007: TelnyxWarningDefinition(
@@ -320,7 +321,7 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     solutions: [
       'Monitor for audio quality degradation after the path change',
       'Check network stability if changes are frequent',
-      'Verify TURN server configuration for relay fallback'
+      'Verify TURN server configuration for relay fallback',
     ],
   ),
   33009: TelnyxWarningDefinition(
@@ -383,7 +384,7 @@ const Map<int, TelnyxWarningDefinition> sdkWarnings = {
     causes: ['Token was issued with a limited lifetime'],
     solutions: [
       'Generate a new authentication token',
-      'Reconnect with fresh credentials before the token expires'
+      'Reconnect with fresh credentials before the token expires',
     ],
   ),
 
