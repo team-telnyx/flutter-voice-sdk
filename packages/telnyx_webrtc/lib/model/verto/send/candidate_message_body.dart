@@ -10,7 +10,9 @@ class CandidateMessage {
     id = json['id'].toString();
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params = json['params'] != null ? CandidateParams.fromJson(json['params']) : null;
+    params = json['params'] != null
+        ? CandidateParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -31,7 +33,8 @@ class CandidateParams {
   String? sdpMid;
   int? sdpMLineIndex;
 
-  CandidateParams({this.dialogParams, this.candidate, this.sdpMid, this.sdpMLineIndex});
+  CandidateParams(
+      {this.dialogParams, this.candidate, this.sdpMid, this.sdpMLineIndex});
 
   CandidateParams.fromJson(Map<String, dynamic> json) {
     dialogParams = json['dialogParams'] != null

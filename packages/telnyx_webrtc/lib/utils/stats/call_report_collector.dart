@@ -3,13 +3,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:http/http.dart' as http;
+import 'package:telnyx_webrtc/config/telnyx_config.dart' show Config;
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+import 'package:telnyx_webrtc/utils/logging/log_collector.dart';
 import 'package:telnyx_webrtc/utils/stats/call_report_log_collector.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 
 // Conditional import for file I/O (mobile only)
 import 'package:telnyx_webrtc/utils/stats/call_report_file_helper_stub.dart'
-    if (dart.library.io) 'package:telnyx_webrtc/utils/stats/call_report_file_helper.dart' as file_helper;
+    if (dart.library.io) 'package:telnyx_webrtc/utils/stats/call_report_file_helper.dart'
+    as file_helper;
 
 /// Configuration options for call report collection
 class CallReportOptions {
@@ -19,10 +22,31 @@ class CallReportOptions {
   /// Maximum number of stats intervals to buffer (default: 360 = 30 mins at 5s intervals)
   final int maxBufferSize;
 
+  /// Whether call report collection is enabled (default: true)
+  final bool enabled;
+
+  /// Output mode: 'socket' or 'file' (default: 'socket')
+  final String outputMode;
+
+  /// Flush interval for intermediate segments in milliseconds (default: 180000 = 3 min)
+  final int flushIntervalMs;
+
   const CallReportOptions({
     this.intervalMs = 5000,
     this.maxBufferSize = 360,
+    this.enabled = true,
+    this.outputMode = 'socket',
+    this.flushIntervalMs = 180000,
   });
+
+  /// Create [CallReportOptions] from a [Config] instance.
+  factory CallReportOptions.fromConfig(Config config) {
+    return CallReportOptions(
+      enabled: config.enableCallReports,
+      outputMode: config.debugOutput,
+      flushIntervalMs: config.callReportFlushInterval,
+    );
+  }
 }
 
 /// Summary information about the call
@@ -370,6 +394,36 @@ class CallReportCollector {
     this.logCollector,
   }) : _callStartTime = DateTime.now();
 
+  /// Configure the global [LogCollector] for this call report.
+  /// Creates a new [LogCollector], sets it as the global singleton,
+  /// and starts capturing.
+  void configureLogCollector({
+    required bool enabled,
+    required CollectorLogLevel level,
+    required int maxEntries,
+  }) {
+    // Only create a new collector if one isn't already active.
+    final existing = getGlobalLogCollector();
+    if (existing != null && existing.isActive) {
+      return;
+    }
+    final collector = LogCollector(
+      enabled: enabled,
+      level: level,
+      maxEntries: maxEntries,
+    );
+    setGlobalLogCollector(collector);
+    collector.start();
+  }
+
+  /// Drain and return all log entries from the global [LogCollector].
+  /// Returns `null` if no collector is active.
+  List<Map<String, dynamic>>? getLogCollectorEntries() {
+    final collector = getGlobalLogCollector();
+    if (collector == null || !collector.isActive) return null;
+    return collector.drain();
+  }
+
   /// Start collecting stats from the peer connection
   void start(RTCPeerConnection peerConnection) {
     _peerConnection = peerConnection;
@@ -416,8 +470,9 @@ class CallReportCollector {
     if (parsed == null) return;
 
     // Generate a unique ID for this candidate (similar to WebRTC stats ID format)
-    final candidateId = 'RTCIce${isLocal ? "Lc" : "Rc"}_${parsed['foundation']}_${parsed['port']}';
-    
+    final candidateId =
+        'RTCIce${isLocal ? "Lc" : "Rc"}_${parsed['foundation']}_${parsed['port']}';
+
     _candidateCache[candidateId] = {
       'id': candidateId,
       'address': parsed['address'],
@@ -485,7 +540,8 @@ class CallReportCollector {
         'relatedPort': relatedPort,
       };
     } catch (e) {
-      GlobalLogger().w('CallReportCollector: Failed to parse ICE candidate: $e');
+      GlobalLogger()
+          .w('CallReportCollector: Failed to parse ICE candidate: $e');
       return null;
     }
   }
@@ -500,7 +556,7 @@ class CallReportCollector {
     try {
       final lines = sdp.split('\n');
       int candidateCount = 0;
-      
+
       for (final line in lines) {
         final trimmed = line.trim();
         if (trimmed.startsWith('a=candidate:')) {
@@ -513,14 +569,15 @@ class CallReportCollector {
           candidateCount++;
         }
       }
-      
+
       if (candidateCount > 0) {
         GlobalLogger().d(
           'CallReportCollector: Extracted $candidateCount ${isLocal ? "local" : "remote"} candidates from SDP',
         );
       }
     } catch (e) {
-      GlobalLogger().w('CallReportCollector: Failed to parse SDP for candidates: $e');
+      GlobalLogger()
+          .w('CallReportCollector: Failed to parse SDP for candidates: $e');
     }
   }
 
@@ -674,7 +731,8 @@ class CallReportCollector {
         );
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
-          GlobalLogger().i('CallReportCollector: Successfully posted report for call: ${headers['x-call-id']}');
+          GlobalLogger().i(
+              'CallReportCollector: Successfully posted report for call: ${headers['x-call-id']}');
           return;
         } else if (response.statusCode >= 400 && response.statusCode < 500) {
           // Client error - don't retry
@@ -737,8 +795,9 @@ class CallReportCollector {
 
     int chunkSegment = _segmentCounter;
     for (int i = 0; i < stats.length; i += entriesPerChunk) {
-      final end =
-          (i + entriesPerChunk > stats.length) ? stats.length : i + entriesPerChunk;
+      final end = (i + entriesPerChunk > stats.length)
+          ? stats.length
+          : i + entriesPerChunk;
       final chunk = stats.sublist(i, end);
 
       // Only include logs in the first chunk
@@ -852,13 +911,13 @@ class CallReportCollector {
             }
             break;
           case 'candidate-pair':
-            if (values['nominated'] == true ||
-                values['state'] == 'succeeded') {
+            if (values['nominated'] == true || values['state'] == 'succeeded') {
               _lastCandidatePair = values;
               _processCandidatePair(values);
               // Store candidate IDs for lookup
               _selectedLocalCandidateId = values['localCandidateId'] as String?;
-              _selectedRemoteCandidateId = values['remoteCandidateId'] as String?;
+              _selectedRemoteCandidateId =
+                  values['remoteCandidateId'] as String?;
             }
             break;
           case 'local-candidate':
@@ -998,17 +1057,22 @@ class CallReportCollector {
 
     if (_lastInboundAudio != null) {
       inbound = InboundAudioStats(
-        packetsReceived: (_lastInboundAudio!['packetsReceived'] as num?)?.toInt(),
+        packetsReceived:
+            (_lastInboundAudio!['packetsReceived'] as num?)?.toInt(),
         bytesReceived: (_lastInboundAudio!['bytesReceived'] as num?)?.toInt(),
         packetsLost: (_lastInboundAudio!['packetsLost'] as num?)?.toInt(),
-        packetsDiscarded: (_lastInboundAudio!['packetsDiscarded'] as num?)?.toInt(),
-        jitterBufferDelay: (_lastInboundAudio!['jitterBufferDelay'] as num?)?.toDouble(),
+        packetsDiscarded:
+            (_lastInboundAudio!['packetsDiscarded'] as num?)?.toInt(),
+        jitterBufferDelay:
+            (_lastInboundAudio!['jitterBufferDelay'] as num?)?.toDouble(),
         jitterBufferEmittedCount:
             (_lastInboundAudio!['jitterBufferEmittedCount'] as num?)?.toInt(),
         totalSamplesReceived:
             (_lastInboundAudio!['totalSamplesReceived'] as num?)?.toInt(),
-        concealedSamples: (_lastInboundAudio!['concealedSamples'] as num?)?.toInt(),
-        concealmentEvents: (_lastInboundAudio!['concealmentEvents'] as num?)?.toInt(),
+        concealedSamples:
+            (_lastInboundAudio!['concealedSamples'] as num?)?.toInt(),
+        concealmentEvents:
+            (_lastInboundAudio!['concealmentEvents'] as num?)?.toInt(),
         audioLevelAvg: _average(_intervalInboundAudioLevels),
         jitterAvg: _average(_intervalJitters),
         bitrateAvg: _average(_intervalInboundBitrates),
@@ -1030,7 +1094,8 @@ class CallReportCollector {
     return ConnectionStats(
       roundTripTimeAvg: _average(_intervalRTTs),
       packetsSent: (_lastCandidatePair!['packetsSent'] as num?)?.toInt(),
-      packetsReceived: (_lastCandidatePair!['packetsReceived'] as num?)?.toInt(),
+      packetsReceived:
+          (_lastCandidatePair!['packetsReceived'] as num?)?.toInt(),
       bytesSent: (_lastCandidatePair!['bytesSent'] as num?)?.toInt(),
       bytesReceived: (_lastCandidatePair!['bytesReceived'] as num?)?.toInt(),
     );
@@ -1049,13 +1114,13 @@ class CallReportCollector {
     // Try to find local candidate - first by ID, then by searching cache
     IceCandidateStats? localCandidate;
     Map<String, dynamic>? localData;
-    
+
     // Method 1: Direct ID lookup (works on some platforms)
     if (_selectedLocalCandidateId != null &&
         _candidateCache.containsKey(_selectedLocalCandidateId)) {
       localData = _candidateCache[_selectedLocalCandidateId];
     }
-    
+
     // Method 2: Search cache for a local candidate (any will do for basic info)
     // Since we mark local candidates with 'RTCIceLc_' prefix
     if (localData == null) {
@@ -1069,7 +1134,7 @@ class CallReportCollector {
         }
       }
     }
-    
+
     if (localData != null) {
       localCandidate = IceCandidateStats(
         address: localData['address'] as String? ?? localData['ip'] as String?,
@@ -1090,13 +1155,13 @@ class CallReportCollector {
     // Try to find remote candidate - first by ID, then by searching cache
     IceCandidateStats? remoteCandidate;
     Map<String, dynamic>? remoteData;
-    
+
     // Method 1: Direct ID lookup
     if (_selectedRemoteCandidateId != null &&
         _candidateCache.containsKey(_selectedRemoteCandidateId)) {
       remoteData = _candidateCache[_selectedRemoteCandidateId];
     }
-    
+
     // Method 2: Search cache for a remote candidate
     if (remoteData == null) {
       for (final entry in _candidateCache.entries) {
@@ -1109,10 +1174,11 @@ class CallReportCollector {
         }
       }
     }
-    
+
     if (remoteData != null) {
       remoteCandidate = IceCandidateStats(
-        address: remoteData['address'] as String? ?? remoteData['ip'] as String?,
+        address:
+            remoteData['address'] as String? ?? remoteData['ip'] as String?,
         candidateType: remoteData['candidateType'] as String?,
         networkType: remoteData['networkType'] as String?,
         port: (remoteData['port'] as num?)?.toInt(),
@@ -1133,7 +1199,8 @@ class CallReportCollector {
       remote: remoteCandidate,
       nominated: _lastCandidatePair!['nominated'] as bool?,
       requestsSent: (_lastCandidatePair!['requestsSent'] as num?)?.toInt(),
-      responsesReceived: (_lastCandidatePair!['responsesReceived'] as num?)?.toInt(),
+      responsesReceived:
+          (_lastCandidatePair!['responsesReceived'] as num?)?.toInt(),
       state: _lastCandidatePair!['state'] as String?,
       writable: _lastCandidatePair!['writable'] as bool?,
     );

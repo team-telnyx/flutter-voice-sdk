@@ -80,3 +80,7 @@ docs-markdown/node_modules/
 docs-markdown/package-lock.json
 docs-markdown/README.md
 integration_test/test_bundle.dart
+
+# FVM
+.fvm/
+.fvmrc

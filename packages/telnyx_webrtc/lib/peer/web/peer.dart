@@ -98,7 +98,7 @@ class Peer {
 
   /// Optional stats reporter (for debug).
   WebRTCStatsReporter? _statsManager;
-  
+
   /// Call report collector (always enabled for post-call reporting).
   CallReportCollector? _callReportCollector;
   CallReportLogCollector? _callReportLogCollector;
@@ -455,10 +455,10 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     CallTimingBenchmark.start(isOutbound: true);
-    
+
     // Extract and cache remote ICE candidates from the SDP
     _callReportCollector?.cacheIceCandidatesFromSdp(sdp, isLocal: false);
-    
+
     final session = _sessions[_selfId];
     if (session != null) {
       await session.peerConnection?.setRemoteDescription(
@@ -527,7 +527,8 @@ class Peer {
 
     // Extract and cache remote ICE candidates from the SDP
     if (invite.sdp != null) {
-      _callReportCollector?.cacheIceCandidatesFromSdp(invite.sdp!, isLocal: false);
+      _callReportCollector?.cacheIceCandidatesFromSdp(invite.sdp!,
+          isLocal: false);
     }
 
     // Set the remote SDP from the inbound INVITE
@@ -1161,12 +1162,14 @@ class Peer {
     final host = _txClient.socketHost;
 
     if (callReportId == null) {
-      GlobalLogger().d('Peer :: Cannot post call report: callReportId not available');
+      GlobalLogger()
+          .d('Peer :: Cannot post call report: callReportId not available');
       return;
     }
 
     if (host == null) {
-      GlobalLogger().e('Peer :: Cannot post call report: socket host not available');
+      GlobalLogger()
+          .e('Peer :: Cannot post call report: socket host not available');
       return;
     }
 

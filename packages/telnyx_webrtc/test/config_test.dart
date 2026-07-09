@@ -79,9 +79,8 @@ void main() {
     });
 
     test('lower-latency UDP/TCP TURN entries precede TURNS 443 in prod', () {
-      final urls = DefaultConfig.defaultProdIceServers
-          .expand((s) => s.urls)
-          .toList();
+      final urls =
+          DefaultConfig.defaultProdIceServers.expand((s) => s.urls).toList();
       final udpIdx = urls.indexOf(DefaultConfig.defaultTurnUdp);
       final tcpIdx = urls.indexOf(DefaultConfig.defaultTurn);
       final turns443Idx = urls.indexOf(DefaultConfig.defaultTurns443);
@@ -93,9 +92,8 @@ void main() {
     });
 
     test('lower-latency UDP/TCP TURN entries precede TURNS 443 in dev', () {
-      final urls = DefaultConfig.defaultDevIceServers
-          .expand((s) => s.urls)
-          .toList();
+      final urls =
+          DefaultConfig.defaultDevIceServers.expand((s) => s.urls).toList();
       final udpIdx = urls.indexOf(DefaultConfig.devTurnUdp);
       final tcpIdx = urls.indexOf(DefaultConfig.devTurn);
       final turns443Idx = urls.indexOf(DefaultConfig.devTurns443);

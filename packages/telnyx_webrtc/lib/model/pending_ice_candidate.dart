@@ -3,16 +3,16 @@
 class PendingIceCandidate {
   /// The call ID this candidate belongs to
   final String callId;
-  
+
   /// The SDP media identifier
   final String sdpMid;
-  
+
   /// The SDP media line index
   final int sdpMLineIndex;
-  
+
   /// The original candidate string
   final String candidateString;
-  
+
   /// The enhanced candidate string (will be set later when ICE parameters are available)
   final String enhancedCandidateString;
 

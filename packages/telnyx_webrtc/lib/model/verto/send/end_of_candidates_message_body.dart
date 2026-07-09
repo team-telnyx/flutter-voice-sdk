@@ -10,7 +10,9 @@ class EndOfCandidatesMessage {
     id = json['id'].toString();
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params = json['params'] != null ? EndOfCandidatesParams.fromJson(json['params']) : null;
+    params = json['params'] != null
+        ? EndOfCandidatesParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {

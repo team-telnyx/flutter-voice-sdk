@@ -17,7 +17,8 @@ class DefaultConfig {
   static const String defaultTurn = 'turn:turn.telnyx.com:3478?transport=tcp';
 
   /// Production TURN server with UDP transport (preferred for lower latency)
-  static const String defaultTurnUdp = 'turn:turn.telnyx.com:3478?transport=udp';
+  static const String defaultTurnUdp =
+      'turn:turn.telnyx.com:3478?transport=udp';
 
   /// Production TURNS server with TCP transport over TLS on port 443
   /// (last-resort fallback for restrictive firewalls that block non-443 traffic)
