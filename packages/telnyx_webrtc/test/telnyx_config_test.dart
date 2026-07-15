@@ -35,6 +35,7 @@ void main() {
       expect(config.region, equals(Region.auto));
       expect(config.fallbackOnRegionFailure, isTrue);
       expect(config.forceRelayCandidate, isFalse);
+      expect(config.pushWhenActive, isFalse);
       expect(config.notificationToken, isNull);
       expect(config.autoReconnect, isNull);
       expect(config.customLogger, isNull);
@@ -61,6 +62,7 @@ void main() {
         region: Region.auto,
         fallbackOnRegionFailure: false,
         forceRelayCandidate: true,
+        pushWhenActive: true,
       );
 
       expect(config.sipCallerIDName, equals('Test User'));
@@ -77,6 +79,7 @@ void main() {
       expect(config.region, equals(Region.auto));
       expect(config.fallbackOnRegionFailure, isFalse);
       expect(config.forceRelayCandidate, isTrue);
+      expect(config.pushWhenActive, isTrue);
     });
 
     test('should handle different log levels', () {
