@@ -12,6 +12,7 @@ import 'package:telnyx_webrtc/model/verto/send/end_of_candidates_message_body.da
 import 'package:telnyx_webrtc/model/verto/send/modify_message_body.dart';
 import 'package:telnyx_webrtc/peer/session.dart';
 import 'package:telnyx_webrtc/peer/signaling_state.dart';
+import 'package:telnyx_webrtc/peer/trickle_ice_completion.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
@@ -82,11 +83,9 @@ class Peer {
   static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
   Function()? _onNegotiationComplete;
 
-  // Add trickle ICE end-of-candidates timer fields
-  Timer? _trickleIceTimer;
-  static const int _trickleIceTimeout = 500; // 500ms timeout for trickle ICE
-  String? _currentTrickleCallId;
-  bool _endOfCandidatesSent = false;
+  // Trickle ICE completion is driven by WebRTC callbacks. A fixed silence
+  // timer can fire before slower srflx/relay candidates are discovered.
+  final TrickleIceCompletion _trickleIceCompletion = TrickleIceCompletion();
 
   final Map<String, Session> _sessions = {};
 
@@ -290,6 +289,10 @@ class Peer {
     List<Map<String, dynamic>>? preferredCodecs,
   ) async {
     try {
+      if (_useTrickleIce) {
+        _trickleIceCompletion.begin(callId);
+      }
+
       // For iOS/Web: Apply codec preferences before creating offer
       // For Android: We'll modify SDP after creation (setCodecPreferences doesn't work)
       if (preferredCodecs != null &&
@@ -621,6 +624,10 @@ class Peer {
     String? answeredDeviceToken,
   }) async {
     try {
+      if (_useTrickleIce) {
+        _trickleIceCompletion.begin(callId);
+      }
+
       session.peerConnection?.onIceCandidate = (candidate) async {
         if (session.peerConnection != null) {
           GlobalLogger().i(
@@ -678,7 +685,7 @@ class Peer {
             }
           } else if (_useTrickleIce) {
             // End of candidates signal for trickle ICE
-            _sendEndOfCandidates(callId);
+            _sendEndOfCandidatesIfComplete(callId);
           }
         } else {
           // Still collect candidates if peerConnection is not ready yet
@@ -993,9 +1000,6 @@ class Peer {
                 .markFirstSrflxRelayCandidate(callId, 'relay');
           }
           _sendTrickleCandidate(candidate, callId);
-
-          // Reset the trickle ICE timer when a candidate is generated
-          _startTrickleIceTimer(callId);
         } else {
           // Traditional ICE: filter and collect candidates
           final candidateString = candidate.candidate.toString();
@@ -1017,7 +1021,7 @@ class Peer {
         GlobalLogger().i('Peer :: onIceCandidate: complete!');
         if (_useTrickleIce) {
           // Send end of candidates signal when gathering completes naturally
-          _sendEndOfCandidatesAndCleanup(callId);
+          _sendEndOfCandidatesIfComplete(callId);
         }
       }
     };
@@ -1168,6 +1172,12 @@ class Peer {
         case RTCIceGatheringState.RTCIceGatheringStateComplete:
           _txClient.latencyTracker.markCallMilestone(
               callId, LatencyTracker.milestoneIceGatheringComplete);
+          if (_useTrickleIce) {
+            // Some WebRTC builds report gathering completion without a final
+            // null-candidate callback. The completion guard keeps this path
+            // idempotent with the candidate callback above.
+            _sendEndOfCandidatesIfComplete(callId);
+          }
           break;
         default:
           break;
@@ -1376,7 +1386,7 @@ class Peer {
 
   Future<void> _cleanSessions() async {
     _stopNegotiationTimer();
-    _stopTrickleIceTimer();
+    _trickleIceCompletion.reset();
     _statsManager?.stopStatsReporting();
     await _callReportCollector?.stop();
 
@@ -1397,7 +1407,7 @@ class Peer {
 
   Future<void> _closeSession(Session session) async {
     _stopNegotiationTimer();
-    _stopTrickleIceTimer();
+    _trickleIceCompletion.reset();
 
     _localStream?.getTracks().forEach((element) async {
       await element.stop();
@@ -1445,46 +1455,13 @@ class Peer {
     _negotiationTimer = null;
   }
 
-  /// Starts/resets the trickle ICE timer that sends endOfCandidates after inactivity
-  /// Uses a single delayed timer instead of periodic polling for better efficiency.
-  void _startTrickleIceTimer(String callId) {
-    // If this is a new call, initialize the call ID and reset flags
-    if (_currentTrickleCallId != callId) {
-      _currentTrickleCallId = callId;
-      _endOfCandidatesSent = false;
-    }
-
-    // Cancel existing timer and start a fresh one (resets on each candidate)
-    _trickleIceTimer?.cancel();
-    _trickleIceTimer = Timer(
-      const Duration(milliseconds: _trickleIceTimeout),
-      () {
-        if (!_endOfCandidatesSent && _currentTrickleCallId != null) {
-          GlobalLogger()
-              .i('Trickle ICE timeout reached - sending end of candidates');
-          _sendEndOfCandidatesAndCleanup(_currentTrickleCallId!);
-        }
-      },
-    );
-  }
-
-  /// Stops and cleans up the trickle ICE timer
-  void _stopTrickleIceTimer() {
-    _trickleIceTimer?.cancel();
-    _trickleIceTimer = null;
-    _currentTrickleCallId = null;
-    _endOfCandidatesSent = false;
-  }
-
-  /// Sends end of candidates signal and cleans up timer
-  void _sendEndOfCandidatesAndCleanup(String callId) {
-    if (!_endOfCandidatesSent) {
+  /// Sends end-of-candidates exactly once after WebRTC reports completion.
+  void _sendEndOfCandidatesIfComplete(String callId) {
+    if (_trickleIceCompletion.shouldSignal(callId)) {
       CallTimingBenchmark.mark('ice_gathering_complete');
       _sendEndOfCandidates(callId);
-      _endOfCandidatesSent = true;
-      _stopTrickleIceTimer();
       GlobalLogger().i(
-        'Peer :: End of candidates sent and timer cleaned up for call $callId',
+        'Peer :: End of candidates sent after gathering completed for call $callId',
       );
     }
   }
