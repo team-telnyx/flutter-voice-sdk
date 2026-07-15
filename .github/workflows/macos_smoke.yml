@@ -1,0 +1,52 @@
+name: macOS Smoke Build
+
+on:
+  push:
+    paths:
+      - "packages/telnyx_webrtc/**"
+      - ".github/workflows/macos_smoke.yml"
+  pull_request:
+    paths:
+      - "packages/telnyx_webrtc/**"
+      - ".github/workflows/macos_smoke.yml"
+
+jobs:
+  macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Run package tests on macOS
+        working-directory: packages/telnyx_webrtc
+        run: |
+          flutter pub get
+          flutter test
+
+      - name: Build an isolated macOS integration app
+        run: |
+          flutter create \
+            --platforms=macos \
+            --project-name telnyx_macos_smoke \
+            "$RUNNER_TEMP/telnyx_macos_smoke"
+          cd "$RUNNER_TEMP/telnyx_macos_smoke"
+          flutter pub add telnyx_webrtc \
+            --path "$GITHUB_WORKSPACE/packages/telnyx_webrtc"
+          cat > lib/main.dart <<'DART'
+          import 'package:flutter/widgets.dart';
+          import 'package:telnyx_webrtc/telnyx_client.dart';
+
+          void main() {
+            final Type sdkType = TelnyxClient;
+            runApp(
+              Directionality(
+                textDirection: TextDirection.ltr,
+                child: Text(sdkType.toString()),
+              ),
+            );
+          }
+          DART
+          flutter build macos --debug

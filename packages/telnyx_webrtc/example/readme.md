@@ -5,7 +5,7 @@ For the example app implementation please visit this [root repository](https://g
 
 # Telnyx Flutter Voice SDK
 
-Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
+Enable Telnyx real-time communication services on Flutter applications (Android / iOS / macOS / Web) :telephone_receiver: :fire:
 
 ## Table of Contents
 
@@ -15,6 +15,7 @@ Enable Telnyx real-time communication services on Flutter applications (Android 
   - [Platform Specific Configuration](#platform-specific-configuration)
     - [Android](#android)
     - [iOS](#ios)
+    - [macOS](#macos)
   - [Telnyx Client](#telnyx-client)
   - [Logging into Telnyx Client](#logging-into-telnyx-client)
   - [Adding push notifications - Android platform](#adding-push-notifications---android-platform)
@@ -71,6 +72,35 @@ on the iOS platform, you need to add the microphone permission to your Info.plis
     <key>NSMicrophoneUsageDescription</key>
     <string>$(PRODUCT_NAME) Microphone Usage!</string>
 ```
+
+## macOS
+
+macOS voice calls are supported while the application is running and connected
+to the Telnyx WebSocket. PushKit and CallKit integration documented below is
+iOS-only.
+
+Add a microphone usage description to `macos/Runner/Info.plist`:
+
+```xml
+    <key>NSMicrophoneUsageDescription</key>
+    <string>$(PRODUCT_NAME) Microphone Usage!</string>
+```
+
+For sandboxed applications, add microphone and outbound network access to both
+`macos/Runner/DebugProfile.entitlements` and
+`macos/Runner/Release.entitlements`:
+
+```xml
+    <key>com.apple.security.device.microphone</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+```
+
+The SDK currently resolves `flutter_webrtc` 1.4.1 on all platforms while the
+[macOS duplex-audio regression in 1.5.x](https://github.com/flutter-webrtc/flutter-webrtc/issues/2111)
+is investigated upstream.
+
 
 ### Telnyx Client
 TelnyxClient() is the core class of the SDK, and can be used to connect to our backend socket connection, create calls, check state and disconnect, etc.
@@ -373,7 +403,6 @@ Questions? Comments? Building something rad? [Join our Slack channel](https://jo
 ## License
 
 [`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
-
 
 
 

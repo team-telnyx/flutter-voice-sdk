@@ -3,7 +3,7 @@
 
 # Telnyx Flutter Voice SDK
 
-Enable Telnyx real-time communication services on Flutter applications (Android / iOS / Web) :telephone_receiver: :fire:
+Enable Telnyx real-time communication services on Flutter applications (Android / iOS / macOS / Web) :telephone_receiver: :fire:
 
 ## Quick Start with Telnyx Common (Beta)
 
@@ -23,6 +23,7 @@ This is the quickest way to implement the SDK with minimal setup and configurati
   - [Platform Specific Configuration](#platform-specific-configuration)
     - [Android](#android)
     - [iOS](#ios)
+    - [macOS](#macos)
 - [Basic Usage](#basic-usage)
   - [Telnyx Client](#telnyx-client)
   - [Logging Configuration](#logging-configuration)
@@ -89,6 +90,35 @@ on the iOS platform, you need to add the microphone permission to your Info.plis
     <key>NSMicrophoneUsageDescription</key>
     <string>$(PRODUCT_NAME) Microphone Usage!</string>
 ```
+
+## macOS
+
+macOS voice calls are supported while the application is running and connected
+to the Telnyx WebSocket. PushKit and CallKit integration documented below is
+iOS-only.
+
+Add a microphone usage description to `macos/Runner/Info.plist`:
+
+```xml
+    <key>NSMicrophoneUsageDescription</key>
+    <string>$(PRODUCT_NAME) Microphone Usage!</string>
+```
+
+For sandboxed applications, add microphone and outbound network access to both
+`macos/Runner/DebugProfile.entitlements` and
+`macos/Runner/Release.entitlements`:
+
+```xml
+    <key>com.apple.security.device.microphone</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+```
+
+The SDK currently resolves `flutter_webrtc` 1.4.1 on all platforms while the
+[macOS duplex-audio regression in 1.5.x](https://github.com/flutter-webrtc/flutter-webrtc/issues/2111)
+is investigated upstream.
+
 
 ## Basic Usage
 
@@ -878,4 +908,3 @@ Questions? Comments? Building something rad? [Join our Slack channel](https://jo
 ## License
 
 [`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
-
