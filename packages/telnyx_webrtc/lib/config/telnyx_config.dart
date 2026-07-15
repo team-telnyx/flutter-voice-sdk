@@ -22,6 +22,7 @@ class Config {
     this.region = Region.auto,
     this.fallbackOnRegionFailure = true,
     this.forceRelayCandidate = false,
+    this.pushWhenActive = false,
     this.iceServers,
     this.serverConfiguration,
     this.callReportInterval = 5000,
@@ -79,6 +80,26 @@ class Config {
   /// - Important: This setting is disabled by default to maintain optimal call quality.
   final bool forceRelayCandidate;
 
+  /// Controls push-when-active behavior for answered-device token handling.
+  ///
+  /// When `true`, the SDK will automatically include the configured push
+  /// notification token as `answered_device_token` in the outgoing
+  /// `telnyx_rtc.answer` payload, provided a non-empty token is available from
+  /// the active login config ([notificationToken]). This lets the backend
+  /// identify which device answered a multi-device push call and dismiss the
+  /// call on the remaining devices.
+  ///
+  /// When `false` (default), the answer payload is unchanged and no
+  /// `answered_device_token` field is added by the SDK. Existing callers that
+  /// pass `answeredDeviceToken` explicitly to `acceptCall` continue to work.
+  ///
+  /// Missing or blank push tokens are never serialized — even when
+  /// [pushWhenActive] is `true`, no empty field is sent on the wire.
+  ///
+  /// This flag is opt-in: existing apps that do not set it see no change in
+  /// behavior.
+  final bool pushWhenActive;
+
   /// Custom ICE servers for WebRTC peer connections.
   ///
   /// When provided, these ICE servers will be used instead of the default
@@ -128,9 +149,9 @@ class Config {
 /// [debug] flag to enable debug logs which will collect stats for each call and provide WebRTC stats to view in the portal
 /// [ringTonePath] is the path to the ringtone file (audio to play when receiving a call)
 /// [ringbackPath] is the path to the ringback file (audio to play when calling)
-/// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
 /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+/// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
 /// [iceServers] custom ICE servers for WebRTC peer connections
 /// [serverConfiguration] server configuration for signaling and ICE servers
 class CredentialConfig extends Config {
@@ -147,6 +168,8 @@ class CredentialConfig extends Config {
   /// [ringbackPath] is the path to the ringback file (audio to play when calling)
   /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
   /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
+  /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+  /// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
   /// [iceServers] custom ICE servers for WebRTC peer connections
   /// [serverConfiguration] server configuration for signaling and ICE servers
   CredentialConfig({
@@ -166,6 +189,7 @@ class CredentialConfig extends Config {
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
+    super.pushWhenActive = false,
     super.iceServers,
     super.serverConfiguration,
     super.callReportInterval = 5000,
@@ -191,9 +215,9 @@ class CredentialConfig extends Config {
 /// [debug] flag to enable debug logs which will collect stats for each call and provide WebRTC stats to view in the portal
 /// [ringTonePath] is the path to the ringtone file (audio to play when receiving a call)
 /// [ringbackPath] is the path to the ringback file (audio to play when calling)
-/// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
 /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+/// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
 /// [iceServers] custom ICE servers for WebRTC peer connections
 /// [serverConfiguration] server configuration for signaling and ICE servers
 class TokenConfig extends Config {
@@ -210,6 +234,8 @@ class TokenConfig extends Config {
   /// [ringbackPath] is the path to the ringback file (audio to play when calling)
   /// [customLogger] is a custom logger to use for logging - if left null the default logger will be used which uses the Logger package
   /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
+  /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
+  /// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
   /// [iceServers] custom ICE servers for WebRTC peer connections
   /// [serverConfiguration] server configuration for signaling and ICE servers
   TokenConfig({
@@ -228,6 +254,7 @@ class TokenConfig extends Config {
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
     super.forceRelayCandidate = false,
+    super.pushWhenActive = false,
     super.iceServers,
     super.serverConfiguration,
     super.callReportInterval = 5000,
