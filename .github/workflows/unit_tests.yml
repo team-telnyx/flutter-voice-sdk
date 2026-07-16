@@ -29,3 +29,11 @@ jobs:
 
       - name: Run Flutter Test
         run: flutter test
+
+      - name: Dart Analyze
+        continue-on-error: true
+        run: dart analyze
+
+      - name: Dart Format Check
+        continue-on-error: true
+        run: dart format --output=none --set-exit-if-changed .
