@@ -4,9 +4,15 @@ import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
+import 'package:telnyx_webrtc/config/debug_output.dart';
+import 'package:telnyx_webrtc/config/debug_log_level.dart';
 
 // Re-export GlobalLogger so tests/consumers can import it from telnyx_config.dart
 export 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+
+// Re-export debug enums so consumers don't need a separate import.
+export 'package:telnyx_webrtc/config/debug_output.dart';
+export 'package:telnyx_webrtc/config/debug_log_level.dart';
 
 // Re-export CallReportOptions so tests/consumers can import it from telnyx_config.dart
 export 'package:telnyx_webrtc/utils/stats/call_report_collector.dart'
@@ -36,8 +42,8 @@ class Config {
     this.callReportLogLevel = 'debug',
     this.callReportMaxLogEntries = 1000,
     this.enableCallReports = true,
-    this.debugOutput = 'socket',
-    this.debugLogLevel = 'info',
+    this.debugOutput = DebugOutput.socket,
+    this.debugLogLevel = DebugLogLevel.info,
     this.debugLogMaxEntries = 1000,
     this.callReportFlushInterval = 180000,
     this.prefetchIceCandidates = true,
@@ -136,11 +142,11 @@ class Config {
   /// Enable call report stats collection (default: true)
   final bool enableCallReports;
 
-  /// Debug output mode: 'socket' or 'file' (default: 'socket')
-  final String debugOutput;
+  /// Debug output destination for call reports and diagnostics (default: [DebugOutput.socket])
+  final DebugOutput debugOutput;
 
-  /// Debug log level filter: 'debug', 'info', 'warning', 'error' (default: 'info')
-  final String debugLogLevel;
+  /// Debug log level filter for the GlobalLogger (default: [DebugLogLevel.info])
+  final DebugLogLevel debugLogLevel;
 
   /// Maximum number of debug log entries to buffer (default: 1000)
   final int debugLogMaxEntries;
@@ -160,15 +166,14 @@ class Config {
   /// Maximum reconnection attempts before giving up; 0 means unlimited (default: 10)
   final int maxReconnectAttempts;
 
-  /// Apply the debugLogLevel to the GlobalLogger by setting a level filter.
+  /// Apply the [debugLogLevel] to the GlobalLogger by setting a level filter.
   /// Messages below the configured level are suppressed.
   void applyDebugLogLevel() {
-    final levelMap = <String, LogLevel>{
-      'debug': LogLevel.debug,
-      'info': LogLevel.info,
-      'warning': LogLevel.warning,
-      'warn': LogLevel.warning,
-      'error': LogLevel.error,
+    final levelMap = <DebugLogLevel, LogLevel>{
+      DebugLogLevel.debug: LogLevel.debug,
+      DebugLogLevel.info: LogLevel.info,
+      DebugLogLevel.warning: LogLevel.warning,
+      DebugLogLevel.error: LogLevel.error,
     };
     final minLevel = levelMap[debugLogLevel] ?? LogLevel.info;
     GlobalLogger.logger = _LevelFilterLogger(GlobalLogger.logger, minLevel);
@@ -230,8 +235,8 @@ class CredentialConfig extends Config {
     super.callReportLogLevel = 'debug',
     super.callReportMaxLogEntries = 1000,
     super.enableCallReports = true,
-    super.debugOutput = 'socket',
-    super.debugLogLevel = 'info',
+    super.debugOutput = DebugOutput.socket,
+    super.debugLogLevel = DebugLogLevel.info,
     super.debugLogMaxEntries = 1000,
     super.callReportFlushInterval = 180000,
     super.prefetchIceCandidates = true,
@@ -301,8 +306,8 @@ class TokenConfig extends Config {
     super.callReportLogLevel = 'debug',
     super.callReportMaxLogEntries = 1000,
     super.enableCallReports = true,
-    super.debugOutput = 'socket',
-    super.debugLogLevel = 'info',
+    super.debugOutput = DebugOutput.socket,
+    super.debugLogLevel = DebugLogLevel.info,
     super.debugLogMaxEntries = 1000,
     super.callReportFlushInterval = 180000,
     super.prefetchIceCandidates = true,

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:http/http.dart' as http;
 import 'package:telnyx_webrtc/config/telnyx_config.dart' show Config;
+import 'package:telnyx_webrtc/config/debug_output.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/log_collector.dart';
 import 'package:telnyx_webrtc/utils/stats/call_report_log_collector.dart';
@@ -25,8 +26,8 @@ class CallReportOptions {
   /// Whether call report collection is enabled (default: true)
   final bool enabled;
 
-  /// Output mode: 'socket' or 'file' (default: 'socket')
-  final String outputMode;
+  /// Output destination for call reports (default: [DebugOutput.socket])
+  final DebugOutput outputMode;
 
   /// Flush interval for intermediate segments in milliseconds (default: 180000 = 3 min)
   final int flushIntervalMs;
@@ -36,7 +37,7 @@ class CallReportOptions {
     this.intervalMs = 5000,
     this.maxBufferSize = 360,
     this.enabled = true,
-    this.outputMode = 'socket',
+    this.outputMode = DebugOutput.socket,
     this.flushIntervalMs = 180000,
   });
 

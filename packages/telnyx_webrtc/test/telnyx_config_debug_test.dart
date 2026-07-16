@@ -7,7 +7,7 @@
 /// Test plan (8 tests):
 /// 1. Config defaults — all 9 new fields have correct defaults.
 /// 2. Config override — each new field can be overridden via constructor.
-/// 3. debugLogLevel filtering — when 'warn', debug/info messages don't reach console.
+/// 3. debugLogLevel filtering — when warning, debug/info messages don't reach console.
 /// 4. debugOutput file mode — stats written to local file on mobile (mock fs).
 /// 5. enableCallReports=false — no stats collection or HTTP POST.
 /// 6. callReportFlushInterval — intermediate segments flushed at configured interval.
@@ -50,51 +50,25 @@ void main() {
         );
 
         // New fields from VSD-422 — these will fail to compile until added.
-        expect(
-          config.enableCallReports,
-          isTrue,
-          reason: 'enableCallReports default should be true',
-        );
-        expect(
-          config.debugOutput,
-          equals('socket'),
-          reason: 'debugOutput default should be "socket"',
-        );
-        expect(
-          config.debugLogLevel,
-          equals('info'),
-          reason: 'debugLogLevel default should be "info"',
-        );
-        expect(
-          config.debugLogMaxEntries,
-          equals(1000),
-          reason: 'debugLogMaxEntries default should be 1000',
-        );
-        expect(
-          config.callReportFlushInterval,
-          equals(180000),
-          reason: 'callReportFlushInterval default should be 180000 ms (3 min)',
-        );
-        expect(
-          config.prefetchIceCandidates,
-          isTrue,
-          reason: 'prefetchIceCandidates default should be true',
-        );
-        expect(
-          config.autoRecoverCalls,
-          isTrue,
-          reason: 'autoRecoverCalls default should be true',
-        );
-        expect(
-          config.hangupOnBeforeUnload,
-          isTrue,
-          reason: 'hangupOnBeforeUnload default should be true',
-        );
-        expect(
-          config.maxReconnectAttempts,
-          equals(10),
-          reason: 'maxReconnectAttempts default should be 10',
-        );
+        expect(config.enableCallReports, isTrue,
+            reason: 'enableCallReports default should be true');
+        expect(config.debugOutput, equals(DebugOutput.socket),
+            reason: 'debugOutput default should be DebugOutput.socket');
+        expect(config.debugLogLevel, equals(DebugLogLevel.info),
+            reason: 'debugLogLevel default should be DebugLogLevel.info');
+        expect(config.debugLogMaxEntries, equals(1000),
+            reason: 'debugLogMaxEntries default should be 1000');
+        expect(config.callReportFlushInterval, equals(180000),
+            reason:
+                'callReportFlushInterval default should be 180000 ms (3 min)');
+        expect(config.prefetchIceCandidates, isTrue,
+            reason: 'prefetchIceCandidates default should be true');
+        expect(config.autoRecoverCalls, isTrue,
+            reason: 'autoRecoverCalls default should be true');
+        expect(config.hangupOnBeforeUnload, isTrue,
+            reason: 'hangupOnBeforeUnload default should be true');
+        expect(config.maxReconnectAttempts, equals(10),
+            reason: 'maxReconnectAttempts default should be 10');
       },
     );
   });
@@ -110,8 +84,8 @@ void main() {
           logLevel: LogLevel.all,
           // New fields with overridden values:
           enableCallReports: false,
-          debugOutput: 'file',
-          debugLogLevel: 'error',
+          debugOutput: DebugOutput.file,
+          debugLogLevel: DebugLogLevel.error,
           debugLogMaxEntries: 500,
           callReportFlushInterval: 60000,
           prefetchIceCandidates: false,
@@ -121,8 +95,8 @@ void main() {
         );
 
         expect(config.enableCallReports, isFalse);
-        expect(config.debugOutput, equals('file'));
-        expect(config.debugLogLevel, equals('error'));
+        expect(config.debugOutput, equals(DebugOutput.file));
+        expect(config.debugLogLevel, equals(DebugLogLevel.error));
         expect(config.debugLogMaxEntries, equals(500));
         expect(config.callReportFlushInterval, equals(60000));
         expect(config.prefetchIceCandidates, isFalse);
@@ -143,8 +117,8 @@ void main() {
       );
 
       expect(config.enableCallReports, isTrue);
-      expect(config.debugOutput, equals('socket'));
-      expect(config.debugLogLevel, equals('info'));
+      expect(config.debugOutput, equals(DebugOutput.socket));
+      expect(config.debugLogLevel, equals(DebugLogLevel.info));
       expect(config.debugLogMaxEntries, equals(1000));
       expect(config.callReportFlushInterval, equals(180000));
       expect(config.prefetchIceCandidates, isTrue);
@@ -161,8 +135,8 @@ void main() {
         debug: true,
         logLevel: LogLevel.all,
         enableCallReports: false,
-        debugOutput: 'file',
-        debugLogLevel: 'warn',
+        debugOutput: DebugOutput.file,
+        debugLogLevel: DebugLogLevel.warning,
         debugLogMaxEntries: 200,
         callReportFlushInterval: 30000,
         prefetchIceCandidates: false,
@@ -172,58 +146,52 @@ void main() {
       );
 
       expect(config.enableCallReports, isFalse);
-      expect(config.debugOutput, equals('file'));
-      expect(config.debugLogLevel, equals('warn'));
+      expect(config.debugOutput, equals(DebugOutput.file));
+      expect(config.debugLogLevel, equals(DebugLogLevel.warning));
       expect(config.debugLogMaxEntries, equals(200));
       expect(config.callReportFlushInterval, equals(30000));
       expect(config.prefetchIceCandidates, isFalse);
       expect(config.autoRecoverCalls, isFalse);
       expect(config.hangupOnBeforeUnload, isFalse);
-      expect(
-        config.maxReconnectAttempts,
-        equals(0),
-        reason: 'maxReconnectAttempts=0 means unlimited',
-      );
+      expect(config.maxReconnectAttempts, equals(0),
+          reason: 'maxReconnectAttempts=0 means unlimited');
     });
   });
 
   group('VSD-422: debugLogLevel filtering', () {
     test(
-      'when debugLogLevel is "warn", debug and info messages do not reach console',
+      'when debugLogLevel is warning, debug and info messages do not reach console',
       () {
         final mockLogger = _MockCustomLogger();
         GlobalLogger.logger = mockLogger;
 
         // The Config should instruct the GlobalLogger to suppress debug/info
-        // when debugLogLevel is 'warn'.  After applying config, calling
+        // when debugLogLevel is warning.  After applying config, calling
         // GlobalLogger().d('hello') should NOT reach the underlying logger.
-        // Apply the config — this method does not exist yet.
-        Config(
+        final config = Config(
           sipCallerIDName: 'Test',
           sipCallerIDNumber: '+1234567890',
           debug: true,
           logLevel: LogLevel.all,
-          debugLogLevel: 'warn',
-        ).applyDebugLogLevel();
+          debugLogLevel: DebugLogLevel.warning,
+        );
 
-        mockLogger
-          ..lastLevel = null
-          ..lastMessage = null;
+        // Apply the config — this method does not exist yet.
+        config.applyDebugLogLevel();
+
+        mockLogger.lastLevel = null;
+        mockLogger.lastMessage = null;
 
         GlobalLogger().d('debug message');
-        expect(
-          mockLogger.lastLevel,
-          isNull,
-          reason: 'debug message should be suppressed when debugLogLevel=warn',
-        );
+        expect(mockLogger.lastLevel, isNull,
+            reason:
+                'debug message should be suppressed when debugLogLevel=warning');
         expect(mockLogger.lastMessage, isNull);
 
         GlobalLogger().i('info message');
-        expect(
-          mockLogger.lastLevel,
-          isNull,
-          reason: 'info message should be suppressed when debugLogLevel=warn',
-        );
+        expect(mockLogger.lastLevel, isNull,
+            reason:
+                'info message should be suppressed when debugLogLevel=warning');
         expect(mockLogger.lastMessage, isNull);
 
         // Warning and error should pass through.
@@ -240,30 +208,27 @@ void main() {
 
   group('VSD-422: debugOutput file mode', () {
     test(
-      'when debugOutput is "file", stats are written to a local file on mobile',
+      'when debugOutput is file, stats are written to a local file on mobile',
       () {
         final config = Config(
           sipCallerIDName: 'Test',
           sipCallerIDNumber: '+1234567890',
           debug: true,
           logLevel: LogLevel.all,
-          debugOutput: 'file',
+          debugOutput: DebugOutput.file,
         );
 
         // The CallReportFileHelper (or a new helper) should be used when
-        // debugOutput is 'file'.  We verify the config selects file mode.
-        expect(config.debugOutput, equals('file'));
+        // debugOutput is DebugOutput.file.  We verify the config selects file mode.
+        expect(config.debugOutput, equals(DebugOutput.file));
 
         // The actual file writing is integration-tested via CallReportCollector,
         // but we verify that the config flag is propagated to CallReportOptions.
         // This will fail until debugOutput is integrated into report collection.
         final reportOptions = CallReportOptions.fromConfig(config);
-        expect(
-          reportOptions.outputMode,
-          equals('file'),
-          reason:
-              'CallReportOptions should reflect debugOutput=file from Config',
-        );
+        expect(reportOptions.outputMode, equals(DebugOutput.file),
+            reason:
+                'CallReportOptions should reflect debugOutput=file from Config');
       },
     );
   });
@@ -284,12 +249,9 @@ void main() {
 
         // CallReportOptions should indicate that reporting is disabled.
         final reportOptions = CallReportOptions.fromConfig(config);
-        expect(
-          reportOptions.enabled,
-          isFalse,
-          reason:
-              'CallReportOptions.enabled should be false when enableCallReports=false',
-        );
+        expect(reportOptions.enabled, isFalse,
+            reason:
+                'CallReportOptions.enabled should be false when enableCallReports=false');
       },
     );
   });
@@ -310,12 +272,9 @@ void main() {
 
         // CallReportOptions should carry the flush interval.
         final reportOptions = CallReportOptions.fromConfig(config);
-        expect(
-          reportOptions.flushIntervalMs,
-          equals(60000),
-          reason:
-              'CallReportOptions should reflect callReportFlushInterval from Config',
-        );
+        expect(reportOptions.flushIntervalMs, equals(60000),
+            reason:
+                'CallReportOptions should reflect callReportFlushInterval from Config');
       },
     );
   });
@@ -340,11 +299,8 @@ void main() {
         //
         // We verify the config value is accessible and the constant exists.
         // Full integration test is in the quality_warning_monitor suite.
-        expect(
-          config.maxReconnectAttempts,
-          lessThanOrEqualTo(10),
-          reason: 'maxReconnectAttempts should be a reasonable value',
-        );
+        expect(config.maxReconnectAttempts, lessThanOrEqualTo(10),
+            reason: 'maxReconnectAttempts should be a reasonable value');
 
         // maxReconnectAttempts = 0 means unlimited.
         final unlimitedConfig = Config(
@@ -354,11 +310,8 @@ void main() {
           logLevel: LogLevel.all,
           maxReconnectAttempts: 0,
         );
-        expect(
-          unlimitedConfig.maxReconnectAttempts,
-          equals(0),
-          reason: 'maxReconnectAttempts=0 means unlimited',
-        );
+        expect(unlimitedConfig.maxReconnectAttempts, equals(0),
+            reason: 'maxReconnectAttempts=0 means unlimited');
       },
     );
   });
@@ -391,12 +344,9 @@ void main() {
         // The Peer class should check this flag.  We verify it's accessible
         // on the config and can be used by the Peer to decide when to start
         // ICE gathering.
-        expect(
-          config.prefetchIceCandidates,
-          isTrue,
-          reason:
-              'prefetchIceCandidates should be accessible on Config for Peer to read',
-        );
+        expect(config.prefetchIceCandidates, isTrue,
+            reason:
+                'prefetchIceCandidates should be accessible on Config for Peer to read');
       },
     );
   });
