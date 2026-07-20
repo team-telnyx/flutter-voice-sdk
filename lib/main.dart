@@ -16,6 +16,8 @@ import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_flutter_webrtc/service/diagnostics_latency_service.dart';
+import 'package:telnyx_flutter_webrtc/service/diagnostics_log_service.dart';
 import 'package:telnyx_flutter_webrtc/service/platform_push_service.dart';
 import 'package:telnyx_flutter_webrtc/service/android_push_notification_handler.dart'
     show androidBackgroundMessageHandler;
@@ -40,6 +42,20 @@ class AppInitializer {
   Future<void> initialize() async {
     if (!_isInitialized) {
       _isInitialized = true;
+
+      // Install the SDK log collector before anything else logs, so the
+      // Diagnostics view opens onto a populated buffer rather than only what
+      // happened after it was opened. The SDK ships LogCollector and a global
+      // slot for it but never installs one.
+      DiagnosticsLogService.instance.install();
+
+      // Likewise start retaining latency metrics now. The tracker's stream is
+      // broadcast with no replay, so anything emitted before the diagnostics
+      // view opens — registration in particular — is lost unless captured here.
+      DiagnosticsLatencyService.instance.attach(
+        txClientViewModel.latencyTracker,
+      );
+
       logger.i('[AppInitializer] Initializing...');
 
       // Initialize Firebase first, ensuring it's ready before platform handlers use it.
