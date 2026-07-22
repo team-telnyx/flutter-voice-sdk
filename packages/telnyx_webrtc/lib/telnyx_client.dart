@@ -330,6 +330,10 @@ class TelnyxClient {
   /// The signaling-health monitor for the current session (test/inspection).
   SignalingHealthMonitor? get healthMonitor => _healthMonitor;
 
+  /// The reconnect policy currently applied to health-triggered recovery.
+  @visibleForTesting
+  bool get autoReconnectLoginForTest => _autoReconnectLogin;
+
   /// Captures the enable flags and recovery config from [config] at connect.
   void _applyStructuredConfig(Config config) {
     // A fresh connect is not an explicit logout — re-enable marker persistence.
@@ -341,12 +345,28 @@ class TelnyxClient {
     _enableSignalingHealthMonitor = config.enableSignalingHealthMonitor;
     _mediaPermissionsRecovery = config.mediaPermissionsRecovery;
 
+    // Apply autoReconnect immediately (?? true) so the health monitor and
+    // reconnect logic never read a prior session's stale value before the
+    // login message is sent (VSDK-415/416 adversarial hardening).
+    _autoReconnectLogin = config.autoReconnect ?? true;
+
     // Instantiate the health monitor when enabled (idempotent per session).
     if (_enableSignalingHealthMonitor) {
       _healthMonitor ??= SignalingHealthMonitor(_TelnyxHealthSession(this));
     } else {
       _healthMonitor?.stop();
       _healthMonitor = null;
+    }
+
+    // Reset health-monitor transient state on every fresh/reconnect config
+    // application so no pending/probe state from a prior session survives a
+    // reconnect. Stop clears all transient state (probe-in-flight, pending
+    // media recovery, last-inbound timestamp), then lifecycle sync restarts it
+    // only when an initialized active call exists.
+    final monitor = _healthMonitor;
+    if (monitor != null) {
+      monitor.stop();
+      _syncHealthMonitorLifecycle();
     }
   }
 
@@ -355,6 +375,13 @@ class TelnyxClient {
   @visibleForTesting
   void applyStructuredConfigForTest(Config config) =>
       _applyStructuredConfig(config);
+
+  /// Test seam: build a copy of [config] with the region changed to
+  /// [Region.auto], preserving every other Config option. Mirrors the
+  /// region-fallback path in [_onClose].
+  @visibleForTesting
+  Config copyConfigWithAutoRegionForTest(Config config) =>
+      _copyConfigWithAutoRegion(config);
 
   /// Central helper: emit a structured [TelnyxErrorEvent] via [onTelnyxError].
   ///
@@ -2713,7 +2740,11 @@ class TelnyxClient {
       );
     }
 
-    // Handle region fallback if connection failed and fallback is enabled
+    // Handle region fallback if connection failed and fallback is enabled.
+    // Uses a typed copy helper to preserve *every* Config option from the
+    // current config, only changing the region to Region.auto. This prevents
+    // silent option loss (e.g. enableStructuredErrors, ICE servers, timeouts)
+    // that the prior hand-written constructors dropped (VSDK-415/416 B1).
     if (!wasClean &&
         _currentConfig != null &&
         _currentConfig!.region != Region.auto &&
@@ -2724,59 +2755,123 @@ class TelnyxClient {
       );
       _isRegionFallbackAttempt = true;
 
-      // Create a fallback config with auto region
-      Config fallbackConfig;
-      if (_currentConfig is TokenConfig) {
-        final tokenConfig = _currentConfig as TokenConfig;
-        fallbackConfig = TokenConfig(
-          sipToken: tokenConfig.sipToken,
-          sipCallerIDName: tokenConfig.sipCallerIDName,
-          sipCallerIDNumber: tokenConfig.sipCallerIDNumber,
-          notificationToken: tokenConfig.notificationToken,
-          region: Region.auto,
-          // Force auto region for fallback
-          fallbackOnRegionFailure: tokenConfig.fallbackOnRegionFailure,
-          logLevel: tokenConfig.logLevel,
-          customLogger: tokenConfig.customLogger,
-          reconnectionTimeout: tokenConfig.reconnectionTimeout,
-          debug: tokenConfig.debug,
-        );
+      // Capture the auto-region fallback config NOW, before scheduling, so the
+      // timer callback does not dereference the mutable _currentConfig field
+      // (which may be reassigned by a concurrent connect/disconnect before the
+      // timer fires). A captured immutable copy is race-free (VSDK-415/416).
+      final fallbackConfig = _copyConfigWithAutoRegion(_currentConfig!);
 
-        // Retry connection with auto region
-        _scheduleConnectionTimer(
-          const Duration(milliseconds: 1000),
-          () {
-            connectWithToken(fallbackConfig as TokenConfig);
-          },
-          generation: connectionGeneration,
-        );
-      } else if (_currentConfig is CredentialConfig) {
-        final credConfig = _currentConfig as CredentialConfig;
-        fallbackConfig = CredentialConfig(
-          sipUser: credConfig.sipUser,
-          sipPassword: credConfig.sipPassword,
-          sipCallerIDName: credConfig.sipCallerIDName,
-          sipCallerIDNumber: credConfig.sipCallerIDNumber,
-          notificationToken: credConfig.notificationToken,
-          region: Region.auto,
-          // Force auto region for fallback
-          fallbackOnRegionFailure: credConfig.fallbackOnRegionFailure,
-          logLevel: credConfig.logLevel,
-          customLogger: credConfig.customLogger,
-          reconnectionTimeout: credConfig.reconnectionTimeout,
-          debug: credConfig.debug,
-        );
-
-        // Retry connection with auto region
-        _scheduleConnectionTimer(
-          const Duration(milliseconds: 1000),
-          () {
-            connectWithCredential(fallbackConfig as CredentialConfig);
-          },
-          generation: connectionGeneration,
-        );
-      }
+      // Retry connection with the auto-region copy after a short delay.
+      _scheduleConnectionTimer(
+        const Duration(milliseconds: 1000),
+        () {
+          if (fallbackConfig is TokenConfig) {
+            connectWithToken(fallbackConfig);
+          } else if (fallbackConfig is CredentialConfig) {
+            connectWithCredential(fallbackConfig);
+          }
+        },
+        generation: connectionGeneration,
+      );
     }
+  }
+
+  /// Build a copy of [config] with the region changed to [Region.auto],
+  /// preserving every other Config option exactly.
+  ///
+  /// Used by the region-fallback path in [_onClose] so no option is silently
+  /// dropped. A single typed helper prevents omissions that a hand-written
+  /// constructor list would be prone to (VSDK-415/416 B1).
+  Config _copyConfigWithAutoRegion(Config config) {
+    if (config is TokenConfig) {
+      return _copyTokenConfigWithRegion(config, Region.auto);
+    } else if (config is CredentialConfig) {
+      return _copyCredentialConfigWithRegion(config, Region.auto);
+    }
+    // Unreachable for the two concrete Config subclasses in use; defensive.
+    return config;
+  }
+
+  /// Copies a [TokenConfig] preserving every field except [region].
+  TokenConfig _copyTokenConfigWithRegion(
+    TokenConfig c,
+    Region region,
+  ) {
+    return TokenConfig(
+      sipToken: c.sipToken,
+      sipCallerIDName: c.sipCallerIDName,
+      sipCallerIDNumber: c.sipCallerIDNumber,
+      notificationToken: c.notificationToken,
+      autoReconnect: c.autoReconnect,
+      logLevel: c.logLevel,
+      debug: c.debug,
+      ringTonePath: c.ringTonePath,
+      ringbackPath: c.ringbackPath,
+      customLogger: c.customLogger,
+      reconnectionTimeout: c.reconnectionTimeout,
+      pushAnswerTimeout: c.pushAnswerTimeout,
+      region: region,
+      fallbackOnRegionFailure: c.fallbackOnRegionFailure,
+      forceRelayCandidate: c.forceRelayCandidate,
+      iceServers: c.iceServers,
+      serverConfiguration: c.serverConfiguration,
+      callReportInterval: c.callReportInterval,
+      callReportLogLevel: c.callReportLogLevel,
+      callReportMaxLogEntries: c.callReportMaxLogEntries,
+      enableCallReports: c.enableCallReports,
+      debugOutput: c.debugOutput,
+      debugLogLevel: c.debugLogLevel,
+      debugLogMaxEntries: c.debugLogMaxEntries,
+      callReportFlushInterval: c.callReportFlushInterval,
+      prefetchIceCandidates: c.prefetchIceCandidates,
+      autoRecoverCalls: c.autoRecoverCalls,
+      hangupOnBeforeUnload: c.hangupOnBeforeUnload,
+      maxReconnectAttempts: c.maxReconnectAttempts,
+      enableStructuredErrors: c.enableStructuredErrors,
+      enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
+      mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+    );
+  }
+
+  CredentialConfig _copyCredentialConfigWithRegion(
+    CredentialConfig c,
+    Region region,
+  ) {
+    return CredentialConfig(
+      sipUser: c.sipUser,
+      sipPassword: c.sipPassword,
+      sipCallerIDName: c.sipCallerIDName,
+      sipCallerIDNumber: c.sipCallerIDNumber,
+      notificationToken: c.notificationToken,
+      autoReconnect: c.autoReconnect,
+      logLevel: c.logLevel,
+      debug: c.debug,
+      ringTonePath: c.ringTonePath,
+      ringbackPath: c.ringbackPath,
+      customLogger: c.customLogger,
+      reconnectionTimeout: c.reconnectionTimeout,
+      pushAnswerTimeout: c.pushAnswerTimeout,
+      region: region,
+      fallbackOnRegionFailure: c.fallbackOnRegionFailure,
+      forceRelayCandidate: c.forceRelayCandidate,
+      iceServers: c.iceServers,
+      serverConfiguration: c.serverConfiguration,
+      callReportInterval: c.callReportInterval,
+      callReportLogLevel: c.callReportLogLevel,
+      callReportMaxLogEntries: c.callReportMaxLogEntries,
+      enableCallReports: c.enableCallReports,
+      debugOutput: c.debugOutput,
+      debugLogLevel: c.debugLogLevel,
+      debugLogMaxEntries: c.debugLogMaxEntries,
+      callReportFlushInterval: c.callReportFlushInterval,
+      prefetchIceCandidates: c.prefetchIceCandidates,
+      autoRecoverCalls: c.autoRecoverCalls,
+      hangupOnBeforeUnload: c.hangupOnBeforeUnload,
+      maxReconnectAttempts: c.maxReconnectAttempts,
+      enableStructuredErrors: c.enableStructuredErrors,
+      enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
+      mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+    );
   }
 
   void _onMessage(dynamic data) async {

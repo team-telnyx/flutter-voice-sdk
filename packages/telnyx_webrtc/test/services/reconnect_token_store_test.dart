@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -355,6 +356,150 @@ void main() {
             await ReconnectTokenStore.getActiveCallsRecoveryMarker(now: now);
 
         expect(marker, isNull);
+      });
+    });
+
+    // Adversarial regression: malformed persisted data must not crash callers
+    // and must be deleted so subsequent reads return null (VSDK-418 B2).
+    // The reviewer claimed StoredActiveCalls.fromJson was outside the
+    // try/catch; these tests prove the current behavior is safe —
+    // getActiveCallsRecoveryMarker returns null AND deletes the bad entry.
+    group('malformed recovery marker (VSDK-418 B2)', () {
+      Future<void> seedMalformed(String raw) async {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          'telnyx-voice-sdk-active-calls',
+          raw,
+        );
+      }
+
+      Future<bool> markerKeyPresent() async {
+        final prefs = await SharedPreferences.getInstance();
+        return prefs.containsKey('telnyx-voice-sdk-active-calls');
+      }
+
+      test('non-JSON raw returns null and deletes the entry', () async {
+        await seedMalformed('this is not json');
+
+        final marker = await ReconnectTokenStore.getActiveCallsRecoveryMarker();
+
+        expect(marker, isNull);
+        expect(
+          await markerKeyPresent(),
+          isFalse,
+          reason: 'malformed data must be deleted',
+        );
+      });
+
+      test(
+          'calls list with a non-string id throws inside fromJson, returns '
+          'null and deletes the entry', () async {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await seedMalformed(
+          jsonEncode({
+            'sessionId': 's',
+            'calls': [
+              {'id': 123, 'customHeaders': <Map<String, String>>[]},
+            ],
+            'storedAt': now,
+          }),
+        );
+
+        final marker = await ReconnectTokenStore.getActiveCallsRecoveryMarker(
+          now: now,
+        );
+
+        expect(marker, isNull);
+        expect(await markerKeyPresent(), isFalse);
+      });
+
+      test(
+          'calls list with a non-Map header element throws inside fromJson, '
+          'returns null and deletes the entry', () async {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await seedMalformed(
+          jsonEncode({
+            'sessionId': 's',
+            'calls': [
+              {
+                'id': 'c1',
+                'customHeaders': [42],
+              },
+            ],
+            'storedAt': now,
+          }),
+        );
+
+        final marker = await ReconnectTokenStore.getActiveCallsRecoveryMarker(
+          now: now,
+        );
+
+        expect(marker, isNull);
+        expect(await markerKeyPresent(), isFalse);
+      });
+
+      test(
+          'sessionId of wrong type throws inside fromJson, returns null '
+          'and deletes the entry', () async {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await seedMalformed(
+          jsonEncode({
+            'sessionId': 42,
+            'calls': [
+              {'id': 'c1', 'customHeaders': <Map<String, String>>[]},
+            ],
+            'storedAt': now,
+          }),
+        );
+
+        final marker = await ReconnectTokenStore.getActiveCallsRecoveryMarker(
+          now: now,
+        );
+
+        expect(marker, isNull);
+        expect(await markerKeyPresent(), isFalse);
+      });
+
+      test(
+          'storedAt of wrong type throws inside fromJson, returns null '
+          'and deletes the entry', () async {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await seedMalformed(
+          jsonEncode({
+            'sessionId': 's',
+            'calls': [
+              {'id': 'c1', 'customHeaders': <Map<String, String>>[]},
+            ],
+            'storedAt': 'not-an-int',
+          }),
+        );
+
+        final marker = await ReconnectTokenStore.getActiveCallsRecoveryMarker(
+          now: now,
+        );
+
+        expect(marker, isNull);
+        expect(await markerKeyPresent(), isFalse);
+      });
+
+      test(
+          'calls element not a Map throws inside fromJson, returns null '
+          'and deletes the entry', () async {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        await seedMalformed(
+          jsonEncode({
+            'sessionId': 's',
+            'calls': [42],
+            'storedAt': now,
+          }),
+        );
+
+        final marker = await ReconnectTokenStore.getActiveCallsRecoveryMarker(
+          now: now,
+        );
+
+        expect(marker, isNull);
+        expect(await markerKeyPresent(), isFalse);
       });
     });
   });

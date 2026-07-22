@@ -273,4 +273,36 @@ void main() {
       expect(config.forceRelayCandidate, isTrue);
     });
   });
+
+  group('VSDK-415/416 configuration defaults', () {
+    test('TokenConfig enables structured errors and monitoring by default', () {
+      final config = TokenConfig(
+        sipToken: 'token',
+        sipCallerIDName: 'name',
+        sipCallerIDNumber: 'number',
+        debug: false,
+        logLevel: LogLevel.none,
+      );
+
+      expect(config.enableStructuredErrors, isTrue);
+      expect(config.enableSignalingHealthMonitor, isTrue);
+      expect(config.mediaPermissionsRecovery, isNull);
+    });
+
+    test('CredentialConfig enables structured errors and monitoring by default',
+        () {
+      final config = CredentialConfig(
+        sipUser: 'user',
+        sipPassword: 'password',
+        sipCallerIDName: 'name',
+        sipCallerIDNumber: 'number',
+        debug: false,
+        logLevel: LogLevel.none,
+      );
+
+      expect(config.enableStructuredErrors, isTrue);
+      expect(config.enableSignalingHealthMonitor, isTrue);
+      expect(config.mediaPermissionsRecovery, isNull);
+    });
+  });
 }

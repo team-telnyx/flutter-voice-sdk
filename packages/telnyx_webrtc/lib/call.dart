@@ -134,7 +134,7 @@ class Call {
   /// - READ ONLY in practice - do not assign directly
   /// - Modified only through `callHandler.changeState()`
   /// - Represents states like: newCall, ringing, connecting, active, held, done, etc.
-  late CallState callState;
+  CallState callState = CallState.newCall;
 
   /// AudioService instance to handle audio playback (lazy initialized)
   AudioService get audioService => _audioService ??= AudioService();

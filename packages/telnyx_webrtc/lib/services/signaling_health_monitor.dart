@@ -73,9 +73,13 @@ abstract class ISignalingHealthSession {
 class SignalingHealthMonitor {
   /// Creates a monitor that inspects and controls signaling/peer health
   /// through [session].
-  SignalingHealthMonitor(this._session);
+  SignalingHealthMonitor(
+    this._session, {
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   final ISignalingHealthSession _session;
+  final DateTime Function() _now;
 
   // ── Lifecycle ──────────────────────────────────────────────────────
 
@@ -120,7 +124,7 @@ class SignalingHealthMonitor {
 
   /// Call this whenever *any* inbound socket message arrives.
   void onSocketActivity() {
-    _lastInboundTimestamp = DateTime.now();
+    _lastInboundTimestamp = _now();
     // If a probe was in flight, a response has arrived — clear it.
     _isProbeInFlight = false;
   }
@@ -135,7 +139,7 @@ class SignalingHealthMonitor {
   bool get _isSignalingHealthy {
     final ts = _lastInboundTimestamp;
     if (ts == null) return false;
-    return DateTime.now().difference(ts) < _signalingHealthyWindow;
+    return _now().difference(ts) < _signalingHealthyWindow;
   }
 
   // ── Critical method classification ──────────────────────────────────
@@ -249,7 +253,7 @@ class SignalingHealthMonitor {
   /// signaling recovers, socket reconnect if it stays unhealthy).
   void _deferMediaRecovery(String callId) {
     _pendingMediaRecovery = callId;
-    _probeStartedAt = DateTime.now();
+    _probeStartedAt = _now();
     _startProbe();
   }
 
@@ -280,8 +284,7 @@ class SignalingHealthMonitor {
         return;
       }
       final startedAt = _probeStartedAt;
-      if (startedAt != null &&
-          DateTime.now().difference(startedAt) >= _probeTimeout) {
+      if (startedAt != null && _now().difference(startedAt) >= _probeTimeout) {
         // Probe window elapsed with signaling still unhealthy → reconnect.
         _clearPendingRecovery();
         _session.socketDisconnect();

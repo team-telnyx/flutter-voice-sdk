@@ -23,14 +23,18 @@ class _FakeTxSocket extends TxSocket {
   void emitOpen() => onOpen();
 }
 
-CredentialConfig _config({bool healthMonitor = true}) => CredentialConfig(
+CredentialConfig _config({
+  bool healthMonitor = true,
+  bool? autoReconnect = true,
+}) =>
+    CredentialConfig(
       sipUser: 'user',
       sipPassword: 'pass',
       sipCallerIDName: 'name',
       sipCallerIDNumber: 'number',
       logLevel: LogLevel.none,
       debug: false,
-      autoReconnect: true,
+      autoReconnect: autoReconnect,
       enableSignalingHealthMonitor: healthMonitor,
     );
 
@@ -80,6 +84,62 @@ void main() {
       client.calls['call-1']!.callHandler.changeState(CallState.done);
       client.onCallStateChangedToActive('call-1');
       expect(client.healthMonitor!.isRunning, isFalse);
+    });
+
+    test('disconnect stops a running monitor', () {
+      client.applyStructuredConfigForTest(_config());
+      addActiveCall('call-1');
+      client.onCallStateChangedToActive('call-1');
+      expect(client.healthMonitor!.isRunning, isTrue);
+
+      client.disconnect();
+
+      expect(client.healthMonitor!.isRunning, isFalse);
+    });
+
+    test('connect config immediately replaces a stale autoReconnect policy',
+        () {
+      client.applyStructuredConfigForTest(_config(autoReconnect: false));
+      expect(client.autoReconnectLoginForTest, isFalse);
+
+      client.applyStructuredConfigForTest(_config());
+      expect(client.autoReconnectLoginForTest, isTrue);
+
+      client.applyStructuredConfigForTest(_config(autoReconnect: null));
+      expect(client.autoReconnectLoginForTest, isTrue);
+    });
+
+    testWidgets(
+        'config reapplication clears deferred recovery without a duplicate ICE restart',
+        (tester) async {
+      client.applyStructuredConfigForTest(_config());
+      addActiveCall('call-1');
+      client.onCallStateChangedToActive('call-1');
+      final monitor = client.healthMonitor!;
+
+      // Kept separate from onSocketActivity so the pre-reset probe state is
+      // asserted before configuration clears it.
+      // ignore: cascade_invocations
+      monitor.onPeerFailure('call-1', PeerFailureEvidence.iceFailed);
+      expect(monitor.isProbeInFlight, isTrue);
+
+      client.applyStructuredConfigForTest(_config());
+      expect(monitor.isRunning, isTrue);
+      expect(monitor.isProbeInFlight, isFalse);
+
+      monitor.onSocketActivity();
+      warnings.clear();
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(
+        warnings.where(
+          (event) =>
+              event.warning.code == TelnyxWarningCodes.mediaRecoveryRequired,
+        ),
+        isEmpty,
+        reason: 'the prior session must not trigger a deferred ICE restart',
+      );
+      monitor.stop();
     });
   });
 
