@@ -29,7 +29,6 @@ import 'package:telnyx_webrtc/utils/codec_utils.dart';
 import 'package:telnyx_webrtc/utils/constants.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/default_logger.dart';
-import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/preference_storage.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
@@ -51,12 +50,32 @@ import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/call_manager.dart';
 import 'package:telnyx_webrtc/utils/latency_tracker.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_event.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_factory.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
+import 'package:telnyx_webrtc/services/signaling_health_monitor.dart';
+import 'package:telnyx_webrtc/services/reconnect_token_store.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 
 /// Callback for when the socket receives an error
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
+
+/// Callback for structured SDK error events (VSDK-415).
+///
+/// The [event] is either a [TelnyxErrorEvent] (non-recoverable) or a
+/// [TelnyxMediaRecoveryErrorEvent] (recoverable inbound media failure). Use
+/// [isMediaRecoveryErrorEvent] to discriminate.
+typedef OnTelnyxError = void Function(Object event);
+
+/// Callback for structured SDK warning events (VSDK-415).
+typedef OnTelnyxWarning = void Function(TelnyxWarningEvent event);
 
 /// Callback for when transcript updates occur
 typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
@@ -88,6 +107,20 @@ class TelnyxClient {
 
   /// Callback for when the socket receives an error
   late OnSocketErrorReceived onSocketErrorReceived;
+
+  /// Optional callback for structured SDK error events (VSDK-415).
+  ///
+  /// Fires *alongside* the legacy [onSocketErrorReceived] — never instead of
+  /// it. Receives a [TelnyxErrorEvent] or a [TelnyxMediaRecoveryErrorEvent].
+  /// Only invoked when structured errors are enabled via
+  /// [Config.enableStructuredErrors] (default true).
+  OnTelnyxError? onTelnyxError;
+
+  /// Optional callback for structured SDK warning events (VSDK-415).
+  ///
+  /// Only invoked when structured errors are enabled via
+  /// [Config.enableStructuredErrors] (default true).
+  OnTelnyxWarning? onTelnyxWarning;
 
   /// Callback for when transcript updates occur
   /// Note: this is only relevant for Assistant AI conversations
@@ -267,6 +300,491 @@ class TelnyxClient {
         'Call $callId state changed to ACTIVE, cancelling reconnection timer',
       );
       _cancelReconnectionTimer(callId);
+    }
+    // Keep the signaling-health monitor lifecycle in sync with active calls.
+    _syncHealthMonitorLifecycle();
+    // Persist a narrow recovery marker for the current active calls.
+    _persistActiveCallsMarker();
+  }
+
+  // ── Structured error/warning surface (VSDK-415) ─────────────────────
+
+  /// Whether structured error/warning callbacks are enabled for the current
+  /// session. Set from [Config.enableStructuredErrors] during connect.
+  bool _enableStructuredErrors = true;
+
+  /// Whether the [SignalingHealthMonitor] is enabled for the current session.
+  bool _enableSignalingHealthMonitor = true;
+
+  /// The media-permission recovery configuration retained from [Config].
+  MediaPermissionsRecoveryConfig? _mediaPermissionsRecovery;
+
+  /// The media-permission recovery configuration for the current session, or
+  /// null when disabled. Consumed by the [Peer.createStream] answer path.
+  MediaPermissionsRecoveryConfig? get mediaPermissionsRecovery =>
+      _mediaPermissionsRecovery;
+
+  /// The signaling-health monitor instance, created when enabled.
+  SignalingHealthMonitor? _healthMonitor;
+
+  /// The signaling-health monitor for the current session (test/inspection).
+  SignalingHealthMonitor? get healthMonitor => _healthMonitor;
+
+  /// Captures the enable flags and recovery config from [config] at connect.
+  void _applyStructuredConfig(Config config) {
+    // A fresh connect is not an explicit logout — re-enable marker persistence.
+    _explicitDisconnectInProgress = false;
+    // Supersede any in-flight explicit-disconnect clear so it cannot erase the
+    // recovery data this new session is about to persist (VSDK-418).
+    _recoveryEpoch++;
+    _enableStructuredErrors = config.enableStructuredErrors;
+    _enableSignalingHealthMonitor = config.enableSignalingHealthMonitor;
+    _mediaPermissionsRecovery = config.mediaPermissionsRecovery;
+
+    // Instantiate the health monitor when enabled (idempotent per session).
+    if (_enableSignalingHealthMonitor) {
+      _healthMonitor ??= SignalingHealthMonitor(_TelnyxHealthSession(this));
+    } else {
+      _healthMonitor?.stop();
+      _healthMonitor = null;
+    }
+  }
+
+  /// Test seam: apply the structured-config flags/recovery from [config]
+  /// without opening a socket. Mirrors what the connect paths do.
+  @visibleForTesting
+  void applyStructuredConfigForTest(Config config) =>
+      _applyStructuredConfig(config);
+
+  /// Central helper: emit a structured [TelnyxErrorEvent] via [onTelnyxError].
+  ///
+  /// Respects the [Config.enableStructuredErrors] flag. Never throws — a
+  /// failing app callback must not break SDK internals.
+  void emitTelnyxError(TelnyxError error, {String? callId}) {
+    if (!_enableStructuredErrors) return;
+    final cb = onTelnyxError;
+    if (cb == null) return;
+    try {
+      cb(TelnyxErrorEvent(error: error, sessionId: sessid, callId: callId));
+    } catch (e) {
+      GlobalLogger().e('onTelnyxError callback threw: $e');
+    }
+  }
+
+  /// Central helper: emit a recoverable [TelnyxMediaRecoveryErrorEvent].
+  void emitTelnyxMediaRecoveryError(TelnyxMediaRecoveryErrorEvent event) {
+    if (!_enableStructuredErrors) return;
+    final cb = onTelnyxError;
+    if (cb == null) return;
+    try {
+      cb(event);
+    } catch (e) {
+      GlobalLogger().e('onTelnyxError callback threw: $e');
+    }
+  }
+
+  /// Central helper: emit a structured [TelnyxWarningEvent] via
+  /// [onTelnyxWarning]. Respects the feature flag and never throws.
+  void emitTelnyxWarning(
+    TelnyxWarning warning, {
+    String? callId,
+    String? reason,
+    String? source,
+  }) {
+    if (!_enableStructuredErrors) return;
+    final cb = onTelnyxWarning;
+    if (cb == null) return;
+    try {
+      cb(
+        TelnyxWarningEvent(
+          warning: warning,
+          reason: reason,
+          source: source,
+          sessionId: sessid,
+          callId: callId,
+        ),
+      );
+    } catch (e) {
+      GlobalLogger().e('onTelnyxWarning callback threw: $e');
+    }
+  }
+
+  /// Convenience: build a structured warning from [code] and emit it.
+  void emitWarningCode(
+    int code, {
+    String? callId,
+    String? reason,
+    String? source,
+  }) {
+    if (!_enableStructuredErrors) return;
+    emitTelnyxWarning(
+      createTelnyxWarning(code),
+      callId: callId,
+      reason: reason,
+      source: source,
+    );
+  }
+
+  /// Convenience: build a structured error from [code] and emit it.
+  void emitStructuredErrorCode(
+    int code, {
+    Object? originalError,
+    String? message,
+    bool? fatal,
+    String? callId,
+  }) {
+    emitTelnyxError(
+      createTelnyxError(
+        code,
+        originalError: originalError,
+        message: message,
+        fatal: fatal,
+      ),
+      callId: callId,
+    );
+  }
+
+  /// Maps a legacy [TelnyxSocketError] (from a server `error` message) onto a
+  /// structured error code and emits it alongside the legacy callback.
+  void _emitStructuredForSocketError(TelnyxSocketError error) {
+    if (!_enableStructuredErrors) return;
+    final int code;
+    switch (error.errorCode) {
+      case TelnyxErrorConstants.credentialErrorCode:
+        code = TelnyxErrorCodes.invalidCredentials;
+        break;
+      case TelnyxErrorConstants.tokenErrorCode:
+        code = TelnyxErrorCodes.authenticationRequired;
+        break;
+      case TelnyxErrorConstants.gatewayFailedErrorCode:
+      case TelnyxErrorConstants.gatewayTimeoutErrorCode:
+        code = TelnyxErrorCodes.gatewayFailed;
+        break;
+      default:
+        // An unrecognized server error is NOT necessarily a login failure —
+        // map it to a generic code and carry the raw server context (VSDK-415).
+        code = TelnyxErrorCodes.unexpectedError;
+    }
+    emitStructuredErrorCode(
+      code,
+      message: error.errorMessage,
+      originalError: 'server error ${error.errorCode}: ${error.errorMessage}',
+    );
+  }
+
+  // ── Signaling-health session hooks (VSDK-416) ───────────────────────
+  //
+  // TelnyxClient owns a lightweight production adapter
+  // ([_TelnyxHealthSession]) that implements [ISignalingHealthSession] and
+  // delegates to these methods. An adapter is used instead of `implements`
+  // because the interface's `isConnected` getter would collide with the
+  // long-standing public `isConnected()` method.
+
+  /// Signaling recovery authority: force a socket reconnect/reattach when
+  /// signaling is unhealthy. Never also triggers ICE restart — the monitor
+  /// guarantees exactly one recovery path.
+  void _healthSocketDisconnect() {
+    GlobalLogger().i(
+      'SignalingHealthMonitor requested socket reconnect (signaling unhealthy)',
+    );
+    emitTelnyxWarning(
+      createTelnyxWarning(TelnyxWarningCodes.signalingRecoveryRequired),
+      reason: 'Signaling unhealthy — reconnecting socket',
+      source: 'health_monitor',
+    );
+    if (_autoReconnectLogin) {
+      _reconnectToSocket();
+    } else {
+      _closeSocketSafely();
+    }
+  }
+
+  /// Media recovery authority: restart ICE for [callId] when signaling is
+  /// healthy but media has degraded.
+  TriggerIceRestartResult _healthTriggerIceRestart(String? callId) {
+    if (callId == null) {
+      return const TriggerIceRestartResult(started: false);
+    }
+    final call = calls[callId];
+    if (call == null) {
+      return const TriggerIceRestartResult(started: false);
+    }
+    emitTelnyxWarning(
+      createTelnyxWarning(TelnyxWarningCodes.mediaRecoveryRequired),
+      callId: callId,
+      reason: 'Signaling healthy, media degraded — restarting ICE',
+      source: 'health_monitor',
+    );
+    final started = call.restartIce();
+    if (!started) {
+      // Structured ICE-restart failure (VSDK-415) + escalate to a socket
+      // reconnect via the recovery authority (VSDK-416).
+      emitStructuredErrorCode(
+        TelnyxErrorCodes.iceRestartFailed,
+        message: 'ICE restart could not be started for call $callId',
+        callId: callId,
+      );
+      _healthMonitor?.onIceRestartFailed(callId);
+    }
+    return TriggerIceRestartResult(started: started);
+  }
+
+  /// Signaling probe authority: send a `telnyx_rtc.ping` on the current socket
+  /// so the [SignalingHealthMonitor] can resolve "unknown" signaling health by
+  /// provoking a response (VSDK-416). The JSON is the standard, already
+  /// supported ping request — only the SDK is now the sender.
+  void _sendSignalingProbe() {
+    try {
+      final probe = <String, dynamic>{
+        'jsonrpc': JsonRPCConstant.jsonrpc,
+        'id': const Uuid().v4(),
+        'method': SocketMethod.ping,
+        'params': <String, dynamic>{},
+      };
+      txSocket.send(jsonEncode(probe));
+    } catch (e) {
+      GlobalLogger().w('Failed to send signaling probe: $e');
+    }
+  }
+
+  /// Start the health monitor when a call becomes active; stop it when there
+  /// are no active calls. Idempotent — safe to call repeatedly.
+  void _syncHealthMonitorLifecycle() {
+    final monitor = _healthMonitor;
+    if (monitor == null) return;
+    if (activeCalls().isNotEmpty) {
+      monitor.start();
+    } else {
+      monitor.stop();
+    }
+  }
+
+  /// Single recovery authority for a peer-connection ICE failure (VSDK-416).
+  ///
+  /// Called by both the native and web [Peer] implementations so the recovery
+  /// behavior is identical across platforms. Emits a structured
+  /// `peerConnectionFailed` warning, then takes *exactly one* recovery action:
+  ///
+  /// - When the signaling-health monitor is enabled it is the sole authority —
+  ///   it decides ICE restart (healthy signaling) vs. socket reconnect
+  ///   (unhealthy). The peer must NOT also renegotiate directly.
+  /// - When the monitor is disabled, the legacy self-heal applies: a direct ICE
+  ///   restart, but only when the failure followed a disconnect
+  ///   ([afterDisconnect]).
+  void handlePeerIceConnectionFailed(
+    String callId, {
+    required bool afterDisconnect,
+  }) {
+    emitWarningCode(
+      TelnyxWarningCodes.peerConnectionFailed,
+      callId: callId,
+      reason: 'ICE connection failed',
+      source: 'peer_failure',
+    );
+    final monitor = _healthMonitor;
+    if (monitor != null) {
+      // The monitor owns recovery — it decides ICE restart vs. socket
+      // reconnect. Do NOT also renegotiate directly (would double-restart).
+      monitor.onPeerFailure(callId, PeerFailureEvidence.iceFailed);
+      return;
+    }
+    // Legacy self-heal when the monitor is disabled: direct ICE restart, but
+    // only when the failure followed a disconnect.
+    if (afterDisconnect) {
+      calls[callId]?.restartIce();
+    }
+  }
+
+  /// Single recovery authority for a peer-connection state failure (VSDK-416).
+  ///
+  /// Emits a structured `peerConnectionFailed` warning and routes the failure
+  /// to the health monitor (when enabled). Shared by native and web peers.
+  void handlePeerConnectionFailed(String callId) {
+    emitWarningCode(
+      TelnyxWarningCodes.peerConnectionFailed,
+      callId: callId,
+      reason: 'Peer connection failed',
+      source: 'peer_failure',
+    );
+    _healthMonitor?.onPeerFailure(callId, PeerFailureEvidence.connectionFailed);
+  }
+
+  // ── Reconnect / session persistence (VSDK-418) ──────────────────────
+
+  /// Whether an explicit user disconnect/logout is in progress. When true,
+  /// active-call marker persistence is suppressed so an explicit clear is not
+  /// immediately re-populated. Internal network recovery does NOT set this.
+  bool _explicitDisconnectInProgress = false;
+
+  /// Monotonic epoch bumped on every connect (in [_applyStructuredConfig]).
+  ///
+  /// An explicit disconnect captures the current epoch and hands it to
+  /// [_clearPersistedRecovery]; if a rapid subsequent connect bumps the epoch
+  /// before the (asynchronous) clear runs, the clear is superseded and skipped
+  /// so it cannot erase the new session's freshly persisted recovery data
+  /// (VSDK-418).
+  int _recoveryEpoch = 0;
+
+  /// Test-only awaitable that gates [_clearPersistedRecovery] so a deterministic
+  /// test can hold an in-flight clear open while a reconnect persists new data.
+  /// Null in production (zero overhead).
+  @visibleForTesting
+  Future<void>? recoveryClearGate;
+
+  /// The recovery marker read at startup, awaiting reattachment after login.
+  StoredActiveCalls? _pendingReattach;
+
+  /// The startup recovery marker awaiting reattachment (inspection/testing).
+  StoredActiveCalls? get pendingReattach => _pendingReattach;
+
+  /// Defensively read a fresh persisted reconnect session id for URL injection.
+  /// Returns null (leaving the URL unchanged) on any storage failure or when
+  /// nothing fresh is stored.
+  Future<String?> _resolveReconnectVoiceSdkId() async {
+    try {
+      return await ReconnectTokenStore.getReconnectSessionId();
+    } catch (e) {
+      GlobalLogger().w('Failed to read reconnect session id: $e');
+      return null;
+    }
+  }
+
+  /// Persist the server-provided voice_sdk_id, current session id, and a
+  /// timestamp after a successful registration/login (VSDK-418).
+  Future<void> _persistReconnectSession({String? voiceSdkIdOverride}) async {
+    try {
+      final serverVoiceSdkId = voiceSdkIdOverride ?? voiceSdkId;
+      if (serverVoiceSdkId != null && serverVoiceSdkId.isNotEmpty) {
+        await ReconnectTokenStore.setReconnectToken(serverVoiceSdkId);
+      }
+      await ReconnectTokenStore.setReconnectSessionId(sessid);
+    } catch (e) {
+      GlobalLogger().w('Failed to persist reconnect session: $e');
+    }
+  }
+
+  /// Test/inspection seam for [_persistReconnectSession].
+  @visibleForTesting
+  Future<void> persistReconnectSessionForTest() => _persistReconnectSession();
+
+  /// Build a narrow projection of the current active calls — only the call ID
+  /// and custom headers. Never credentials, access tokens, SDP, ICE/TURN data,
+  /// media streams, peer objects, or arbitrary call state (VSDK-418 security).
+  List<StoredActiveCall> _activeCallProjection() {
+    return activeCalls()
+        .values
+        .where((c) => c.callId != null)
+        .map(
+          (c) => StoredActiveCall(
+            id: c.callId!,
+            customHeaders: [Map<String, String>.from(c.customHeaders)],
+          ),
+        )
+        .toList();
+  }
+
+  /// Persist (or clear when empty) the active-calls recovery marker (VSDK-418).
+  void _persistActiveCallsMarker() {
+    if (_explicitDisconnectInProgress) return;
+    final projection = _activeCallProjection();
+    final currentSessid = sessid;
+    unawaited(() async {
+      try {
+        if (projection.isEmpty) {
+          await ReconnectTokenStore.clearActiveCallsRecoveryMarker();
+        } else {
+          await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+            projection,
+            currentSessid,
+          );
+        }
+      } catch (e) {
+        GlobalLogger().w('Failed to persist active-calls marker: $e');
+      }
+    }());
+  }
+
+  /// Whether the cold-start recovery marker has been auto-loaded for this
+  /// client instance. Reset only by constructing a new client.
+  bool _startupRecoveryMarkerLoaded = false;
+
+  /// Auto-load the persisted active-calls recovery marker exactly once per
+  /// client lifetime (cold start), before the first registration completes.
+  ///
+  /// This makes [_attemptPendingReattach] reachable after REGED on a real
+  /// connect path without the app having to invoke
+  /// [readRecoveryMarkerAtStartup] manually (VSDK-418). Subsequent in-session
+  /// reconnects are no-ops so the client never reattaches against markers it
+  /// persisted itself during the current session.
+  Future<void> _ensureStartupRecoveryMarkerLoaded() async {
+    if (_startupRecoveryMarkerLoaded) return;
+    _startupRecoveryMarkerLoaded = true;
+    await readRecoveryMarkerAtStartup();
+  }
+
+  /// Read a fresh active-calls recovery marker at startup and stash it for a
+  /// reattachment attempt once login completes (VSDK-418).
+  Future<StoredActiveCalls?> readRecoveryMarkerAtStartup() async {
+    try {
+      _pendingReattach =
+          await ReconnectTokenStore.getActiveCallsRecoveryMarker();
+      return _pendingReattach;
+    } catch (e) {
+      GlobalLogger().w('Failed to read recovery marker at startup: $e');
+      return null;
+    }
+  }
+
+  /// Attempt reattachment for a pending startup marker after login.
+  ///
+  /// The Flutter SDK reattaches through the existing `attach_call` login flow
+  /// (see [SocketMethod.attach]); there is no bespoke Verto reattach RPC. This
+  /// method therefore correlates the persisted call IDs against the calls the
+  /// backend re-established for the current session: matched calls get their
+  /// [Call.recoveredCallId] set; unmatched calls surface a structured
+  /// `SESSION_NOT_REATTACHED` (48501) error. The stale marker is always cleared.
+  Future<void> _attemptPendingReattach() async {
+    final marker = _pendingReattach;
+    if (marker == null) return;
+    _pendingReattach = null;
+
+    for (final stored in marker.calls) {
+      final reestablished = calls[stored.id];
+      if (reestablished != null) {
+        reestablished.recoveredCallId = stored.id;
+      } else {
+        emitStructuredErrorCode(
+          TelnyxErrorCodes.sessionNotReattached,
+          message:
+              'Session/call ${stored.id} was not reattached by the backend',
+          callId: stored.id,
+        );
+      }
+    }
+
+    try {
+      await ReconnectTokenStore.clearActiveCallsRecoveryMarker();
+    } catch (e) {
+      GlobalLogger().w('Failed to clear stale recovery marker: $e');
+    }
+  }
+
+  /// Test/inspection seam for [_attemptPendingReattach].
+  @visibleForTesting
+  Future<void> attemptPendingReattachForTest() => _attemptPendingReattach();
+
+  /// Clear all persisted recovery data. Called on explicit user
+  /// disconnect/logout only — never from internal network recovery.
+  Future<void> _clearPersistedRecovery(int epoch) async {
+    try {
+      // Test-only delay hook (null in production).
+      final gate = recoveryClearGate;
+      if (gate != null) await gate;
+      // Superseded by a newer connect → skip so we don't erase its fresh data.
+      if (epoch != _recoveryEpoch) return;
+      await ReconnectTokenStore.clearAll();
+    } catch (e) {
+      GlobalLogger().w('Failed to clear persisted recovery data: $e');
     }
   }
 
@@ -1159,6 +1677,57 @@ class TelnyxClient {
     }
   }
 
+  /// Wires the [txSocket] callbacks for the given [connectionGeneration] and
+  /// opens the connection to [hostAddress]. Shared by the token and credential
+  /// connect paths. [onOpenLogin] performs the appropriate login once open;
+  /// [updateStateOnClose] preserves the historical per-path close behavior.
+  void _wireSocketAndConnect({
+    required int connectionGeneration,
+    required String hostAddress,
+    required void Function() onOpenLogin,
+    required String onOpenLogTag,
+    required bool updateStateOnClose,
+  }) {
+    txSocket.hostAddress = hostAddress;
+    _socketHost = hostAddress; // Store for call report endpoint
+    GlobalLogger().i('connecting to WebSocket $hostAddress');
+    txSocket
+      ..onOpen = () {
+        if (!_isActiveConnectionGeneration(connectionGeneration)) {
+          return;
+        }
+        _closed = false;
+        _updateConnectionState(true);
+        _isRegionFallbackAttempt =
+            false; // Reset fallback flag on successful connection
+        GlobalLogger().i('$onOpenLogTag (via _onOpen): Web Socket is now '
+            'connected');
+        latencyTracker.markRegistrationMilestone(
+          LatencyTracker.milestoneSocketConnected,
+        );
+        _onOpen();
+        onOpenLogin();
+      }
+      ..onMessage = (dynamic data) {
+        if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+        _onMessage(data);
+      }
+      ..onClose = (int closeCode, String closeReason) {
+        if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+        GlobalLogger().i('Closed [$closeCode, $closeReason]!');
+        if (updateStateOnClose) {
+          _updateConnectionState(false);
+        }
+        final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+        _onClose(wasClean, closeCode, closeReason);
+      }
+      ..onPing = (SocketConnectionMetrics metrics) {
+        if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+        onConnectionMetricsUpdate?.call(metrics);
+      }
+      ..connect();
+  }
+
   /// Connects to the WebSocket using the provided [tokenConfig]
   void connectWithToken(TokenConfig tokenConfig) {
     if (!_prepareForConnection()) return;
@@ -1166,6 +1735,10 @@ class TelnyxClient {
 
     // Store current config for potential fallback
     _currentConfig = tokenConfig;
+    _applyStructuredConfig(tokenConfig);
+    // Auto-load the cold-start recovery marker so reattach can fire after REGED
+    // without the app calling readRecoveryMarkerAtStartup manually (VSDK-418).
+    unawaited(_ensureStartupRecoveryMarkerLoaded());
 
     // Start registration latency tracking
     latencyTracker.startRegistrationTracking();
@@ -1183,55 +1756,36 @@ class TelnyxClient {
         LogLevel.info,
         'connecting to WebSocket $_serverConfiguration.socketUrl',
       );
-    try {
-      // Build the host address with region support
-      final hostAddress = _buildHostAddress(
-        tokenConfig,
-        voiceSdkId: _pushMetaData?.voiceSdkId,
-      );
-
-      txSocket.hostAddress = hostAddress;
-      _socketHost = hostAddress; // Store for call report endpoint
-      GlobalLogger().i('connecting to WebSocket $hostAddress');
-      txSocket
-        ..onOpen = () {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) {
-            return;
-          }
-          _closed = false;
-          _updateConnectionState(true);
-          _isRegionFallbackAttempt =
-              false; // Reset fallback flag on successful connection
-          GlobalLogger().i(
-            'TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected',
-          );
-          latencyTracker.markRegistrationMilestone(
-            LatencyTracker.milestoneSocketConnected,
-          );
-          _onOpen();
-          tokenLogin(tokenConfig);
-        }
-        ..onMessage = (dynamic data) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          _onMessage(data);
-        }
-        ..onClose = (int closeCode, String closeReason) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          _updateConnectionState(false);
-          final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
-          _onClose(wasClean, closeCode, closeReason);
-        }
-        ..onPing = (SocketConnectionMetrics metrics) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          onConnectionMetricsUpdate?.call(metrics);
-        }
-        ..connect();
-    } catch (e) {
-      GlobalLogger().e(e.toString());
-      _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
-    }
+    // Defensively read a fresh persisted reconnect session id (VSDK-418) and
+    // inject it as voice_sdk_id before the initial connection. Push metadata
+    // takes precedence; a missing/failed read leaves the URL unchanged.
+    unawaited(() async {
+      final resolvedVoiceSdkId =
+          _pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId();
+      if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+      try {
+        final hostAddress = _buildHostAddress(
+          tokenConfig,
+          voiceSdkId: resolvedVoiceSdkId,
+        );
+        _wireSocketAndConnect(
+          connectionGeneration: connectionGeneration,
+          hostAddress: hostAddress,
+          onOpenLogin: () => tokenLogin(tokenConfig),
+          onOpenLogTag: 'TelnyxClient.connectWithToken',
+          updateStateOnClose: true,
+        );
+      } catch (e) {
+        GlobalLogger().e(e.toString());
+        _updateConnectionState(false);
+        GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
+        // Structured WebSocket connect failure (VSDK-415).
+        emitStructuredErrorCode(
+          TelnyxErrorCodes.webSocketConnectionFailed,
+          originalError: e,
+        );
+      }
+    }());
   }
 
   /// Connects to the WebSocket using the provided [CredentialConfig]
@@ -1241,6 +1795,10 @@ class TelnyxClient {
 
     // Store current config for potential fallback
     _currentConfig = credentialConfig;
+    _applyStructuredConfig(credentialConfig);
+    // Auto-load the cold-start recovery marker so reattach can fire after REGED
+    // without the app calling readRecoveryMarkerAtStartup manually (VSDK-418).
+    unawaited(_ensureStartupRecoveryMarkerLoaded());
 
     // Start registration latency tracking
     latencyTracker.startRegistrationTracking();
@@ -1257,57 +1815,36 @@ class TelnyxClient {
     _logger
       ..setLogLevel(credentialConfig.logLevel)
       ..log(LogLevel.info, 'connect()');
-    try {
-      // Build the host address with region support
-      final hostAddress = _buildHostAddress(
-        credentialConfig,
-        voiceSdkId: _pushMetaData?.voiceSdkId,
-      );
-
-      txSocket.hostAddress = hostAddress;
-      _socketHost = hostAddress; // Store for call report endpoint
-      GlobalLogger().i('connecting to WebSocket $hostAddress');
-      txSocket
-        ..onOpen = () {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) {
-            return;
-          }
-          _closed = false;
-          _updateConnectionState(true);
-          _isRegionFallbackAttempt =
-              false; // Reset fallback flag on successful connection
-          GlobalLogger().i(
-            'TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected',
-          );
-          latencyTracker.markRegistrationMilestone(
-            LatencyTracker.milestoneSocketConnected,
-          );
-          _onOpen();
-          credentialLogin(credentialConfig);
-        }
-        ..onMessage = (dynamic data) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          _onMessage(data);
-        }
-        ..onClose = (int closeCode, String closeReason) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          final bool wasClean = WebSocketUtils.isCleanClose(
-            closeCode,
-            closeReason,
-          );
-          _onClose(wasClean, closeCode, closeReason);
-        }
-        ..onPing = (SocketConnectionMetrics metrics) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          onConnectionMetricsUpdate?.call(metrics);
-        }
-        ..connect();
-    } catch (e) {
-      GlobalLogger().e(e.toString());
-      _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
-    }
+    // Defensively read a fresh persisted reconnect session id (VSDK-418) and
+    // inject it as voice_sdk_id before the initial connection. Push metadata
+    // takes precedence; a missing/failed read leaves the URL unchanged.
+    unawaited(() async {
+      final resolvedVoiceSdkId =
+          _pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId();
+      if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+      try {
+        final hostAddress = _buildHostAddress(
+          credentialConfig,
+          voiceSdkId: resolvedVoiceSdkId,
+        );
+        _wireSocketAndConnect(
+          connectionGeneration: connectionGeneration,
+          hostAddress: hostAddress,
+          onOpenLogin: () => credentialLogin(credentialConfig),
+          onOpenLogTag: 'TelnyxClient.connectWithCredential',
+          updateStateOnClose: false,
+        );
+      } catch (e) {
+        GlobalLogger().e(e.toString());
+        _updateConnectionState(false);
+        GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
+        // Structured WebSocket connect failure (VSDK-415).
+        emitStructuredErrorCode(
+          TelnyxErrorCodes.webSocketConnectionFailed,
+          originalError: e,
+        );
+      }
+    }());
   }
 
   @Deprecated(
@@ -1325,6 +1862,13 @@ class TelnyxClient {
     }
     if (!_prepareForConnection()) return;
     final connectionGeneration = _connectionGeneration;
+
+    // Reapply the structured-error / health-monitor / media-recovery config
+    // from the stored config so a bare reconnect stays consistent with the
+    // last connectWith* call (VSDK-415/416/418).
+    if (_currentConfig != null) {
+      _applyStructuredConfig(_currentConfig!);
+    }
 
     GlobalLogger().i('connecting to WebSocket $_serverConfiguration.socketUrl');
     try {
@@ -1812,8 +2356,9 @@ class TelnyxClient {
     inviteCall.callHandler.changeState(CallState.newCall);
 
     // Register the outbound call with CallManager and set as current.
-    callManager.registerCall(inviteCall);
-    callManager.setCurrentCall(inviteCall);
+    callManager
+      ..registerCall(inviteCall)
+      ..setCurrentCall(inviteCall);
 
     return inviteCall;
   }
@@ -1866,12 +2411,13 @@ class TelnyxClient {
     final destinationNum = invite.callerIdNumber;
 
     // Start latency tracking for inbound call
-    latencyTracker.startCallTracking(
-      answerCall.callId!,
-      isOutbound: false,
-      useTrickleIce: useTrickleIce,
-    );
-    latencyTracker.markAnswerInitiated(answerCall.callId!);
+    latencyTracker
+      ..startCallTracking(
+        answerCall.callId!,
+        isOutbound: false,
+        useTrickleIce: useTrickleIce,
+      )
+      ..markAnswerInitiated(answerCall.callId!);
 
     // Create the peer connection
     answerCall.peerConnection = Peer(
@@ -1918,8 +2464,9 @@ class TelnyxClient {
     // Register the accepted call with CallManager and set it as the current
     // active call. If there was a previous currentCall it should already have
     // been put on hold by holdCurrentAndAcceptIncoming before this point.
-    callManager.registerCall(answerCall);
-    callManager.setCurrentCall(answerCall);
+    callManager
+      ..registerCall(answerCall)
+      ..setCurrentCall(answerCall);
 
     clearPushMetaData();
     return answerCall;
@@ -2073,6 +2620,11 @@ class TelnyxClient {
     _cancelConnectivitySubscription();
     clearPushMetaData();
     GlobalLogger().i('disconnect()');
+    // Explicit user disconnect/logout clears all persisted recovery data
+    // (VSDK-418) and stops the signaling-health monitor (VSDK-416).
+    _explicitDisconnectInProgress = true;
+    _healthMonitor?.stop();
+    unawaited(_clearPersistedRecovery(_recoveryEpoch));
     if (_closed) {
       GlobalLogger().i('WebSocket is already closed');
       closeCallback?.call(0, 'Client send disconnect');
@@ -2101,6 +2653,11 @@ class TelnyxClient {
     _cancelConnectivitySubscription();
     clearPushMetaData();
     GlobalLogger().i('disconnect()');
+    // Explicit user disconnect/logout clears all persisted recovery data
+    // (VSDK-418) and stops the signaling-health monitor (VSDK-416).
+    _explicitDisconnectInProgress = true;
+    _healthMonitor?.stop();
+    unawaited(_clearPersistedRecovery(_recoveryEpoch));
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
     _closed = true;
@@ -2118,6 +2675,7 @@ class TelnyxClient {
     final shouldCloseSocket = !_closed;
     _disposed = true;
     _closed = true;
+    _healthMonitor?.stop();
     _invalidateConnectionGeneration();
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
@@ -2148,6 +2706,11 @@ class TelnyxClient {
     GlobalLogger().i('WebSocket closed');
     if (wasClean == false) {
       GlobalLogger().i('WebSocket abrupt disconnection');
+      // Structured (non-fatal) WebSocket runtime error (VSDK-415).
+      emitStructuredErrorCode(
+        TelnyxErrorCodes.webSocketError,
+        message: 'WebSocket closed unexpectedly [$code, $reason]',
+      );
     }
 
     // Handle region fallback if connection failed and fallback is enabled
@@ -2219,6 +2782,9 @@ class TelnyxClient {
   void _onMessage(dynamic data) async {
     if (_isTornDown) return;
 
+    // Every inbound WebSocket message is signaling-health activity (VSDK-416).
+    _healthMonitor?.onSocketActivity();
+
     GlobalLogger().i(
       'TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString().trim()}',
     );
@@ -2245,6 +2811,8 @@ class TelnyxClient {
               errorMessage: errorResult.error?.errorMessage ?? 'Unknown error',
             );
             onSocketErrorReceived.call(error);
+            // Structured error alongside the legacy callback (VSDK-415).
+            _emitStructuredForSocketError(error);
           } else if (messageJson.containsKey('result')) {
             final paramJson = jsonEncode(messageJson);
             _logger.log(
@@ -2285,6 +2853,10 @@ class TelnyxClient {
                         );
                       }
                       _waitingForReg = false;
+                      // Capture the server-provided voice_sdk_id *before* the
+                      // push-driven path clears _pushMetaData below, otherwise
+                      // the reconnect token would be lost (VSDK-418).
+                      final registeredVoiceSdkId = voiceSdkId;
                       final message = TelnyxMessage(
                         socketMethod: SocketMethod.clientReady,
                         message: mainMessage,
@@ -2320,6 +2892,16 @@ class TelnyxClient {
                       }
                       _registered = true;
                       _updateConnectionStatus();
+
+                      // Persist reconnect session identifiers and attempt any
+                      // pending startup reattachment (VSDK-418). The captured
+                      // voice_sdk_id survives the push-path clear above.
+                      unawaited(
+                        _persistReconnectSession(
+                          voiceSdkIdOverride: registeredVoiceSdkId,
+                        ),
+                      );
+                      unawaited(_attemptPendingReattach());
                     }
                     break;
                   }
@@ -2345,6 +2927,11 @@ class TelnyxClient {
                         errorMessage: TelnyxErrorConstants.gatewayFailedError,
                       );
                       onSocketErrorReceived(error);
+                      // Structured error alongside legacy callback (VSDK-415).
+                      emitStructuredErrorCode(
+                        TelnyxErrorCodes.gatewayFailed,
+                        message: TelnyxErrorConstants.gatewayFailedError,
+                      );
                     }
                     break;
                   }
@@ -2365,12 +2952,18 @@ class TelnyxClient {
                       _attemptReconnection();
                     } else {
                       _invalidateGatewayResponseTimer();
+                      const failWaitMessage =
+                          'Gateway registration has received fail wait response';
                       final error = TelnyxSocketError(
                         errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
-                        errorMessage:
-                            'Gateway registration has received fail wait response',
+                        errorMessage: failWaitMessage,
                       );
                       onSocketErrorReceived(error);
+                      // Structured error alongside legacy callback (VSDK-415).
+                      emitStructuredErrorCode(
+                        TelnyxErrorCodes.gatewayFailed,
+                        message: failWaitMessage,
+                      );
                     }
                     break;
                   }
@@ -2535,11 +3128,12 @@ class TelnyxClient {
 
                   // Mark invite received for latency tracking
                   if (offerCall.callId != null) {
-                    latencyTracker.startCallTracking(
-                      offerCall.callId!,
-                      isOutbound: false,
-                    );
-                    latencyTracker.markInviteReceived(offerCall.callId!);
+                    latencyTracker
+                      ..startCallTracking(
+                        offerCall.callId!,
+                        isOutbound: false,
+                      )
+                      ..markInviteReceived(offerCall.callId!);
                   }
 
                   onSocketMessageReceived.call(message);
@@ -2675,11 +3269,12 @@ class TelnyxClient {
 
                   // Mark latency milestones for answer received
                   if (answerCall.callId != null) {
-                    latencyTracker.markCallMilestone(
-                      answerCall.callId!,
-                      LatencyTracker.milestoneRemoteSdpReceived,
-                    );
-                    latencyTracker.markCallAnsweredByRemote(answerCall.callId!);
+                    latencyTracker
+                      ..markCallMilestone(
+                        answerCall.callId!,
+                        LatencyTracker.milestoneRemoteSdpReceived,
+                      )
+                      ..markCallAnsweredByRemote(answerCall.callId!);
                   }
 
                   final message = TelnyxMessage(
@@ -3118,6 +3713,11 @@ class TelnyxClient {
         errorMessage: 'Maximum reconnection attempts reached',
       );
       onSocketErrorReceived(error);
+      // Structured error alongside legacy callback (VSDK-415).
+      emitStructuredErrorCode(
+        TelnyxErrorCodes.reconnectionExhausted,
+        message: 'Maximum reconnection attempts reached',
+      );
       return;
     }
 
@@ -3162,4 +3762,29 @@ class TelnyxClient {
   SocketConnectionMetrics getConnectionMetrics() {
     return txSocket.getConnectionMetrics();
   }
+}
+
+/// Production adapter that exposes a [TelnyxClient] to the
+/// [SignalingHealthMonitor] via the [ISignalingHealthSession] interface
+/// (VSDK-416). Owned by the client; delegates every call back to it.
+class _TelnyxHealthSession implements ISignalingHealthSession {
+  _TelnyxHealthSession(this._client);
+
+  final TelnyxClient _client;
+
+  @override
+  bool? get isConnected => _client.isConnected();
+
+  @override
+  bool? hasActiveCall() => _client.activeCalls().isNotEmpty;
+
+  @override
+  void socketDisconnect() => _client._healthSocketDisconnect();
+
+  @override
+  TriggerIceRestartResult? triggerIceRestart(String? callId) =>
+      _client._healthTriggerIceRestart(callId);
+
+  @override
+  void sendProbe() => _client._sendSignalingProbe();
 }

@@ -33,6 +33,17 @@ class ConfigHelper {
           debug: false,
           reconnectionTimeout: 30000,
           forceRelayCandidate: forceRelayCandidate,
+          // Structured errors/warnings + signaling-health monitor are on by
+          // default; shown here explicitly for demonstration (VSDK-415/416).
+          enableStructuredErrors: true,
+          enableSignalingHealthMonitor: true,
+          // Opt into inbound media-permission recovery: if the mic permission
+          // is missing while answering, the SDK emits a recoverable event so
+          // the app can prompt the user and resume() the call (VSDK-417).
+          mediaPermissionsRecovery: const MediaPermissionsRecoveryConfig(
+            enabled: true,
+            timeout: 25000,
+          ),
         );
       }
     } catch (e) {

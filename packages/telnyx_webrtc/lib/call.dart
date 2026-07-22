@@ -168,6 +168,11 @@ class Call {
   /// The unique identifier for the call, used to track the call session
   String? callId;
 
+  /// The call ID of a previous (pre-restart) call that this call was recovered
+  /// from, used to correlate a restored call with the one that was persisted in
+  /// the active-calls recovery marker (VSDK-418). Null for fresh calls.
+  String? recoveredCallId;
+
   /// The Peer connection instance used for WebRTC communication
   Peer? peerConnection;
 
@@ -518,6 +523,23 @@ class Call {
       onHold = true;
       callHandler.changeState(CallState.held);
     }
+  }
+
+  /// Triggers a WebRTC ICE restart for this call by starting an ICE
+  /// renegotiation on the underlying peer connection.
+  ///
+  /// Used by the [SignalingHealthMonitor] recovery authority when signaling is
+  /// healthy but media has degraded. Returns `true` when a restart could be
+  /// started (a peer connection and call ID are present).
+  bool restartIce() {
+    final peer = peerConnection;
+    final id = callId;
+    if (peer == null || id == null) {
+      return false;
+    }
+    // startIceRenegotiation is async and handles its own errors internally.
+    unawaited(peer.startIceRenegotiation(id, sessid));
+    return true;
   }
 
   /// Handles call quality metrics updates.

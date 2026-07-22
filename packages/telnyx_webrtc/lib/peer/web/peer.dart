@@ -31,9 +31,25 @@ import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/utils/call_timing_benchmark.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
+import 'package:telnyx_webrtc/model/errors/media_permission_recovery.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+
+/// Function signature for acquiring a local media stream, allowing tests to
+/// inject a deterministic `getUserMedia` implementation (web parity, VSDK-417).
+typedef GetUserMediaFn = Future<MediaStream> Function(
+  Map<String, dynamic> constraints,
+);
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
+  /// Optional override for `getUserMedia`, used to exercise the media-permission
+  /// recovery flow (VSDK-417) deterministically in tests. When null the real
+  /// `navigator.mediaDevices.getUserMedia` is used.
+  @visibleForTesting
+  GetUserMediaFn? getUserMediaOverride;
+
   /// The peer connection instance.
   RTCPeerConnection? peerConnection;
 
@@ -797,18 +813,102 @@ class Peer {
   ///
   /// [media] The type of media to create (currently ignored, defaults to audio).
   /// Returns a [Future] that completes with the [MediaStream].
-  Future<MediaStream> createStream(String media) async {
+  Future<MediaStream> createStream(
+    String media, {
+    bool isAnswer = false,
+    String? callId,
+  }) async {
     GlobalLogger().i('Peer :: Creating stream');
     final Map<String, dynamic> mediaConstraints = {
       'audio': (_audioConstraints ?? AudioConstraints.enabled()).toMap(),
       'video': false,
     };
-    final MediaStream stream = await navigator.mediaDevices.getUserMedia(
-      mediaConstraints,
-    );
+    final getUserMedia =
+        getUserMediaOverride ?? navigator.mediaDevices.getUserMedia;
+    try {
+      final MediaStream stream = await getUserMedia(mediaConstraints);
+      onLocalStream?.call(stream);
+      return stream;
+    } catch (error) {
+      return _handleGetUserMediaFailure(
+        error: error,
+        getUserMedia: getUserMedia,
+        mediaConstraints: mediaConstraints,
+        isAnswer: isAnswer,
+        callId: callId ?? currentSession?.sid ?? '',
+      );
+    }
+  }
 
-    onLocalStream?.call(stream);
-    return stream;
+  /// Handles a `getUserMedia` failure with structured error classification and,
+  /// for enabled inbound-answer paths, the media-permission recovery flow
+  /// (VSDK-417). Mirrors the native [Peer] implementation for web parity.
+  Future<MediaStream> _handleGetUserMediaFailure({
+    required Object error,
+    required GetUserMediaFn getUserMedia,
+    required Map<String, dynamic> mediaConstraints,
+    required bool isAnswer,
+    required String callId,
+  }) async {
+    final int errorCode = classifyMediaErrorCode(error);
+    final recovery = _txClient.mediaPermissionsRecovery;
+
+    if (recovery != null && recovery.enabled && isAnswer) {
+      final telnyxError = createTelnyxError(
+        errorCode,
+        originalError: error,
+        fatal: false,
+      );
+      final flow = MediaPermissionRecovery.start(
+        config: recovery,
+        error: telnyxError,
+        sessionId: _txClient.sessid,
+        callId: callId,
+      );
+      _txClient.emitTelnyxMediaRecoveryError(flow.toEvent());
+
+      final result = await flow.result;
+      flow.dispose();
+
+      switch (result) {
+        case MediaRecoveryResult.resumed:
+          try {
+            final MediaStream stream = await getUserMedia(mediaConstraints);
+            onLocalStream?.call(stream);
+            recovery.onSuccess?.call();
+            return stream;
+          } catch (retryError) {
+            recovery.onError?.call(retryError);
+            _txClient.emitStructuredErrorCode(
+              classifyMediaErrorCode(retryError),
+              originalError: retryError,
+              callId: callId,
+            );
+            rethrow;
+          }
+        case MediaRecoveryResult.rejected:
+          final rejectedError = Exception(
+            'Call was rejected during media recovery flow',
+          );
+          recovery.onError?.call(rejectedError);
+          throw rejectedError;
+        case MediaRecoveryResult.timedOut:
+          final timeoutError = Exception('Media recovery flow timed out');
+          recovery.onError?.call(timeoutError);
+          throw timeoutError;
+        case MediaRecoveryResult.retryFailed:
+          final retryFailedError = Exception('Media recovery retry failed');
+          recovery.onError?.call(retryFailedError);
+          throw retryFailedError;
+      }
+    }
+
+    _txClient.emitStructuredErrorCode(
+      errorCode,
+      originalError: error,
+      callId: callId,
+    );
+    throw error;
   }
 
   /// Initializes the local and remote video renderers.
@@ -840,7 +940,11 @@ class Peer {
     if (media != 'data') {
       // Run both operations in parallel since they are independent
       final results = await Future.wait([
-        createStream(media),
+        createStream(
+          media,
+          isAnswer: direction == 'inbound',
+          callId: callId,
+        ),
         createPeerConnection(
           {
             ..._buildIceConfiguration(),
@@ -982,20 +1086,23 @@ class Peer {
             // Cancel any reconnection timer for this call
             _txClient.onCallStateChangedToActive(callId);
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
-            if (_previousIceConnectionState ==
-                RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-              GlobalLogger().i(
-                'Peer :: ICE connection failed, starting renegotiation...',
-              );
-              startIceRenegotiation(callId, newSession.sid);
-              break;
-            } else {
-              GlobalLogger().d(
-                'Peer :: ICE connection failed without prior disconnection, not renegotiating',
-              );
-              break;
-            }
+            // Native/web parity (VSDK-415/416): route to the single recovery
+            // authority, which emits a structured warning and takes exactly
+            // one recovery action.
+            _txClient.handlePeerIceConnectionFailed(
+              callId,
+              afterDisconnect: _previousIceConnectionState ==
+                  RTCIceConnectionState.RTCIceConnectionStateDisconnected,
+            );
+            break;
           case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
+            // Structured warning for lost ICE connectivity (VSDK-415 parity).
+            _txClient.emitWarningCode(
+              TelnyxWarningCodes.iceConnectivityLost,
+              callId: callId,
+              reason: 'ICE connectivity lost',
+              source: 'peer',
+            );
             _statsManager?.stopStatsReporting();
             return;
           default:
@@ -1010,6 +1117,11 @@ class Peer {
           currentCall?.callHandler.changeState(CallState.active);
           onCallStateChange?.call(newSession, CallState.active);
           CallTimingBenchmark.end();
+        } else if (state ==
+            RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+          // Native/web parity (VSDK-415/416): structured warning + route to
+          // the single recovery authority.
+          _txClient.handlePeerConnectionFailed(callId);
         }
       }
       ..onSignalingState = (state) {
@@ -1485,6 +1597,14 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error during ICE renegotiation: $e');
+      // Native/web parity (VSDK-415/416): structured ICE-restart failure +
+      // escalate to a socket reconnect via the recovery authority.
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.iceRestartFailed,
+        originalError: e,
+        callId: callId,
+      );
+      _txClient.healthMonitor?.onIceRestartFailed(callId);
     }
   }
 

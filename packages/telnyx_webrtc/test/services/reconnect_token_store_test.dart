@@ -1,6 +1,46 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_webrtc/model/call_state.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_event.dart';
+import 'package:telnyx_webrtc/model/push_notification.dart';
 import 'package:telnyx_webrtc/services/reconnect_token_store.dart';
+import 'package:telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/tx_socket.dart';
+import 'package:telnyx_webrtc/utils/logging/log_level.dart';
+
+/// Minimal fake socket that records connect calls and lets tests emit
+/// inbound messages through the client's real `_onMessage` path.
+class _FakeTxSocket extends TxSocket {
+  _FakeTxSocket() : super('wss://example.test');
+
+  int connectCount = 0;
+
+  @override
+  void connect() {
+    connectCount++;
+  }
+
+  @override
+  void close() {}
+
+  @override
+  void send(dynamic data) {}
+
+  void emitMessage(dynamic data) => onMessage(data);
+}
+
+CredentialConfig _credentialConfig() => CredentialConfig(
+      sipUser: 'user',
+      sipPassword: 'pass',
+      sipCallerIDName: 'name',
+      sipCallerIDNumber: 'number',
+      logLevel: LogLevel.none,
+      debug: false,
+    );
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -398,90 +438,309 @@ void main() {
     });
   });
 
-  group('VSDK-418: Session recovery integration', () {
-    // These tests describe the expected behavior of the session recovery
-    // flow integrated into TelnyxClient. They serve as TDD tests.
+  group('VSDK-418: Session recovery integration (TelnyxClient)', () {
+    late TelnyxClient client;
+    late _FakeTxSocket socket;
+
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      socket = _FakeTxSocket();
+      client = TelnyxClient(connectivityChanges: () => const Stream.empty())
+        ..txSocket = socket;
+    });
+
+    tearDown(() {
+      client.dispose();
+    });
 
     test('Connect with stored reconnect session ID adds voice_sdk_id to URL',
-        () {
+        () async {
+      await ReconnectTokenStore.setReconnectSessionId('sess-123');
+
+      client.connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+
+      expect(client.txSocket.hostAddress, contains('voice_sdk_id=sess-123'));
+    });
+
+    test('Connect without stored session ID does not add voice_sdk_id',
+        () async {
+      client.connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+
+      expect(client.txSocket.hostAddress, isNot(contains('voice_sdk_id')));
+    });
+
+    test('Reconnect path reuses the stored voice_sdk_id', () async {
+      // The reconnect flow routes back through connectWithCredential, so a
+      // stored fresh session id is injected on reconnect too.
+      await ReconnectTokenStore.setReconnectSessionId('reconnect-sess');
+
+      client.connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+      expect(socket.connectCount, greaterThanOrEqualTo(1));
       expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+        client.txSocket.hostAddress,
+        contains('voice_sdk_id=reconnect-sess'),
       );
     });
 
-    test('Connect without stored session ID does not add voice_sdk_id', () {
-      expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+    test('Successful REGED persists server voice_sdk_id + session id',
+        () async {
+      client.connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+
+      // A method message carrying voice_sdk_id populates the server id.
+      socket.emitMessage(
+        '{"jsonrpc":"2.0","id":"a","method":"telnyx_rtc.clientReady",'
+        '"voice_sdk_id":"server-vsid","params":{}}',
       );
+      await pumpEventQueue();
+      expect(client.voiceSdkId, 'server-vsid');
+
+      // A REGED result triggers persistence.
+      socket.emitMessage(
+        '{"jsonrpc":"2.0","id":"b","result":{"params":{"state":"REGED"}}}',
+      );
+      await pumpEventQueue();
+
+      expect(await ReconnectTokenStore.getReconnectSessionId(), client.sessid);
+      expect(await ReconnectTokenStore.getReconnectToken(), 'server-vsid');
     });
 
-    test('Successful login stores voice_sdk_id and session ID', () {
-      expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+    test(
+        'Push-driven REGED persists the server voice_sdk_id (captured before '
+        'push metadata is cleared)', () async {
+      // Drive the genuine push path: handlePushNotification sets
+      // _isCallFromPush = true and wires the (fake) socket.
+      final pushMeta = PushMetaData(
+        callerName: 'caller',
+        callerNumber: '+100',
+        voiceSdkId: 'push-vsid',
       );
+      client.handlePushNotification(pushMeta, _credentialConfig(), null);
+      await pumpEventQueue();
+
+      // The server's clientReady message carries a *fresh* voice_sdk_id that
+      // overwrites the push metadata.
+      socket.emitMessage(
+        '{"jsonrpc":"2.0","id":"a","method":"telnyx_rtc.clientReady",'
+        '"voice_sdk_id":"server-vsid","params":{}}',
+      );
+      await pumpEventQueue();
+      expect(client.voiceSdkId, 'server-vsid');
+
+      // REGED (with _isCallFromPush == true) clears the push metadata as part
+      // of the attach flow. The reconnect token must still capture the server
+      // voice_sdk_id that was live at registration time.
+      socket.emitMessage(
+        '{"jsonrpc":"2.0","id":"b","result":{"params":{"state":"REGED"}}}',
+      );
+      await pumpEventQueue();
+
+      expect(await ReconnectTokenStore.getReconnectToken(), 'server-vsid');
+      expect(await ReconnectTokenStore.getReconnectSessionId(), client.sessid);
     });
 
-    test('Reconnect uses stored voice_sdk_id', () {
-      expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+    test(
+        'Cold-start connect auto-loads the recovery marker and reattaches '
+        'after REGED (no manual readRecoveryMarkerAtStartup call)', () async {
+      // A marker persisted by a prior app session.
+      await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+        [StoredActiveCall(id: 'call-1', customHeaders: const [])],
+        'sess',
       );
+      // The backend re-established the call for this id after login.
+      final call = client.call..callId = 'call-1';
+      client.calls['call-1'] = call;
+
+      // Real connect path only — the app never calls the startup hook.
+      client.connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+
+      // Registration completes.
+      socket.emitMessage(
+        '{"jsonrpc":"2.0","id":"b","result":{"params":{"state":"REGED"}}}',
+      );
+      await pumpEventQueue();
+
+      expect(
+        call.recoveredCallId,
+        'call-1',
+        reason: 'the marker must be auto-loaded on connect so reattach fires',
+      );
+      expect(await ReconnectTokenStore.getActiveCallsRecoveryMarker(), isNull);
     });
 
-    test('Disconnect clears all stored data', () {
+    test(
+        'Rapid disconnect→reconnect: a stale in-flight clearAll must not erase '
+        'the new session\'s recovery data', () async {
+      // Establish a first session and persist its recovery data.
+      client.connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+      socket
+        ..emitMessage(
+          '{"jsonrpc":"2.0","id":"a","method":"telnyx_rtc.clientReady",'
+          '"voice_sdk_id":"vsid-A","params":{}}',
+        )
+        ..emitMessage(
+          '{"jsonrpc":"2.0","id":"b","result":{"params":{"state":"REGED"}}}',
+        );
+      await pumpEventQueue();
+      expect(await ReconnectTokenStore.getReconnectToken(), 'vsid-A');
+
+      // Hold the disconnect's clearAll open with a gate so it will resume only
+      // *after* the reconnect has persisted fresh data — reproducing the race.
+      final gate = Completer<void>();
+      // Rapid disconnect → reconnect (synchronous, no pump between).
+      client
+        ..recoveryClearGate = gate.future
+        ..disconnect()
+        ..connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+
+      // New session registers and persists fresh recovery data.
+      socket
+        ..emitMessage(
+          '{"jsonrpc":"2.0","id":"c","method":"telnyx_rtc.clientReady",'
+          '"voice_sdk_id":"vsid-B","params":{}}',
+        )
+        ..emitMessage(
+          '{"jsonrpc":"2.0","id":"d","result":{"params":{"state":"REGED"}}}',
+        );
+      await pumpEventQueue();
+      expect(await ReconnectTokenStore.getReconnectToken(), 'vsid-B');
+
+      // Let the stale disconnect's clearAll resume — it must be superseded.
+      gate.complete();
+      await pumpEventQueue();
+
       expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+        await ReconnectTokenStore.getReconnectToken(),
+        'vsid-B',
+        reason: 'the stale clearAll must not wipe the reconnected session data',
       );
+      expect(await ReconnectTokenStore.getReconnectSessionId(), client.sessid);
     });
 
-    test('App startup with recovery marker attempts reattach', () {
-      expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
-      );
+    test(
+        'Bare connect() reapplies the stored structured/monitor config '
+        '(clears explicit-disconnect suppression)', () async {
+      // ignore: deprecated_member_use_from_same_package
+      client.connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+
+      // Explicit disconnect suppresses active-call marker persistence.
+      client.disconnect();
+      await pumpEventQueue();
+
+      // Reconnect through the bare stored-config connect().
+      // ignore: deprecated_member_use_from_same_package
+      client.connect();
+      await pumpEventQueue();
+
+      // A newly-active call must persist a marker again — proving the
+      // suppression flag was reset by reapplying the config.
+      final call = client.call
+        ..callId = 'call-x'
+        ..customHeaders = {'X-H': 'v'};
+      client.calls['call-x'] = call;
+      call.callHandler.changeState(CallState.active);
+      client.onCallStateChangedToActive('call-x');
+      await pumpEventQueue();
+
+      final marker = await ReconnectTokenStore.getActiveCallsRecoveryMarker();
+      expect(marker?.calls.single.id, 'call-x');
     });
 
-    test('SESSION_NOT_REATTACHED error emitted when server does not reattach',
-        () {
-      expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+    test('Explicit disconnect clears all persisted recovery data', () async {
+      await ReconnectTokenStore.setReconnectToken('tok');
+      await ReconnectTokenStore.setReconnectSessionId('sess');
+      await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+        [StoredActiveCall(id: 'c1', customHeaders: const [])],
+        'sess',
       );
+
+      client.disconnect();
+      await pumpEventQueue();
+
+      expect(await ReconnectTokenStore.getReconnectToken(), isNull);
+      expect(await ReconnectTokenStore.getReconnectSessionId(), isNull);
+      expect(await ReconnectTokenStore.getActiveCallsRecoveryMarker(), isNull);
     });
 
-    test('recoveredCallId is set on recovered calls', () {
-      expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+    test('App startup reads a fresh recovery marker', () async {
+      await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+        [StoredActiveCall(id: 'call-1', customHeaders: const [])],
+        'sess',
       );
+
+      final marker = await client.readRecoveryMarkerAtStartup();
+
+      expect(marker, isNotNull);
+      expect(client.pendingReattach?.calls.single.id, 'call-1');
     });
 
-    test('Active calls marker updated when call state changes', () {
-      expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+    test('Failed reattachment emits SESSION_NOT_REATTACHED (48501) and clears',
+        () async {
+      final errors = <Object>[];
+      client
+        ..applyStructuredConfigForTest(_credentialConfig())
+        ..onTelnyxError = errors.add;
+      await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+        [StoredActiveCall(id: 'gone-call', customHeaders: const [])],
+        'sess',
       );
+
+      await client.readRecoveryMarkerAtStartup();
+      await client.attemptPendingReattachForTest();
+
+      expect(errors, hasLength(1));
+      final event = errors.single as TelnyxErrorEvent;
+      expect(event.error.code, TelnyxErrorCodes.sessionNotReattached);
+      expect(event.callId, 'gone-call');
+      expect(await ReconnectTokenStore.getActiveCallsRecoveryMarker(), isNull);
     });
 
-    test('Active calls marker cleared when all calls end', () {
-      expect(
-        true,
-        isTrue,
-        reason: 'Implementation test — requires TelnyxClient integration',
+    test('recoveredCallId is set on a correlated restored call', () async {
+      final call = client.call..callId = 'call-1';
+      client.calls['call-1'] = call;
+      await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+        [StoredActiveCall(id: 'call-1', customHeaders: const [])],
+        'sess',
       );
+
+      await client.readRecoveryMarkerAtStartup();
+      await client.attemptPendingReattachForTest();
+
+      expect(call.recoveredCallId, 'call-1');
+    });
+
+    test('Active-calls marker updated when a call becomes active', () async {
+      final call = client.call
+        ..callId = 'call-1'
+        ..customHeaders = {'X-Header': 'v'};
+      client.calls['call-1'] = call;
+      call.callHandler.changeState(CallState.active);
+
+      client.onCallStateChangedToActive('call-1');
+      await pumpEventQueue();
+
+      final marker = await ReconnectTokenStore.getActiveCallsRecoveryMarker();
+      expect(marker, isNotNull);
+      expect(marker!.calls.single.id, 'call-1');
+    });
+
+    test('Active-calls marker cleared when the last call ends', () async {
+      await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+        [StoredActiveCall(id: 'old', customHeaders: const [])],
+        'sess',
+      );
+      // No active calls in the client.
+      client.onCallStateChangedToActive('call-1');
+      await pumpEventQueue();
+
+      expect(await ReconnectTokenStore.getActiveCallsRecoveryMarker(), isNull);
     });
   });
 }

@@ -19,6 +19,8 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_event.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
 import 'package:telnyx_webrtc/utils/latency_tracker.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
@@ -32,6 +34,7 @@ import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
+import 'package:telnyx_flutter_webrtc/utils/media_recovery_helper.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
@@ -770,6 +773,32 @@ class TelnyxClientViewModel with ChangeNotifier {
             }
         }
         notifyListeners();
+      }
+      // Observe structured SDK errors (VSDK-415). These fire alongside the
+      // legacy onSocketErrorReceived above — never instead of it. A media
+      // recovery event is recoverable (offers resume()/reject()).
+      ..onTelnyxError = (Object event) {
+        if (event is TelnyxMediaRecoveryErrorEvent) {
+          logger.i(
+            'Structured recoverable media error [${event.error.code}] '
+            '${event.error.name} for call ${event.callId}',
+          );
+          // Recover the inbound call: request the mic permission and resume()
+          // when granted, otherwise reject() (VSDK-417). Fail-safe internally.
+          unawaited(resolveMediaRecovery(event));
+        } else if (event is TelnyxErrorEvent) {
+          logger.i(
+            'Structured error [${event.error.code}] ${event.error.name}: '
+            '${event.error.message}',
+          );
+        }
+      }
+      // Observe structured SDK warnings (VSDK-415/416).
+      ..onTelnyxWarning = (TelnyxWarningEvent event) {
+        logger.i(
+          'Structured warning [${event.warning.code}] ${event.warning.name}'
+          '${event.reason != null ? ' — ${event.reason}' : ''}',
+        );
       }
       // Observe Transcript Updates
       ..onTranscriptUpdate = (List<TranscriptItem> transcriptItems) {
