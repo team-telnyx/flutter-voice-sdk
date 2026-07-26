@@ -25,6 +25,19 @@ void main() {
       );
     });
 
+    test('getUserAgent returns missed call opt-in user agent when enabled', () {
+      final userAgent = VersionUtils.getUserAgent(
+        enableMissedCallNotifications: true,
+      );
+      expect(userAgent, startsWith('Flutter-mpn-'));
+      expect(
+        userAgent,
+        matches(
+          RegExp(r'^Flutter-mpn-\d+\.\d+\.\d+$'),
+        ),
+      );
+    });
+
     test('getSDKVersion returns consistent result on multiple calls', () {
       final version1 = VersionUtils.getSDKVersion();
       final version2 = VersionUtils.getSDKVersion();
