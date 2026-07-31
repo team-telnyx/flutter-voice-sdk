@@ -718,6 +718,14 @@ class TelnyxClientViewModel with ChangeNotifier {
         }
       }
       // Observe Socket Error Messages
+      //
+      // ⚠️ DEPRECATED: This callback is kept for backward compatibility only.
+      // New code should use [onTelnyxError] below or the planned `client.errors`
+      // stream. The legacy TelnyxSocketError only covers 5 error codes (-32000
+      // through -32004); the new structured API covers 24 error codes across
+      // SDP, media, call-control, transport, auth, ICE, network, and session
+      // categories. This callback will be removed in v3.0.0.
+      // ignore: deprecated_member_use
       ..onSocketErrorReceived = (TelnyxSocketError error) {
         _setErrorDialog(
           formatSignalingErrorMessage(error.errorCode, error.errorMessage),
@@ -774,9 +782,22 @@ class TelnyxClientViewModel with ChangeNotifier {
         }
         notifyListeners();
       }
-      // Observe structured SDK errors (VSDK-415). These fire alongside the
-      // legacy onSocketErrorReceived above — never instead of it. A media
-      // recovery event is recoverable (offers resume()/reject()).
+      // ── Structured Error API (VSDK-415) ──────────────────────────────
+      //
+      // These callbacks fire alongside the legacy onSocketErrorReceived
+      // above — never instead of it. They provide rich TelnyxError objects
+      // with code, name, message, description, causes, solutions, and fatal
+      // flag. A media recovery event is recoverable (offers resume()/
+      // reject()).
+      //
+      // When the stream API is available (planned next minor), you can also
+      // use:
+      //
+      //   client.errors.listen((event) { ... });
+      //   client.warnings.listen((event) { ... });
+      //
+      // The stream API wraps the same emission pipeline and composes
+      // naturally with StreamBuilder, Riverpod, or Bloc.
       ..onTelnyxError = (Object event) {
         if (event is TelnyxMediaRecoveryErrorEvent) {
           logger.i(
@@ -787,17 +808,42 @@ class TelnyxClientViewModel with ChangeNotifier {
           // when granted, otherwise reject() (VSDK-417). Fail-safe internally.
           unawaited(resolveMediaRecovery(event));
         } else if (event is TelnyxErrorEvent) {
+          final error = event.error;
           logger.i(
-            'Structured error [${event.error.code}] ${event.error.name}: '
-            '${event.error.message}',
+            'Structured error [${error.code}] ${error.name}: '
+            '${error.message}',
           );
+          // Show a user-facing dialog for fatal errors.
+          if (error.fatal) {
+            _setErrorDialog(
+              '${error.message}\n\n'
+              'Code: ${error.code}\n'
+              '${error.description}',
+            );
+          }
         }
       }
-      // Observe structured SDK warnings (VSDK-415/416).
+      // ── Structured Warning API (VSDK-415/416) ───────────────────────
+      //
+      // Warnings are non-fatal degraded conditions (high jitter, low MOS,
+      // ICE connectivity lost, etc.). Use them for quality indicators and
+      // toast notifications. When the stream API is available, use:
+      //
+      //   client.warnings.listen((event) { ... });
       ..onTelnyxWarning = (TelnyxWarningEvent event) {
+        final warning = event.warning;
         logger.i(
-          'Structured warning [${event.warning.code}] ${event.warning.name}'
+          'Structured warning [${warning.code}] ${warning.name}'
           '${event.reason != null ? ' — ${event.reason}' : ''}',
+        );
+        // Show a toast for quality warnings so the user is aware.
+        Fluttertoast.showToast(
+          msg: '⚠️ ${warning.message}',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 2,
+          backgroundColor: Colors.orange,
+          textColor: Colors.white,
         );
       }
       // Observe Transcript Updates

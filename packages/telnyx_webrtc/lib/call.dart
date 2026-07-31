@@ -25,6 +25,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
 
 /// Callback for call state changes
 typedef CallStateCallback = void Function(CallState state);
@@ -272,7 +274,17 @@ class Call {
     if (sdp != null) {
       peerConnection?.remoteSessionReceived(sdp);
     } else {
-      ArgumentError(sdp);
+      // Invalid params — SDP was required but missing.
+      final err = ArgumentError.notNull('sdp');
+      GlobalLogger().e('Call :: onRemoteSessionReceived called with null SDP');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.invalidCallParameters,
+          originalError: err,
+          message: 'Remote SDP was null when answering a call',
+        ),
+        callId: callId,
+      );
     }
   }
 
@@ -381,7 +393,18 @@ class Call {
       GlobalLogger().d('Session end peer connection null');
     }
 
-    txSocket.send(jsonByeMessage);
+    try {
+      txSocket.send(jsonByeMessage);
+    } catch (e) {
+      GlobalLogger().e('Call :: Failed to send BYE message: $e');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.byeSendFailed,
+          originalError: e,
+        ),
+        callId: callId,
+      );
+    }
     if (peerConnection != null) {
       peerConnection?.closeSession();
     } else {
@@ -483,7 +506,18 @@ class Call {
     );
 
     final String jsonDtmfMessage = jsonEncode(dtmfMessageBody);
-    txSocket.send(jsonDtmfMessage);
+    try {
+      txSocket.send(jsonDtmfMessage);
+    } catch (e) {
+      GlobalLogger().e('Call :: Failed to send DTMF: $e');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.unexpectedError,
+          originalError: e,
+        ),
+        callId: callId,
+      );
+    }
   }
 
   /// Either mutes or unmutes local audio based on the current mute state
@@ -515,13 +549,35 @@ class Call {
   /// - Ensures proper callback execution and consistency across the SDK
   void onHoldUnholdPressed() {
     if (onHold) {
-      _sendHoldModifier('unhold');
-      onHold = false;
-      callHandler.changeState(CallState.active);
+      try {
+        _sendHoldModifier('unhold');
+        onHold = false;
+        callHandler.changeState(CallState.active);
+      } catch (e) {
+        GlobalLogger().e('Call :: Failed to send unhold modifier: $e');
+        _txClient.emitTelnyxError(
+          createTelnyxError(
+            TelnyxErrorCodes.holdFailed,
+            originalError: e,
+          ),
+          callId: callId,
+        );
+      }
     } else {
-      _sendHoldModifier('hold');
-      onHold = true;
-      callHandler.changeState(CallState.held);
+      try {
+        _sendHoldModifier('hold');
+        onHold = true;
+        callHandler.changeState(CallState.held);
+      } catch (e) {
+        GlobalLogger().e('Call :: Failed to send hold modifier: $e');
+        _txClient.emitTelnyxError(
+          createTelnyxError(
+            TelnyxErrorCodes.holdFailed,
+            originalError: e,
+          ),
+          callId: callId,
+        );
+      }
     }
   }
 
@@ -583,7 +639,19 @@ class Call {
     );
 
     final String jsonModifyMessage = jsonEncode(modifyMessage);
-    txSocket.send(jsonModifyMessage);
+    try {
+      txSocket.send(jsonModifyMessage);
+    } catch (e) {
+      GlobalLogger().e('Call :: Failed to send hold/unhold modifier: $e');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.holdFailed,
+          originalError: e,
+        ),
+        callId: callId,
+      );
+      rethrow;
+    }
   }
 
   /// AI Assistant Conversation Method.
@@ -684,7 +752,18 @@ class Call {
     );
 
     final String jsonConversationMessage = jsonEncode(conversationMessage);
-    txSocket.send(jsonConversationMessage);
+    try {
+      txSocket.send(jsonConversationMessage);
+    } catch (e) {
+      GlobalLogger().e('Call :: Failed to send conversation message: $e');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.unexpectedError,
+          originalError: e,
+        ),
+        callId: callId,
+      );
+    }
   }
 
   /// Plays an audio file from the assets directory.

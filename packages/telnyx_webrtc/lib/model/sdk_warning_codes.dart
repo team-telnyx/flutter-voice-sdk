@@ -1,6 +1,9 @@
 /// Warning code constants for the Telnyx WebRTC SDK.
 ///
 /// Each code is a unique integer that identifies a specific warning condition.
+@Deprecated(
+  'Use TelnyxWarningCodes from model/errors/telnyx_warning_codes.dart instead',
+)
 class SdkWarningCode {
   SdkWarningCode._();
 

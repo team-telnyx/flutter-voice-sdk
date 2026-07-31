@@ -37,6 +37,9 @@ class SdkErrorDefinition {
 }
 
 /// Registry of all known SDK error codes and their metadata.
+@Deprecated(
+  'Use createTelnyxError() from model/errors/telnyx_error_factory.dart instead',
+)
 class SdkErrorRegistry {
   SdkErrorRegistry._();
 
@@ -425,6 +428,9 @@ class SdkErrorRegistry {
   static SdkErrorDefinition? get(int code) => _definitions[code];
 
   /// Create a [TelnyxError] from a code, optionally overriding the fatal flag.
+  @Deprecated(
+    'Use createTelnyxError() from model/errors/telnyx_error_factory.dart instead',
+  )
   static TelnyxError createError(
     int code, {
     bool? fatalOverride,

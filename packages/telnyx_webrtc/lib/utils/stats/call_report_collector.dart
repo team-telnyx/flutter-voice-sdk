@@ -471,6 +471,13 @@ class CallReportCollector {
   final DateTime _callStartTime;
   DateTime? _callEndTime;
 
+  /// Optional listener fired after each stats interval is finalized.
+  ///
+  /// Wired by [Peer.startStats] to feed [QualityWarningMonitor] so quality
+  /// warnings (LOW_BYTES_RECEIVED / LOW_BYTES_SENT) can be bridged into the
+  /// signaling-health monitor as no-RTP evidence.
+  void Function(StatsInterval interval)? onStatsInterval;
+
   /// Log collector for structured event logging
   CallReportLogCollector? logCollector;
 
@@ -1166,6 +1173,14 @@ class CallReportCollector {
     );
 
     _statsBuffer.add(entry);
+
+    // Notify any attached listener (e.g. QualityWarningMonitor) so it can
+    // evaluate thresholds against this interval.
+    try {
+      onStatsInterval?.call(entry);
+    } catch (_) {
+      // Listener failures must not break stats collection.
+    }
 
     // Enforce buffer size limit
     if (_statsBuffer.length > options.maxBufferSize) {
