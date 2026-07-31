@@ -16,6 +16,83 @@ Telnyx WebRTC supports multidevice push notifications. A single user can have up
 
 This effectivly means that you can have up to 5 devices that can receive push notifications for the same incoming call.
 
+## Push When Active and Answered Elsewhere
+
+When push notifications are configured for the same SIP user on more than one device (for example, a mobile app on an iPhone and another on an Android tablet, or a web client that is already connected over a WebSocket), an incoming call can be delivered to multiple devices at the same time. Telnyx ends the call on the remaining devices as soon as one of them answers. From the perspective of the other devices, this looks like an incoming call that suddenly ends — your app should treat it as a normal "answered elsewhere" outcome, not as a call failure.
+
+The Flutter Voice SDK supports this flow through the `pushWhenActive` configuration option. It is opt-in and preserves existing call-answer behavior when left at its default value.
+
+### Enabling `pushWhenActive`
+
+`pushWhenActive` lives on the base `Config` class, so both `CredentialConfig` and `TokenConfig` accept it:
+
+```dart
+final credentialConfig = CredentialConfig(
+  sipUser: sipUser,
+  sipPassword: sipPassword,
+  sipCallerIDName: 'Caller Name',
+  sipCallerIDNumber: '+155****4567',
+  notificationToken: '<fcm-or-apns-token>',
+  pushWhenActive: true, // Enable push-when-active handling
+  debug: true,
+  logLevel: LogLevel.all,
+);
+
+telnyxClient.connectWithCredential(credentialConfig);
+```
+
+### Behavior
+
+* `pushWhenActive` defaults to `false`. Existing apps that do not set it see no change in behavior — the outgoing `telnyx_rtc.answer` payload is unchanged.
+* When `pushWhenActive: true` and a non-empty `notificationToken` is configured, the SDK automatically populates the `answered_device_token` field of the outgoing `telnyx_rtc.answer` payload from the configured push token, for every call answered through the normal Flutter API (`call.answer()` / `TelnyxClient.acceptCall(...)`).
+* When `pushWhenActive: true` but no `notificationToken` is configured (or the token is blank), no `answered_device_token` field is sent. Apps never need to send an empty value.
+* Your app does **not** need to pass `answeredDeviceToken` manually to `acceptCall`. The SDK wires it through from the config when `pushWhenActive` is enabled.
+
+See the [`pushWhenActive` parameter reference](../method-objects/Config.md#config-parameters) for the full configuration field description.
+
+### Expected Call Flow
+
+1. The app connects with `pushWhenActive: true` and a `notificationToken` configured.
+2. The SDK registers the device's push token with Telnyx.
+3. An incoming call is delivered to multiple devices (for example, via push on a mobile device and over the active WebSocket on a web client).
+4. One device answers. The Telnyx backend ends the call on the remaining devices.
+5. On the other devices, the `Call` transitions to `CallState.done`. The app should treat this as a normal "answered elsewhere" outcome, not as a call failure.
+
+### Handling Calls Answered on Another Device
+
+When another device answers, your app should:
+
+* Dismiss the incoming call UI.
+* Stop the ringtone / vibration.
+* End the active CallKit / ConnectionService call (if one was shown).
+* Mark the call as ended or "answered elsewhere" in your local UI.
+* Avoid showing an error to the user — this is a normal multi-device outcome.
+
+The SDK surfaces the end of the call through the standard call lifecycle. You can observe it via `call.callHandler.onCallStateChanged`:
+
+```dart
+call.callHandler.onCallStateChanged = (CallState state) {
+  switch (state) {
+    case CallState.done:
+      // The call ended. If a CallTerminationReason is attached, you can use it
+      // to distinguish "answered elsewhere" from a local hangup or a normal
+      // call completion. See Call State and Termination Reason Reporting.
+      final reason = state.terminationReason;
+      if (reason != null) {
+        // reason.cause, reason.causeCode, reason.sipCode, reason.sipReason
+      }
+      // Treat this as a normal answered-elsewhere outcome.
+      dismissIncomingCallUi();
+      stopRingtone();
+      endCallkitSession();
+      break;
+    // ... other states
+  }
+};
+```
+
+Refer to [Call State and Termination Reason Reporting](../classes/call_state_reporting.md) for the full `CallState` enum and `CallTerminationReason` shape.
+
 ## Handling Foreground and Terminated Calls
 
 When the app is in the foreground you do not need to use push notifications to receive calls, however it still might be beneficial to use CallKit to show native UI for the calls. When the app is terminated you will need to use push notifications to receive calls as described below.

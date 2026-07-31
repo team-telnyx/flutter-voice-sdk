@@ -110,8 +110,8 @@ Socket errors from the Telnyx client are captured via:
 
 ```dart
 telnyxClient.onSocketErrorReceived = (TelnyxSocketError error) {
-  print('Error code: \${error.errorCode}');
-  print('Message: \${error.errorMessage}');
+  print('Error code: ${error.errorCode}');
+  print('Message: ${error.errorMessage}');
 };
 ```
 
@@ -124,3 +124,11 @@ Common error codes:
 * `-32004`: Gateway registration failure
 
 Use a switch block to map and handle these accordingly.
+
+## 🔀 Detecting "Answered Elsewhere" (Multi-Device)
+
+When `pushWhenActive` is enabled on more than one device for the same SIP user, an incoming call can be delivered to multiple devices at the same time. As soon as one device answers, Telnyx ends the call on the remaining devices.
+
+From the SDK's perspective, the call ends normally: `call.callHandler.onCallStateChanged` fires with `CallState.done`, and a `CallTerminationReason` may be attached carrying the BYE message details (`cause`, `causeCode`, `sipCode`, `sipReason`). Apps should treat this as a normal multi-device outcome — not as a call failure — and clean up any incoming-call UI, ringtone, or CallKit / ConnectionService session they had started.
+
+See [Push notification setup: Push When Active and Answered Elsewhere](../push-notification/app-setup.md#push-when-active-and-answered-elsewhere) for the full flow and config reference.
