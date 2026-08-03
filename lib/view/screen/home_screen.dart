@@ -10,6 +10,7 @@ import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_controls.d
 import 'package:telnyx_flutter_webrtc/view/widgets/codec_selector_dialog.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/audio_constraints_dialog.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/common/bottom_action_widget.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/diagnostics/diagnostics_bottom_sheet.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/test_status_overlay.dart';
@@ -147,6 +148,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Export Logs':
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
+      case 'Diagnostics':
+        DiagnosticsBottomSheet.show(context);
+        break;
       case 'Disable Push Notifications':
         Provider.of<TelnyxClientViewModel>(
           context,
@@ -269,6 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Audio Codecs',
                       'Audio Constraints',
                       'Export Logs',
+                      'Diagnostics',
                       'Disable Push Notifications',
                       'Force ICE Renegotiation',
                     ].map((String choice) {
@@ -291,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : 'Enable Debugging';
                 return [
                   'Export Logs',
+                  'Diagnostics',
                   debugToggleText,
                   'Assistant Login',
                   'Force ICE Renegotiation',
@@ -312,6 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 return [
                   'Force ICE Renegotiation',
                   'Export Logs',
+                  'Diagnostics',
                 ].map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,

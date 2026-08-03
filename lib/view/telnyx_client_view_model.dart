@@ -19,6 +19,7 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
+import 'package:telnyx_webrtc/utils/latency_tracker.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
@@ -192,6 +193,16 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   /// The list of calls currently on hold.
   List<Call> get heldCalls => _telnyxClient.callManager.heldCalls;
+
+  /// The SDK's latency tracker, used by the diagnostics view to read
+  /// registration and call setup timings. Exposes both a broadcast stream
+  /// (`latencyMetricsStream`) and point-in-time getters.
+  LatencyTracker get latencyTracker => _telnyxClient.latencyTracker;
+
+  /// The config the client is currently connected with, whichever of the two
+  /// credential/token flavours was used. Null before the first connect.
+  /// The diagnostics view reads the debug fields off this.
+  Config? get activeConfig => _credentialConfig ?? _tokenConfig;
 
   IncomingInviteParams? get incomingInvitation {
     return _incomingInvite;
