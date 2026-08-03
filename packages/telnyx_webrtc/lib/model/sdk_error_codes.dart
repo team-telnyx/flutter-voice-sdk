@@ -1,6 +1,9 @@
 /// Error code constants for the Telnyx WebRTC SDK.
 ///
 /// Each code is a unique integer that identifies a specific error condition.
+@Deprecated(
+  'Use TelnyxErrorCodes from model/errors/telnyx_error_codes.dart instead',
+)
 class SdkErrorCode {
   SdkErrorCode._();
 

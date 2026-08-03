@@ -40,6 +40,9 @@ class SdkWarningDefinition {
 /// table guarantees the emitted text (name/message/description/causes/
 /// solutions) matches the exported registry for every code — previously this
 /// registry carried a second, divergent copy of the text.
+@Deprecated(
+  'Use createTelnyxWarning() from model/errors/telnyx_warning_factory.dart instead',
+)
 class SdkWarningRegistry {
   SdkWarningRegistry._();
 
@@ -60,6 +63,9 @@ class SdkWarningRegistry {
   }
 
   /// Create a [TelnyxWarning] from a code, optionally overriding the message.
+  @Deprecated(
+    'Use createTelnyxWarning() from model/errors/telnyx_warning_factory.dart instead',
+  )
   static TelnyxWarning createWarning(
     int code, {
     String? message,

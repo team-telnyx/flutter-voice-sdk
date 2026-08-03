@@ -35,6 +35,7 @@ import 'package:telnyx_webrtc/utils/latency_tracker.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
+import 'package:telnyx_webrtc/utils/stats/quality_warning_monitor.dart';
 import 'package:telnyx_webrtc/model/errors/media_permission_recovery.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
@@ -92,6 +93,7 @@ class Peer {
   WebRTCStatsReporter? _statsManager;
   CallReportCollector? _callReportCollector;
   CallReportLogCollector? _callReportLogCollector;
+  QualityWarningMonitor? _qualityWarningMonitor;
 
   // Add negotiation timer fields
   Timer? _negotiationTimer;
@@ -222,6 +224,18 @@ class Peer {
     } else {
       GlobalLogger().d('Peer :: No local stream :: Unable to set mute state');
     }
+  }
+
+  /// True when the local audio track exists and is currently enabled
+  /// (not muted). Used by the no-RTP bridge to decide whether
+  /// LOW_BYTES_SENT should be escalated as outbound-RTP evidence — a muted
+  /// mic legitimately sends no bytes and must not trigger recovery.
+  bool _hasActiveUnmutedLocalAudioTrack() {
+    final stream = _localStream;
+    if (stream == null) return false;
+    final audioTracks = stream.getAudioTracks();
+    if (audioTracks.isEmpty) return false;
+    return audioTracks.first.enabled;
   }
 
   /// Enables or disables the speakerphone.
@@ -617,9 +631,21 @@ class Peer {
       );
     }
 
-    await session.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(invite.sdp, 'offer'),
-    );
+    try {
+      await session.peerConnection?.setRemoteDescription(
+        RTCSessionDescription(invite.sdp, 'offer'),
+      );
+    } catch (e) {
+      GlobalLogger().e(
+        'Peer :: setRemoteDescription failed in accept(): $e',
+      );
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+        originalError: e,
+        callId: callId,
+      );
+      rethrow;
+    }
     CallTimingBenchmark.mark('remote_sdp_set');
 
     // Latency milestones for inbound call remote SDP
@@ -1425,6 +1451,12 @@ class Peer {
   }) async {
     if (peerConnection == null) {
       GlobalLogger().d('Peer connection null');
+      // Peer was closed before stats could start — surface as structured
+      // peer-closed-during-init error (44005).
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.peerClosedDuringInit,
+        callId: callId,
+      );
       return false;
     }
 
@@ -1452,6 +1484,24 @@ class Peer {
     _callReportCollector?.start(peerConnection!);
     GlobalLogger().d('Peer :: CallReportCollector started for $callId');
 
+    // Quality-warning monitor: interprets per-interval stats and emits
+    // structured warnings (LOW_BYTES_*, HIGH_RTT, LOW_MOS, …). Bridging the
+    // LOW_BYTES_RECEIVED / LOW_BYTES_SENT warnings into the signaling-health
+    // monitor as no-RTP evidence lets it decide ICE restart vs. socket
+    // reconnect with a single recovery authority (VSDK-416 Gap 2).
+    _qualityWarningMonitor = QualityWarningMonitor(
+      callId: callId,
+      onWarning: (warning) {
+        if (warning.code == TelnyxWarningCodes.lowBytesReceived) {
+          _txClient.healthMonitor?.onNoRtp(callId, 'inbound');
+        } else if (warning.code == TelnyxWarningCodes.lowBytesSent &&
+            _hasActiveUnmutedLocalAudioTrack()) {
+          _txClient.healthMonitor?.onNoRtp(callId, 'outbound');
+        }
+      },
+    );
+    _callReportCollector?.onStatsInterval = _qualityWarningMonitor?.checkStats;
+
     // Only start WebRTC stats reporter if debug mode is enabled
     if (_debug == false) {
       GlobalLogger().d(
@@ -1478,6 +1528,11 @@ class Peer {
   ///
   /// [callId] The ID of the call to stop stats for.
   Future<void> stopStats(String callId) async {
+    // Detach the quality-warning bridge first so a late-arriving interval
+    // cannot fire no-RTP evidence after the call is already shutting down.
+    _callReportCollector?.onStatsInterval = null;
+    _qualityWarningMonitor = null;
+
     // Stop call report collector (always) - await to capture final stats
     await _callReportCollector?.stop();
     GlobalLogger().i('Peer :: CallReportCollector stopped for $callId');
@@ -1697,6 +1752,11 @@ class Peer {
       _send(jsonCandidateMessage);
     } catch (e) {
       GlobalLogger().e('Peer :: Error sending trickle ICE candidate: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1720,6 +1780,11 @@ class Peer {
       _send(jsonEndOfCandidatesMessage);
     } catch (e) {
       GlobalLogger().e('Peer :: Error sending end of candidates: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1759,6 +1824,11 @@ class Peer {
           GlobalLogger().i('Peer :: Successfully added remote candidate');
         }).catchError((error) {
           GlobalLogger().e('Peer :: Error adding remote candidate: $error');
+          _txClient.emitStructuredErrorCode(
+            TelnyxErrorCodes.sdpSendFailed,
+            originalError: error,
+            callId: callId,
+          );
         });
       } else {
         GlobalLogger().w(
@@ -1780,6 +1850,11 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Peer :: Error handling remote candidate: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1871,6 +1946,11 @@ class Peer {
       _socket.send(jsonMessage);
     } catch (e) {
       GlobalLogger().e('Peer :: Error sending updateMedia message: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1907,6 +1987,11 @@ class Peer {
       );
     } catch (e) {
       GlobalLogger().e('Peer :: Error handling updateMedia response: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+        originalError: e,
+        callId: response.callID,
+      );
     }
   }
 

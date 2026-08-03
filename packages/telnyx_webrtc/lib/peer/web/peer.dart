@@ -480,6 +480,11 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Peer :: _createOffer error: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpCreateOfferFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -494,9 +499,23 @@ class Peer {
 
     final session = _sessions[_selfId];
     if (session != null) {
-      await session.peerConnection?.setRemoteDescription(
-        RTCSessionDescription(sdp, 'answer'),
-      );
+      try {
+        await session.peerConnection?.setRemoteDescription(
+          RTCSessionDescription(sdp, 'answer'),
+        );
+      } catch (e) {
+        GlobalLogger().e(
+          'Web Peer :: setRemoteDescription failed in remoteSessionReceived: $e',
+        );
+        // Note: we can't reliably resolve the callId here because
+        // Call.peerConnection is typed against the mobile Peer class on VM;
+        // emit without callId so the session-scoped listeners still see it.
+        _txClient.emitStructuredErrorCode(
+          TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+          originalError: e,
+        );
+        rethrow;
+      }
       CallTimingBenchmark.mark('remote_answer_sdp_set');
 
       // Process any queued candidates after setting remote SDP
@@ -567,9 +586,21 @@ class Peer {
     }
 
     // Set the remote SDP from the inbound INVITE
-    await session.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(invite.sdp, 'offer'),
-    );
+    try {
+      await session.peerConnection?.setRemoteDescription(
+        RTCSessionDescription(invite.sdp, 'offer'),
+      );
+    } catch (e) {
+      GlobalLogger().e(
+        'Web Peer :: setRemoteDescription failed in accept(): $e',
+      );
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+        originalError: e,
+        callId: callId,
+      );
+      rethrow;
+    }
     CallTimingBenchmark.mark('remote_sdp_set');
 
     // Process any queued candidates after setting remote SDP
@@ -745,6 +776,11 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Peer :: _createAnswer error: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpCreateAnswerFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1487,6 +1523,11 @@ class Peer {
       _send(jsonCandidateMessage);
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error sending trickle ICE candidate: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1510,6 +1551,11 @@ class Peer {
       _send(jsonEndOfCandidatesMessage);
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error sending end of candidates: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1543,6 +1589,11 @@ class Peer {
       } catch (e) {
         GlobalLogger().e(
           'Web Peer :: Error adding remote candidate: $e',
+        );
+        _txClient.emitStructuredErrorCode(
+          TelnyxErrorCodes.sdpSendFailed,
+          originalError: e,
+          callId: callId,
         );
       }
     }
@@ -1638,6 +1689,11 @@ class Peer {
       _socket.send(jsonMessage);
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error sending updateMedia message: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1674,6 +1730,11 @@ class Peer {
       );
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error handling updateMedia response: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+        originalError: e,
+        callId: response.callID,
+      );
     }
   }
 

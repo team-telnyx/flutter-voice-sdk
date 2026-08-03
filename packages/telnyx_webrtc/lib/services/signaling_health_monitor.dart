@@ -59,17 +59,19 @@ abstract class ISignalingHealthSession {
 /// | ICE restart failed         | Socket reconnect  | Socket reconnect   |
 ///
 /// "Signaling healthy" means we have received socket activity within
-/// the last [_signalingHealthyWindow] (20 s).  When unknown, the monitor
+/// the last [_signalingHealthyWindow] (3 s).  When unknown, the monitor
 /// sends a lightweight probe (telnyx_rtc.ping) and waits for a response
-/// before deciding.
+/// before deciding. Unrelated inbound frames prove bytes are flowing but
+/// MUST NOT release a pending media recovery that was gated on a probe —
+/// only a probe response matching the in-flight request id resolves it.
 ///
 /// Producer status (VSDK-416): the wired production inputs today are
 /// [onSocketActivity] (every inbound message), [onPeerFailure] (ICE-failed /
-/// peer-connection-failed) and [onIceRestartFailed]. [onRequestTimeout] and
-/// [onNoRtp] are implemented event inputs that have no reliable production
-/// producer yet — see their doc comments. The "Request timeout" / "No RTP"
-/// rows above therefore describe the decision that *will* apply once such a
-/// producer exists; they are intentionally not driven by a synthesized timer.
+/// peer-connection-failed), [onIceRestartFailed], and [onNoRtp] (bridged from
+/// the [QualityWarningMonitor]'s `LOW_BYTES_RECEIVED` / `LOW_BYTES_SENT`
+/// signals in `call.dart`). [onRequestTimeout] is an implemented event input
+/// without a per-request timeout producer yet — a future request-id→timer
+/// source can feed this method directly without changing the recovery logic.
 class SignalingHealthMonitor {
   /// Creates a monitor that inspects and controls signaling/peer health
   /// through [session].
@@ -102,6 +104,7 @@ class SignalingHealthMonitor {
     _checkTimer = null;
     _isRunning = false;
     _isProbeInFlight = false;
+    _probeRequestId = null;
     _lastInboundTimestamp = null;
     _pendingMediaRecovery = null;
     _probeStartedAt = null;
@@ -112,27 +115,84 @@ class SignalingHealthMonitor {
   /// Timestamp of the last inbound socket message.
   DateTime? _lastInboundTimestamp;
 
-  /// Window within which signaling is considered healthy (20 s).
-  static const Duration _signalingHealthyWindow = Duration(seconds: 20);
+  /// Window within which signaling is considered healthy (3 s).
+  ///
+  /// Aligned with the JS reference (`RECENT_ACTIVITY_THRESHOLD_MS = 3000`):
+  /// only *very recent* inbound activity counts as "healthy". Activity older
+  /// than this is treated as "unknown", and the monitor resolves it with an
+  /// active probe rather than blindly assuming the signaling path is up.
+  static const Duration _signalingHealthyWindow = Duration(seconds: 3);
 
   /// Check interval for the periodic timer (3 s).
   static const Duration _checkInterval = Duration(seconds: 3);
 
-  /// How long a deferred media recovery waits for signaling to recover before
-  /// escalating to a full socket reconnect (3 check intervals).
-  static const Duration _probeTimeout = Duration(seconds: 9);
+  /// How long a deferred media recovery waits for the probe response before
+  /// escalating to a full socket reconnect (5 s after the probe is sent).
+  ///
+  /// Aligned with the JS reference (`PROBE_TIMEOUT_MS = 5000`).
+  static const Duration _probeTimeout = Duration(seconds: 5);
 
   /// Call this whenever *any* inbound socket message arrives.
+  ///
+  /// Updates the passive liveness timestamp only. Crucially this does NOT
+  /// release an in-flight probe — only a JSON-RPC response matching the
+  /// probe's request id does that (see [resolveProbe]). Unrelated inbound
+  /// frames prove bytes are flowing, but they must not release pending media
+  /// recovery that was gated on a probe response.
   void onSocketActivity() {
     _lastInboundTimestamp = _now();
-    // If a probe was in flight, a response has arrived — clear it.
-    _isProbeInFlight = false;
   }
 
   bool _isProbeInFlight = false;
 
+  /// Request id of the currently in-flight probe, if any. Set when
+  /// [attachProbeRequestId] is called by the probe-sending adapter; cleared
+  /// when [resolveProbe] matches it.
+  String? _probeRequestId;
+
   /// Whether a probe is currently in flight.
   bool get isProbeInFlight => _isProbeInFlight;
+
+  /// The request id of the in-flight probe, if known. Exposed for tests and
+  /// for the adapter that needs to correlate responses.
+  String? get probeRequestId => _probeRequestId;
+
+  /// Attach the JSON-RPC request id of the just-sent probe. Called by the
+  /// session adapter right after [ISignalingHealthSession.sendProbe] returns.
+  /// The request id is required for [resolveProbe] to release the probe.
+  void attachProbeRequestId(String? requestId) {
+    _probeRequestId = requestId;
+  }
+
+  /// Resolve an in-flight probe when the matching JSON-RPC response arrives.
+  ///
+  /// Only releases the probe (and any pending media-recovery decision) when
+  /// [requestId] matches the in-flight probe request id. A `null` [requestId]
+  /// is treated as a legacy "any ping response resolves the probe" path (used
+  /// by adapters that cannot correlate responses) — it releases the probe but
+  /// is narrower than the JS reference's exact-id matching.
+  ///
+  /// When the probe resolves and signaling now appears healthy, any deferred
+  /// media recovery is executed immediately via [ISignalingHealthSession
+  ///.triggerIceRestart].
+  void resolveProbe(String? requestId) {
+    if (!_isProbeInFlight) return;
+    final expected = _probeRequestId;
+    if (requestId != null && expected != null && requestId != expected) {
+      // Response for a different (stale?) probe — do not release.
+      return;
+    }
+    _isProbeInFlight = false;
+    _probeRequestId = null;
+
+    final pending = _pendingMediaRecovery;
+    if (pending == null) return;
+    _pendingMediaRecovery = null;
+    if (_isSignalingHealthy) {
+      _session.triggerIceRestart(pending);
+      _probeStartedAt = null;
+    }
+  }
 
   /// Returns `true` when we have received socket activity within the
   /// healthy window.
@@ -211,11 +271,10 @@ class SignalingHealthMonitor {
   /// - Unknown signaling → probe and defer.
   /// - No active call → ignore.
   ///
-  /// NOTE (VSDK-416): this is a *producer-agnostic event input*. RTP stats are
-  /// collected in production (call-report/stats reporters), but no reliable
-  /// "sustained no-inbound-RTP" event is emitted from them today, so there is
-  /// no production caller. A future RTP-stall detector can feed this method
-  /// directly. Do not synthesize an independent heuristic timer to drive it.
+  /// The production producer for this is the no-RTP bridge wired from the
+  /// [QualityWarningMonitor]'s `LOW_BYTES_RECEIVED` (32001 → 'inbound') and
+  /// `LOW_BYTES_SENT` (32002 → 'outbound', only when the local audio track is
+  /// active/unmuted) warnings. See `call.dart` for the bridge wiring.
   void onNoRtp(String callId, String direction) {
     if (!_isRunning) return;
     if (_session.hasActiveCall() != true) return;
@@ -260,6 +319,10 @@ class SignalingHealthMonitor {
   /// Marks a probe in flight and actually sends a `telnyx_rtc.ping` so a
   /// response can resolve "unknown" signaling health. Idempotent while a probe
   /// is already outstanding.
+  ///
+  /// The adapter's [ISignalingHealthSession.sendProbe] implementation is
+  /// responsible for calling [attachProbeRequestId] with the JSON-RPC id it
+  /// sent so [resolveProbe] can correlate the matching response.
   void _startProbe() {
     if (_isProbeInFlight) return;
     _isProbeInFlight = true;
@@ -294,7 +357,8 @@ class SignalingHealthMonitor {
       return;
     }
 
-    // If no socket activity for > 20s and no probe in flight, send a probe.
+    // If no socket activity within the healthy window and no probe in
+    // flight, send a probe.
     if (!_isSignalingHealthy && !_isProbeInFlight) {
       _startProbe();
     }
@@ -303,6 +367,7 @@ class SignalingHealthMonitor {
   void _clearPendingRecovery() {
     _pendingMediaRecovery = null;
     _isProbeInFlight = false;
+    _probeRequestId = null;
     _probeStartedAt = null;
   }
 }

@@ -301,7 +301,7 @@ void main() {
 
     group('periodic recovery decisions', () {
       testWidgets(
-          'recovered socket activity resolves deferred recovery with one ICE restart',
+          'recovered probe response resolves deferred recovery with one ICE restart',
           (tester) async {
         final now = DateTime.utc(2026);
         monitor = SignalingHealthMonitor(session, now: () => now);
@@ -317,10 +317,21 @@ void main() {
         expect(monitor.isProbeInFlight, isTrue);
         verify(session.sendProbe()).called(1);
 
+        // Simulate the probe sender attaching a request id, then organic
+        // inbound activity that is NOT the probe response. The unrelated
+        // activity must not release the probe (Gap 1 hardening).
+        monitor.attachProbeRequestId('probe-req-1');
         monitor.onSocketActivity();
-        expect(monitor.isProbeInFlight, isFalse);
-        await tester.pump(const Duration(seconds: 3));
+        expect(
+          monitor.isProbeInFlight,
+          isTrue,
+          reason: 'unrelated inbound frames must not release the probe',
+        );
 
+        // Now the matching probe response arrives → probe resolved, and the
+        // deferred ICE restart fires immediately (signaling is healthy).
+        monitor.resolveProbe('probe-req-1');
+        expect(monitor.isProbeInFlight, isFalse);
         verify(session.triggerIceRestart('call-1')).called(1);
         verifyNever(session.socketDisconnect());
         await tester.pump(const Duration(seconds: 6));
@@ -338,8 +349,10 @@ void main() {
           ..start()
           ..onPeerFailure('call-2', PeerFailureEvidence.connectionFailed);
 
-        now = now.add(const Duration(seconds: 9));
-        await tester.pump(const Duration(seconds: 9));
+        // 5s after the probe is sent, the periodic check declares the probe
+        // timed out and reconnects the socket (JS PROBE_TIMEOUT_MS = 5000).
+        now = now.add(const Duration(seconds: 5));
+        await tester.pump(const Duration(seconds: 5));
 
         verify(session.socketDisconnect()).called(1);
         verifyNever(session.triggerIceRestart(any));
@@ -358,11 +371,14 @@ void main() {
           ..start()
           ..onSocketActivity();
 
-        now = now.add(const Duration(seconds: 18));
-        await tester.pump(const Duration(seconds: 18));
+        // Within the 3s healthy window, no probe is sent.
+        now = now.add(const Duration(milliseconds: 2500));
+        await tester.pump(const Duration(milliseconds: 2500));
         verifyNever(session.sendProbe());
-        now = now.add(const Duration(seconds: 3));
-        await tester.pump(const Duration(seconds: 3));
+
+        // Past the 3s window, the next 3s tick (at t=6s) sends the probe.
+        now = now.add(const Duration(seconds: 4));
+        await tester.pump(const Duration(seconds: 4));
 
         verify(session.sendProbe()).called(1);
         expect(monitor.isProbeInFlight, isTrue);
@@ -371,7 +387,7 @@ void main() {
         monitor.stop();
       });
 
-      test('socket activity clears a probe already in flight', () {
+      test('socket activity does NOT clear a probe already in flight', () {
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
         monitor
@@ -380,7 +396,42 @@ void main() {
 
         expect(monitor.isProbeInFlight, isTrue);
         monitor.onSocketActivity();
+        expect(
+          monitor.isProbeInFlight,
+          isTrue,
+          reason: 'unrelated inbound frames must not release the probe',
+        );
+      });
+
+      test('resolveProbe with matching request id releases the probe', () {
+        when(session.isConnected).thenReturn(true);
+        when(session.hasActiveCall()).thenReturn(true);
+        monitor
+          ..start()
+          ..onPeerFailure('call-4', PeerFailureEvidence.iceFailed);
+
+        expect(monitor.isProbeInFlight, isTrue);
+        monitor.attachProbeRequestId('probe-req-A');
+        monitor.resolveProbe('probe-req-A');
         expect(monitor.isProbeInFlight, isFalse);
+        expect(monitor.probeRequestId, isNull);
+      });
+
+      test('resolveProbe with mismatched request id keeps probe in flight', () {
+        when(session.isConnected).thenReturn(true);
+        when(session.hasActiveCall()).thenReturn(true);
+        monitor
+          ..start()
+          ..onPeerFailure('call-5', PeerFailureEvidence.iceFailed);
+
+        monitor.attachProbeRequestId('probe-req-A');
+        expect(monitor.isProbeInFlight, isTrue);
+        monitor.resolveProbe('probe-req-B');
+        expect(
+          monitor.isProbeInFlight,
+          isTrue,
+          reason: 'mismatched request id must not release the probe',
+        );
       });
     });
 

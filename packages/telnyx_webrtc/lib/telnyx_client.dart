@@ -60,11 +60,16 @@ import 'package:telnyx_webrtc/model/errors/telnyx_warning_factory.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
 import 'package:telnyx_webrtc/services/signaling_health_monitor.dart';
 import 'package:telnyx_webrtc/services/reconnect_token_store.dart';
+import 'package:telnyx_webrtc/services/request_timeout_tracker.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 
 /// Callback for when the socket receives an error
+@Deprecated(
+  'Use TelnyxClient.onTelnyxError or the errors stream instead. '
+  'Will be removed in v3.0.0',
+)
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
 
 /// Callback for structured SDK error events (VSDK-415).
@@ -106,6 +111,10 @@ class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
 
   /// Callback for when the socket receives an error
+  @Deprecated(
+    'Use onTelnyxError or the errors stream instead. '
+    'Will be removed in v3.0.0',
+  )
   late OnSocketErrorReceived onSocketErrorReceived;
 
   /// Optional callback for structured SDK error events (VSDK-415).
@@ -330,9 +339,61 @@ class TelnyxClient {
   /// The signaling-health monitor for the current session (test/inspection).
   SignalingHealthMonitor? get healthMonitor => _healthMonitor;
 
+  /// Per-request timeout tracker for critical JSON-RPC methods (VSDK-416).
+  /// Active only when the health monitor is enabled; null otherwise.
+  RequestTimeoutTracker? _requestTimeoutTracker;
+
   /// The reconnect policy currently applied to health-triggered recovery.
   @visibleForTesting
   bool get autoReconnectLoginForTest => _autoReconnectLogin;
+
+  // ── Stream-based error/warning surface (VSDK-415) ──────────────────
+
+  /// Controller for error events. Typed as [Object] because both
+  /// [TelnyxErrorEvent] and [TelnyxMediaRecoveryErrorEvent] flow through it,
+  /// matching the [OnTelnyxError] callback signature.
+  late final StreamController<Object> _errorStreamController;
+  late final StreamController<TelnyxWarningEvent> _warningStreamController;
+  bool _streamControllersInitialized = false;
+
+  void _initStreamControllers() {
+    if (_streamControllersInitialized) return;
+    _errorStreamController = StreamController<Object>.broadcast(sync: true);
+    _warningStreamController =
+        StreamController<TelnyxWarningEvent>.broadcast(sync: true);
+    _streamControllersInitialized = true;
+  }
+
+  /// Structured error stream. Mirrors JS SDK's `client.on('telnyx.error', ...)`.
+  ///
+  /// Emits both [TelnyxErrorEvent] (non-recoverable) and
+  /// [TelnyxMediaRecoveryErrorEvent] (recoverable) instances, matching the
+  /// [onTelnyxError] callback. Use [isMediaRecoveryErrorEvent] to
+  /// discriminate, or the [fatalErrors] / [recoverableErrors] convenience
+  /// getters.
+  Stream<Object> get errors {
+    _initStreamControllers();
+    return _errorStreamController.stream;
+  }
+
+  /// Structured warning stream. Mirrors JS SDK's `client.on('telnyx.warning', ...)`.
+  ///
+  /// Provides a Dart-idiomatic API that composes with StreamBuilder, Riverpod,
+  /// and Bloc. Events are emitted alongside the [onTelnyxWarning] callback.
+  Stream<TelnyxWarningEvent> get warnings {
+    _initStreamControllers();
+    return _warningStreamController.stream;
+  }
+
+  /// Convenience: terminal (fatal, non-recoverable) errors only.
+  Stream<TelnyxErrorEvent> get fatalErrors => errors
+      .where((e) => e is TelnyxErrorEvent && e.error.fatal)
+      .cast<TelnyxErrorEvent>();
+
+  /// Convenience: recoverable (media permission recovery) errors only.
+  Stream<TelnyxMediaRecoveryErrorEvent> get recoverableErrors => errors
+      .where((e) => e is TelnyxMediaRecoveryErrorEvent)
+      .cast<TelnyxMediaRecoveryErrorEvent>();
 
   /// Captures the enable flags and recovery config from [config] at connect.
   void _applyStructuredConfig(Config config) {
@@ -353,9 +414,32 @@ class TelnyxClient {
     // Instantiate the health monitor when enabled (idempotent per session).
     if (_enableSignalingHealthMonitor) {
       _healthMonitor ??= SignalingHealthMonitor(_TelnyxHealthSession(this));
+      // Create the request-timeout tracker alongside the health monitor.
+      // It feeds SignalingHealthMonitor.onRequestTimeout() when critical
+      // methods (modify, bye, ping) don't receive a response in time.
+      _requestTimeoutTracker = RequestTimeoutTracker(
+        onTimeout: (method, requestId, timeoutMs) {
+          GlobalLogger().w(
+            'Request timeout: $method (id=$requestId) after ${timeoutMs}ms',
+          );
+          _healthMonitor?.onRequestTimeout(requestId, timeoutMs, method);
+          // Also emit a structured error for critical methods.
+          if (SignalingHealthMonitor.isCriticalMethod(method)) {
+            emitStructuredErrorCode(
+              TelnyxErrorCodes.webSocketError,
+              message:
+                  'Signaling request $method timed out after ${timeoutMs}ms',
+              originalError:
+                  'request_timeout:$method:$requestId:${timeoutMs}ms',
+            );
+          }
+        },
+      );
     } else {
       _healthMonitor?.stop();
       _healthMonitor = null;
+      _requestTimeoutTracker?.cancelAll();
+      _requestTimeoutTracker = null;
     }
 
     // Reset health-monitor transient state on every fresh/reconnect config
@@ -366,6 +450,9 @@ class TelnyxClient {
     final monitor = _healthMonitor;
     if (monitor != null) {
       monitor.stop();
+      // Cancel any pending request-timeout timers from the prior session so
+      // stale responses on a new socket don't fire against a dead tracker.
+      _requestTimeoutTracker?.cancelAll();
       _syncHealthMonitorLifecycle();
     }
   }
@@ -383,35 +470,50 @@ class TelnyxClient {
   Config copyConfigWithAutoRegionForTest(Config config) =>
       _copyConfigWithAutoRegion(config);
 
-  /// Central helper: emit a structured [TelnyxErrorEvent] via [onTelnyxError].
+  /// Central helper: emit a structured [TelnyxErrorEvent] via [onTelnyxError]
+  /// and the [errors] stream.
   ///
   /// Respects the [Config.enableStructuredErrors] flag. Never throws — a
   /// failing app callback must not break SDK internals.
   void emitTelnyxError(TelnyxError error, {String? callId}) {
     if (!_enableStructuredErrors) return;
+    _initStreamControllers();
+    final event =
+        TelnyxErrorEvent(error: error, sessionId: sessid, callId: callId);
+    // Existing callback
     final cb = onTelnyxError;
-    if (cb == null) return;
-    try {
-      cb(TelnyxErrorEvent(error: error, sessionId: sessid, callId: callId));
-    } catch (e) {
-      GlobalLogger().e('onTelnyxError callback threw: $e');
+    if (cb != null) {
+      try {
+        cb(event);
+      } catch (e) {
+        GlobalLogger().e('onTelnyxError callback threw: $e');
+      }
     }
+    // Stream emission
+    _errorStreamController.add(event);
   }
 
-  /// Central helper: emit a recoverable [TelnyxMediaRecoveryErrorEvent].
+  /// Central helper: emit a recoverable [TelnyxMediaRecoveryErrorEvent] via
+  /// [onTelnyxError] and the [errors] stream.
   void emitTelnyxMediaRecoveryError(TelnyxMediaRecoveryErrorEvent event) {
     if (!_enableStructuredErrors) return;
+    _initStreamControllers();
+    // Existing callback
     final cb = onTelnyxError;
-    if (cb == null) return;
-    try {
-      cb(event);
-    } catch (e) {
-      GlobalLogger().e('onTelnyxError callback threw: $e');
+    if (cb != null) {
+      try {
+        cb(event);
+      } catch (e) {
+        GlobalLogger().e('onTelnyxError callback threw: $e');
+      }
     }
+    // Stream emission
+    _errorStreamController.add(event);
   }
 
   /// Central helper: emit a structured [TelnyxWarningEvent] via
-  /// [onTelnyxWarning]. Respects the feature flag and never throws.
+  /// [onTelnyxWarning] and the [warnings] stream. Respects the feature flag
+  /// and never throws.
   void emitTelnyxWarning(
     TelnyxWarning warning, {
     String? callId,
@@ -419,21 +521,25 @@ class TelnyxClient {
     String? source,
   }) {
     if (!_enableStructuredErrors) return;
+    _initStreamControllers();
+    final event = TelnyxWarningEvent(
+      warning: warning,
+      reason: reason,
+      source: source,
+      sessionId: sessid,
+      callId: callId,
+    );
+    // Existing callback
     final cb = onTelnyxWarning;
-    if (cb == null) return;
-    try {
-      cb(
-        TelnyxWarningEvent(
-          warning: warning,
-          reason: reason,
-          source: source,
-          sessionId: sessid,
-          callId: callId,
-        ),
-      );
-    } catch (e) {
-      GlobalLogger().e('onTelnyxWarning callback threw: $e');
+    if (cb != null) {
+      try {
+        cb(event);
+      } catch (e) {
+        GlobalLogger().e('onTelnyxWarning callback threw: $e');
+      }
     }
+    // Stream emission
+    _warningStreamController.add(event);
   }
 
   /// Convenience: build a structured warning from [code] and emit it.
@@ -560,15 +666,26 @@ class TelnyxClient {
   /// so the [SignalingHealthMonitor] can resolve "unknown" signaling health by
   /// provoking a response (VSDK-416). The JSON is the standard, already
   /// supported ping request — only the SDK is now the sender.
+  ///
+  /// NOTE: The probe is NOT tracked by [_requestTimeoutTracker] because the
+  /// health monitor already bounds probe timeout via [_probeTimeout] (5 s).
+  /// Adding a second timer would be redundant and can leak in tests.
   void _sendSignalingProbe() {
     try {
+      final probeId = const Uuid().v4();
       final probe = <String, dynamic>{
         'jsonrpc': JsonRPCConstant.jsonrpc,
-        'id': const Uuid().v4(),
+        'id': probeId,
         'method': SocketMethod.ping,
         'params': <String, dynamic>{},
       };
       txSocket.send(jsonEncode(probe));
+      // Attach the probe request id to the health monitor so it can release
+      // the in-flight probe only when the matching JSON-RPC response arrives
+      // (not for any unrelated inbound frame). See
+      // [SignalingHealthMonitor.attachProbeRequestId] and
+      // [SignalingHealthMonitor.resolveProbe].
+      _healthMonitor?.attachProbeRequestId(probeId);
     } catch (e) {
       GlobalLogger().w('Failed to send signaling probe: $e');
     }
@@ -2703,6 +2820,7 @@ class TelnyxClient {
     _disposed = true;
     _closed = true;
     _healthMonitor?.stop();
+    _requestTimeoutTracker?.cancelAll();
     _invalidateConnectionGeneration();
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
@@ -2717,6 +2835,11 @@ class TelnyxClient {
       _closeSocketSafely();
     }
     _disposeLatencyTracker();
+    if (_streamControllersInitialized) {
+      _errorStreamController.close();
+      _warningStreamController.close();
+      _streamControllersInitialized = false;
+    }
   }
 
   /// WebSocket Event Handlers
@@ -2901,6 +3024,14 @@ class TelnyxClient {
             final ReceivedResult errorResult = ReceivedResult.fromJson(
               messageJson,
             );
+            // Resolve the in-flight signaling probe (if any) when the JSON-RPC
+            // error matches the probe's request id. An error response still
+            // proves the signaling path is alive (the server answered), even
+            // if the ping itself was rejected — VSDK-416 Gap 1 hardening.
+            _healthMonitor?.resolveProbe(errorResult.id);
+            if (errorResult.id != null) {
+              _requestTimeoutTracker?.resolve(errorResult.id!);
+            }
             final TelnyxSocketError error = TelnyxSocketError(
               errorCode: errorResult.error?.errorCode ?? 0,
               errorMessage: errorResult.error?.errorMessage ?? 'Unknown error',
@@ -2918,6 +3049,14 @@ class TelnyxClient {
             final ReceivedResult stateMessage = ReceivedResult.fromJson(
               messageJson,
             );
+            // Resolve the in-flight signaling probe (if any) when the JSON-RPC
+            // result matches the probe's request id. Unrelated inbound frames
+            // MUST NOT release the probe — VSDK-416 Gap 1 hardening.
+            _healthMonitor?.resolveProbe(stateMessage.id);
+            // Resolve any pending request-timeout timer for this response.
+            if (stateMessage.id != null) {
+              _requestTimeoutTracker?.resolve(stateMessage.id!);
+            }
             final mainMessage = ReceivedMessage(
               jsonrpc: stateMessage.jsonrpc,
               method: SocketMethod.gatewayState,
