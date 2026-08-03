@@ -10,6 +10,6 @@ jobs:
     permissions:
       id-token: write # Required for authentication using OIDC
       contents: read
-    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1.7.2
     with:
       working-directory: packages/telnyx_webrtc
