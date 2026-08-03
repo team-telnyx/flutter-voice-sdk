@@ -6,7 +6,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:marionette_flutter/marionette_flutter.dart';
 import 'package:telnyx_flutter_webrtc/provider/profile_provider.dart';
 import 'package:telnyx_flutter_webrtc/utils/background_detector.dart';
 import 'package:telnyx_flutter_webrtc/view/screen/home_screen.dart';
@@ -93,15 +92,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> main() async {
   await runZonedGuarded(
     () async {
-      // Single binding rule: in debug builds initialize the Marionette binding
-      // (which is itself a WidgetsFlutterBinding) so the Marionette MCP server
-      // can drive the running app; in release builds use the standard binding.
-      // Only one binding is ever initialized within the existing zoned startup.
-      if (kDebugMode) {
-        MarionetteBinding.ensureInitialized();
-      } else {
-        WidgetsFlutterBinding.ensureInitialized();
-      }
+      WidgetsFlutterBinding.ensureInitialized();
 
       // Catch Flutter framework errors
       FlutterError.onError = (FlutterErrorDetails details) {
