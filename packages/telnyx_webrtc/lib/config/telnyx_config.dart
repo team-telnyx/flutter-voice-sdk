@@ -4,8 +4,13 @@ import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
+import 'package:telnyx_webrtc/model/errors/media_permissions_recovery_config.dart';
 import 'package:telnyx_webrtc/config/debug_output.dart';
 import 'package:telnyx_webrtc/config/debug_log_level.dart';
+
+// Re-export MediaPermissionsRecoveryConfig so consumers can configure inbound
+// media-permission recovery from telnyx_config.dart directly.
+export 'package:telnyx_webrtc/model/errors/media_permissions_recovery_config.dart';
 
 // Re-export GlobalLogger so tests/consumers can import it from telnyx_config.dart
 export 'package:telnyx_webrtc/utils/logging/global_logger.dart';
@@ -50,6 +55,9 @@ class Config {
     this.autoRecoverCalls = true,
     this.hangupOnBeforeUnload = true,
     this.maxReconnectAttempts = 10,
+    this.enableStructuredErrors = true,
+    this.enableSignalingHealthMonitor = true,
+    this.mediaPermissionsRecovery,
   });
 
   /// Name associated with the SIP account
@@ -166,6 +174,26 @@ class Config {
   /// Maximum reconnection attempts before giving up; 0 means unlimited (default: 10)
   final int maxReconnectAttempts;
 
+  /// Whether the SDK emits structured [TelnyxError]/[TelnyxWarning] events via
+  /// the `onTelnyxError` / `onTelnyxWarning` callbacks (default: true).
+  ///
+  /// When disabled, the legacy `onSocketErrorReceived` behavior is preserved
+  /// but no structured error/warning callbacks are fired.
+  final bool enableStructuredErrors;
+
+  /// Whether the SDK runs the [SignalingHealthMonitor] during active calls to
+  /// detect signaling/media degradation and choose a single recovery path
+  /// (default: true).
+  final bool enableSignalingHealthMonitor;
+
+  /// Optional configuration for inbound media-permission recovery.
+  ///
+  /// When null or disabled, a failed `getUserMedia` while answering an inbound
+  /// call fails normally (with a structured error still emitted). When enabled,
+  /// the SDK emits a recoverable [TelnyxMediaRecoveryErrorEvent] so the app can
+  /// prompt the user to fix permissions and then `resume()` the call.
+  final MediaPermissionsRecoveryConfig? mediaPermissionsRecovery;
+
   /// Apply the [debugLogLevel] to the GlobalLogger by setting a level filter.
   /// Messages below the configured level are suppressed.
   void applyDebugLogLevel() {
@@ -243,6 +271,9 @@ class CredentialConfig extends Config {
     super.autoRecoverCalls = true,
     super.hangupOnBeforeUnload = true,
     super.maxReconnectAttempts = 10,
+    super.enableStructuredErrors = true,
+    super.enableSignalingHealthMonitor = true,
+    super.mediaPermissionsRecovery,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -314,6 +345,9 @@ class TokenConfig extends Config {
     super.autoRecoverCalls = true,
     super.hangupOnBeforeUnload = true,
     super.maxReconnectAttempts = 10,
+    super.enableStructuredErrors = true,
+    super.enableSignalingHealthMonitor = true,
+    super.mediaPermissionsRecovery,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API

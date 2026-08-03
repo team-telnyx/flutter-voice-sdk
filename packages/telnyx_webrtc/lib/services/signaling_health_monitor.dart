@@ -39,6 +39,11 @@ abstract class ISignalingHealthSession {
 
   /// Trigger an ICE restart for the given call.
   TriggerIceRestartResult? triggerIceRestart(String? callId);
+
+  /// Send a lightweight signaling probe (a `telnyx_rtc.ping` message) so the
+  /// monitor can provoke a response and resolve "unknown" signaling health
+  /// instead of waiting passively for organic activity.
+  void sendProbe();
 }
 
 /// Monitors signaling and peer-connection health, deciding the right
@@ -57,12 +62,24 @@ abstract class ISignalingHealthSession {
 /// the last [_signalingHealthyWindow] (20 s).  When unknown, the monitor
 /// sends a lightweight probe (telnyx_rtc.ping) and waits for a response
 /// before deciding.
+///
+/// Producer status (VSDK-416): the wired production inputs today are
+/// [onSocketActivity] (every inbound message), [onPeerFailure] (ICE-failed /
+/// peer-connection-failed) and [onIceRestartFailed]. [onRequestTimeout] and
+/// [onNoRtp] are implemented event inputs that have no reliable production
+/// producer yet — see their doc comments. The "Request timeout" / "No RTP"
+/// rows above therefore describe the decision that *will* apply once such a
+/// producer exists; they are intentionally not driven by a synthesized timer.
 class SignalingHealthMonitor {
   /// Creates a monitor that inspects and controls signaling/peer health
   /// through [session].
-  SignalingHealthMonitor(this._session);
+  SignalingHealthMonitor(
+    this._session, {
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
 
   final ISignalingHealthSession _session;
+  final DateTime Function() _now;
 
   // ── Lifecycle ──────────────────────────────────────────────────────
 
@@ -107,7 +124,7 @@ class SignalingHealthMonitor {
 
   /// Call this whenever *any* inbound socket message arrives.
   void onSocketActivity() {
-    _lastInboundTimestamp = DateTime.now();
+    _lastInboundTimestamp = _now();
     // If a probe was in flight, a response has arrived — clear it.
     _isProbeInFlight = false;
   }
@@ -122,7 +139,7 @@ class SignalingHealthMonitor {
   bool get _isSignalingHealthy {
     final ts = _lastInboundTimestamp;
     if (ts == null) return false;
-    return DateTime.now().difference(ts) < _signalingHealthyWindow;
+    return _now().difference(ts) < _signalingHealthyWindow;
   }
 
   // ── Critical method classification ──────────────────────────────────
@@ -141,10 +158,17 @@ class SignalingHealthMonitor {
 
   // ── Request timeout ────────────────────────────────────────────────
 
-  /// Called when a JSON-RPC request times out.
+  /// Event input: called when a JSON-RPC request times out.
   ///
   /// For critical methods (modify, bye, ping) when connected, triggers a
   /// full socket reconnect.
+  ///
+  /// NOTE (VSDK-416): this is a *producer-agnostic event input*. The SDK does
+  /// not currently track per-request response timeouts (requests are sent
+  /// fire-and-forget with no request-id→timer correlation), so there is no
+  /// production caller today. A future per-request timeout source can feed this
+  /// method directly without any change to the recovery logic here. Do not
+  /// synthesize an independent timer to drive it.
   void onRequestTimeout(
     String requestId,
     int timeoutMs,
@@ -179,12 +203,19 @@ class SignalingHealthMonitor {
     }
   }
 
-  /// Called when no RTP packets are received for a sustained period.
+  /// Event input: called when no RTP packets are received for a sustained
+  /// period.
   ///
   /// Same logic as [onPeerFailure]:
   /// - Healthy signaling → ICE restart.
   /// - Unknown signaling → probe and defer.
   /// - No active call → ignore.
+  ///
+  /// NOTE (VSDK-416): this is a *producer-agnostic event input*. RTP stats are
+  /// collected in production (call-report/stats reporters), but no reliable
+  /// "sustained no-inbound-RTP" event is emitted from them today, so there is
+  /// no production caller. A future RTP-stall detector can feed this method
+  /// directly. Do not synthesize an independent heuristic timer to drive it.
   void onNoRtp(String callId, String direction) {
     if (!_isRunning) return;
     if (_session.hasActiveCall() != true) return;
@@ -222,8 +253,17 @@ class SignalingHealthMonitor {
   /// signaling recovers, socket reconnect if it stays unhealthy).
   void _deferMediaRecovery(String callId) {
     _pendingMediaRecovery = callId;
+    _probeStartedAt = _now();
+    _startProbe();
+  }
+
+  /// Marks a probe in flight and actually sends a `telnyx_rtc.ping` so a
+  /// response can resolve "unknown" signaling health. Idempotent while a probe
+  /// is already outstanding.
+  void _startProbe() {
+    if (_isProbeInFlight) return;
     _isProbeInFlight = true;
-    _probeStartedAt = DateTime.now();
+    _session.sendProbe();
   }
 
   // ── Periodic check ─────────────────────────────────────────────────
@@ -244,8 +284,7 @@ class SignalingHealthMonitor {
         return;
       }
       final startedAt = _probeStartedAt;
-      if (startedAt != null &&
-          DateTime.now().difference(startedAt) >= _probeTimeout) {
+      if (startedAt != null && _now().difference(startedAt) >= _probeTimeout) {
         // Probe window elapsed with signaling still unhealthy → reconnect.
         _clearPendingRecovery();
         _session.socketDisconnect();
@@ -257,7 +296,7 @@ class SignalingHealthMonitor {
 
     // If no socket activity for > 20s and no probe in flight, send a probe.
     if (!_isSignalingHealthy && !_isProbeInFlight) {
-      _isProbeInFlight = true;
+      _startProbe();
     }
   }
 

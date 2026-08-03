@@ -299,23 +299,87 @@ void main() {
       });
     });
 
-    group('probe mechanism', () {
-      test('after start with no socket activity for > 20s, probe is sent',
-          () async {
+    group('periodic recovery decisions', () {
+      testWidgets(
+          'recovered socket activity resolves deferred recovery with one ICE restart',
+          (tester) async {
+        final now = DateTime.utc(2026);
+        monitor = SignalingHealthMonitor(session, now: () => now);
         when(session.isConnected).thenReturn(true);
         when(session.hasActiveCall()).thenReturn(true);
-        monitor.start();
+        when(session.triggerIceRestart(any)).thenReturn(
+          const TriggerIceRestartResult(started: true),
+        );
+        monitor
+          ..start()
+          ..onPeerFailure('call-1', PeerFailureEvidence.iceFailed);
 
-        // Wait beyond the probe threshold (20s silence → probe)
-        // Since check interval is 3s, we need to wait at least 21s
-        // Instead of waiting real time, we test the isProbeInFlight state
-        // after the monitor has been running with no activity
-        // This is a timing-dependent test — in practice the check interval
-        // fires every 3s. We wait a short time and verify no probe yet
-        // (since 20s hasn't elapsed).
-        await Future.delayed(const Duration(milliseconds: 100));
+        expect(monitor.isProbeInFlight, isTrue);
+        verify(session.sendProbe()).called(1);
 
-        // After only 100ms, no probe should be in flight
+        monitor.onSocketActivity();
+        expect(monitor.isProbeInFlight, isFalse);
+        await tester.pump(const Duration(seconds: 3));
+
+        verify(session.triggerIceRestart('call-1')).called(1);
+        verifyNever(session.socketDisconnect());
+        await tester.pump(const Duration(seconds: 6));
+        verifyNever(session.triggerIceRestart('call-1'));
+        monitor.stop();
+      });
+
+      testWidgets('probe timeout escalates to exactly one socket reconnect',
+          (tester) async {
+        var now = DateTime.utc(2026);
+        monitor = SignalingHealthMonitor(session, now: () => now);
+        when(session.isConnected).thenReturn(true);
+        when(session.hasActiveCall()).thenReturn(true);
+        monitor
+          ..start()
+          ..onPeerFailure('call-2', PeerFailureEvidence.connectionFailed);
+
+        now = now.add(const Duration(seconds: 9));
+        await tester.pump(const Duration(seconds: 9));
+
+        verify(session.socketDisconnect()).called(1);
+        verifyNever(session.triggerIceRestart(any));
+        await tester.pump(const Duration(seconds: 6));
+        verifyNever(session.socketDisconnect());
+        monitor.stop();
+      });
+
+      testWidgets('idle signaling sends one probe after healthy window expires',
+          (tester) async {
+        var now = DateTime.utc(2026);
+        monitor = SignalingHealthMonitor(session, now: () => now);
+        when(session.isConnected).thenReturn(true);
+        when(session.hasActiveCall()).thenReturn(true);
+        monitor
+          ..start()
+          ..onSocketActivity();
+
+        now = now.add(const Duration(seconds: 18));
+        await tester.pump(const Duration(seconds: 18));
+        verifyNever(session.sendProbe());
+        now = now.add(const Duration(seconds: 3));
+        await tester.pump(const Duration(seconds: 3));
+
+        verify(session.sendProbe()).called(1);
+        expect(monitor.isProbeInFlight, isTrue);
+        await tester.pump(const Duration(seconds: 6));
+        verifyNever(session.sendProbe());
+        monitor.stop();
+      });
+
+      test('socket activity clears a probe already in flight', () {
+        when(session.isConnected).thenReturn(true);
+        when(session.hasActiveCall()).thenReturn(true);
+        monitor
+          ..start()
+          ..onPeerFailure('call-3', PeerFailureEvidence.iceFailed);
+
+        expect(monitor.isProbeInFlight, isTrue);
+        monitor.onSocketActivity();
         expect(monitor.isProbeInFlight, isFalse);
       });
     });

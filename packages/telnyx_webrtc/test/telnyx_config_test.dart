@@ -6,8 +6,6 @@ import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 
 // Mock custom logger for testing
 class MockCustomLogger implements CustomLogger {
-  LogLevel _logLevel = LogLevel.none;
-
   @override
   void log(LogLevel level, String message) {
     // Mock implementation
@@ -15,7 +13,7 @@ class MockCustomLogger implements CustomLogger {
 
   @override
   void setLogLevel(LogLevel level) {
-    _logLevel = level;
+    // Mock implementation — no-op
   }
 }
 
@@ -273,6 +271,38 @@ void main() {
       expect(config.region, equals(Region.apac));
       expect(config.fallbackOnRegionFailure, isFalse);
       expect(config.forceRelayCandidate, isTrue);
+    });
+  });
+
+  group('VSDK-415/416 configuration defaults', () {
+    test('TokenConfig enables structured errors and monitoring by default', () {
+      final config = TokenConfig(
+        sipToken: 'token',
+        sipCallerIDName: 'name',
+        sipCallerIDNumber: 'number',
+        debug: false,
+        logLevel: LogLevel.none,
+      );
+
+      expect(config.enableStructuredErrors, isTrue);
+      expect(config.enableSignalingHealthMonitor, isTrue);
+      expect(config.mediaPermissionsRecovery, isNull);
+    });
+
+    test('CredentialConfig enables structured errors and monitoring by default',
+        () {
+      final config = CredentialConfig(
+        sipUser: 'user',
+        sipPassword: 'password',
+        sipCallerIDName: 'name',
+        sipCallerIDNumber: 'number',
+        debug: false,
+        logLevel: LogLevel.none,
+      );
+
+      expect(config.enableStructuredErrors, isTrue);
+      expect(config.enableSignalingHealthMonitor, isTrue);
+      expect(config.mediaPermissionsRecovery, isNull);
     });
   });
 }
