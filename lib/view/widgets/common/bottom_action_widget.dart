@@ -56,9 +56,9 @@ class _BottomConnectionActionWidgetState
             return Text(
               snapshot.data ?? '',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontSize: 10,
-                    color: Colors.grey[600],
-                  ),
+                fontSize: 10,
+                color: Colors.grey[600],
+              ),
               textAlign: TextAlign.center,
             );
           },

@@ -144,12 +144,14 @@ class _CallControlsState extends State<CallControls> {
                 readOnly: clientState != CallStateStatus.idle,
                 enabled: clientState == CallStateStatus.idle,
                 controller: _destinationController,
-                keyboardType:
-                    _isPhoneNumber ? TextInputType.phone : TextInputType.text,
+                keyboardType: _isPhoneNumber
+                    ? TextInputType.phone
+                    : TextInputType.text,
                 inputFormatters: _isPhoneNumber
                     ? [
                         FilteringTextInputFormatter.allow(
-                            RegExp(r'[0-9+\-\s\(\)]'))
+                          RegExp(r'[0-9+\-\s\(\)]'),
+                        ),
                       ]
                     : [
                         FilteringTextInputFormatter.allow(
@@ -158,13 +160,16 @@ class _CallControlsState extends State<CallControls> {
                       ],
                 decoration: InputDecoration(
                   hintStyle: Theme.of(context).textTheme.labelSmall,
-                  hintText:
-                      _isPhoneNumber ? '+E164 phone number' : 'SIP address',
+                  hintText: _isPhoneNumber
+                      ? '+E164 phone number'
+                      : 'SIP address',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(spacingS),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: active_text_field_color),
+                    borderSide: const BorderSide(
+                      color: active_text_field_color,
+                    ),
                     borderRadius: BorderRadius.circular(spacingS),
                   ),
                 ),
@@ -228,30 +233,39 @@ class _CallControlsState extends State<CallControls> {
           )
         else if (clientState == CallStateStatus.ongoingInvitation)
           Center(
-            child: Builder(builder: (context) {
-              final hasActiveCall = context.select<TelnyxClientViewModel, bool>(
-                (vm) => vm.hasActiveCall,
-              );
-              return CallInvitation(
-                onAccept: () {
-                  context.read<TelnyxClientViewModel>().accept();
-                },
-                onDecline: () {
-                  if (hasActiveCall) {
-                    context.read<TelnyxClientViewModel>().rejectIncomingCall();
-                  } else {
-                    context.read<TelnyxClientViewModel>().endCall();
-                  }
-                },
-                hasActiveCall: hasActiveCall,
-                onHoldAndAccept: () {
-                  context.read<TelnyxClientViewModel>().holdCurrentAndAcceptIncoming();
-                },
-                onEndAndAccept: () {
-                  context.read<TelnyxClientViewModel>().endCurrentAndAcceptIncoming();
-                },
-              );
-            }),
+            child: Builder(
+              builder: (context) {
+                final hasActiveCall = context
+                    .select<TelnyxClientViewModel, bool>(
+                      (vm) => vm.hasActiveCall,
+                    );
+                return CallInvitation(
+                  onAccept: () {
+                    context.read<TelnyxClientViewModel>().accept();
+                  },
+                  onDecline: () {
+                    if (hasActiveCall) {
+                      context
+                          .read<TelnyxClientViewModel>()
+                          .rejectIncomingCall();
+                    } else {
+                      context.read<TelnyxClientViewModel>().endCall();
+                    }
+                  },
+                  hasActiveCall: hasActiveCall,
+                  onHoldAndAccept: () {
+                    context
+                        .read<TelnyxClientViewModel>()
+                        .holdCurrentAndAcceptIncoming();
+                  },
+                  onEndAndAccept: () {
+                    context
+                        .read<TelnyxClientViewModel>()
+                        .endCurrentAndAcceptIncoming();
+                  },
+                );
+              },
+            ),
           )
         else if (clientState == CallStateStatus.connectingToCall)
           Center(child: CircularProgressIndicator())

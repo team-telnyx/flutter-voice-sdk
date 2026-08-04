@@ -68,14 +68,8 @@ class _AudioConstraintsDialogState extends State<AudioConstraintsDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
-        TextButton(
-          onPressed: _resetToDefaults,
-          child: const Text('Reset'),
-        ),
-        ElevatedButton(
-          onPressed: _saveConstraints,
-          child: const Text('Save'),
-        ),
+        TextButton(onPressed: _resetToDefaults, child: const Text('Reset')),
+        ElevatedButton(onPressed: _saveConstraints, child: const Text('Save')),
       ],
     );
   }

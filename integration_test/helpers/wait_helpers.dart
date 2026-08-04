@@ -30,10 +30,7 @@ extension WaitHelpers on PatrolIntegrationTester {
   }
 
   /// Wait until text appears on screen
-  Future<void> waitForText(
-    String text, {
-    Duration? timeout,
-  }) async {
+  Future<void> waitForText(String text, {Duration? timeout}) async {
     await waitUntilVisible(
       find.text(text),
       timeout: timeout,
@@ -42,10 +39,7 @@ extension WaitHelpers on PatrolIntegrationTester {
   }
 
   /// Wait until a widget with specific Key appears
-  Future<void> waitForKey(
-    String key, {
-    Duration? timeout,
-  }) async {
+  Future<void> waitForKey(String key, {Duration? timeout}) async {
     await waitUntilVisible(
       find.byKey(Key(key)),
       timeout: timeout,

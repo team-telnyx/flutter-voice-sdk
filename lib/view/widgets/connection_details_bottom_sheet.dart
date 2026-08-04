@@ -4,9 +4,7 @@ import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 
 class ConnectionDetailsBottomSheet extends StatelessWidget {
-  const ConnectionDetailsBottomSheet({
-    super.key,
-  });
+  const ConnectionDetailsBottomSheet({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,8 +32,8 @@ class ConnectionDetailsBottomSheet extends StatelessWidget {
                   Text(
                     'Connection Details',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -79,10 +77,7 @@ class LoadingStateWidget extends StatelessWidget {
 class MetricsContentWidget extends StatelessWidget {
   final SocketConnectionMetrics metrics;
 
-  const MetricsContentWidget({
-    super.key,
-    required this.metrics,
-  });
+  const MetricsContentWidget({super.key, required this.metrics});
 
   @override
   Widget build(BuildContext context) {
@@ -150,10 +145,7 @@ class MetricsContentWidget extends StatelessWidget {
 class QualityIndicatorWidget extends StatelessWidget {
   final SocketConnectionQuality quality;
 
-  const QualityIndicatorWidget({
-    super.key,
-    required this.quality,
-  });
+  const QualityIndicatorWidget({super.key, required this.quality});
 
   @override
   Widget build(BuildContext context) {
@@ -174,9 +166,9 @@ class QualityIndicatorWidget extends StatelessWidget {
         Text(
           qualityText,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: qualityColor,
-                fontWeight: FontWeight.bold,
-              ),
+            color: qualityColor,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
@@ -220,10 +212,7 @@ class QualityIndicatorWidget extends StatelessWidget {
 class SectionHeaderWidget extends StatelessWidget {
   final String title;
 
-  const SectionHeaderWidget({
-    super.key,
-    required this.title,
-  });
+  const SectionHeaderWidget({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
@@ -242,11 +231,7 @@ class MetricRowWidget extends StatelessWidget {
   final String label;
   final String value;
 
-  const MetricRowWidget({
-    super.key,
-    required this.label,
-    required this.value,
-  });
+  const MetricRowWidget({super.key, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -255,10 +240,7 @@ class MetricRowWidget extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
-          ),
+          Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
           Text(
             value,
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),

@@ -3,7 +3,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:http/http.dart' as http;
-import 'package:telnyx_webrtc/config/telnyx_config.dart' show Config;
+import 'package:telnyx_webrtc/config/telnyx_config.dart'
+    show Config, CredentialConfig, TokenConfig;
+import 'package:telnyx_webrtc/model/tx_ice_server.dart';
+import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/config/debug_output.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/log_collector.dart';
@@ -51,6 +54,295 @@ class CallReportOptions {
   }
 }
 
+/// Authentication type used to connect to the Telnyx platform.
+enum AuthenticationType {
+  anonymousLogin,
+  loginToken,
+  loginPassword,
+  token,
+  unknown;
+
+  String toJson() => switch (this) {
+        AuthenticationType.anonymousLogin => 'anonymous_login',
+        AuthenticationType.loginToken => 'login_token',
+        AuthenticationType.loginPassword => 'login_password',
+        AuthenticationType.token => 'token',
+        AuthenticationType.unknown => 'unknown',
+      };
+}
+
+/// Sanitized ICE server entry — URL is preserved but credentials are redacted
+/// to boolean flags so the server-side dashboard knows whether auth was
+/// configured without exposing the actual secrets.
+class SanitizedIceServer {
+  final List<String>? urls;
+  final bool hasUsername;
+  final bool hasCredential;
+
+  const SanitizedIceServer({
+    this.urls,
+    required this.hasUsername,
+    required this.hasCredential,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (urls != null) 'urls': urls,
+        'hasUsername': hasUsername,
+        'hasCredential': hasCredential,
+      };
+
+  @override
+  String toString() =>
+      'SanitizedIceServer(urls: $urls, hasUsername: $hasUsername, hasCredential: $hasCredential)';
+}
+
+/// Authentication section of [ClientSummary].
+class ClientAuthenticationSummary {
+  final AuthenticationType type;
+  final String? targetType;
+  final String? targetId;
+  final String? targetVersionId;
+  final Map<String, dynamic>? targetParams;
+
+  const ClientAuthenticationSummary({
+    required this.type,
+    this.targetType,
+    this.targetId,
+    this.targetVersionId,
+    this.targetParams,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'type': type.toJson(),
+        if (targetType != null)
+          'anonymousLogin': {
+            'targetType': targetType,
+            if (targetId != null) 'targetId': targetId,
+            if (targetVersionId != null) 'targetVersionId': targetVersionId,
+            if (targetParams != null) 'targetParams': targetParams,
+          },
+      };
+}
+
+/// Connection section of [ClientSummary].
+class ClientConnectionSummary {
+  final String? env;
+  final String? host;
+  final String? project;
+  final String? region;
+  final String? dc;
+  final String? rtcIp;
+  final int? rtcPort;
+  final bool? autoReconnect;
+  final int? maxReconnectAttempts;
+  final bool? keepConnectionAliveOnSocketClose;
+  final bool? hangupOnBeforeUnload;
+  final bool? useCanaryRtcServer;
+  final bool? skipLastVoiceSdkId;
+  final bool? skipTrailing;
+
+  const ClientConnectionSummary({
+    this.env,
+    this.host,
+    this.project,
+    this.region,
+    this.dc,
+    this.rtcIp,
+    this.rtcPort,
+    this.autoReconnect,
+    this.maxReconnectAttempts,
+    this.keepConnectionAliveOnSocketClose,
+    this.hangupOnBeforeUnload,
+    this.useCanaryRtcServer,
+    this.skipLastVoiceSdkId,
+    this.skipTrailing,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (env != null) 'env': env,
+        if (host != null) 'host': host,
+        if (project != null) 'project': project,
+        if (region != null) 'region': region,
+        if (dc != null) 'dc': dc,
+        if (rtcIp != null) 'rtcIp': rtcIp,
+        if (rtcPort != null) 'rtcPort': rtcPort,
+        if (autoReconnect != null) 'autoReconnect': autoReconnect,
+        if (maxReconnectAttempts != null)
+          'maxReconnectAttempts': maxReconnectAttempts,
+        if (keepConnectionAliveOnSocketClose != null)
+          'keepConnectionAliveOnSocketClose': keepConnectionAliveOnSocketClose,
+        if (hangupOnBeforeUnload != null)
+          'hangupOnBeforeUnload': hangupOnBeforeUnload,
+        if (useCanaryRtcServer != null)
+          'useCanaryRtcServer': useCanaryRtcServer,
+        if (skipLastVoiceSdkId != null)
+          'skipLastVoiceSdkId': skipLastVoiceSdkId,
+        if (skipTrailing != null) 'skipTrailing': skipTrailing,
+      };
+}
+
+/// Media section of [ClientSummary].
+class ClientMediaSummary {
+  final dynamic audio;
+  final dynamic video;
+  final bool? mutedMicOnStart;
+  final bool? prefetchIceCandidates;
+  final bool? forceRelayCandidate;
+  final bool? trickleIce;
+  final List<SanitizedIceServer>? iceServers;
+
+  const ClientMediaSummary({
+    this.audio,
+    this.video,
+    this.mutedMicOnStart,
+    this.prefetchIceCandidates,
+    this.forceRelayCandidate,
+    this.trickleIce,
+    this.iceServers,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (audio != null) 'audio': audio,
+        if (video != null) 'video': video,
+        if (mutedMicOnStart != null) 'mutedMicOnStart': mutedMicOnStart,
+        if (prefetchIceCandidates != null)
+          'prefetchIceCandidates': prefetchIceCandidates,
+        if (forceRelayCandidate != null)
+          'forceRelayCandidate': forceRelayCandidate,
+        if (trickleIce != null) 'trickleIce': trickleIce,
+        if (iceServers != null)
+          'iceServers': iceServers!.map((s) => s.toJson()).toList(),
+      };
+}
+
+/// Call-reports section of [ClientSummary].
+class ClientCallReportsSummary {
+  final bool? enabled;
+  final int? intervalMs;
+  final int? flushIntervalMs;
+  final String? debugLogLevel;
+  final int? debugLogMaxEntries;
+
+  const ClientCallReportsSummary({
+    this.enabled,
+    this.intervalMs,
+    this.flushIntervalMs,
+    this.debugLogLevel,
+    this.debugLogMaxEntries,
+  });
+
+  Map<String, dynamic> toJson() => {
+        if (enabled != null) 'enabled': enabled,
+        if (intervalMs != null) 'intervalMs': intervalMs,
+        if (flushIntervalMs != null) 'flushIntervalMs': flushIntervalMs,
+        if (debugLogLevel != null) 'debugLogLevel': debugLogLevel,
+        if (debugLogMaxEntries != null)
+          'debugLogMaxEntries': debugLogMaxEntries,
+      };
+}
+
+/// Sanitized snapshot of the SDK/client configuration in effect for a call.
+///
+/// Mirrors `IClientSummary` from the webrtc-js SDK so the call-report-stats
+/// dashboard receives the same structure regardless of which platform
+/// produced the report.
+class ClientSummary {
+  final ClientAuthenticationSummary? authentication;
+  final ClientConnectionSummary? connection;
+  final ClientMediaSummary? media;
+  final ClientCallReportsSummary? callReports;
+
+  const ClientSummary({
+    this.authentication,
+    this.connection,
+    this.media,
+    this.callReports,
+  });
+
+  /// Build a [ClientSummary] from a [Config] instance, mirroring the JS SDK's
+  /// `_getClientSummary()` in `BaseCall.ts`.
+  ///
+  /// [iceServers] are the effective ICE servers (after resolving config /
+  /// server-configuration precedence) so we can sanitize them here.
+  /// [host] is the WebSocket host the SDK actually connected to.
+  /// [region] is the resolved region (may differ from config when auto).
+  /// [dc] is the datacenter assigned by the server, if known.
+  factory ClientSummary.fromConfig({
+    required Config config,
+    required List<TxIceServer> iceServers,
+    String? host,
+    String? region,
+    String? dc,
+    bool? useTrickleIce,
+    bool? mutedMicOnStart,
+    AudioConstraints? audioConstraints,
+  }) {
+    // Determine authentication type
+    AuthenticationType authType;
+    String? targetType;
+    String? targetId;
+    String? targetVersionId;
+    Map<String, dynamic>? targetParams;
+
+    if (config is CredentialConfig) {
+      authType = AuthenticationType.loginPassword;
+    } else if (config is TokenConfig) {
+      authType = AuthenticationType.token;
+    } else {
+      authType = AuthenticationType.unknown;
+    }
+
+    // Sanitize ICE servers — preserve URLs, redact credentials to booleans
+    final sanitizedIceServers = iceServers
+        .map((s) => SanitizedIceServer(
+              urls: s.urls,
+              hasUsername: s.username != null && s.username!.isNotEmpty,
+              hasCredential: s.credential != null && s.credential!.isNotEmpty,
+            ))
+        .toList();
+
+    return ClientSummary(
+      authentication: ClientAuthenticationSummary(
+        type: authType,
+        targetType: targetType,
+        targetId: targetId,
+        targetVersionId: targetVersionId,
+        targetParams: targetParams,
+      ),
+      connection: ClientConnectionSummary(
+        host: host,
+        region: region,
+        dc: dc,
+        autoReconnect: config.autoReconnect ?? true,
+        maxReconnectAttempts: config.maxReconnectAttempts,
+        hangupOnBeforeUnload: config.hangupOnBeforeUnload,
+      ),
+      media: ClientMediaSummary(
+        audio: audioConstraints?.toMap(),
+        mutedMicOnStart: mutedMicOnStart ?? false,
+        prefetchIceCandidates: config.prefetchIceCandidates,
+        forceRelayCandidate: config.forceRelayCandidate,
+        trickleIce: useTrickleIce,
+        iceServers: sanitizedIceServers,
+      ),
+      callReports: ClientCallReportsSummary(
+        enabled: config.enableCallReports,
+        intervalMs: config.callReportInterval,
+        flushIntervalMs: config.callReportFlushInterval,
+        debugLogLevel: config.callReportLogLevel,
+        debugLogMaxEntries: config.callReportMaxLogEntries,
+      ),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        if (authentication != null) 'authentication': authentication!.toJson(),
+        if (connection != null) 'connection': connection!.toJson(),
+        if (media != null) 'media': media!.toJson(),
+        if (callReports != null) 'callReports': callReports!.toJson(),
+      };
+}
+
 /// Summary information about the call
 class CallSummary {
   /// Unique identifier of the call this summary describes.
@@ -89,6 +381,9 @@ class CallSummary {
   /// UTC ISO-8601 timestamp of when the call ended.
   final String? endTimestamp;
 
+  /// Sanitized client/session/call options in effect for this call.
+  final ClientSummary? clientSummary;
+
   /// Creates a summary describing a single call.
   CallSummary({
     required this.callId,
@@ -103,6 +398,7 @@ class CallSummary {
     required this.sdkVersion,
     this.startTimestamp,
     this.endTimestamp,
+    this.clientSummary,
   });
 
   /// Serializes this summary to a JSON-compatible map.
@@ -119,6 +415,7 @@ class CallSummary {
         'sdkVersion': sdkVersion,
         if (startTimestamp != null) 'startTimestamp': startTimestamp,
         if (endTimestamp != null) 'endTimestamp': endTimestamp,
+        if (clientSummary != null) 'clientSummary': clientSummary!.toJson(),
       };
 }
 

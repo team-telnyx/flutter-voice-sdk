@@ -114,10 +114,12 @@ class _ProfileSwitcherBottomSheetState
                         child: ElevatedButton(
                           key: const ValueKey('profile_confirm_button'),
                           onPressed:
-                              context.watch<ProfileProvider>().selectedProfile !=
-                                      null
-                                  ? () => Navigator.pop(context)
-                                  : null,
+                              context
+                                      .watch<ProfileProvider>()
+                                      .selectedProfile !=
+                                  null
+                              ? () => Navigator.pop(context)
+                              : null,
                           child: const Text('Confirm'),
                         ),
                       ),

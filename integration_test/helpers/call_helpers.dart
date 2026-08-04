@@ -34,7 +34,7 @@ extension CallHelpers on PatrolIntegrationTester {
     // Dismiss keyboard before tapping Save (keyboard may block button)
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await pumpAndSettle();
-    
+
     // Also try tapping outside to ensure keyboard is gone
     //await tester.tapAt(const Offset(10, 10));
     await pumpAndSettle();
@@ -81,7 +81,10 @@ extension CallHelpers on PatrolIntegrationTester {
 
   /// End the current call
   Future<void> endCall() async {
-    await tapWithRetry(find.byType(DeclineButton), description: 'DeclineButton');
+    await tapWithRetry(
+      find.byType(DeclineButton),
+      description: 'DeclineButton',
+    );
     await waitForCallEnded();
   }
 
@@ -156,7 +159,9 @@ extension CallHelpers on PatrolIntegrationTester {
 
     for (final digit in digits.split('')) {
       await tapTextWithRetry(digit);
-      await Future.delayed(const Duration(milliseconds: 200)); // Brief gap between tones
+      await Future.delayed(
+        const Duration(milliseconds: 200),
+      ); // Brief gap between tones
     }
 
     await closeKeypad();

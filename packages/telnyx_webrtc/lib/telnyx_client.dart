@@ -2547,6 +2547,19 @@ class TelnyxClient {
       callReportMaxLogEntries:
           callReportConfig?.callReportMaxLogEntries ?? 1000,
     );
+    // Build and cache ClientSummary for call reports
+    if (callReportConfig != null) {
+      inviteCall.peerConnection?.setClientSummary(
+        ClientSummary.fromConfig(
+          config: callReportConfig,
+          iceServers: _getEffectiveIceServers(),
+          host: _socketHost,
+          useTrickleIce: useTrickleIce,
+          mutedMicOnStart: mutedMicOnStart,
+          audioConstraints: audioConstraints,
+        ),
+      );
+    }
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
     if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
@@ -2654,6 +2667,19 @@ class TelnyxClient {
       callReportMaxLogEntries:
           answerCallReportConfig?.callReportMaxLogEntries ?? 1000,
     );
+    // Build and cache ClientSummary for call reports
+    if (answerCallReportConfig != null) {
+      answerCall.peerConnection?.setClientSummary(
+        ClientSummary.fromConfig(
+          config: answerCallReportConfig,
+          iceServers: _getEffectiveIceServers(),
+          host: _socketHost,
+          useTrickleIce: useTrickleIce,
+          mutedMicOnStart: mutedMicOnStart,
+          audioConstraints: audioConstraints,
+        ),
+      );
+    }
 
     // Set up the session with the callback if debug is enabled
     answerCall.peerConnection?.accept(

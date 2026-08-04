@@ -34,8 +34,8 @@ class EnvironmentBottomSheet extends StatelessWidget {
                   Text(
                     'Environment Options',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -46,9 +46,9 @@ class EnvironmentBottomSheet extends StatelessWidget {
               const SizedBox(height: spacingM),
               Text(
                 'Select the server environment for TURN/STUN servers.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               ),
               const SizedBox(height: spacingL),
               _EnvironmentOption(
@@ -74,9 +74,9 @@ class EnvironmentBottomSheet extends StatelessWidget {
                 isSelected: !isDevEnvironment,
                 onTap: () async {
                   await profileProvider.setDevEnvironment(false);
-                  context
-                      .read<TelnyxClientViewModel>()
-                      .setDevEnvironment(false);
+                  context.read<TelnyxClientViewModel>().setDevEnvironment(
+                    false,
+                  );
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -112,8 +112,9 @@ class EnvironmentBottomSheet extends StatelessWidget {
                             ? 'Currently using Development servers'
                             : 'Currently using Production servers',
                         style: TextStyle(
-                          color:
-                              isDevEnvironment ? Colors.orange : Colors.green,
+                          color: isDevEnvironment
+                              ? Colors.orange
+                              : Colors.green,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -170,24 +171,21 @@ class _EnvironmentOption extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.grey[600],
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                   ),
                 ],
               ),
             ),
             if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: Theme.of(context).primaryColor,
-              ),
+              Icon(Icons.check_circle, color: Theme.of(context).primaryColor),
           ],
         ),
       ),

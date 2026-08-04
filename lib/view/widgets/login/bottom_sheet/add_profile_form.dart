@@ -353,8 +353,8 @@ class _AddProfileFormState extends State<AddProfileForm> {
                   child: Text(
                     'Region',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 DropdownButtonFormField<Region>(
@@ -423,12 +423,9 @@ class _AddProfileFormState extends State<AddProfileForm> {
                       ),
                       Text(
                         'Forces TURN relay for all connections, preventing local network access prompts',
-                        style: Theme.of(
-                          context,
-                        )
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.grey[600]),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ),

@@ -25,9 +25,7 @@ void connectionTests() {
       await $.grantPermissionsIfNeeded();
 
       // Login with SIP credentials
-      await $.loginWithSipCredentials(
-        profileName: 'SIP Test Profile',
-      );
+      await $.loginWithSipCredentials(profileName: 'SIP Test Profile');
 
       // Verify we're connected and on home screen
       expect(find.byType(HomeScreen), findsOneWidget);

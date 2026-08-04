@@ -88,7 +88,8 @@ void outboundCallTests() {
     'Make call to SIP destination',
     timeout: Timeout(TestConfig.testTimeout),
     framePolicy: LiveTestWidgetsFlutterBindingFramePolicy.fullyLive,
-    skip: !TestConfig.hasSipCredentials || TestConfig.testDestinationSip.isEmpty,
+    skip:
+        !TestConfig.hasSipCredentials || TestConfig.testDestinationSip.isEmpty,
     ($) async {
       final originalOnError = FlutterError.onError;
       FlutterError.onError = ignoreOverflowErrors;

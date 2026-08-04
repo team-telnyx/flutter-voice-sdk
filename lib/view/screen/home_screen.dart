@@ -110,12 +110,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 final targetId = _targetIdController.text.trim();
                 final conversationId =
                     _conversationIdController.text.trim().isNotEmpty
-                        ? _conversationIdController.text.trim()
-                        : null;
+                    ? _conversationIdController.text.trim()
+                    : null;
                 if (targetId.isNotEmpty) {
                   Navigator.of(context).pop();
-                  Provider.of<TelnyxClientViewModel>(context, listen: false)
-                      .anonymousLogin(
+                  Provider.of<TelnyxClientViewModel>(
+                    context,
+                    listen: false,
+                  ).anonymousLogin(
                     targetId: targetId,
                     conversationId: conversationId,
                   );
@@ -163,15 +165,19 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'Enable Trickle ICE':
       case 'Disable Trickle ICE':
-        Provider.of<TelnyxClientViewModel>(context, listen: false)
-            .toggleTrickleIce();
+        Provider.of<TelnyxClientViewModel>(
+          context,
+          listen: false,
+        ).toggleTrickleIce();
         break;
       case 'Assistant Login':
         _showAssistantLoginDialog();
         break;
       case 'Force ICE Renegotiation':
-        Provider.of<TelnyxClientViewModel>(context, listen: false)
-            .forceIceRenegotiation();
+        Provider.of<TelnyxClientViewModel>(
+          context,
+          listen: false,
+        ).forceIceRenegotiation();
         break;
       case 'Start Call Muted On':
       case 'Start Call Muted Off':
@@ -181,8 +187,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _toggleMuteOnStart() {
-    final viewModel =
-        Provider.of<TelnyxClientViewModel>(context, listen: false);
+    final viewModel = Provider.of<TelnyxClientViewModel>(
+      context,
+      listen: false,
+    );
     final newState = !viewModel.mutedMicOnStart;
     viewModel.setMutedMicOnStart(newState);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -216,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final clientState = context.select<TelnyxClientViewModel, CallStateStatus>(
-          (txClient) => txClient.callState,
+      (txClient) => txClient.callState,
     );
 
     final profileProvider = context.watch<ProfileProvider>();
@@ -226,27 +234,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final useTrickleIce = clientViewModel.useTrickleIce;
 
     final errorMessage = context.select<TelnyxClientViewModel, String?>(
-          (viewModel) => viewModel.errorDialogMessage,
+      (viewModel) => viewModel.errorDialogMessage,
     );
 
     if (errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showDialog(
           context: context,
-          builder: (_) =>
-              AlertDialog(
-                title: const Text('Error'),
-                content: Text(errorMessage),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      context.read<TelnyxClientViewModel>().clearErrorDialog();
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
+          builder: (_) => AlertDialog(
+            title: const Text('Error'),
+            content: Text(errorMessage),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  context.read<TelnyxClientViewModel>().clearErrorDialog();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('OK'),
               ),
+            ],
+          ),
         );
       });
     }
@@ -367,44 +374,44 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             )
           : clientState == CallStateStatus.disconnected
-              ? // Connect Bottom Action widget positioned at the bottom
-              Consumer<TelnyxClientViewModel>(
-                  builder: (context, viewModel, child) {
-                    final profileProvider = context.watch<ProfileProvider>();
-                    final selectedProfile = profileProvider.selectedProfile;
-                    return Padding(
-                      padding: const EdgeInsets.all(spacingXXL),
-                      child: Semantics(
-                        identifier: 'connect_button',
-                        container: true,
-                        child: BottomConnectionActionWidget(
-                          key: const ValueKey('connect_button'),
-                          buttonTitle: 'Connect',
-                          isLoading: viewModel.loggingIn,
-                          onPressed: selectedProfile != null
-                              ? () async {
-                                  // Apply environment setting before connecting
-                                  final profileProvider =
-                                      context.read<ProfileProvider>();
-                                  viewModel.setDevEnvironment(
-                                    profileProvider.isDevEnvironment,
-                                  );
+          ? // Connect Bottom Action widget positioned at the bottom
+            Consumer<TelnyxClientViewModel>(
+              builder: (context, viewModel, child) {
+                final profileProvider = context.watch<ProfileProvider>();
+                final selectedProfile = profileProvider.selectedProfile;
+                return Padding(
+                  padding: const EdgeInsets.all(spacingXXL),
+                  child: Semantics(
+                    identifier: 'connect_button',
+                    container: true,
+                    child: BottomConnectionActionWidget(
+                      key: const ValueKey('connect_button'),
+                      buttonTitle: 'Connect',
+                      isLoading: viewModel.loggingIn,
+                      onPressed: selectedProfile != null
+                          ? () async {
+                              // Apply environment setting before connecting
+                              final profileProvider = context
+                                  .read<ProfileProvider>();
+                              viewModel.setDevEnvironment(
+                                profileProvider.isDevEnvironment,
+                              );
 
-                                  final config =
-                                      await selectedProfile.toTelnyxConfig();
-                                  if (config is TokenConfig) {
-                                    viewModel.loginWithToken(config);
-                                  } else if (config is CredentialConfig) {
-                                    viewModel.login(config);
-                                  }
-                                }
-                              : null,
-                        ),
-                      ),
-                    );
-                  },
-                )
-              : null,
+                              final config = await selectedProfile
+                                  .toTelnyxConfig();
+                              if (config is TokenConfig) {
+                                viewModel.loginWithToken(config);
+                              } else if (config is CredentialConfig) {
+                                viewModel.login(config);
+                              }
+                            }
+                          : null,
+                    ),
+                  ),
+                );
+              },
+            )
+          : null,
     );
   }
 }

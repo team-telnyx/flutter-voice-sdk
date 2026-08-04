@@ -95,6 +95,11 @@ class Peer {
   CallReportLogCollector? _callReportLogCollector;
   QualityWarningMonitor? _qualityWarningMonitor;
 
+  /// Cached [ClientSummary] built at call start so [postCallReport] can
+  /// include it in the final [CallSummary] without needing the original
+  /// [Config] reference.
+  ClientSummary? _clientSummary;
+
   // Add negotiation timer fields
   Timer? _negotiationTimer;
   DateTime? _lastCandidateTime;
@@ -1437,6 +1442,13 @@ class Peer {
     _callReportMaxLogEntries = callReportMaxLogEntries;
   }
 
+  /// Cache a [ClientSummary] built from the active [Config] so it can be
+  /// included in the final call report payload. Should be called at call
+  /// start (e.g. from `invite()` / `answer()`).
+  void setClientSummary(ClientSummary? summary) {
+    _clientSummary = summary;
+  }
+
   /// Get the log collector for external event logging
   CallReportLogCollector? get callReportLogCollector => _callReportLogCollector;
 
@@ -1590,6 +1602,7 @@ class Peer {
       telnyxSessionId: telnyxSessionId,
       telnyxLegId: telnyxLegId,
       sdkVersion: VersionUtils.getSDKVersion(),
+      clientSummary: _clientSummary,
     );
 
     // Store upload config for intermediate segment flushing

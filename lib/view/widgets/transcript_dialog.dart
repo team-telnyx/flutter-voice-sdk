@@ -60,9 +60,9 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking image: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
     }
   }
 
@@ -85,9 +85,9 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error picking images: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error picking images: $e')));
     }
   }
 
@@ -111,14 +111,15 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
       final messageText = message.isNotEmpty
           ? message
           : _selectedImagesBase64.length == 1
-              ? 'Image attached'
-              : '${_selectedImagesBase64.length} images attached';
+          ? 'Image attached'
+          : '${_selectedImagesBase64.length} images attached';
 
       context.read<TelnyxClientViewModel>().sendConversationMessage(
-            messageText,
-            base64Images:
-                _selectedImagesBase64.isNotEmpty ? _selectedImagesBase64 : null,
-          );
+        messageText,
+        base64Images: _selectedImagesBase64.isNotEmpty
+            ? _selectedImagesBase64
+            : null,
+      );
       _messageController.clear();
       _clearAllImages();
       _scrollToBottom();
@@ -187,9 +188,7 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.grey[100],
-            border: Border(
-              top: BorderSide(color: Colors.grey[300]!),
-            ),
+            border: Border(top: BorderSide(color: Colors.grey[300]!)),
           ),
           child: Column(
             children: [
@@ -259,8 +258,9 @@ class _TranscriptDialogState extends State<TranscriptDialog> {
                                         height: 20,
                                         decoration: BoxDecoration(
                                           color: Colors.red,
-                                          borderRadius:
-                                              BorderRadius.circular(10),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
                                         ),
                                         child: const Icon(
                                           Icons.close,
@@ -371,8 +371,9 @@ class _TranscriptMessage extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment:
-            isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         children: [
           if (!isUser) ...[
             CircleAvatar(
@@ -524,9 +525,7 @@ class _DataUrlImageState extends State<_DataUrlImage> {
         width: widget.width,
         height: widget.height,
         color: Colors.grey[300],
-        child: const Center(
-          child: CircularProgressIndicator(),
-        ),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
