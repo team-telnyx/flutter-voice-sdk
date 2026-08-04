@@ -336,6 +336,18 @@ class SignalingHealthMonitor {
     if (_session.isConnected != true) return;
     if (_session.hasActiveCall() != true) return;
 
+    // Handle probe timeout regardless of whether media recovery is pending.
+    // If the probe was sent but never resolved (send failed, response lost),
+    // the socket must be disconnected to trigger recovery (VSDK-397).
+    if (_isProbeInFlight) {
+      final startedAt = _probeStartedAt;
+      if (startedAt != null && _now().difference(startedAt) >= _probeTimeout) {
+        _clearPendingRecovery();
+        _session.socketDisconnect();
+        return;
+      }
+    }
+
     // Resolve a deferred media recovery once signaling health becomes known,
     // so the recovery is never silently dropped.
     final pending = _pendingMediaRecovery;

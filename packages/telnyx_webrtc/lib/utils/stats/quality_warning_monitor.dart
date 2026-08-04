@@ -67,18 +67,16 @@ class QualityWarningMonitor {
     final connection = stats.connection;
     final ice = stats.ice;
 
-    // Track whether any warning was emitted this interval — only one warning
-    // per interval to avoid noise.
-    bool emittedThisInterval = false;
-
     // Extract common values.
     final rtt = connection?.roundTripTimeAvg;
     final jitter = audio?.inbound?.jitterAvg;
     final packetsReceived = audio?.inbound?.packetsReceived;
     final packetsLost = audio?.inbound?.packetsLost;
 
-    // ── LOW_MOS (checked first so it takes priority over individual
-    //    metric warnings when multiple conditions are bad) ───────────────
+    // ── LOW_MOS ────────────────────────────────────────────────────────────
+    // Each warning code has its own per-code throttle (_intervalsSinceEmission),
+    // so multiple metrics can breach on the same interval and each emits
+    // independently — matching JS CallReportCollector._trackBreach() (VSDK-397).
     if (rtt != null &&
         jitter != null &&
         packetsReceived != null &&
@@ -105,11 +103,8 @@ class QualityWarningMonitor {
       );
       if (mos < _mosThreshold) {
         _lowMosBreaches++;
-        if (_lowMosBreaches >= _consecutiveBreachesRequired &&
-            !emittedThisInterval) {
-          if (_emit(SdkWarningCode.lowMos)) {
-            emittedThisInterval = true;
-          }
+        if (_lowMosBreaches >= _consecutiveBreachesRequired) {
+          _emit(SdkWarningCode.lowMos);
         }
       } else {
         _lowMosBreaches = 0;
@@ -119,11 +114,8 @@ class QualityWarningMonitor {
     // ── HIGH_RTT ──────────────────────────────────────────────────────────
     if (rtt != null && rtt > _rttThreshold) {
       _highRttBreaches++;
-      if (_highRttBreaches >= _consecutiveBreachesRequired &&
-          !emittedThisInterval) {
-        if (_emit(SdkWarningCode.highRtt)) {
-          emittedThisInterval = true;
-        }
+      if (_highRttBreaches >= _consecutiveBreachesRequired) {
+        _emit(SdkWarningCode.highRtt);
       }
     } else {
       _highRttBreaches = 0;
@@ -132,11 +124,8 @@ class QualityWarningMonitor {
     // ── HIGH_JITTER ──────────────────────────────────────────────────────
     if (jitter != null && jitter > _jitterThreshold) {
       _highJitterBreaches++;
-      if (_highJitterBreaches >= _consecutiveBreachesRequired &&
-          !emittedThisInterval) {
-        if (_emit(SdkWarningCode.highJitter)) {
-          emittedThisInterval = true;
-        }
+      if (_highJitterBreaches >= _consecutiveBreachesRequired) {
+        _emit(SdkWarningCode.highJitter);
       }
     } else {
       _highJitterBreaches = 0;
@@ -152,11 +141,8 @@ class QualityWarningMonitor {
           final lossRate = lostDelta / totalDelta;
           if (lossRate > _packetLossThreshold) {
             _highPacketLossBreaches++;
-            if (_highPacketLossBreaches >= _consecutiveBreachesRequired &&
-                !emittedThisInterval) {
-              if (_emit(SdkWarningCode.highPacketLoss)) {
-                emittedThisInterval = true;
-              }
+            if (_highPacketLossBreaches >= _consecutiveBreachesRequired) {
+              _emit(SdkWarningCode.highPacketLoss);
             }
           } else {
             _highPacketLossBreaches = 0;
@@ -179,20 +165,14 @@ class QualityWarningMonitor {
         if (!_audioConfirmed) {
           // Pre-confirmation: 3 consecutive intervals
           _lowLocalAudioBreaches++;
-          if (_lowLocalAudioBreaches >= _consecutiveBreachesRequired &&
-              !emittedThisInterval) {
-            if (_emit(SdkWarningCode.lowLocalAudio)) {
-              emittedThisInterval = true;
-            }
+          if (_lowLocalAudioBreaches >= _consecutiveBreachesRequired) {
+            _emit(SdkWarningCode.lowLocalAudio);
           }
         } else {
           // Post-confirmation: 30s continuous silence
           _postConfirmSilenceCount++;
-          if (_postConfirmSilenceCount >= _postConfirmSilenceIntervals &&
-              !emittedThisInterval) {
-            if (_emit(SdkWarningCode.lowLocalAudio)) {
-              emittedThisInterval = true;
-            }
+          if (_postConfirmSilenceCount >= _postConfirmSilenceIntervals) {
+            _emit(SdkWarningCode.lowLocalAudio);
           }
         }
       }
@@ -212,11 +192,8 @@ class QualityWarningMonitor {
       } else if (_inboundAudioConfirmed) {
         // Post-confirmation: sustained silence after audio was flowing.
         _postConfirmInboundSilenceCount++;
-        if (_postConfirmInboundSilenceCount >= _postConfirmSilenceIntervals &&
-            !emittedThisInterval) {
-          if (_emit(SdkWarningCode.lowInboundAudio)) {
-            emittedThisInterval = true;
-          }
+        if (_postConfirmInboundSilenceCount >= _postConfirmSilenceIntervals) {
+          _emit(SdkWarningCode.lowInboundAudio);
         }
       }
     }
@@ -228,11 +205,8 @@ class QualityWarningMonitor {
         final delta = bytesReceived - _prevBytesReceived!;
         if (delta == 0) {
           _lowBytesReceivedBreaches++;
-          if (_lowBytesReceivedBreaches >= _consecutiveBreachesRequired &&
-              !emittedThisInterval) {
-            if (_emit(SdkWarningCode.lowBytesReceived)) {
-              emittedThisInterval = true;
-            }
+          if (_lowBytesReceivedBreaches >= _consecutiveBreachesRequired) {
+            _emit(SdkWarningCode.lowBytesReceived);
           }
         } else {
           _lowBytesReceivedBreaches = 0;
@@ -248,11 +222,8 @@ class QualityWarningMonitor {
         final delta = bytesSent - _prevBytesSent!;
         if (delta == 0) {
           _lowBytesSentBreaches++;
-          if (_lowBytesSentBreaches >= _consecutiveBreachesRequired &&
-              !emittedThisInterval) {
-            if (_emit(SdkWarningCode.lowBytesSent)) {
-              emittedThisInterval = true;
-            }
+          if (_lowBytesSentBreaches >= _consecutiveBreachesRequired) {
+            _emit(SdkWarningCode.lowBytesSent);
           }
         } else {
           _lowBytesSentBreaches = 0;

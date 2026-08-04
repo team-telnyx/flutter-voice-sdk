@@ -11,6 +11,7 @@ import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 class _FakeTxSocket extends TxSocket {
   _FakeTxSocket() : super('wss://example.test');
+  bool wasDisconnected = false;
   @override
   void connect() {}
   @override
@@ -33,8 +34,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-      'ICE restart that cannot be started emits iceRestartFailed (47001) '
-      'as a structured error', () {
+      'ICE restart that cannot be started (no peer) does NOT emit '
+      'iceRestartFailed (47001) or escalate to socket reconnect (VSDK-397)',
+      () {
     SharedPreferences.setMockInitialValues({});
     final socket = _FakeTxSocket();
     final errors = <Object>[];
@@ -44,7 +46,7 @@ void main() {
       ..onTelnyxError = errors.add;
 
     // A call with no peer connection → restartIce() returns false (cannot
-    // start), which is a genuine ICE-restart failure.
+    // start). This is benign (call in terminal state, no peer to restart).
     final call = client.call..callId = 'call-1';
     client.calls['call-1'] = call;
     call.callHandler.changeState(CallState.active);
@@ -55,9 +57,10 @@ void main() {
     client.healthMonitor!
         .onPeerFailure('call-1', PeerFailureEvidence.iceFailed);
 
+    // No structured error should be emitted for "not started" (benign).
     final codes =
         errors.whereType<TelnyxErrorEvent>().map((e) => e.error.code).toList();
-    expect(codes, contains(TelnyxErrorCodes.iceRestartFailed));
+    expect(codes, isNot(contains(TelnyxErrorCodes.iceRestartFailed)));
 
     client.dispose();
   });

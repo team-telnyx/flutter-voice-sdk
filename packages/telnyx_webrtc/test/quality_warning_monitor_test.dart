@@ -486,7 +486,8 @@ void main() {
           );
         expect(warnings.length, equals(0));
 
-        // Breach 3 → warning.
+        // Breach 3 → warnings (LOW_MOS and HIGH_PACKET_LOSS both fire —
+        // per-code independent throttling, matching JS CallReportCollector).
         monitor.checkStats(
           _makeStats(
             rtt: 0.3,
@@ -495,9 +496,15 @@ void main() {
             packetsLost: 45,
           ),
         );
-        expect(warnings.length, equals(1));
-        expect(warnings[0].code, equals(SdkWarningCode.lowMos));
-        expect(warnings[0].name, equals('LOW_MOS'));
+        expect(warnings.length, equals(2));
+        expect(
+          warnings.map((w) => w.code).toList(),
+          containsAll([SdkWarningCode.lowMos, SdkWarningCode.highPacketLoss]),
+        );
+        final lowMosWarning = warnings.firstWhere(
+          (w) => w.code == SdkWarningCode.lowMos,
+        );
+        expect(lowMosWarning.name, equals('LOW_MOS'));
       },
     );
   });
