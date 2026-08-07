@@ -2313,6 +2313,12 @@ class TelnyxClient {
   /// immediately. Non-JWT tokens are skipped silently.
   ///
   /// Mirrors JS BaseSession._checkTokenExpiry() (VSDK-397).
+  ///
+  /// Note: The warning is advisory, not authoritative — the server is the
+  /// source of truth for token validity. On mobile, device clock skew (NTP
+  /// not synced, manual time change, timezone jumps) can cause the warning
+  /// to fire early/late. This matches the JS implementation which has the
+  /// same caveat with Date.now() (AFK review N1).
   void _checkTokenExpiry(String? token) {
     _clearTokenExpiryTimer();
     if (token == null || token.isEmpty) return;
@@ -3527,7 +3533,7 @@ class TelnyxClient {
                       TelnyxWarningCodes.unknownReattachedSession,
                       callId: attachCallId,
                       reason:
-                          'Attach for callID $attachCallId does not match any active call',
+                          'Attach for callID $attachCallId does not match any active call (${calls.length} active)',
                       source: 'attach',
                     );
                   }

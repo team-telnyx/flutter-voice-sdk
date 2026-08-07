@@ -242,7 +242,12 @@ class QualityWarningMonitor {
       _lastIceCandidatePairId = pairId;
     }
 
-    // Increment throttle counters for all tracked codes.
+    // Increment throttle counters for all *previously emitted* codes.
+    // Only codes that have been emitted at least once are in
+    // _intervalsSinceEmission (added by _emit, set to 0). Codes that
+    // never breach never enter the map, so they are unaffected.
+    // This matches JS CallReportCollector._trackBreach() semantics
+    // where the throttle window counts from the last emission (AFK review W2).
     for (final code in _intervalsSinceEmission.keys.toList()) {
       _intervalsSinceEmission[code] = _intervalsSinceEmission[code]! + 1;
     }

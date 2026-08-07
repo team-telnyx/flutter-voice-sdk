@@ -339,11 +339,20 @@ class SignalingHealthMonitor {
     // Handle probe timeout regardless of whether media recovery is pending.
     // If the probe was sent but never resolved (send failed, response lost),
     // the socket must be disconnected to trigger recovery (VSDK-397).
+    //
+    // Capture the in-flight flag *before* clearing so that a late
+    // resolveProbe() that runs between _clearPendingRecovery() and
+    // socketDisconnect() cannot cause us to disconnect when the probe
+    // was already resolved. The local capture makes the timeout-vs-resolve
+    // race explicit (AFK review W1).
     if (_isProbeInFlight) {
       final startedAt = _probeStartedAt;
       if (startedAt != null && _now().difference(startedAt) >= _probeTimeout) {
+        final wasProbeInFlight = _isProbeInFlight;
         _clearPendingRecovery();
-        _session.socketDisconnect();
+        if (wasProbeInFlight) {
+          _session.socketDisconnect();
+        }
         return;
       }
     }
@@ -361,8 +370,12 @@ class SignalingHealthMonitor {
       final startedAt = _probeStartedAt;
       if (startedAt != null && _now().difference(startedAt) >= _probeTimeout) {
         // Probe window elapsed with signaling still unhealthy → reconnect.
+        // Same race guard as the unconditional probe-timeout branch above.
+        final wasProbeInFlight = _isProbeInFlight;
         _clearPendingRecovery();
-        _session.socketDisconnect();
+        if (wasProbeInFlight) {
+          _session.socketDisconnect();
+        }
         return;
       }
       // Still waiting for signaling to recover within the probe window.
