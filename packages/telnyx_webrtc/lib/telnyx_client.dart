@@ -650,14 +650,14 @@ class TelnyxClient {
     );
     final started = call.restartIce();
     if (!started) {
-      // Structured ICE-restart failure (VSDK-415) + escalate to a socket
-      // reconnect via the recovery authority (VSDK-416).
-      emitStructuredErrorCode(
-        TelnyxErrorCodes.iceRestartFailed,
-        message: 'ICE restart could not be started for call $callId',
-        callId: callId,
+      // ICE restart could not start — the call is likely in a terminal state
+      // (peer already closed, no active connection). This is benign, not a
+      // failure. Log and return without escalating to socket reconnect.
+      // JS mirrors: BaseSession.triggerIceRestart() → started:false → log only.
+      // (VSDK-397)
+      GlobalLogger().d(
+        'ICE restart not started for call $callId — call may be in terminal state',
       );
-      _healthMonitor?.onIceRestartFailed(callId);
     }
     return TriggerIceRestartResult(started: started);
   }
@@ -759,6 +759,14 @@ class TelnyxClient {
   /// active-call marker persistence is suppressed so an explicit clear is not
   /// immediately re-populated. Internal network recovery does NOT set this.
   bool _explicitDisconnectInProgress = false;
+
+  // ── Token expiry warning (VSDK-397) ─────────────────────────────────
+
+  /// Timer for the TOKEN_EXPIRING_SOON warning. Set after tokenLogin when
+  /// the login token is a JWT, fired 120 s before expiry. Mirrors JS
+  /// BaseSession._tokenExpiryTimeout.
+  Timer? _tokenExpiryTimer;
+  static const int _tokenExpiryWarningSeconds = 120;
 
   /// Monotonic epoch bumped on every connect (in [_applyStructuredConfig]).
   ///
@@ -2295,6 +2303,75 @@ class TelnyxClient {
         txSocket.send(jsonLoginMessage);
       });
     }
+
+    // Schedule TOKEN_EXPIRING_SOON warning if the token is a JWT (VSDK-397).
+    _checkTokenExpiry(config.sipToken);
+  }
+
+  /// Decodes the JWT [token] and schedules a [TelnyxWarningCodes.tokenExpiringSoon]
+  /// warning 120 s before expiry. If already within 120 s of expiry, emits
+  /// immediately. Non-JWT tokens are skipped silently.
+  ///
+  /// Mirrors JS BaseSession._checkTokenExpiry() (VSDK-397).
+  ///
+  /// Note: The warning is advisory, not authoritative — the server is the
+  /// source of truth for token validity. On mobile, device clock skew (NTP
+  /// not synced, manual time change, timezone jumps) can cause the warning
+  /// to fire early/late. This matches the JS implementation which has the
+  /// same caveat with Date.now() (AFK review N1).
+  void _checkTokenExpiry(String? token) {
+    _clearTokenExpiryTimer();
+    if (token == null || token.isEmpty) return;
+
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return; // not a JWT
+
+      // JWT payload is base64url-encoded.
+      String payload = parts[1];
+      // Pad to a multiple of 4 for base64 decode.
+      payload += '=' * ((4 - payload.length % 4) % 4);
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final json = jsonDecode(decoded) as Map<String, dynamic>;
+      final exp = json['exp'];
+      if (exp is! num) return;
+
+      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final secondsUntilExpiry = exp.toInt() - nowSec;
+
+      if (secondsUntilExpiry <= 0) {
+        // Already expired — login will fail and error handler will fire.
+        return;
+      } else if (secondsUntilExpiry <= _tokenExpiryWarningSeconds) {
+        // Expiring very soon — emit immediately.
+        _emitTokenExpiryWarning();
+      } else {
+        // Schedule warning for 120 s before expiry.
+        final delayMs =
+            (secondsUntilExpiry - _tokenExpiryWarningSeconds) * 1000;
+        _tokenExpiryTimer = Timer(
+          Duration(milliseconds: delayMs),
+          _emitTokenExpiryWarning,
+        );
+      }
+    } catch (e) {
+      // Not a valid JWT — skip silently.
+      GlobalLogger()
+          .d('login_token is not a decodable JWT, skipping expiry check: $e');
+    }
+  }
+
+  void _emitTokenExpiryWarning() {
+    emitWarningCode(
+      TelnyxWarningCodes.tokenExpiringSoon,
+      reason: 'JWT token expiring soon',
+      source: 'auth',
+    );
+  }
+
+  void _clearTokenExpiryTimer() {
+    _tokenExpiryTimer?.cancel();
+    _tokenExpiryTimer = null;
   }
 
   /// Performs an anonymous login to the Telnyx backend for AI assistant connections.
@@ -2768,6 +2845,7 @@ class TelnyxClient {
     // (VSDK-418) and stops the signaling-health monitor (VSDK-416).
     _explicitDisconnectInProgress = true;
     _healthMonitor?.stop();
+    _clearTokenExpiryTimer();
     unawaited(_clearPersistedRecovery(_recoveryEpoch));
     if (_closed) {
       GlobalLogger().i('WebSocket is already closed');
@@ -2801,6 +2879,7 @@ class TelnyxClient {
     // (VSDK-418) and stops the signaling-health monitor (VSDK-416).
     _explicitDisconnectInProgress = true;
     _healthMonitor?.stop();
+    _clearTokenExpiryTimer();
     unawaited(_clearPersistedRecovery(_recoveryEpoch));
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
@@ -2820,6 +2899,7 @@ class TelnyxClient {
     _disposed = true;
     _closed = true;
     _healthMonitor?.stop();
+    _clearTokenExpiryTimer();
     _requestTimeoutTracker?.cancelAll();
     _invalidateConnectionGeneration();
     _invalidateGatewayResponseTimer();
@@ -2861,6 +2941,17 @@ class TelnyxClient {
         TelnyxErrorCodes.webSocketError,
         message: 'WebSocket closed unexpectedly [$code, $reason]',
       );
+
+      // When auto-reconnect is disabled and this is not an intentional
+      // disconnect, emit RECONNECTION_FAILED_WITH_NO_AUTO_RECONNECT (36005)
+      // so the app knows the session won't recover automatically (VSDK-397).
+      if (!_autoReconnectLogin && !_explicitDisconnectInProgress) {
+        emitWarningCode(
+          TelnyxWarningCodes.reconnectionFailedWithNoAutoReconnect,
+          reason: 'auto_reconnect_disabled',
+          source: 'socket_close',
+        );
+      }
     }
 
     // Handle region fallback if connection failed and fallback is enabled.
@@ -3423,13 +3514,29 @@ class TelnyxClient {
                     message: invite,
                   );
 
+                  final attachCallId = invite.inviteParams?.callID;
                   // Preserve speakerphone state from existing call before reconnection
-                  final existingCall = calls[invite.inviteParams?.callID];
+                  final existingCall = calls[attachCallId];
                   final bool wasSpeakerPhoneEnabled =
                       existingCall?.speakerPhone ?? false;
                   GlobalLogger().i(
                     'ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled',
                   );
+
+                  // If the SDK has active calls but this Attach's callID is
+                  // not among them, the server is reattaching a session the
+                  // client doesn't know about — emit warning (VSDK-397).
+                  if (attachCallId != null &&
+                      existingCall == null &&
+                      calls.isNotEmpty) {
+                    emitWarningCode(
+                      TelnyxWarningCodes.unknownReattachedSession,
+                      callId: attachCallId,
+                      reason:
+                          'Attach for callID $attachCallId does not match any active call (${calls.length} active)',
+                      source: 'attach',
+                    );
+                  }
 
                   //play ringtone for web
                   final Call offerCall = _createCall()
