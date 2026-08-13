@@ -1031,19 +1031,33 @@ class TelnyxClient {
     // First priority: custom ICE servers from Config
     final configIceServers = config?.iceServers;
     if (configIceServers != null && configIceServers.isNotEmpty) {
-      GlobalLogger().i(
-        'TelnyxClient :: Using custom ICE servers from Config (${configIceServers.length} servers)',
+      final valid = configIceServers.where((s) => s.urls.isNotEmpty).toList();
+      if (valid.isNotEmpty) {
+        GlobalLogger().i(
+          'TelnyxClient :: Using custom ICE servers from Config (${valid.length} servers)',
+        );
+        return valid;
+      }
+      GlobalLogger().w(
+        'TelnyxClient :: Custom ICE servers from Config all have empty URLs, falling back',
       );
-      return configIceServers;
     }
 
     // Second priority: ICE servers from serverConfiguration in Config
     final serverConfig = config?.serverConfiguration;
     if (serverConfig != null) {
-      GlobalLogger().i(
-        'TelnyxClient :: Using ICE servers from serverConfiguration (${serverConfig.webRTCIceServers.length} servers)',
+      final valid = serverConfig.webRTCIceServers
+          .where((s) => s.urls.isNotEmpty)
+          .toList();
+      if (valid.isNotEmpty) {
+        GlobalLogger().i(
+          'TelnyxClient :: Using ICE servers from serverConfiguration (${valid.length} servers)',
+        );
+        return valid;
+      }
+      GlobalLogger().w(
+        'TelnyxClient :: serverConfiguration ICE servers all have empty URLs, falling back to defaults',
       );
-      return serverConfig.webRTCIceServers;
     }
 
     // Third priority: ICE servers from _serverConfiguration (client-level default)
