@@ -1025,14 +1025,37 @@ class TelnyxClient {
   /// 1. Custom ICE servers from Config (iceServers property)
   /// 2. ICE servers from serverConfiguration (webRTCIceServers property)
   /// 3. Default ICE servers from serverConfiguration
-  List<TxIceServer> _getEffectiveIceServers() {
+  List<TxIceServer> getEffectiveIceServers() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
+    return resolveEffectiveIceServers(
+      configIceServers: config?.iceServers,
+      serverConfig: config?.serverConfiguration,
+      defaultServerConfig: _serverConfiguration,
+    );
+  }
 
+  /// Resolves the effective ICE servers from the given priority layers.
+  ///
+  /// Extracted as a static method so tests can exercise the exact same logic
+  /// without instantiating a [TelnyxClient] (which requires socket/network
+  /// dependencies).
+  @visibleForTesting
+  static List<TxIceServer> resolveEffectiveIceServers({
+    List<TxIceServer>? configIceServers,
+    TxServerConfiguration? serverConfig,
+    required TxServerConfiguration defaultServerConfig,
+  }) {
     // First priority: custom ICE servers from Config
-    final configIceServers = config?.iceServers;
     if (configIceServers != null && configIceServers.isNotEmpty) {
-      final valid = configIceServers.where((s) => s.urls.isNotEmpty).toList();
+      final valid = configIceServers
+          .where((s) => s.urls.any((u) => u.isNotEmpty))
+          .toList();
       if (valid.isNotEmpty) {
+        if (valid.length < configIceServers.length) {
+          GlobalLogger().w(
+            'TelnyxClient :: Filtered ${configIceServers.length - valid.length} empty-URL ICE server(s) from Config',
+          );
+        }
         GlobalLogger().i(
           'TelnyxClient :: Using custom ICE servers from Config (${valid.length} servers)',
         );
@@ -1044,12 +1067,16 @@ class TelnyxClient {
     }
 
     // Second priority: ICE servers from serverConfiguration in Config
-    final serverConfig = config?.serverConfiguration;
     if (serverConfig != null) {
       final valid = serverConfig.webRTCIceServers
-          .where((s) => s.urls.isNotEmpty)
+          .where((s) => s.urls.any((u) => u.isNotEmpty))
           .toList();
       if (valid.isNotEmpty) {
+        if (valid.length < serverConfig.webRTCIceServers.length) {
+          GlobalLogger().w(
+            'TelnyxClient :: Filtered ${serverConfig.webRTCIceServers.length - valid.length} empty-URL ICE server(s) from serverConfiguration',
+          );
+        }
         GlobalLogger().i(
           'TelnyxClient :: Using ICE servers from serverConfiguration (${valid.length} servers)',
         );
@@ -1060,11 +1087,11 @@ class TelnyxClient {
       );
     }
 
-    // Third priority: ICE servers from _serverConfiguration (client-level default)
+    // Third priority: ICE servers from default serverConfiguration (client-level default)
     GlobalLogger().i(
-      'TelnyxClient :: Using ICE servers from default serverConfiguration (${_serverConfiguration.webRTCIceServers.length} servers)',
+      'TelnyxClient :: Using ICE servers from default serverConfiguration (${defaultServerConfig.webRTCIceServers.length} servers)',
     );
-    return _serverConfiguration.webRTCIceServers;
+    return defaultServerConfig.webRTCIceServers;
   }
 
   /// Returns whether or not the client is connected to the socket connection
@@ -2557,7 +2584,7 @@ class TelnyxClient {
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      _getEffectiveIceServers(),
+      getEffectiveIceServers(),
     );
     // Apply call report config from stored config
     final callReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
@@ -2663,7 +2690,7 @@ class TelnyxClient {
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      _getEffectiveIceServers(),
+      getEffectiveIceServers(),
     );
     // Apply call report config from stored config
     final answerCallReportConfig =
