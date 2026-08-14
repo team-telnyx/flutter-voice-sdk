@@ -71,7 +71,12 @@ class TxIceServer {
     if (urlsValue is String) {
       urls = [urlsValue];
     } else if (urlsValue is List) {
-      urls = urlsValue.cast<String>();
+      urls = urlsValue.whereType<String>().toList();
+      if (urls.length != urlsValue.length) {
+        GlobalLogger().w(
+          'TxIceServer :: Ignored non-string values in ICE server urls list.',
+        );
+      }
     } else {
       GlobalLogger().w(
         'TxIceServer :: Invalid urls value type in ICE server config: ${urlsValue?.runtimeType}. Expected String or List<String>.',

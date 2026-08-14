@@ -6,6 +6,7 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
 import 'package:telnyx_webrtc/model/tx_ice_server.dart';
+import 'package:telnyx_webrtc/src/ice_server_resolver.dart' as ice_resolver;
 import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -1025,73 +1026,13 @@ class TelnyxClient {
   /// 1. Custom ICE servers from Config (iceServers property)
   /// 2. ICE servers from serverConfiguration (webRTCIceServers property)
   /// 3. Default ICE servers from serverConfiguration
-  List<TxIceServer> getEffectiveIceServers() {
+  List<TxIceServer> _getEffectiveIceServers() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
-    return resolveEffectiveIceServers(
+    return ice_resolver.resolveEffectiveIceServers(
       configIceServers: config?.iceServers,
       serverConfig: config?.serverConfiguration,
       defaultServerConfig: _serverConfiguration,
     );
-  }
-
-  /// Resolves the effective ICE servers from the given priority layers.
-  ///
-  /// Extracted as a static method so tests can exercise the exact same logic
-  /// without instantiating a [TelnyxClient] (which requires socket/network
-  /// dependencies).
-  @visibleForTesting
-  static List<TxIceServer> resolveEffectiveIceServers({
-    List<TxIceServer>? configIceServers,
-    TxServerConfiguration? serverConfig,
-    required TxServerConfiguration defaultServerConfig,
-  }) {
-    // First priority: custom ICE servers from Config
-    if (configIceServers != null && configIceServers.isNotEmpty) {
-      final valid = configIceServers
-          .where((s) => s.urls.any((u) => u.isNotEmpty))
-          .toList();
-      if (valid.isNotEmpty) {
-        if (valid.length < configIceServers.length) {
-          GlobalLogger().w(
-            'TelnyxClient :: Filtered ${configIceServers.length - valid.length} empty-URL ICE server(s) from Config',
-          );
-        }
-        GlobalLogger().i(
-          'TelnyxClient :: Using custom ICE servers from Config (${valid.length} servers)',
-        );
-        return valid;
-      }
-      GlobalLogger().w(
-        'TelnyxClient :: Custom ICE servers from Config all have empty URLs, falling back',
-      );
-    }
-
-    // Second priority: ICE servers from serverConfiguration in Config
-    if (serverConfig != null) {
-      final valid = serverConfig.webRTCIceServers
-          .where((s) => s.urls.any((u) => u.isNotEmpty))
-          .toList();
-      if (valid.isNotEmpty) {
-        if (valid.length < serverConfig.webRTCIceServers.length) {
-          GlobalLogger().w(
-            'TelnyxClient :: Filtered ${serverConfig.webRTCIceServers.length - valid.length} empty-URL ICE server(s) from serverConfiguration',
-          );
-        }
-        GlobalLogger().i(
-          'TelnyxClient :: Using ICE servers from serverConfiguration (${valid.length} servers)',
-        );
-        return valid;
-      }
-      GlobalLogger().w(
-        'TelnyxClient :: serverConfiguration ICE servers all have empty URLs, falling back to defaults',
-      );
-    }
-
-    // Third priority: ICE servers from default serverConfiguration (client-level default)
-    GlobalLogger().i(
-      'TelnyxClient :: Using ICE servers from default serverConfiguration (${defaultServerConfig.webRTCIceServers.length} servers)',
-    );
-    return defaultServerConfig.webRTCIceServers;
   }
 
   /// Returns whether or not the client is connected to the socket connection
@@ -2584,7 +2525,7 @@ class TelnyxClient {
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      getEffectiveIceServers(),
+      _getEffectiveIceServers(),
     );
     // Apply call report config from stored config
     final callReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
@@ -2690,7 +2631,7 @@ class TelnyxClient {
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      getEffectiveIceServers(),
+      _getEffectiveIceServers(),
     );
     // Apply call report config from stored config
     final answerCallReportConfig =

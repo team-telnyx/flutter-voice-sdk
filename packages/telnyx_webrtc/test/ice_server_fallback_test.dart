@@ -2,10 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:telnyx_webrtc/config.dart';
 import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
-import 'package:telnyx_webrtc/telnyx_client.dart';
+import 'package:telnyx_webrtc/src/ice_server_resolver.dart';
 
 /// Tests for the ICE server empty-URL fallback behaviour in
-/// [TelnyxClient.resolveEffectiveIceServers].
+/// [resolveEffectiveIceServers].
 ///
 /// These tests exercise the *actual* static method used by the SDK (not a
 /// re-implementation) so they catch real regressions.
@@ -38,6 +38,13 @@ void main() {
         });
         expect(server.urls, ['']);
       });
+
+      test('ignores non-string members in a urls list', () {
+        final server = TxIceServer.fromJson({
+          'urls': ['stun:valid.example.com:3478', 42, null],
+        });
+        expect(server.urls, ['stun:valid.example.com:3478']);
+      });
     });
 
     group('resolveEffectiveIceServers — filtering of empty-URL ICE servers',
@@ -49,7 +56,7 @@ void main() {
           TxIceServer(urls: ['turn:turn.example.com:3478?transport=tcp']),
         ];
 
-        final result = TelnyxClient.resolveEffectiveIceServers(
+        final result = resolveEffectiveIceServers(
           configIceServers: servers,
           defaultServerConfig: TxServerConfiguration.production(),
         );
@@ -65,7 +72,7 @@ void main() {
           TxIceServer(urls: []),
         ];
 
-        final result = TelnyxClient.resolveEffectiveIceServers(
+        final result = resolveEffectiveIceServers(
           configIceServers: servers,
           defaultServerConfig: TxServerConfiguration.production(),
         );
@@ -80,7 +87,7 @@ void main() {
           TxIceServer(urls: ['stun:stun.telnyx.com:3478']),
         ];
 
-        final result = TelnyxClient.resolveEffectiveIceServers(
+        final result = resolveEffectiveIceServers(
           configIceServers: servers,
           defaultServerConfig: TxServerConfiguration.production(),
         );
@@ -95,7 +102,7 @@ void main() {
           TxIceServer.fromJson({'urls': 'stun:stun.telnyx.com:3478'}),
         ];
 
-        final result = TelnyxClient.resolveEffectiveIceServers(
+        final result = resolveEffectiveIceServers(
           configIceServers: servers,
           defaultServerConfig: TxServerConfiguration.production(),
         );
@@ -114,7 +121,7 @@ void main() {
           }),
         ];
 
-        final result = TelnyxClient.resolveEffectiveIceServers(
+        final result = resolveEffectiveIceServers(
           configIceServers: servers,
           defaultServerConfig: TxServerConfiguration.production(),
         );
@@ -124,19 +131,32 @@ void main() {
       });
 
       test(
-          'TxIceServer with urls ["", "stun:stun.telnyx.com:3478"] passes (has at least one valid URL)',
+          'invalid members are removed from a mixed URL list',
           () {
         const servers = [
           TxIceServer(urls: ['', 'stun:stun.telnyx.com:3478']),
         ];
 
-        final result = TelnyxClient.resolveEffectiveIceServers(
+        final result = resolveEffectiveIceServers(
           configIceServers: servers,
           defaultServerConfig: TxServerConfiguration.production(),
         );
 
         expect(result.length, 1);
-        expect(result[0].urls, ['', 'stun:stun.telnyx.com:3478']);
+        expect(result[0].urls, ['stun:stun.telnyx.com:3478']);
+      });
+
+      test('whitespace-only URLs are removed', () {
+        const servers = [
+          TxIceServer(urls: ['  ', '\n', 'stun:valid.example.com:3478']),
+        ];
+
+        final result = resolveEffectiveIceServers(
+          configIceServers: servers,
+          defaultServerConfig: TxServerConfiguration.production(),
+        );
+
+        expect(result.single.urls, ['stun:valid.example.com:3478']);
       });
 
       test(
@@ -154,7 +174,7 @@ void main() {
           ),
         ];
 
-        final result = TelnyxClient.resolveEffectiveIceServers(
+        final result = resolveEffectiveIceServers(
           configIceServers: servers,
           defaultServerConfig: TxServerConfiguration.production(),
         );
@@ -180,7 +200,7 @@ void main() {
               ),
             ];
 
-            final result = TelnyxClient.resolveEffectiveIceServers(
+            final result = resolveEffectiveIceServers(
               configIceServers: customServers,
               defaultServerConfig: TxServerConfiguration.production(),
             );
@@ -215,7 +235,7 @@ void main() {
               ],
             );
 
-            final result = TelnyxClient.resolveEffectiveIceServers(
+            final result = resolveEffectiveIceServers(
               configIceServers: emptyServers,
               serverConfig: serverConfig,
               defaultServerConfig: TxServerConfiguration.production(),
@@ -243,7 +263,7 @@ void main() {
 
             final clientDefault = TxServerConfiguration.production();
 
-            final result = TelnyxClient.resolveEffectiveIceServers(
+            final result = resolveEffectiveIceServers(
               configIceServers: emptyServers,
               serverConfig: emptyServerConfig,
               defaultServerConfig: clientDefault,
@@ -260,7 +280,7 @@ void main() {
           () {
             final clientDefault = TxServerConfiguration.development();
 
-            final result = TelnyxClient.resolveEffectiveIceServers(
+            final result = resolveEffectiveIceServers(
               defaultServerConfig: clientDefault,
             );
 
@@ -269,6 +289,21 @@ void main() {
             expect(result, equals(DefaultConfig.defaultDevIceServers));
           },
         );
+
+        test('invalid client-level defaults fall back to SDK defaults', () {
+          final invalidDefault = TxServerConfiguration(
+            webRTCIceServers: const [
+              TxIceServer(urls: []),
+              TxIceServer(urls: ['  ']),
+            ],
+          );
+
+          final result = resolveEffectiveIceServers(
+            defaultServerConfig: invalidDefault,
+          );
+
+          expect(result, equals(DefaultConfig.defaultProdIceServers));
+        });
 
         test(
           'mixed empty and valid servers in custom iceServers: only valid ones are used',
@@ -284,7 +319,7 @@ void main() {
               ),
             ];
 
-            final result = TelnyxClient.resolveEffectiveIceServers(
+            final result = resolveEffectiveIceServers(
               configIceServers: mixedServers,
               defaultServerConfig: TxServerConfiguration.production(),
             );
@@ -307,7 +342,7 @@ void main() {
             ],
           );
 
-          final result = TelnyxClient.resolveEffectiveIceServers(
+          final result = resolveEffectiveIceServers(
             serverConfig: serverConfig,
             defaultServerConfig: TxServerConfiguration.production(),
           );
@@ -326,7 +361,7 @@ void main() {
               ],
             );
 
-            final result = TelnyxClient.resolveEffectiveIceServers(
+            final result = resolveEffectiveIceServers(
               serverConfig: serverConfig,
               defaultServerConfig: TxServerConfiguration.production(),
             );
