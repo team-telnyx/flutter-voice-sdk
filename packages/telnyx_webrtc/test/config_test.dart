@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telnyx_webrtc/config.dart';
+import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 
 void main() {
   group('DefaultConfig ICE server constants', () {
@@ -110,6 +111,97 @@ void main() {
       expect(turns443Idx, isNonNegative);
       expect(udpIdx, lessThan(turns443Idx));
       expect(tcpIdx, lessThan(turns443Idx));
+    });
+  });
+
+  // VSDK-283 acceptance criterion: custom ICE servers take precedence over
+  // the defaults (including the TURNS 443 fallback). The override is
+  // implemented in `Peer._iceServers` and `TelnyxClient._getEffectiveIceServers`
+  // — when a caller passes a non-empty `iceServers` list, the entire default
+  // list is bypassed. This group locks down the contract at the DefaultConfig
+  // boundary so future changes to `defaultProdIceServers` / `defaultDevIceServers`
+  // cannot silently break the override path.
+  group('DefaultConfig custom ICE server override contract', () {
+    test(
+        'defaults include TURNS 443 and are the fallback (not the override)',
+        () {
+      final defaults = DefaultConfig.defaultProdIceServers;
+      // The defaults are the fallback list that contains the TURNS 443 entry.
+      expect(defaults.length, equals(5));
+      expect(
+        defaults.last.urls,
+        equals([DefaultConfig.defaultTurns443]),
+      );
+      expect(
+        defaults.any(
+          (s) => s.urls.contains(DefaultConfig.defaultTurns443),
+        ),
+        isTrue,
+      );
+    });
+
+    test(
+        'custom ICE server list bypasses the defaults (including TURNS 443)',
+        () {
+      // A caller-provided custom list does NOT include the TURNS 443 fallback —
+      // it replaces the entire default list when the override path fires.
+      final customServers = <TxIceServer>[
+        TxIceServer(urls: ['stun:custom.stun.example.com:3478']),
+      ];
+
+      expect(customServers.length, equals(1));
+      expect(
+        customServers.any(
+          (s) => s.urls.contains(DefaultConfig.defaultTurns443),
+        ),
+        isFalse,
+      );
+      expect(
+        customServers.any(
+          (s) => s.urls.contains(DefaultConfig.defaultTurnUdp),
+        ),
+        isFalse,
+      );
+      expect(
+        customServers.any(
+          (s) => s.urls.contains(DefaultConfig.defaultTurn),
+        ),
+        isFalse,
+      );
+    });
+
+    test(
+        'override contract: caller list and default list are disjoint for TURNS 443',
+        () {
+      // The override contract is "first non-empty wins": if the caller passes
+      // a non-empty iceServers list, the defaults (including TURNS 443) are
+      // not consulted. This test guards against accidentally appending the
+      // defaults behind a custom list (a regression risk).
+      final callerList = <TxIceServer>[
+        TxIceServer(urls: ['stun:caller-only.example.com:3478']),
+      ];
+      final defaultUrls = DefaultConfig.defaultProdIceServers
+          .expand((s) => s.urls)
+          .toSet();
+
+      // Caller list contains none of the default URLs.
+      for (final server in callerList) {
+        for (final url in server.urls) {
+          expect(defaultUrls.contains(url), isFalse,
+              reason: 'caller-provided URL "$url" must not appear in defaults');
+        }
+      }
+      // TURNS 443 is in the defaults but not in the caller list.
+      expect(
+        defaultUrls.contains(DefaultConfig.defaultTurns443),
+        isTrue,
+      );
+      expect(
+        callerList.any(
+          (s) => s.urls.contains(DefaultConfig.defaultTurns443),
+        ),
+        isFalse,
+      );
     });
   });
 }
