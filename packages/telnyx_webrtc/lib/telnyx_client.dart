@@ -6,6 +6,7 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
 import 'package:telnyx_webrtc/model/tx_ice_server.dart';
+import 'package:telnyx_webrtc/src/ice_server_resolver.dart' as ice_resolver;
 import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -1027,30 +1028,11 @@ class TelnyxClient {
   /// 3. Default ICE servers from serverConfiguration
   List<TxIceServer> _getEffectiveIceServers() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
-
-    // First priority: custom ICE servers from Config
-    final configIceServers = config?.iceServers;
-    if (configIceServers != null && configIceServers.isNotEmpty) {
-      GlobalLogger().i(
-        'TelnyxClient :: Using custom ICE servers from Config (${configIceServers.length} servers)',
-      );
-      return configIceServers;
-    }
-
-    // Second priority: ICE servers from serverConfiguration in Config
-    final serverConfig = config?.serverConfiguration;
-    if (serverConfig != null) {
-      GlobalLogger().i(
-        'TelnyxClient :: Using ICE servers from serverConfiguration (${serverConfig.webRTCIceServers.length} servers)',
-      );
-      return serverConfig.webRTCIceServers;
-    }
-
-    // Third priority: ICE servers from _serverConfiguration (client-level default)
-    GlobalLogger().i(
-      'TelnyxClient :: Using ICE servers from default serverConfiguration (${_serverConfiguration.webRTCIceServers.length} servers)',
+    return ice_resolver.resolveEffectiveIceServers(
+      configIceServers: config?.iceServers,
+      serverConfig: config?.serverConfiguration,
+      defaultServerConfig: _serverConfiguration,
     );
-    return _serverConfiguration.webRTCIceServers;
   }
 
   /// Returns whether or not the client is connected to the socket connection
