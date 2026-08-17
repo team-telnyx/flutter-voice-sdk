@@ -27,10 +27,12 @@ class DefaultConfig {
   static const String defaultTurnUdp =
       'turn:turn.telnyx.com:3478?transport=udp';
 
-  /// Production TURNS server with TCP transport over TLS on port 443
+  /// Primary production TURNS server over TLS on port 443.
   /// (last-resort fallback for restrictive firewalls that block non-443 traffic)
-  static const String defaultTurns443 =
-      'turns:turn.telnyx.com:443?transport=tcp';
+  static const String defaultTurns443 = 'turns:turn.telnyx.com:443';
+
+  /// Secondary production TURNS endpoint retained during DNS migration.
+  static const String secondaryTurns443 = 'turns:turn2.telnyx.com:443';
 
   /// Production STUN server
   static const String defaultStun = 'stun:stun.telnyx.com:3478';
@@ -44,8 +46,7 @@ class DefaultConfig {
 
   /// Development TURNS server with TCP transport over TLS on port 443
   /// (last-resort fallback for restrictive firewalls that block non-443 traffic)
-  static const String devTurns443 =
-      'turns:turndev.telnyx.com:443?transport=tcp';
+  static const String devTurns443 = 'turns:turndev.telnyx.com:443';
 
   /// Development STUN server
   static const String devStun = 'stun:stundev.telnyx.com:3478';
@@ -70,8 +71,7 @@ class DefaultConfig {
   /// - Google STUN server (fallback)
   /// - Telnyx TURN server with UDP transport (preferred)
   /// - Telnyx TURN server with TCP transport (fallback)
-  /// - Telnyx TURNS server with TCP transport over TLS on port 443
-  ///   (last-resort fallback for restrictive firewalls)
+  /// - Primary and secondary Telnyx TURNS endpoints on port 443
   static List<TxIceServer> get defaultProdIceServers => [
         const TxIceServer(urls: [defaultStun]),
         const TxIceServer(urls: [googleStun]),
@@ -88,6 +88,11 @@ class DefaultConfig {
         // TURNS 443 (last-resort fallback for restrictive firewalls)
         TxIceServer(
           urls: [defaultTurns443],
+          username: username,
+          credential: password,
+        ),
+        TxIceServer(
+          urls: [secondaryTurns443],
           username: username,
           credential: password,
         ),

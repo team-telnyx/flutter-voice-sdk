@@ -269,8 +269,8 @@ void main() {
               defaultServerConfig: clientDefault,
             );
 
-            // Should be the production default ICE servers (5 servers)
-            expect(result.length, 5);
+            // Production includes both primary and secondary TURNS endpoints.
+            expect(result.length, 6);
             expect(result, equals(DefaultConfig.defaultProdIceServers));
           },
         );
