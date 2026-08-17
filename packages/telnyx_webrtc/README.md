@@ -202,6 +202,42 @@ class TokenConfig extends Config {
 }
  ```
 
+### Relay-only media
+
+Set `forceRelayCandidate: true` on the login configuration when a deployment
+requires every media path to use TURN, or while diagnosing restrictive
+NAT/firewall behavior:
+
+```dart
+final config = TokenConfig(
+  sipToken: token,
+  sipCallerIDName: 'Caller',
+  sipCallerIDNumber: '15551234567',
+  debug: true,
+  logLevel: LogLevel.debug,
+  forceRelayCandidate: true,
+);
+
+_telnyxClient.connectWithToken(config);
+```
+
+Relay-only mode sets WebRTC's ICE transport policy to `relay` for outbound,
+inbound, and recovered calls. STUN entries may still be present in the ICE
+catalog, but they cannot become the selected media path. A reachable TURN
+server and valid credentials are therefore mandatory. The production defaults
+include TURN over UDP and TCP on port 3478, followed by TURNS on port 443 at
+`turn.telnyx.com` and `turn2.telnyx.com`.
+
+Use this setting selectively. Relaying all media can increase connection time,
+latency, relay bandwidth/cost, and may reduce quality for devices that could
+otherwise communicate through a shorter path. ICE server array order is not a
+guaranteed sequential fallback order; WebRTC prioritizes gathered candidate
+pairs.
+
+To verify the setting, enable SDK debug/call reporting, place a call, and
+inspect the selected ICE candidate pair. Its local candidate type must be
+`relay`; `host` or `srflx` means relay-only policy was not applied.
+
 ### Creating a call invitation
 In order to make a call invitation, we first create an instance of the Call class with the .call instance. This creates a Call class which can be used to interact with calls (invite, accept, decline, etc).
 To then send an invite, we can use the .newInvite() method which requires you to provide your callerName, callerNumber, the destinationNumber (or SIP credential), and your clientState (any String value).
@@ -878,4 +914,3 @@ Questions? Comments? Building something rad? [Join our Slack channel](https://jo
 ## License
 
 [`MIT Licence`](./LICENSE) © [Telnyx](https://github.com/team-telnyx)
-
