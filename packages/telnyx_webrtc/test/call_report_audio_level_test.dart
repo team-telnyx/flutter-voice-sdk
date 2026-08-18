@@ -42,6 +42,11 @@ void main() {
         'totalSamplesDuration': 8.0,
         'echoReturnLoss': 12.0,
       }),
+      StatsReport('source-2', 'media-source', 0, {
+        'kind': 'audio',
+        'trackIdentifier': 'replacement-microphone-track',
+        'audioLevel': 0.75,
+      }),
       StatsReport('outbound', 'outbound-rtp', 0, {
         'kind': 'audio',
         'mediaSourceId': 'source-1',

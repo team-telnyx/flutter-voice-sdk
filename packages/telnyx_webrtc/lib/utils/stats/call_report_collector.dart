@@ -1235,13 +1235,13 @@ class CallReportCollector {
   Map<String, dynamic>? _lastMediaPlayout;
   Map<String, dynamic>? _lastRemoteInboundRtp;
   Map<String, dynamic>? _lastRemoteOutboundRtp;
-  Map<String, dynamic>? _lastLocalAudioSource;
   LocalAudioTrackSnapshot? _lastLocalAudioTrack;
   String? _lastLocalAudioTrackSnapshotJson;
 
   final Map<String, Map<String, dynamic>> _candidatePairCache = {};
   final Map<String, Map<String, dynamic>> _codecCache = {};
   final Map<String, Map<String, dynamic>> _trackStatsCache = {};
+  final Map<String, Map<String, dynamic>> _mediaSourceCache = {};
 
   // ICE candidate data
   String? _selectedLocalCandidateId;
@@ -1565,10 +1565,9 @@ class CallReportCollector {
 
     final stats = List<StatsInterval>.from(_statsBuffer);
     final logs = logCollector?.getLogsJson();
-    final isSocketFlush =
-        reason.type == CallReportFlushReasonType.socketClose ||
-            reason.type == CallReportFlushReasonType.socketError;
-    if (stats.isEmpty && (logs == null || logs.isEmpty) && !isSocketFlush) {
+    // The ingest contract requires report content; do not send a reason-only
+    // socket segment when collection has not produced stats or logs yet.
+    if (stats.isEmpty && (logs == null || logs.isEmpty)) {
       return false;
     }
 
@@ -1788,8 +1787,11 @@ class CallReportCollector {
   bool shouldForceRelayCandidateForRecovery() {
     if (_statsBuffer.length < 2) return false;
 
-    final previous = _statsBuffer[_statsBuffer.length - 2];
-    final latest = _statsBuffer.last;
+    final tail = List<StatsInterval>.of(
+      _statsBuffer.sublist(_statsBuffer.length - 2),
+    );
+    final previous = tail.first;
+    final latest = tail.last;
     final localCandidate = latest.ice?.local;
     final isVpnNonRelayPath =
         localCandidate?.networkType?.toLowerCase() == 'vpn' &&
@@ -1894,9 +1896,9 @@ class CallReportCollector {
 
     final callback = onFlushNeeded;
     if (callback != null) {
-      _lastIntermediateFlushTime = now;
       try {
         await callback(reason);
+        _lastIntermediateFlushTime = now;
       } catch (error) {
         GlobalLogger().e(
           'CallReportCollector: onFlushNeeded callback error: $error',
@@ -1979,7 +1981,7 @@ class CallReportCollector {
           break;
         case 'media-source':
           if (values['kind'] == 'audio' || values['kind'] == null) {
-            _lastLocalAudioSource = values;
+            _mediaSourceCache[report.id] = values;
           }
           break;
         case 'track':
@@ -2292,10 +2294,7 @@ class CallReportCollector {
     Map<String, dynamic> outbound,
   ) {
     final sourceId = outbound['mediaSourceId'] as String?;
-    if (sourceId != null && _lastLocalAudioSource?['id'] == sourceId) {
-      return _lastLocalAudioSource;
-    }
-    return _lastLocalAudioSource;
+    return sourceId == null ? null : _mediaSourceCache[sourceId];
   }
 
   double? _resolveTrackAudioLevel(String? trackId) {

@@ -1447,7 +1447,9 @@ class Peer {
 
   /// Cache a [ClientSummary] built from the active [Config] so it can be
   /// included in the final call report payload. Should be called at call
-  /// start (e.g. from `invite()` / `answer()`).
+  /// start (e.g. from `invite()` / `answer()`). This is deliberately a
+  /// call-start snapshot; later recovery changes such as relay escalation do
+  /// not rewrite the original client configuration.
   void setClientSummary(ClientSummary? summary) {
     _clientSummary = summary;
   }
