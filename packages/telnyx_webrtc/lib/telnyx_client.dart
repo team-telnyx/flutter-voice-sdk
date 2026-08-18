@@ -2587,7 +2587,11 @@ class TelnyxClient {
   /// - [audioConstraints]: Optional audio constraints for the call.
   /// - [answeredDeviceToken]: Optional device token (FCM/APNS) to include when
   ///   answering a push notification call. This allows the backend to identify
-  ///   which device answered the call.
+  ///   which device answered the call. If omitted but the active login config
+  ///   has [Config.pushWhenActive] set to `true` and a non-empty
+  ///   [Config.notificationToken] is configured, the SDK will auto-populate this
+  ///   from the stored push token so the answer payload includes
+  ///   `answered_device_token`.
   ///
   /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
@@ -2603,6 +2607,25 @@ class TelnyxClient {
     AudioConstraints? audioConstraints,
     String? answeredDeviceToken,
   }) {
+    // Auto-populate answeredDeviceToken from the stored push token when
+    // push-when-active is enabled on the active login config. The explicit
+    // parameter always wins so callers retain override control. We only fall
+    // back to the stored token when it is present and non-empty so the wire
+    // payload never carries a blank `answered_device_token`.
+    if (answeredDeviceToken == null || answeredDeviceToken.isEmpty) {
+      final activeConfig = _storedCredentialConfig ?? _storedTokenConfig;
+      if (activeConfig?.pushWhenActive == true) {
+        final storedToken = activeConfig?.notificationToken;
+        if (storedToken != null && storedToken.isNotEmpty) {
+          answeredDeviceToken = storedToken;
+          GlobalLogger().i(
+            'TelnyxClient.acceptCall: pushWhenActive enabled, '
+            'auto-populated answeredDeviceToken from stored config',
+          );
+        }
+      }
+    }
+
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
       ..sessionCallerName = callerName
