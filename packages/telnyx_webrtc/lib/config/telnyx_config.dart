@@ -21,7 +21,7 @@ export 'package:telnyx_webrtc/config/debug_log_level.dart';
 
 // Re-export CallReportOptions so tests/consumers can import it from telnyx_config.dart
 export 'package:telnyx_webrtc/utils/stats/call_report_collector.dart'
-    show CallReportOptions;
+    show CallReportOptions, ClientSummary;
 
 /// Base configuration class for common parameters
 class Config {

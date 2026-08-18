@@ -2535,6 +2535,19 @@ class TelnyxClient {
       callReportMaxLogEntries:
           callReportConfig?.callReportMaxLogEntries ?? 1000,
     );
+    // Build and cache ClientSummary for call reports
+    if (callReportConfig != null) {
+      inviteCall.peerConnection?.setClientSummary(
+        ClientSummary.fromConfig(
+          config: callReportConfig,
+          iceServers: _getEffectiveIceServers(),
+          host: _socketHost,
+          useTrickleIce: useTrickleIce,
+          mutedMicOnStart: mutedMicOnStart,
+          audioConstraints: audioConstraints,
+        ),
+      );
+    }
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
     if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
@@ -2602,6 +2615,7 @@ class TelnyxClient {
     bool mutedMicOnStart = false,
     AudioConstraints? audioConstraints,
     String? answeredDeviceToken,
+    bool forceRelayCandidateForRecovery = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -2627,7 +2641,7 @@ class TelnyxClient {
       txSocket,
       debug || _debug,
       this,
-      getForceRelayCandidate(),
+      forceRelayCandidateForRecovery || getForceRelayCandidate(),
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
@@ -2642,6 +2656,19 @@ class TelnyxClient {
       callReportMaxLogEntries:
           answerCallReportConfig?.callReportMaxLogEntries ?? 1000,
     );
+    // Build and cache ClientSummary for call reports
+    if (answerCallReportConfig != null) {
+      answerCall.peerConnection?.setClientSummary(
+        ClientSummary.fromConfig(
+          config: answerCallReportConfig,
+          iceServers: _getEffectiveIceServers(),
+          host: _socketHost,
+          useTrickleIce: useTrickleIce,
+          mutedMicOnStart: mutedMicOnStart,
+          audioConstraints: audioConstraints,
+        ),
+      );
+    }
 
     // Set up the session with the callback if debug is enabled
     answerCall.peerConnection?.accept(
@@ -3499,6 +3526,15 @@ class TelnyxClient {
                   final attachCallId = invite.inviteParams?.callID;
                   // Preserve speakerphone state from existing call before reconnection
                   final existingCall = calls[attachCallId];
+                  final forceRelayCandidateForRecovery = existingCall
+                          ?.peerConnection?.callReportCollector
+                          ?.shouldForceRelayCandidateForRecovery() ??
+                      false;
+                  if (forceRelayCandidateForRecovery) {
+                    GlobalLogger().w(
+                      'ATTACH :: forcing relay-only ICE for stalled VPN media path on $attachCallId',
+                    );
+                  }
                   final bool wasSpeakerPhoneEnabled =
                       existingCall?.speakerPhone ?? false;
                   GlobalLogger().i(
@@ -3523,6 +3559,7 @@ class TelnyxClient {
                   //play ringtone for web
                   final Call offerCall = _createCall()
                     ..callId = invite.inviteParams?.callID
+                    ..recoveredCallId = existingCall?.callId
                     ..speakerPhone =
                         wasSpeakerPhoneEnabled; // Preserve the state
                   updateCall(offerCall);
@@ -3535,6 +3572,8 @@ class TelnyxClient {
                     invite.inviteParams!.callerIdNumber ?? '',
                     'State',
                     isAttach: true,
+                    forceRelayCandidateForRecovery:
+                        forceRelayCandidateForRecovery,
                   );
                   // Cancel the pending answer timeout since ATTACH arrived
                   _cancelPendingAnswerTimeout();

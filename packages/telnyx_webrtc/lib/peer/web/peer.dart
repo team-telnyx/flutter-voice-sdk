@@ -117,7 +117,15 @@ class Peer {
 
   /// Call report collector (always enabled for post-call reporting).
   CallReportCollector? _callReportCollector;
+
+  /// Collector backing call diagnostics and recovery decisions.
+  CallReportCollector? get callReportCollector => _callReportCollector;
   CallReportLogCollector? _callReportLogCollector;
+
+  /// Cached [ClientSummary] built at call start so [postCallReport] can
+  /// include it in the final [CallSummary] without needing the original
+  /// [Config] reference.
+  ClientSummary? _clientSummary;
 
   /// Renderers for Web
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
@@ -1238,6 +1246,13 @@ class Peer {
     _callReportMaxLogEntries = callReportMaxLogEntries;
   }
 
+  /// Cache a [ClientSummary] built from the active [Config] so it can be
+  /// included in the final call report payload. Should be called at call
+  /// start (e.g. from `invite()` / `answer()`).
+  void setClientSummary(ClientSummary? summary) {
+    _clientSummary = summary;
+  }
+
   /// Get the log collector for external event logging
   CallReportLogCollector? get callReportLogCollector => _callReportLogCollector;
 
@@ -1357,12 +1372,14 @@ class Peer {
       telnyxSessionId: telnyxSessionId,
       telnyxLegId: telnyxLegId,
       sdkVersion: VersionUtils.getSDKVersion(),
+      clientSummary: _clientSummary,
     );
 
     // Store upload config for intermediate segment flushing
     _callReportCollector!.storeUploadConfig(
       callReportId: callReportId,
       host: host,
+      summary: summary,
       voiceSdkId: _txClient.voiceSdkId,
     );
 

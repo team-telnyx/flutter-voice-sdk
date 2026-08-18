@@ -309,6 +309,7 @@ class Call {
     bool debug = false,
     bool useTrickleIce = false,
     String? answeredDeviceToken,
+    bool forceRelayCandidateForRecovery = false,
   }) {
     // Store the session information for later use
     sessionCallerName = callerName;
@@ -330,6 +331,7 @@ class Call {
       debug: debug,
       useTrickleIce: useTrickleIce,
       answeredDeviceToken: answeredDeviceToken,
+      forceRelayCandidateForRecovery: forceRelayCandidateForRecovery,
     );
   }
 

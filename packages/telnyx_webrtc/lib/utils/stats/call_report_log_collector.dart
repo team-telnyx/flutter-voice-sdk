@@ -11,12 +11,7 @@ enum CallReportEventType {
 }
 
 /// Log levels for call report log entries
-enum CallReportLogLevel {
-  debug,
-  info,
-  warning,
-  error,
-}
+enum CallReportLogLevel { debug, info, warning, error }
 
 /// A structured log entry for call lifecycle events
 class CallReportLogEntry {
@@ -54,10 +49,7 @@ class CallReportLogCollector {
 
   final List<CallReportLogEntry> _logBuffer = [];
 
-  CallReportLogCollector({
-    this.maxEntries = 1000,
-    this.logLevel = 'debug',
-  });
+  CallReportLogCollector({this.maxEntries = 1000, this.logLevel = 'debug'});
 
   /// The priority of each log level (lower = less verbose)
   static const Map<String, int> _logLevelPriority = {
@@ -110,10 +102,7 @@ class CallReportLogCollector {
     addLog(
       level: level,
       message: message ?? eventType.name,
-      context: {
-        'eventType': eventType.name,
-        if (context != null) ...context,
-      },
+      context: {'eventType': eventType.name, if (context != null) ...context},
     );
   }
 
@@ -147,11 +136,7 @@ class CallReportLogCollector {
       CallReportEventType.callStateChanged,
       level: 'info',
       message: 'Call state changed: $fromState -> $toState',
-      context: {
-        'callId': callId,
-        'fromState': fromState,
-        'toState': toState,
-      },
+      context: {'callId': callId, 'fromState': fromState, 'toState': toState},
     );
   }
 
@@ -182,10 +167,7 @@ class CallReportLogCollector {
       CallReportEventType.iceConnectionStateChanged,
       level: 'debug',
       message: 'ICE connection state: $state',
-      context: {
-        'callId': callId,
-        'iceConnectionState': state,
-      },
+      context: {'callId': callId, 'iceConnectionState': state},
     );
   }
 
@@ -198,10 +180,7 @@ class CallReportLogCollector {
       CallReportEventType.signalingStateChanged,
       level: 'debug',
       message: 'Signaling state: $state',
-      context: {
-        'callId': callId,
-        'signalingState': state,
-      },
+      context: {'callId': callId, 'signalingState': state},
     );
   }
 
@@ -214,10 +193,7 @@ class CallReportLogCollector {
       CallReportEventType.iceGatheringStateChanged,
       level: 'debug',
       message: 'ICE gathering state: $state',
-      context: {
-        'callId': callId,
-        'iceGatheringState': state,
-      },
+      context: {'callId': callId, 'iceGatheringState': state},
     );
   }
 
@@ -235,6 +211,17 @@ class CallReportLogCollector {
   /// Clear all log entries
   void clear() {
     _logBuffer.clear();
+  }
+
+  /// Removes up to [count] oldest entries after an intermediate report has
+  /// been uploaded successfully.
+  ///
+  /// Keeping removal separate from snapshot creation prevents a failed
+  /// upload from losing buffered logs.
+  void removeOldest(int count) {
+    if (count <= 0 || _logBuffer.isEmpty) return;
+    final removeCount = count.clamp(0, _logBuffer.length);
+    _logBuffer.removeRange(0, removeCount);
   }
 
   /// Clear and return all log entries (for intermediate segment flushing)

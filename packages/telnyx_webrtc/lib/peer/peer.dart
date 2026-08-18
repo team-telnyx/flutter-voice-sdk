@@ -92,8 +92,16 @@ class Peer {
   final List<TxIceServer> _iceServerList;
   WebRTCStatsReporter? _statsManager;
   CallReportCollector? _callReportCollector;
+
+  /// Collector backing call diagnostics and recovery decisions.
+  CallReportCollector? get callReportCollector => _callReportCollector;
   CallReportLogCollector? _callReportLogCollector;
   QualityWarningMonitor? _qualityWarningMonitor;
+
+  /// Cached [ClientSummary] built at call start so [postCallReport] can
+  /// include it in the final [CallSummary] without needing the original
+  /// [Config] reference.
+  ClientSummary? _clientSummary;
 
   // Add negotiation timer fields
   Timer? _negotiationTimer;
@@ -1437,6 +1445,13 @@ class Peer {
     _callReportMaxLogEntries = callReportMaxLogEntries;
   }
 
+  /// Cache a [ClientSummary] built from the active [Config] so it can be
+  /// included in the final call report payload. Should be called at call
+  /// start (e.g. from `invite()` / `answer()`).
+  void setClientSummary(ClientSummary? summary) {
+    _clientSummary = summary;
+  }
+
   /// Get the log collector for external event logging
   CallReportLogCollector? get callReportLogCollector => _callReportLogCollector;
 
@@ -1492,6 +1507,11 @@ class Peer {
     _qualityWarningMonitor = QualityWarningMonitor(
       callId: callId,
       onWarning: (warning) {
+        _txClient.emitTelnyxWarning(
+          warning,
+          callId: callId,
+          source: 'quality_warning_monitor',
+        );
         if (warning.code == TelnyxWarningCodes.lowBytesReceived) {
           _txClient.healthMonitor?.onNoRtp(callId, 'inbound');
         } else if (warning.code == TelnyxWarningCodes.lowBytesSent &&
@@ -1500,7 +1520,9 @@ class Peer {
         }
       },
     );
-    _callReportCollector?.onStatsInterval = _qualityWarningMonitor?.checkStats;
+    _callReportCollector?.onStatsInterval = (interval) {
+      _qualityWarningMonitor?.checkStats(interval);
+    };
 
     // Only start WebRTC stats reporter if debug mode is enabled
     if (_debug == false) {
@@ -1590,12 +1612,14 @@ class Peer {
       telnyxSessionId: telnyxSessionId,
       telnyxLegId: telnyxLegId,
       sdkVersion: VersionUtils.getSDKVersion(),
+      clientSummary: _clientSummary,
     );
 
     // Store upload config for intermediate segment flushing
     _callReportCollector!.storeUploadConfig(
       callReportId: callReportId,
       host: host,
+      summary: summary,
       voiceSdkId: _txClient.voiceSdkId,
     );
 
