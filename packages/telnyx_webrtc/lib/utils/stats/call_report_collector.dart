@@ -1336,7 +1336,7 @@ class CallReportCollector {
     final candidateId =
         'RTCIce${isLocal ? "Lc" : "Rc"}_${parsed['foundation']}_${parsed['port']}';
 
-    _candidateCache[candidateId] = {
+    _cacheBounded(_candidateCache, candidateId, {
       'id': candidateId,
       'address': parsed['address'],
       'ip': parsed['address'], // Some platforms use 'ip' instead of 'address'
@@ -1348,7 +1348,7 @@ class CallReportCollector {
       'relatedPort': parsed['relatedPort'],
       'foundation': parsed['foundation'],
       'component': parsed['component'],
-    };
+    });
 
     GlobalLogger().d(
       'CallReportCollector: Cached ${isLocal ? "local" : "remote"} candidate $candidateId (${parsed['candidateType']}) at ${parsed['address']}:${parsed['port']}',
@@ -1459,6 +1459,7 @@ class CallReportCollector {
     _codecCache.clear();
     _trackStatsCache.clear();
     _mediaSourceCache.clear();
+    _candidateCache.clear();
 
     GlobalLogger().i(
       'CallReportCollector: Stopped (${_statsBuffer.length} intervals collected)',
@@ -1761,6 +1762,10 @@ class CallReportCollector {
   /// relay, and evidence that the path stalled. Two intervals are required so
   /// cumulative counters can be compared without treating call startup as a
   /// stall.
+  ///
+  /// On mobile, flutter_webrtc may omit the non-standard `networkType` ICE
+  /// candidate stat. In that case this intentionally returns false: forcing
+  /// relay without a reliable VPN signal would escalate ordinary path stalls.
   bool shouldForceRelayCandidateForRecovery() {
     if (_statsBuffer.length < 2) return false;
 
@@ -1975,7 +1980,7 @@ class CallReportCollector {
           // Cache local candidates
           final candidateId = values['id'] as String?;
           if (candidateId != null) {
-            _candidateCache[candidateId] = values;
+            _cacheBounded(_candidateCache, candidateId, values);
             GlobalLogger().d(
               'CallReportCollector: Cached local candidate $candidateId (${values['candidateType']})',
             );
@@ -1985,7 +1990,7 @@ class CallReportCollector {
           // Cache remote candidates
           final candidateId = values['id'] as String?;
           if (candidateId != null) {
-            _candidateCache[candidateId] = values;
+            _cacheBounded(_candidateCache, candidateId, values);
             GlobalLogger().d(
               'CallReportCollector: Cached remote candidate $candidateId (${values['candidateType']})',
             );

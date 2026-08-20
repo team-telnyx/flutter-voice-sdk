@@ -235,6 +235,9 @@ class CallReportLogCollector {
   }
 
   /// Clear and return all log entries (for intermediate segment flushing)
+  @Deprecated(
+    'Use getLogBuffer() before upload and removeThrough() after success',
+  )
   List<Map<String, dynamic>> flushLogs() {
     final logs = getLogsJson();
     _logBuffer.clear();
