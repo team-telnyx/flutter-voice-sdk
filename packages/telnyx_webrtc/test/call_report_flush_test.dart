@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telnyx_webrtc/utils/stats/call_report_collector.dart';
 import 'package:telnyx_webrtc/utils/stats/call_report_log_collector.dart';
@@ -97,6 +99,30 @@ void main() {
       );
 
       expect(requests, 0);
+    });
+
+    test('does not request overlapping callback flushes', () async {
+      final collector = CallReportCollector();
+      final callbackStarted = Completer<void>();
+      final releaseCallback = Completer<void>();
+      var requests = 0;
+      collector.onFlushNeeded = (_) async {
+        requests++;
+        callbackStarted.complete();
+        await releaseCallback.future;
+      };
+      for (var index = 0; index < 300; index++) {
+        collector.createStatsEntryForTesting();
+      }
+
+      final first =
+          collector.requestIntermediateFlushForTesting(DateTime.now());
+      await callbackStarted.future;
+      await collector.requestIntermediateFlushForTesting(DateTime.now());
+      releaseCallback.complete();
+      await first;
+
+      expect(requests, 1);
     });
   });
 }

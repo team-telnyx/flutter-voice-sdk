@@ -109,15 +109,11 @@ class CallReportFlushReason {
 
 /// Authentication type used to connect to the Telnyx platform.
 enum AuthenticationType {
-  anonymousLogin,
-  loginToken,
   loginPassword,
   token,
   unknown;
 
   String toJson() => switch (this) {
-        AuthenticationType.anonymousLogin => 'anonymous_login',
-        AuthenticationType.loginToken => 'login_token',
         AuthenticationType.loginPassword => 'login_password',
         AuthenticationType.token => 'token',
         AuthenticationType.unknown => 'unknown',
@@ -152,28 +148,13 @@ class SanitizedIceServer {
 /// Authentication section of [ClientSummary].
 class ClientAuthenticationSummary {
   final AuthenticationType type;
-  final String? targetType;
-  final String? targetId;
-  final String? targetVersionId;
-  final Map<String, dynamic>? targetParams;
 
   const ClientAuthenticationSummary({
     required this.type,
-    this.targetType,
-    this.targetId,
-    this.targetVersionId,
-    this.targetParams,
   });
 
   Map<String, dynamic> toJson() => {
         'type': type.toJson(),
-        if (targetType != null)
-          'anonymousLogin': {
-            'targetType': targetType,
-            if (targetId != null) 'targetId': targetId,
-            if (targetVersionId != null) 'targetVersionId': targetVersionId,
-            if (targetParams != null) 'targetParams': targetParams,
-          },
       };
 }
 
@@ -332,11 +313,6 @@ class ClientSummary {
   }) {
     // Determine authentication type
     AuthenticationType authType;
-    String? targetType;
-    String? targetId;
-    String? targetVersionId;
-    Map<String, dynamic>? targetParams;
-
     if (config is CredentialConfig) {
       authType = AuthenticationType.loginPassword;
     } else if (config is TokenConfig) {
@@ -361,10 +337,6 @@ class ClientSummary {
     return ClientSummary(
       authentication: ClientAuthenticationSummary(
         type: authType,
-        targetType: targetType,
-        targetId: targetId,
-        targetVersionId: targetVersionId,
-        targetParams: targetParams,
       ),
       connection: ClientConnectionSummary(
         host: host,
@@ -372,6 +344,7 @@ class ClientSummary {
         dc: dc,
         autoReconnect: config.autoReconnect ?? true,
         maxReconnectAttempts: config.maxReconnectAttempts,
+        // These JS SDK connection knobs are not configurable on Flutter.
         keepConnectionAliveOnSocketClose: false,
         hangupOnBeforeUnload: config.hangupOnBeforeUnload,
         useCanaryRtcServer: false,
@@ -1199,6 +1172,7 @@ class CallReportCollector {
   // Segment counter for chunked uploads
   int _segmentCounter = 0;
   bool _flushing = false;
+  bool _flushRequestInProgress = false;
   late DateTime _lastIntermediateFlushTime;
 
   // Upload config stored at start for intermediate flushing
@@ -1485,6 +1459,11 @@ class CallReportCollector {
     if (_peerConnection != null && _intervalStartTime != null) {
       await _collectStats();
     }
+
+    _candidatePairCache.clear();
+    _codecCache.clear();
+    _trackStatsCache.clear();
+    _mediaSourceCache.clear();
 
     GlobalLogger().i(
       'CallReportCollector: Stopped (${_statsBuffer.length} intervals collected)',
@@ -1834,6 +1813,8 @@ class CallReportCollector {
   static int _positiveDelta(int? latest, int? previous) {
     if (latest == null || previous == null) return 0;
     final delta = latest - previous;
+    // Counter resets/wraps are deliberately treated as no progress. This
+    // keeps recovery conservative instead of interpreting a reset as a stall.
     return delta > 0 ? delta : 0;
   }
 
@@ -1874,7 +1855,7 @@ class CallReportCollector {
   }
 
   Future<void> _requestIntermediateFlushIfNeeded(DateTime now) async {
-    if (_flushing) return;
+    if (_flushing || _flushRequestInProgress) return;
     final statsCount = _statsBuffer.length;
     final logCount = logCollector?.length ?? 0;
     if (statsCount == 0 && logCount == 0) return;
@@ -1896,6 +1877,7 @@ class CallReportCollector {
 
     final callback = onFlushNeeded;
     if (callback != null) {
+      _flushRequestInProgress = true;
       try {
         await callback(reason);
         _lastIntermediateFlushTime = now;
@@ -1903,6 +1885,8 @@ class CallReportCollector {
         GlobalLogger().e(
           'CallReportCollector: onFlushNeeded callback error: $error',
         );
+      } finally {
+        _flushRequestInProgress = false;
       }
       return;
     }
@@ -1951,7 +1935,7 @@ class CallReportCollector {
           }
           break;
         case 'candidate-pair':
-          _candidatePairCache[report.id] = values;
+          _cacheBounded(_candidatePairCache, report.id, values);
           if (values['nominated'] == true || values['state'] == 'succeeded') {
             _lastCandidatePair = values;
             _processCandidatePair(values);
@@ -1964,7 +1948,7 @@ class CallReportCollector {
           _lastTransport = values;
           break;
         case 'codec':
-          _codecCache[report.id] = values;
+          _cacheBounded(_codecCache, report.id, values);
           break;
         case 'media-playout':
           _lastMediaPlayout = values;
@@ -1981,11 +1965,11 @@ class CallReportCollector {
           break;
         case 'media-source':
           if (values['kind'] == 'audio' || values['kind'] == null) {
-            _mediaSourceCache[report.id] = values;
+            _cacheBounded(_mediaSourceCache, report.id, values);
           }
           break;
         case 'track':
-          _trackStatsCache[report.id] = values;
+          _cacheBounded(_trackStatsCache, report.id, values);
           break;
         case 'local-candidate':
           // Cache local candidates
@@ -2014,7 +1998,10 @@ class CallReportCollector {
         _lastTransport?['selectedCandidatePairId'] as String?;
     if (selectedCandidatePairId != null) {
       final selectedPair = _candidatePairCache[selectedCandidatePairId];
-      if (selectedPair != null) {
+      final selectedPairState = selectedPair?['state'] as String?;
+      if (selectedPair != null &&
+          (selectedPairState == 'succeeded' ||
+              selectedPairState == 'connected')) {
         _lastCandidatePair = selectedPair;
         _selectedLocalCandidateId = selectedPair['localCandidateId'] as String?;
         _selectedRemoteCandidateId =
@@ -2024,6 +2011,18 @@ class CallReportCollector {
     }
 
     _logLocalAudioTrackSnapshot();
+  }
+
+  void _cacheBounded(
+    Map<String, Map<String, dynamic>> cache,
+    String id,
+    Map<String, dynamic> values,
+  ) {
+    cache.remove(id);
+    cache[id] = values;
+    while (cache.length > options.maxBufferSize) {
+      cache.remove(cache.keys.first);
+    }
   }
 
   void _processOutboundAudio(Map<String, dynamic> stats, DateTime now) {

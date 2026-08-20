@@ -33,7 +33,7 @@ void main() {
           'packetsReceived': 12,
         }),
         StatsReport('pair-selected', 'candidate-pair', 0, {
-          'state': 'waiting',
+          'state': 'succeeded',
           'localCandidateId': 'local-selected',
           'remoteCandidateId': 'remote-selected',
         }),
@@ -78,8 +78,7 @@ void main() {
       });
     });
 
-    test('transport selected pair takes precedence over nominated fallback',
-        () {
+    test('waiting transport pair does not replace nominated fallback', () {
       final collector = CallReportCollector();
       final now = DateTime.utc(2026, 8, 14);
 
@@ -100,7 +99,7 @@ void main() {
         endTime: now.add(const Duration(seconds: 1)),
       );
 
-      expect(interval.ice?.id, 'pair-selected');
+      expect(interval.ice?.id, 'pair-fallback');
     });
   });
 }

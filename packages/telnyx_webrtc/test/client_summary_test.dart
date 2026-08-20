@@ -249,8 +249,6 @@ void main() {
 
     group('AuthenticationType', () {
       test('toJson produces correct string values', () {
-        expect(AuthenticationType.anonymousLogin.toJson(), 'anonymous_login');
-        expect(AuthenticationType.loginToken.toJson(), 'login_token');
         expect(AuthenticationType.loginPassword.toJson(), 'login_password');
         expect(AuthenticationType.token.toJson(), 'token');
         expect(AuthenticationType.unknown.toJson(), 'unknown');
