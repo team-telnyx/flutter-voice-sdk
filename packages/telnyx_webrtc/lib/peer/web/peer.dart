@@ -118,8 +118,9 @@ class Peer {
   /// Call report collector (always enabled for post-call reporting).
   CallReportCollector? _callReportCollector;
 
-  /// Collector backing call diagnostics and recovery decisions.
-  CallReportCollector? get callReportCollector => _callReportCollector;
+  /// Whether the latest call diagnostics justify relay-only recovery.
+  bool get shouldForceRelayForRecovery =>
+      _callReportCollector?.shouldForceRelayCandidateForRecovery() ?? false;
   CallReportLogCollector? _callReportLogCollector;
 
   /// Cached [ClientSummary] built at call start so [postCallReport] can

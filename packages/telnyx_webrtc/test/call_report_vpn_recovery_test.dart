@@ -3,7 +3,7 @@ import 'package:telnyx_webrtc/utils/stats/call_report_collector.dart';
 
 void main() {
   StatsInterval interval({
-    required String networkType,
+    required String? networkType,
     required String candidateType,
     required int requestsSent,
     required int responsesReceived,
@@ -60,6 +60,14 @@ void main() {
 
   test('does not force relay for healthy, non-VPN, or relay paths', () {
     for (final latest in [
+      interval(
+        networkType: null,
+        candidateType: 'host',
+        requestsSent: 4,
+        responsesReceived: 2,
+        bytesSent: 200,
+        bytesReceived: 100,
+      ),
       interval(
         networkType: 'vpn',
         candidateType: 'host',

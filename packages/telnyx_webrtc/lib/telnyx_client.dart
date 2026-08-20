@@ -3527,8 +3527,7 @@ class TelnyxClient {
                   // Preserve speakerphone state from existing call before reconnection
                   final existingCall = calls[attachCallId];
                   final forceRelayCandidateForRecovery = existingCall
-                          ?.peerConnection?.callReportCollector
-                          ?.shouldForceRelayCandidateForRecovery() ??
+                          ?.peerConnection?.shouldForceRelayForRecovery ??
                       false;
                   if (forceRelayCandidateForRecovery) {
                     GlobalLogger().w(

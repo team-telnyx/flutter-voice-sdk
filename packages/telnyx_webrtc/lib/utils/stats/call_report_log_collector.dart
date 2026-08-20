@@ -224,6 +224,16 @@ class CallReportLogCollector {
     _logBuffer.removeRange(0, removeCount);
   }
 
+  /// Removes the uploaded prefix through [lastUploadedEntry].
+  ///
+  /// If buffer-cap eviction already removed that entry, every older uploaded
+  /// entry is gone as well, so newer entries must be preserved.
+  void removeThrough(CallReportLogEntry lastUploadedEntry) {
+    final lastIndex = _logBuffer.indexOf(lastUploadedEntry);
+    if (lastIndex < 0) return;
+    _logBuffer.removeRange(0, lastIndex + 1);
+  }
+
   /// Clear and return all log entries (for intermediate segment flushing)
   List<Map<String, dynamic>> flushLogs() {
     final logs = getLogsJson();

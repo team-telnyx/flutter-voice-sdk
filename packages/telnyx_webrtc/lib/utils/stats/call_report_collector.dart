@@ -299,8 +299,9 @@ class ClientSummary {
   /// [iceServers] are the effective ICE servers (after resolving config /
   /// server-configuration precedence) so we can sanitize them here.
   /// [host] is the WebSocket host the SDK actually connected to.
-  /// [region] is the resolved region (may differ from config when auto).
-  /// [dc] is the datacenter assigned by the server, if known.
+  /// [region] and [dc] may override the configured routing values when the
+  /// signaling layer has authoritative resolved-location metadata. The current
+  /// Flutter signaling protocol does not expose that metadata for auto routing.
   factory ClientSummary.fromConfig({
     required Config config,
     required List<TxIceServer> iceServers,
@@ -765,8 +766,6 @@ class LocalAudioTrackSnapshot {
   final String? label;
   final bool? enabled;
   final bool? muted;
-  final String? readyState;
-  final String? contentHint;
   final Map<String, dynamic>? settings;
 
   const LocalAudioTrackSnapshot({
@@ -774,8 +773,6 @@ class LocalAudioTrackSnapshot {
     this.label,
     this.enabled,
     this.muted,
-    this.readyState,
-    this.contentHint,
     this.settings,
   });
 
@@ -784,8 +781,6 @@ class LocalAudioTrackSnapshot {
         if (label != null) 'label': label,
         if (enabled != null) 'enabled': enabled,
         if (muted != null) 'muted': muted,
-        if (readyState != null) 'readyState': readyState,
-        if (contentHint != null) 'contentHint': contentHint,
         if (settings != null && settings!.isNotEmpty) 'settings': settings,
       };
 }
@@ -1543,7 +1538,8 @@ class CallReportCollector {
     }
 
     final stats = List<StatsInterval>.from(_statsBuffer);
-    final logs = logCollector?.getLogsJson();
+    final logEntries = logCollector?.getLogBuffer();
+    final logs = logEntries?.map((entry) => entry.toJson()).toList();
     // The ingest contract requires report content; do not send a reason-only
     // socket segment when collection has not produced stats or logs yet.
     if (stats.isEmpty && (logs == null || logs.isEmpty)) {
@@ -1581,7 +1577,9 @@ class CallReportCollector {
       // the request was in flight remain queued for the next segment.
       final statsToRemove = stats.length.clamp(0, _statsBuffer.length);
       _statsBuffer.removeRange(0, statsToRemove);
-      logCollector?.removeOldest(logs?.length ?? 0);
+      if (logEntries != null && logEntries.isNotEmpty) {
+        logCollector?.removeThrough(logEntries.last);
+      }
       _segmentCounter++;
       _lastIntermediateFlushTime = DateTime.now();
       return true;
@@ -1843,6 +1841,8 @@ class CallReportCollector {
       final intervalDuration =
           now.difference(_intervalStartTime!).inMilliseconds;
       if (intervalDuration >= options.intervalMs) {
+        // Finalize and notify listeners before considering an upload so
+        // quality warnings always observe the interval being flushed.
         _createStatsEntry(now);
         _intervalStartTime = now;
         _resetIntervalAccumulators();
