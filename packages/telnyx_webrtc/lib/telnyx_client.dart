@@ -3526,6 +3526,9 @@ class TelnyxClient {
                   final attachCallId = invite.inviteParams?.callID;
                   // Preserve speakerphone state from existing call before reconnection
                   final existingCall = calls[attachCallId];
+                  // Mobile flutter_webrtc commonly omits the non-standard ICE
+                  // networkType stat. Without a reliable VPN signal, relay
+                  // escalation intentionally remains disabled.
                   final forceRelayCandidateForRecovery = existingCall
                           ?.peerConnection?.shouldForceRelayForRecovery ??
                       false;

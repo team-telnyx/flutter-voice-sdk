@@ -1294,6 +1294,24 @@ class Peer {
     _callReportCollector?.start(pc);
     GlobalLogger().d('Peer :: CallReportCollector started for $callId');
 
+    final callReportId = _txClient.callReportId;
+    final host = _txClient.socketHost;
+    if (callReportId != null && host != null) {
+      _callReportCollector?.storeUploadConfig(
+        callReportId: callReportId,
+        host: host,
+        summary: CallSummary(
+          callId: callId,
+          destinationNumber: destinationNumber,
+          callerNumber: callerNumber,
+          direction: direction ?? 'unknown',
+          sdkVersion: VersionUtils.getSDKVersion(),
+          clientSummary: _clientSummary,
+        ),
+        voiceSdkId: _txClient.voiceSdkId,
+      );
+    }
+
     // Only start WebRTC stats reporter if debug mode is enabled
     if (!_debug) {
       GlobalLogger().d(

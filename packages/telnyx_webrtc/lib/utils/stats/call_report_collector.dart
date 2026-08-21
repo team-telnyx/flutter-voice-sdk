@@ -1168,6 +1168,7 @@ class CallReportCollector {
   int _segmentCounter = 0;
   bool _flushing = false;
   bool _flushRequestInProgress = false;
+  Future<void>? _collectionInProgress;
   late DateTime _lastIntermediateFlushTime;
 
   // Upload config stored at start for intermediate flushing
@@ -1828,7 +1829,21 @@ class CallReportCollector {
   }
 
   /// Collect stats from the peer connection
-  Future<void> _collectStats() async {
+  Future<void> _collectStats() {
+    final activeCollection = _collectionInProgress;
+    if (activeCollection != null) return activeCollection;
+
+    late final Future<void> collection;
+    collection = _collectStatsOnce().whenComplete(() {
+      if (identical(_collectionInProgress, collection)) {
+        _collectionInProgress = null;
+      }
+    });
+    _collectionInProgress = collection;
+    return collection;
+  }
+
+  Future<void> _collectStatsOnce() async {
     if (_peerConnection == null || _intervalStartTime == null) {
       return;
     }

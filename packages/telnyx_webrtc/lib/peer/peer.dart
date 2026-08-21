@@ -1502,6 +1502,24 @@ class Peer {
     _callReportCollector?.start(peerConnection!);
     GlobalLogger().d('Peer :: CallReportCollector started for $callId');
 
+    final callReportId = _txClient.callReportId;
+    final host = _txClient.socketHost;
+    if (callReportId != null && host != null) {
+      _callReportCollector?.storeUploadConfig(
+        callReportId: callReportId,
+        host: host,
+        summary: CallSummary(
+          callId: callId,
+          destinationNumber: destinationNumber,
+          callerNumber: callerNumber,
+          direction: direction ?? 'unknown',
+          sdkVersion: VersionUtils.getSDKVersion(),
+          clientSummary: _clientSummary,
+        ),
+        voiceSdkId: _txClient.voiceSdkId,
+      );
+    }
+
     // Quality-warning monitor: interprets per-interval stats and emits
     // structured warnings (LOW_BYTES_*, HIGH_RTT, LOW_MOS, …). Bridging the
     // LOW_BYTES_RECEIVED / LOW_BYTES_SENT warnings into the signaling-health
@@ -1523,6 +1541,8 @@ class Peer {
         }
       },
     );
+    // Re-read the nullable monitor for every interval so shutdown can safely
+    // detach it without leaving a captured callback target behind.
     _callReportCollector?.onStatsInterval = (interval) {
       _qualityWarningMonitor?.checkStats(interval);
     };
