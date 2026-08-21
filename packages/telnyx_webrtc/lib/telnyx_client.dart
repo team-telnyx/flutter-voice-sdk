@@ -3578,6 +3578,9 @@ class TelnyxClient {
                   final Call offerCall = _createCall()
                     ..callId = invite.inviteParams?.callID
                     ..recoveredCallId = existingCall?.callId
+                    ..telnyxSessionId = existingCall?.telnyxSessionId
+                    ..telnyxLegId = existingCall?.telnyxLegId
+                    ..resolvedDatacenter = existingCall?.resolvedDatacenter
                     ..speakerPhone =
                         wasSpeakerPhoneEnabled; // Preserve the state
                   updateCall(offerCall);
