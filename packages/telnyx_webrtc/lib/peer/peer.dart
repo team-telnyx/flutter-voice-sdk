@@ -92,8 +92,19 @@ class Peer {
   final List<TxIceServer> _iceServerList;
   WebRTCStatsReporter? _statsManager;
   CallReportCollector? _callReportCollector;
+
+  /// Whether the latest call diagnostics justify relay-only recovery.
+  bool get shouldForceRelayForRecovery =>
+      _callReportCollector?.shouldForceRelayCandidateForRecovery() ?? false;
   CallReportLogCollector? _callReportLogCollector;
   QualityWarningMonitor? _qualityWarningMonitor;
+
+  /// Cached [ClientSummary] built at call start so [postCallReport] can
+  /// include it in the final [CallSummary] without needing the original
+  /// [Config] reference.
+  ClientSummary? _clientSummary;
+  String? _callReportTelnyxSessionId;
+  String? _callReportTelnyxLegId;
 
   // Add negotiation timer fields
   Timer? _negotiationTimer;
@@ -1437,6 +1448,36 @@ class Peer {
     _callReportMaxLogEntries = callReportMaxLogEntries;
   }
 
+  /// Cache a [ClientSummary] built from the active [Config] so it can be
+  /// included in the final call report payload. Should be called at call
+  /// start (e.g. from `invite()` / `answer()`). This is deliberately a
+  /// call-start snapshot; later recovery changes such as relay escalation do
+  /// not rewrite the original client configuration.
+  void setClientSummary(ClientSummary? summary) {
+    _clientSummary = summary;
+  }
+
+  /// Adds authoritative connection metadata received after call creation.
+  void setResolvedCallReportConnection({String? region, String? dc}) {
+    _clientSummary = _clientSummary?.copyWithResolvedConnection(
+      region: region,
+      dc: dc,
+    );
+    _callReportCollector?.updateStoredCallMetadata(
+      clientSummary: _clientSummary,
+    );
+  }
+
+  /// Adds authoritative Telnyx identifiers received after call creation.
+  void setCallReportIdentifiers({String? sessionId, String? legId}) {
+    _callReportTelnyxSessionId = sessionId ?? _callReportTelnyxSessionId;
+    _callReportTelnyxLegId = legId ?? _callReportTelnyxLegId;
+    _callReportCollector?.updateStoredCallMetadata(
+      telnyxSessionId: _callReportTelnyxSessionId,
+      telnyxLegId: _callReportTelnyxLegId,
+    );
+  }
+
   /// Get the log collector for external event logging
   CallReportLogCollector? get callReportLogCollector => _callReportLogCollector;
 
@@ -1473,6 +1514,20 @@ class Peer {
       destinationNumber: destinationNumber,
       callerNumber: callerNumber,
     );
+    _callReportLogCollector?.logNewCall(
+      callId: callId,
+      direction: direction ?? 'unknown',
+      audio: true,
+      video: false,
+      debug: _debug,
+      forceRelayCandidate: _forceRelayCandidate,
+      mutedMicOnStart: _initialMuteState,
+      trickleIce: _useTrickleIce,
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
+      telnyxSessionId: _callReportTelnyxSessionId,
+      telnyxLegId: _callReportTelnyxLegId,
+    );
 
     // Always start call report collector (for post-call reporting)
     _callReportCollector = CallReportCollector(
@@ -1484,6 +1539,26 @@ class Peer {
     _callReportCollector?.start(peerConnection!);
     GlobalLogger().d('Peer :: CallReportCollector started for $callId');
 
+    final callReportId = _txClient.callReportId;
+    final host = _txClient.socketHost;
+    if (callReportId != null && host != null) {
+      _callReportCollector?.storeUploadConfig(
+        callReportId: callReportId,
+        host: host,
+        summary: CallSummary(
+          callId: callId,
+          destinationNumber: destinationNumber,
+          callerNumber: callerNumber,
+          direction: direction ?? 'unknown',
+          telnyxSessionId: _callReportTelnyxSessionId,
+          telnyxLegId: _callReportTelnyxLegId,
+          sdkVersion: VersionUtils.getSDKVersion(),
+          clientSummary: _clientSummary,
+        ),
+        voiceSdkId: _txClient.voiceSdkId,
+      );
+    }
+
     // Quality-warning monitor: interprets per-interval stats and emits
     // structured warnings (LOW_BYTES_*, HIGH_RTT, LOW_MOS, …). Bridging the
     // LOW_BYTES_RECEIVED / LOW_BYTES_SENT warnings into the signaling-health
@@ -1492,15 +1567,28 @@ class Peer {
     _qualityWarningMonitor = QualityWarningMonitor(
       callId: callId,
       onWarning: (warning) {
-        if (warning.code == TelnyxWarningCodes.lowBytesReceived) {
-          _txClient.healthMonitor?.onNoRtp(callId, 'inbound');
-        } else if (warning.code == TelnyxWarningCodes.lowBytesSent &&
-            _hasActiveUnmutedLocalAudioTrack()) {
-          _txClient.healthMonitor?.onNoRtp(callId, 'outbound');
-        }
+        // Keep application callbacks and recovery work off the stats tick so
+        // a slow warning listener cannot delay the next collection interval.
+        scheduleMicrotask(() {
+          _txClient.emitTelnyxWarning(
+            warning,
+            callId: callId,
+            source: 'quality_warning_monitor',
+          );
+          if (warning.code == TelnyxWarningCodes.lowBytesReceived) {
+            _txClient.healthMonitor?.onNoRtp(callId, 'inbound');
+          } else if (warning.code == TelnyxWarningCodes.lowBytesSent &&
+              _hasActiveUnmutedLocalAudioTrack()) {
+            _txClient.healthMonitor?.onNoRtp(callId, 'outbound');
+          }
+        });
       },
     );
-    _callReportCollector?.onStatsInterval = _qualityWarningMonitor?.checkStats;
+    // Re-read the nullable monitor for every interval so shutdown can safely
+    // detach it without leaving a captured callback target behind.
+    _callReportCollector?.onStatsInterval = (interval) {
+      _qualityWarningMonitor?.checkStats(interval);
+    };
 
     // Only start WebRTC stats reporter if debug mode is enabled
     if (_debug == false) {
@@ -1590,12 +1678,14 @@ class Peer {
       telnyxSessionId: telnyxSessionId,
       telnyxLegId: telnyxLegId,
       sdkVersion: VersionUtils.getSDKVersion(),
+      clientSummary: _clientSummary,
     );
 
     // Store upload config for intermediate segment flushing
     _callReportCollector!.storeUploadConfig(
       callReportId: callReportId,
       host: host,
+      summary: summary,
       voiceSdkId: _txClient.voiceSdkId,
     );
 

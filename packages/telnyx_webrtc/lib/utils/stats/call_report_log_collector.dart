@@ -11,12 +11,7 @@ enum CallReportEventType {
 }
 
 /// Log levels for call report log entries
-enum CallReportLogLevel {
-  debug,
-  info,
-  warning,
-  error,
-}
+enum CallReportLogLevel { debug, info, warning, error }
 
 /// A structured log entry for call lifecycle events
 class CallReportLogEntry {
@@ -54,10 +49,7 @@ class CallReportLogCollector {
 
   final List<CallReportLogEntry> _logBuffer = [];
 
-  CallReportLogCollector({
-    this.maxEntries = 1000,
-    this.logLevel = 'debug',
-  });
+  CallReportLogCollector({this.maxEntries = 1000, this.logLevel = 'debug'});
 
   /// The priority of each log level (lower = less verbose)
   static const Map<String, int> _logLevelPriority = {
@@ -110,10 +102,7 @@ class CallReportLogCollector {
     addLog(
       level: level,
       message: message ?? eventType.name,
-      context: {
-        'eventType': eventType.name,
-        if (context != null) ...context,
-      },
+      context: {'eventType': eventType.name, if (context != null) ...context},
     );
   }
 
@@ -137,6 +126,42 @@ class CallReportLogCollector {
     );
   }
 
+  /// Logs the sanitized call options consumed by the stats dashboard's
+  /// Client Info section.
+  void logNewCall({
+    required String callId,
+    required String direction,
+    required bool audio,
+    required bool video,
+    required bool debug,
+    required bool forceRelayCandidate,
+    required bool mutedMicOnStart,
+    required bool trickleIce,
+    String? destinationNumber,
+    String? callerNumber,
+    String? telnyxSessionId,
+    String? telnyxLegId,
+  }) {
+    addLog(
+      level: 'info',
+      message: 'New Call',
+      context: {
+        'id': callId,
+        'direction': direction,
+        'audio': audio,
+        'video': video,
+        'debug': debug,
+        'forceRelayCandidate': forceRelayCandidate,
+        'mutedMicOnStart': mutedMicOnStart,
+        'trickleIce': trickleIce,
+        if (destinationNumber != null) 'destinationNumber': destinationNumber,
+        if (callerNumber != null) 'callerNumber': callerNumber,
+        if (telnyxSessionId != null) 'telnyxSessionId': telnyxSessionId,
+        if (telnyxLegId != null) 'telnyxLegId': telnyxLegId,
+      },
+    );
+  }
+
   /// Convenience: log call state changed
   void logCallStateChanged({
     required String callId,
@@ -147,11 +172,7 @@ class CallReportLogCollector {
       CallReportEventType.callStateChanged,
       level: 'info',
       message: 'Call state changed: $fromState -> $toState',
-      context: {
-        'callId': callId,
-        'fromState': fromState,
-        'toState': toState,
-      },
+      context: {'callId': callId, 'fromState': fromState, 'toState': toState},
     );
   }
 
@@ -182,10 +203,7 @@ class CallReportLogCollector {
       CallReportEventType.iceConnectionStateChanged,
       level: 'debug',
       message: 'ICE connection state: $state',
-      context: {
-        'callId': callId,
-        'iceConnectionState': state,
-      },
+      context: {'callId': callId, 'iceConnectionState': state},
     );
   }
 
@@ -198,10 +216,7 @@ class CallReportLogCollector {
       CallReportEventType.signalingStateChanged,
       level: 'debug',
       message: 'Signaling state: $state',
-      context: {
-        'callId': callId,
-        'signalingState': state,
-      },
+      context: {'callId': callId, 'signalingState': state},
     );
   }
 
@@ -214,10 +229,7 @@ class CallReportLogCollector {
       CallReportEventType.iceGatheringStateChanged,
       level: 'debug',
       message: 'ICE gathering state: $state',
-      context: {
-        'callId': callId,
-        'iceGatheringState': state,
-      },
+      context: {'callId': callId, 'iceGatheringState': state},
     );
   }
 
@@ -237,7 +249,31 @@ class CallReportLogCollector {
     _logBuffer.clear();
   }
 
+  /// Removes up to [count] oldest entries after an intermediate report has
+  /// been uploaded successfully.
+  ///
+  /// Keeping removal separate from snapshot creation prevents a failed
+  /// upload from losing buffered logs.
+  void removeOldest(int count) {
+    if (count <= 0 || _logBuffer.isEmpty) return;
+    final removeCount = count.clamp(0, _logBuffer.length);
+    _logBuffer.removeRange(0, removeCount);
+  }
+
+  /// Removes the uploaded prefix through [lastUploadedEntry].
+  ///
+  /// If buffer-cap eviction already removed that entry, every older uploaded
+  /// entry is gone as well, so newer entries must be preserved.
+  void removeThrough(CallReportLogEntry lastUploadedEntry) {
+    final lastIndex = _logBuffer.indexOf(lastUploadedEntry);
+    if (lastIndex < 0) return;
+    _logBuffer.removeRange(0, lastIndex + 1);
+  }
+
   /// Clear and return all log entries (for intermediate segment flushing)
+  @Deprecated(
+    'Use getLogBuffer() before upload and removeThrough() after success',
+  )
   List<Map<String, dynamic>> flushLogs() {
     final logs = getLogsJson();
     _logBuffer.clear();

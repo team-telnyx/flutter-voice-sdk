@@ -218,6 +218,15 @@ class Call {
   /// ```
   String? telnyxCallControlId;
 
+  /// Telnyx session identifier received from signaling.
+  String? telnyxSessionId;
+
+  /// Telnyx leg identifier received from signaling.
+  String? telnyxLegId;
+
+  /// Authoritative signaling datacenter retained across ATTACH recovery.
+  String? resolvedDatacenter;
+
   /// Callback for call quality metrics updates.
   /// This will be called periodically with updated metrics when debug mode is enabled.
   ///
@@ -309,6 +318,7 @@ class Call {
     bool debug = false,
     bool useTrickleIce = false,
     String? answeredDeviceToken,
+    bool forceRelayCandidateForRecovery = false,
   }) {
     // Store the session information for later use
     sessionCallerName = callerName;
@@ -316,6 +326,8 @@ class Call {
     sessionDestinationNumber = invite.callerIdNumber ?? '';
     sessionClientState = clientState;
     this.customHeaders = Map.from(customHeaders);
+    telnyxSessionId ??= invite.telnyxSessionId;
+    telnyxLegId ??= invite.telnyxLegId;
 
     // Track whether this is a reconnection scenario
     isReconnection = isAttach;
@@ -330,6 +342,7 @@ class Call {
       debug: debug,
       useTrickleIce: useTrickleIce,
       answeredDeviceToken: answeredDeviceToken,
+      forceRelayCandidateForRecovery: forceRelayCandidateForRecovery,
     );
   }
 
@@ -466,6 +479,8 @@ class Call {
         callerNumber:
             sessionCallerNumber.isNotEmpty ? sessionCallerNumber : null,
         state: callState.toString().split('.').last,
+        telnyxSessionId: telnyxSessionId,
+        telnyxLegId: telnyxLegId,
       )
           .catchError((error) {
         GlobalLogger().e('Failed to post call report: $error');

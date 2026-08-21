@@ -2516,6 +2516,8 @@ class TelnyxClient {
       useTrickleIce: useTrickleIce,
     );
 
+    final effectiveIceServers = _getEffectiveIceServers();
+
     // Create the peer connection with debug enabled if requested
     inviteCall.peerConnection = Peer(
       inviteCall.txSocket,
@@ -2525,7 +2527,7 @@ class TelnyxClient {
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      _getEffectiveIceServers(),
+      effectiveIceServers,
     );
     // Apply call report config from stored config
     final callReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
@@ -2535,6 +2537,19 @@ class TelnyxClient {
       callReportMaxLogEntries:
           callReportConfig?.callReportMaxLogEntries ?? 1000,
     );
+    // Build and cache ClientSummary for call reports
+    if (callReportConfig != null) {
+      inviteCall.peerConnection?.setClientSummary(
+        ClientSummary.fromConfig(
+          config: callReportConfig,
+          iceServers: effectiveIceServers,
+          host: _socketHost,
+          useTrickleIce: useTrickleIce,
+          mutedMicOnStart: mutedMicOnStart,
+          audioConstraints: audioConstraints,
+        ),
+      );
+    }
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
     if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
@@ -2602,6 +2617,7 @@ class TelnyxClient {
     bool mutedMicOnStart = false,
     AudioConstraints? audioConstraints,
     String? answeredDeviceToken,
+    bool forceRelayCandidateForRecovery = false,
   }) {
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
@@ -2612,6 +2628,11 @@ class TelnyxClient {
       ..sessionClientState = clientState;
 
     final destinationNum = invite.callerIdNumber;
+    answerCall
+      ..telnyxSessionId ??= invite.telnyxSessionId
+      ..telnyxLegId ??= invite.telnyxLegId
+      ..resolvedDatacenter ??= invite.variables?.freeSWITCHSwitchname ??
+          invite.variables?.freeSWITCHHostname;
 
     // Start latency tracking for inbound call
     latencyTracker
@@ -2622,16 +2643,18 @@ class TelnyxClient {
       )
       ..markAnswerInitiated(answerCall.callId!);
 
+    final effectiveIceServers = _getEffectiveIceServers();
+
     // Create the peer connection
     answerCall.peerConnection = Peer(
       txSocket,
       debug || _debug,
       this,
-      getForceRelayCandidate(),
+      forceRelayCandidateForRecovery || getForceRelayCandidate(),
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      _getEffectiveIceServers(),
+      effectiveIceServers,
     );
     // Apply call report config from stored config
     final answerCallReportConfig =
@@ -2641,6 +2664,26 @@ class TelnyxClient {
       callReportLogLevel: answerCallReportConfig?.callReportLogLevel ?? 'debug',
       callReportMaxLogEntries:
           answerCallReportConfig?.callReportMaxLogEntries ?? 1000,
+    );
+    // Build and cache ClientSummary for call reports
+    if (answerCallReportConfig != null) {
+      answerCall.peerConnection?.setClientSummary(
+        ClientSummary.fromConfig(
+          config: answerCallReportConfig,
+          iceServers: effectiveIceServers,
+          host: _socketHost,
+          useTrickleIce: useTrickleIce,
+          mutedMicOnStart: mutedMicOnStart,
+          audioConstraints: audioConstraints,
+        ),
+      );
+    }
+    answerCall.peerConnection?.setResolvedCallReportConnection(
+      dc: answerCall.resolvedDatacenter,
+    );
+    answerCall.peerConnection?.setCallReportIdentifiers(
+      sessionId: answerCall.telnyxSessionId,
+      legId: answerCall.telnyxLegId,
     );
 
     // Set up the session with the callback if debug is enabled
@@ -3499,6 +3542,17 @@ class TelnyxClient {
                   final attachCallId = invite.inviteParams?.callID;
                   // Preserve speakerphone state from existing call before reconnection
                   final existingCall = calls[attachCallId];
+                  // Mobile flutter_webrtc commonly omits the non-standard ICE
+                  // networkType stat. Without a reliable VPN signal, relay
+                  // escalation intentionally remains disabled.
+                  final forceRelayCandidateForRecovery = existingCall
+                          ?.peerConnection?.shouldForceRelayForRecovery ??
+                      false;
+                  if (forceRelayCandidateForRecovery) {
+                    GlobalLogger().w(
+                      'ATTACH :: forcing relay-only ICE for stalled VPN media path on $attachCallId',
+                    );
+                  }
                   final bool wasSpeakerPhoneEnabled =
                       existingCall?.speakerPhone ?? false;
                   GlobalLogger().i(
@@ -3523,6 +3577,10 @@ class TelnyxClient {
                   //play ringtone for web
                   final Call offerCall = _createCall()
                     ..callId = invite.inviteParams?.callID
+                    ..recoveredCallId = existingCall?.callId
+                    ..telnyxSessionId = existingCall?.telnyxSessionId
+                    ..telnyxLegId = existingCall?.telnyxLegId
+                    ..resolvedDatacenter = existingCall?.resolvedDatacenter
                     ..speakerPhone =
                         wasSpeakerPhoneEnabled; // Preserve the state
                   updateCall(offerCall);
@@ -3535,6 +3593,8 @@ class TelnyxClient {
                     invite.inviteParams!.callerIdNumber ?? '',
                     'State',
                     isAttach: true,
+                    forceRelayCandidateForRecovery:
+                        forceRelayCandidateForRecovery,
                   );
                   // Cancel the pending answer timeout since ATTACH arrived
                   _cancelPendingAnswerTimeout();
@@ -3589,6 +3649,21 @@ class TelnyxClient {
                       'Telnyx Call Control ID :: ${answerCall.telnyxCallControlId}',
                     );
                   }
+                  answerCall
+                    ..telnyxSessionId ??=
+                        inviteAnswer.inviteParams?.telnyxSessionId
+                    ..telnyxLegId ??= inviteAnswer.inviteParams?.telnyxLegId
+                    ..resolvedDatacenter ??= inviteAnswer
+                            .inviteParams?.variables?.freeSWITCHSwitchname ??
+                        inviteAnswer
+                            .inviteParams?.variables?.freeSWITCHHostname;
+                  answerCall.peerConnection?.setResolvedCallReportConnection(
+                    dc: answerCall.resolvedDatacenter,
+                  );
+                  answerCall.peerConnection?.setCallReportIdentifiers(
+                    sessionId: answerCall.telnyxSessionId,
+                    legId: answerCall.telnyxLegId,
+                  );
 
                   // Mark latency milestones for answer received
                   if (answerCall.callId != null) {
@@ -3735,6 +3810,19 @@ class TelnyxClient {
 
                   GlobalLogger().i(
                     'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}',
+                  );
+                  ringingCall
+                    ..telnyxSessionId ??= ringing.inviteParams?.telnyxSessionId
+                    ..telnyxLegId ??= ringing.inviteParams?.telnyxLegId
+                    ..resolvedDatacenter ??=
+                        ringing.inviteParams?.variables?.freeSWITCHSwitchname ??
+                            ringing.inviteParams?.variables?.freeSWITCHHostname;
+                  ringingCall.peerConnection?.setResolvedCallReportConnection(
+                    dc: ringingCall.resolvedDatacenter,
+                  );
+                  ringingCall.peerConnection?.setCallReportIdentifiers(
+                    sessionId: ringingCall.telnyxSessionId,
+                    legId: ringingCall.telnyxLegId,
                   );
                   final message = TelnyxMessage(
                     socketMethod: SocketMethod.ringing,
