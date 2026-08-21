@@ -51,6 +51,7 @@ void main() {
 
         expect(summary.connection, isNotNull);
         expect(summary.connection!.host, 'wss://rtc.telnyx.com:443');
+        expect(summary.connection!.env, 'production');
         expect(summary.connection!.autoReconnect, true);
         expect(summary.connection!.maxReconnectAttempts, 10);
         expect(summary.connection!.region, 'auto');
@@ -110,11 +111,25 @@ void main() {
         );
 
         expect(summary.media, isNotNull);
-        expect(summary.media!.audio, isNotNull);
+        expect(summary.media!.audio, isTrue);
+        expect(summary.media!.video, isFalse);
         expect(summary.media!.trickleIce, true);
         expect(summary.media!.mutedMicOnStart, true);
         expect(summary.media!.forceRelayCandidate, false);
         expect(summary.media!.prefetchIceCandidates, true);
+      });
+
+      test('adds authoritative resolved datacenter without losing config', () {
+        final summary = ClientSummary.fromConfig(
+          config: config,
+          iceServers: const [],
+          host: 'wss://rtc.telnyx.com:443',
+        ).copyWithResolvedConnection(dc: 'ld6-prod', region: 'eu');
+
+        expect(summary.connection!.dc, 'ld6-prod');
+        expect(summary.connection!.region, 'eu');
+        expect(summary.connection!.env, 'production');
+        expect(summary.authentication!.type, AuthenticationType.loginPassword);
       });
 
       test('uses JS defaults and omits an empty ICE server list', () {
@@ -237,9 +252,20 @@ void main() {
           host: 'wss://rtc.telnyx.com',
           summary: callSummary,
         );
+        final resolvedClientSummary = clientSummary.copyWithResolvedConnection(
+          dc: 'ld6-prod',
+        );
+        collector.updateStoredCallMetadata(
+          clientSummary: resolvedClientSummary,
+          telnyxSessionId: 'session-id',
+          telnyxLegId: 'leg-id',
+        );
 
         expect(collector.storedSummaryForTesting?.clientSummary,
-            same(clientSummary));
+            same(resolvedClientSummary));
+        expect(
+            collector.storedSummaryForTesting?.telnyxSessionId, 'session-id');
+        expect(collector.storedSummaryForTesting?.telnyxLegId, 'leg-id');
         expect(
           collector.buildFinalSummary(callSummary).clientSummary,
           same(clientSummary),

@@ -192,6 +192,24 @@ class ClientConnectionSummary {
     this.skipTrailing,
   });
 
+  ClientConnectionSummary copyWith({String? region, String? dc}) =>
+      ClientConnectionSummary(
+        env: env,
+        host: host,
+        project: project,
+        region: region ?? this.region,
+        dc: dc ?? this.dc,
+        rtcIp: rtcIp,
+        rtcPort: rtcPort,
+        autoReconnect: autoReconnect,
+        maxReconnectAttempts: maxReconnectAttempts,
+        keepConnectionAliveOnSocketClose: keepConnectionAliveOnSocketClose,
+        hangupOnBeforeUnload: hangupOnBeforeUnload,
+        useCanaryRtcServer: useCanaryRtcServer,
+        skipLastVoiceSdkId: skipLastVoiceSdkId,
+        skipTrailing: skipTrailing,
+      );
+
   Map<String, dynamic> toJson() => {
         if (env != null) 'env': env,
         if (host != null) 'host': host,
@@ -293,6 +311,14 @@ class ClientSummary {
     this.callReports,
   });
 
+  ClientSummary copyWithResolvedConnection({String? region, String? dc}) =>
+      ClientSummary(
+        authentication: authentication,
+        connection: connection?.copyWith(region: region, dc: dc),
+        media: media,
+        callReports: callReports,
+      );
+
   /// Build a [ClientSummary] from a [Config] instance, mirroring the JS SDK's
   /// `_getClientSummary()` in `BaseCall.ts`.
   ///
@@ -340,6 +366,7 @@ class ClientSummary {
         type: authType,
       ),
       connection: ClientConnectionSummary(
+        env: config.serverConfiguration?.environment.name ?? 'production',
         host: host,
         region: region ?? config.region.value,
         dc: dc,
@@ -353,7 +380,10 @@ class ClientSummary {
         skipTrailing: false,
       ),
       media: ClientMediaSummary(
-        audio: audioConstraints?.toMap(),
+        // Dashboard capability labels mirror JS booleans. Detailed Flutter
+        // constraints are reported through diagnostics instead.
+        audio: true,
+        video: false,
         mutedMicOnStart: mutedMicOnStart ?? false,
         prefetchIceCandidates: config.prefetchIceCandidates,
         forceRelayCandidate: config.forceRelayCandidate,
@@ -1286,6 +1316,31 @@ class CallReportCollector {
     _storedSummary = summary;
   }
 
+  /// Refreshes late-arriving client metadata used by intermediate segments.
+  void updateStoredCallMetadata({
+    ClientSummary? clientSummary,
+    String? telnyxSessionId,
+    String? telnyxLegId,
+  }) {
+    final summary = _storedSummary;
+    if (summary == null) return;
+    _storedSummary = CallSummary(
+      callId: summary.callId,
+      destinationNumber: summary.destinationNumber,
+      callerNumber: summary.callerNumber,
+      direction: summary.direction,
+      state: summary.state,
+      durationSeconds: summary.durationSeconds,
+      telnyxSessionId: telnyxSessionId ?? summary.telnyxSessionId,
+      telnyxLegId: telnyxLegId ?? summary.telnyxLegId,
+      voiceSdkId: summary.voiceSdkId,
+      sdkVersion: summary.sdkVersion,
+      startTimestamp: summary.startTimestamp,
+      endTimestamp: summary.endTimestamp,
+      clientSummary: clientSummary ?? summary.clientSummary,
+    );
+  }
+
   /// Exposes the summary cached for intermediate flushes to unit tests.
   @visibleForTesting
   CallSummary? get storedSummaryForTesting => _storedSummary;
@@ -1867,14 +1922,14 @@ class CallReportCollector {
         _intervalStartTime = now;
         _resetIntervalAccumulators();
 
-        await _requestIntermediateFlushIfNeeded(now);
+        _requestIntermediateFlushIfNeeded(now);
       }
     } catch (e) {
       GlobalLogger().e('CallReportCollector: Error collecting stats: $e');
     }
   }
 
-  Future<void> _requestIntermediateFlushIfNeeded(DateTime now) async {
+  void _requestIntermediateFlushIfNeeded(DateTime now) {
     if (_flushing || _flushRequestInProgress) return;
     final statsCount = _statsBuffer.length;
     final logCount = logCollector?.length ?? 0;
@@ -1894,29 +1949,33 @@ class CallReportCollector {
       );
     }
     if (reason == null) return;
+    final selectedReason = reason;
 
     final callback = onFlushNeeded;
     if (callback != null) {
       _flushRequestInProgress = true;
-      try {
-        await callback(reason);
-        _lastIntermediateFlushTime = now;
-      } catch (error) {
-        GlobalLogger().e(
-          'CallReportCollector: onFlushNeeded callback error: $error',
-        );
-      } finally {
-        _flushRequestInProgress = false;
-      }
+      unawaited(
+        Future<void>.sync(() => callback(selectedReason)).then<void>((_) {
+          _lastIntermediateFlushTime = now;
+        }).catchError((Object error) {
+          GlobalLogger().e(
+            'CallReportCollector: onFlushNeeded callback error: $error',
+          );
+        }).whenComplete(() => _flushRequestInProgress = false),
+      );
       return;
     }
-    await _flushIntermediateSegment(reason);
+    // Upload retries/backoff must not block stats sampling, quality warnings,
+    // or recovery decisions.
+    unawaited(_flushIntermediateSegment(selectedReason));
   }
 
   /// Runs the intermediate-flush policy without a live peer connection.
   @visibleForTesting
-  Future<void> requestIntermediateFlushForTesting(DateTime now) =>
-      _requestIntermediateFlushIfNeeded(now);
+  Future<void> requestIntermediateFlushForTesting(DateTime now) async {
+    _requestIntermediateFlushIfNeeded(now);
+    await Future<void>.delayed(Duration.zero);
+  }
 
   /// Processes a stats snapshot without requiring a live peer connection.
   @visibleForTesting

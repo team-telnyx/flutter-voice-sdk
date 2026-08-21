@@ -127,6 +127,8 @@ class Peer {
   /// include it in the final [CallSummary] without needing the original
   /// [Config] reference.
   ClientSummary? _clientSummary;
+  String? _callReportTelnyxSessionId;
+  String? _callReportTelnyxLegId;
 
   /// Renderers for Web
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
@@ -1256,6 +1258,27 @@ class Peer {
     _clientSummary = summary;
   }
 
+  /// Adds authoritative connection metadata received after call creation.
+  void setResolvedCallReportConnection({String? region, String? dc}) {
+    _clientSummary = _clientSummary?.copyWithResolvedConnection(
+      region: region,
+      dc: dc,
+    );
+    _callReportCollector?.updateStoredCallMetadata(
+      clientSummary: _clientSummary,
+    );
+  }
+
+  /// Adds authoritative Telnyx identifiers received after call creation.
+  void setCallReportIdentifiers({String? sessionId, String? legId}) {
+    _callReportTelnyxSessionId = sessionId ?? _callReportTelnyxSessionId;
+    _callReportTelnyxLegId = legId ?? _callReportTelnyxLegId;
+    _callReportCollector?.updateStoredCallMetadata(
+      telnyxSessionId: _callReportTelnyxSessionId,
+      telnyxLegId: _callReportTelnyxLegId,
+    );
+  }
+
   /// Get the log collector for external event logging
   CallReportLogCollector? get callReportLogCollector => _callReportLogCollector;
 
@@ -1283,6 +1306,26 @@ class Peer {
       destinationNumber: destinationNumber,
       callerNumber: callerNumber,
     );
+    _callReportLogCollector?.addLog(
+      level: 'info',
+      message: 'New Call',
+      context: {
+        'id': callId,
+        'direction': direction ?? 'unknown',
+        'audio': true,
+        'video': false,
+        'debug': _debug,
+        'forceRelayCandidate': _forceRelayCandidate,
+        'mutedMicOnStart': _initialMuteState,
+        'trickleIce': _useTrickleIce,
+        if (_callReportTelnyxSessionId != null)
+          'telnyxSessionId': _callReportTelnyxSessionId,
+        if (_callReportTelnyxLegId != null)
+          'telnyxLegId': _callReportTelnyxLegId,
+        if (destinationNumber != null) 'destinationNumber': destinationNumber,
+        if (callerNumber != null) 'callerNumber': callerNumber,
+      },
+    );
 
     // Always start call report collector (for post-call reporting)
     _callReportCollector = CallReportCollector(
@@ -1305,6 +1348,8 @@ class Peer {
           destinationNumber: destinationNumber,
           callerNumber: callerNumber,
           direction: direction ?? 'unknown',
+          telnyxSessionId: _callReportTelnyxSessionId,
+          telnyxLegId: _callReportTelnyxLegId,
           sdkVersion: VersionUtils.getSDKVersion(),
           clientSummary: _clientSummary,
         ),

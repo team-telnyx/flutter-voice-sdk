@@ -2516,6 +2516,8 @@ class TelnyxClient {
       useTrickleIce: useTrickleIce,
     );
 
+    final effectiveIceServers = _getEffectiveIceServers();
+
     // Create the peer connection with debug enabled if requested
     inviteCall.peerConnection = Peer(
       inviteCall.txSocket,
@@ -2525,7 +2527,7 @@ class TelnyxClient {
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      _getEffectiveIceServers(),
+      effectiveIceServers,
     );
     // Apply call report config from stored config
     final callReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
@@ -2540,7 +2542,7 @@ class TelnyxClient {
       inviteCall.peerConnection?.setClientSummary(
         ClientSummary.fromConfig(
           config: callReportConfig,
-          iceServers: _getEffectiveIceServers(),
+          iceServers: effectiveIceServers,
           host: _socketHost,
           useTrickleIce: useTrickleIce,
           mutedMicOnStart: mutedMicOnStart,
@@ -2626,6 +2628,9 @@ class TelnyxClient {
       ..sessionClientState = clientState;
 
     final destinationNum = invite.callerIdNumber;
+    answerCall
+      ..telnyxSessionId = invite.telnyxSessionId
+      ..telnyxLegId = invite.telnyxLegId;
 
     // Start latency tracking for inbound call
     latencyTracker
@@ -2636,6 +2641,8 @@ class TelnyxClient {
       )
       ..markAnswerInitiated(answerCall.callId!);
 
+    final effectiveIceServers = _getEffectiveIceServers();
+
     // Create the peer connection
     answerCall.peerConnection = Peer(
       txSocket,
@@ -2645,7 +2652,7 @@ class TelnyxClient {
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      _getEffectiveIceServers(),
+      effectiveIceServers,
     );
     // Apply call report config from stored config
     final answerCallReportConfig =
@@ -2661,7 +2668,7 @@ class TelnyxClient {
       answerCall.peerConnection?.setClientSummary(
         ClientSummary.fromConfig(
           config: answerCallReportConfig,
-          iceServers: _getEffectiveIceServers(),
+          iceServers: effectiveIceServers,
           host: _socketHost,
           useTrickleIce: useTrickleIce,
           mutedMicOnStart: mutedMicOnStart,
@@ -2669,6 +2676,14 @@ class TelnyxClient {
         ),
       );
     }
+    answerCall.peerConnection?.setResolvedCallReportConnection(
+      dc: invite.variables?.freeSWITCHSwitchname ??
+          invite.variables?.freeSWITCHHostname,
+    );
+    answerCall.peerConnection?.setCallReportIdentifiers(
+      sessionId: answerCall.telnyxSessionId,
+      legId: answerCall.telnyxLegId,
+    );
 
     // Set up the session with the callback if debug is enabled
     answerCall.peerConnection?.accept(
@@ -3630,6 +3645,20 @@ class TelnyxClient {
                       'Telnyx Call Control ID :: ${answerCall.telnyxCallControlId}',
                     );
                   }
+                  answerCall
+                    ..telnyxSessionId ??=
+                        inviteAnswer.inviteParams?.telnyxSessionId
+                    ..telnyxLegId ??= inviteAnswer.inviteParams?.telnyxLegId;
+                  answerCall.peerConnection?.setResolvedCallReportConnection(
+                    dc: inviteAnswer
+                            .inviteParams?.variables?.freeSWITCHSwitchname ??
+                        inviteAnswer
+                            .inviteParams?.variables?.freeSWITCHHostname,
+                  );
+                  answerCall.peerConnection?.setCallReportIdentifiers(
+                    sessionId: answerCall.telnyxSessionId,
+                    legId: answerCall.telnyxLegId,
+                  );
 
                   // Mark latency milestones for answer received
                   if (answerCall.callId != null) {
@@ -3776,6 +3805,17 @@ class TelnyxClient {
 
                   GlobalLogger().i(
                     'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}',
+                  );
+                  ringingCall
+                    ..telnyxSessionId ??= ringing.inviteParams?.telnyxSessionId
+                    ..telnyxLegId ??= ringing.inviteParams?.telnyxLegId;
+                  ringingCall.peerConnection?.setResolvedCallReportConnection(
+                    dc: ringing.inviteParams?.variables?.freeSWITCHSwitchname ??
+                        ringing.inviteParams?.variables?.freeSWITCHHostname,
+                  );
+                  ringingCall.peerConnection?.setCallReportIdentifiers(
+                    sessionId: ringingCall.telnyxSessionId,
+                    legId: ringingCall.telnyxLegId,
                   );
                   final message = TelnyxMessage(
                     socketMethod: SocketMethod.ringing,
