@@ -126,6 +126,42 @@ class CallReportLogCollector {
     );
   }
 
+  /// Logs the sanitized call options consumed by the stats dashboard's
+  /// Client Info section.
+  void logNewCall({
+    required String callId,
+    required String direction,
+    required bool audio,
+    required bool video,
+    required bool debug,
+    required bool forceRelayCandidate,
+    required bool mutedMicOnStart,
+    required bool trickleIce,
+    String? destinationNumber,
+    String? callerNumber,
+    String? telnyxSessionId,
+    String? telnyxLegId,
+  }) {
+    addLog(
+      level: 'info',
+      message: 'New Call',
+      context: {
+        'id': callId,
+        'direction': direction,
+        'audio': audio,
+        'video': video,
+        'debug': debug,
+        'forceRelayCandidate': forceRelayCandidate,
+        'mutedMicOnStart': mutedMicOnStart,
+        'trickleIce': trickleIce,
+        if (destinationNumber != null) 'destinationNumber': destinationNumber,
+        if (callerNumber != null) 'callerNumber': callerNumber,
+        if (telnyxSessionId != null) 'telnyxSessionId': telnyxSessionId,
+        if (telnyxLegId != null) 'telnyxLegId': telnyxLegId,
+      },
+    );
+  }
+
   /// Convenience: log call state changed
   void logCallStateChanged({
     required String callId,

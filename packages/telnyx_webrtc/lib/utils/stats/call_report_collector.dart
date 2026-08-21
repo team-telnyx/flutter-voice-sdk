@@ -1199,6 +1199,8 @@ class CallReportCollector {
   bool _flushing = false;
   bool _flushRequestInProgress = false;
   Future<void>? _collectionInProgress;
+  Future<bool>? _intermediateFlushInProgress;
+  Future<void>? _flushCallbackInProgress;
   late DateTime _lastIntermediateFlushTime;
 
   // Upload config stored at start for intermediate flushing
@@ -1510,6 +1512,8 @@ class CallReportCollector {
     if (_peerConnection != null && _intervalStartTime != null) {
       await _collectStats();
     }
+    await _flushCallbackInProgress;
+    await _intermediateFlushInProgress;
 
     _candidatePairCache.clear();
     _codecCache.clear();
@@ -1632,8 +1636,12 @@ class CallReportCollector {
 
       // Remove only the snapshot that was uploaded. Entries collected while
       // the request was in flight remain queued for the next segment.
-      final statsToRemove = stats.length.clamp(0, _statsBuffer.length);
-      _statsBuffer.removeRange(0, statsToRemove);
+      if (stats.isNotEmpty) {
+        final lastUploadedIndex = _statsBuffer.indexOf(stats.last);
+        if (lastUploadedIndex >= 0) {
+          _statsBuffer.removeRange(0, lastUploadedIndex + 1);
+        }
+      }
       if (logEntries != null && logEntries.isNotEmpty) {
         logCollector?.removeThrough(logEntries.last);
       }
@@ -1954,20 +1962,41 @@ class CallReportCollector {
     final callback = onFlushNeeded;
     if (callback != null) {
       _flushRequestInProgress = true;
-      unawaited(
-        Future<void>.sync(() => callback(selectedReason)).then<void>((_) {
-          _lastIntermediateFlushTime = now;
-        }).catchError((Object error) {
-          GlobalLogger().e(
-            'CallReportCollector: onFlushNeeded callback error: $error',
-          );
-        }).whenComplete(() => _flushRequestInProgress = false),
-      );
+      late final Future<void> callbackFuture;
+      callbackFuture =
+          Future<void>.sync(() => callback(selectedReason)).then<void>((_) {
+        _lastIntermediateFlushTime = now;
+      }).catchError((Object error) {
+        GlobalLogger().e(
+          'CallReportCollector: onFlushNeeded callback error: $error',
+        );
+      }).whenComplete(() {
+        _flushRequestInProgress = false;
+        if (identical(_flushCallbackInProgress, callbackFuture)) {
+          _flushCallbackInProgress = null;
+        }
+      });
+      _flushCallbackInProgress = callbackFuture;
+      unawaited(callbackFuture);
       return;
     }
     // Upload retries/backoff must not block stats sampling, quality warnings,
     // or recovery decisions.
-    unawaited(_flushIntermediateSegment(selectedReason));
+    late final Future<bool> flushFuture;
+    flushFuture = _flushIntermediateSegment(selectedReason).catchError(
+      (Object error) {
+        GlobalLogger().e(
+          'CallReportCollector: Intermediate flush error: $error',
+        );
+        return false;
+      },
+    ).whenComplete(() {
+      if (identical(_intermediateFlushInProgress, flushFuture)) {
+        _intermediateFlushInProgress = null;
+      }
+    });
+    _intermediateFlushInProgress = flushFuture;
+    unawaited(flushFuture);
   }
 
   /// Runs the intermediate-flush policy without a live peer connection.

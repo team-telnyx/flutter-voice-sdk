@@ -224,6 +224,9 @@ class Call {
   /// Telnyx leg identifier received from signaling.
   String? telnyxLegId;
 
+  /// Authoritative signaling datacenter retained across ATTACH recovery.
+  String? resolvedDatacenter;
+
   /// Callback for call quality metrics updates.
   /// This will be called periodically with updated metrics when debug mode is enabled.
   ///
@@ -323,8 +326,8 @@ class Call {
     sessionDestinationNumber = invite.callerIdNumber ?? '';
     sessionClientState = clientState;
     this.customHeaders = Map.from(customHeaders);
-    telnyxSessionId = invite.telnyxSessionId;
-    telnyxLegId = invite.telnyxLegId;
+    telnyxSessionId ??= invite.telnyxSessionId;
+    telnyxLegId ??= invite.telnyxLegId;
 
     // Track whether this is a reconnection scenario
     isReconnection = isAttach;

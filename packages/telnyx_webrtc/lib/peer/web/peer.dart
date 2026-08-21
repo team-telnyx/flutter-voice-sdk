@@ -1306,25 +1306,19 @@ class Peer {
       destinationNumber: destinationNumber,
       callerNumber: callerNumber,
     );
-    _callReportLogCollector?.addLog(
-      level: 'info',
-      message: 'New Call',
-      context: {
-        'id': callId,
-        'direction': direction ?? 'unknown',
-        'audio': true,
-        'video': false,
-        'debug': _debug,
-        'forceRelayCandidate': _forceRelayCandidate,
-        'mutedMicOnStart': _initialMuteState,
-        'trickleIce': _useTrickleIce,
-        if (_callReportTelnyxSessionId != null)
-          'telnyxSessionId': _callReportTelnyxSessionId,
-        if (_callReportTelnyxLegId != null)
-          'telnyxLegId': _callReportTelnyxLegId,
-        if (destinationNumber != null) 'destinationNumber': destinationNumber,
-        if (callerNumber != null) 'callerNumber': callerNumber,
-      },
+    _callReportLogCollector?.logNewCall(
+      callId: callId,
+      direction: direction ?? 'unknown',
+      audio: true,
+      video: false,
+      debug: _debug,
+      forceRelayCandidate: _forceRelayCandidate,
+      mutedMicOnStart: _initialMuteState,
+      trickleIce: _useTrickleIce,
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
+      telnyxSessionId: _callReportTelnyxSessionId,
+      telnyxLegId: _callReportTelnyxLegId,
     );
 
     // Always start call report collector (for post-call reporting)

@@ -2629,8 +2629,10 @@ class TelnyxClient {
 
     final destinationNum = invite.callerIdNumber;
     answerCall
-      ..telnyxSessionId = invite.telnyxSessionId
-      ..telnyxLegId = invite.telnyxLegId;
+      ..telnyxSessionId ??= invite.telnyxSessionId
+      ..telnyxLegId ??= invite.telnyxLegId
+      ..resolvedDatacenter ??= invite.variables?.freeSWITCHSwitchname ??
+          invite.variables?.freeSWITCHHostname;
 
     // Start latency tracking for inbound call
     latencyTracker
@@ -2677,8 +2679,7 @@ class TelnyxClient {
       );
     }
     answerCall.peerConnection?.setResolvedCallReportConnection(
-      dc: invite.variables?.freeSWITCHSwitchname ??
-          invite.variables?.freeSWITCHHostname,
+      dc: answerCall.resolvedDatacenter,
     );
     answerCall.peerConnection?.setCallReportIdentifiers(
       sessionId: answerCall.telnyxSessionId,
@@ -3648,12 +3649,13 @@ class TelnyxClient {
                   answerCall
                     ..telnyxSessionId ??=
                         inviteAnswer.inviteParams?.telnyxSessionId
-                    ..telnyxLegId ??= inviteAnswer.inviteParams?.telnyxLegId;
-                  answerCall.peerConnection?.setResolvedCallReportConnection(
-                    dc: inviteAnswer
+                    ..telnyxLegId ??= inviteAnswer.inviteParams?.telnyxLegId
+                    ..resolvedDatacenter ??= inviteAnswer
                             .inviteParams?.variables?.freeSWITCHSwitchname ??
                         inviteAnswer
-                            .inviteParams?.variables?.freeSWITCHHostname,
+                            .inviteParams?.variables?.freeSWITCHHostname;
+                  answerCall.peerConnection?.setResolvedCallReportConnection(
+                    dc: answerCall.resolvedDatacenter,
                   );
                   answerCall.peerConnection?.setCallReportIdentifiers(
                     sessionId: answerCall.telnyxSessionId,
@@ -3808,10 +3810,12 @@ class TelnyxClient {
                   );
                   ringingCall
                     ..telnyxSessionId ??= ringing.inviteParams?.telnyxSessionId
-                    ..telnyxLegId ??= ringing.inviteParams?.telnyxLegId;
+                    ..telnyxLegId ??= ringing.inviteParams?.telnyxLegId
+                    ..resolvedDatacenter ??=
+                        ringing.inviteParams?.variables?.freeSWITCHSwitchname ??
+                            ringing.inviteParams?.variables?.freeSWITCHHostname;
                   ringingCall.peerConnection?.setResolvedCallReportConnection(
-                    dc: ringing.inviteParams?.variables?.freeSWITCHSwitchname ??
-                        ringing.inviteParams?.variables?.freeSWITCHHostname,
+                    dc: ringingCall.resolvedDatacenter,
                   );
                   ringingCall.peerConnection?.setCallReportIdentifiers(
                     sessionId: ringingCall.telnyxSessionId,
