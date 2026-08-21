@@ -1567,17 +1567,21 @@ class Peer {
     _qualityWarningMonitor = QualityWarningMonitor(
       callId: callId,
       onWarning: (warning) {
-        _txClient.emitTelnyxWarning(
-          warning,
-          callId: callId,
-          source: 'quality_warning_monitor',
-        );
-        if (warning.code == TelnyxWarningCodes.lowBytesReceived) {
-          _txClient.healthMonitor?.onNoRtp(callId, 'inbound');
-        } else if (warning.code == TelnyxWarningCodes.lowBytesSent &&
-            _hasActiveUnmutedLocalAudioTrack()) {
-          _txClient.healthMonitor?.onNoRtp(callId, 'outbound');
-        }
+        // Keep application callbacks and recovery work off the stats tick so
+        // a slow warning listener cannot delay the next collection interval.
+        scheduleMicrotask(() {
+          _txClient.emitTelnyxWarning(
+            warning,
+            callId: callId,
+            source: 'quality_warning_monitor',
+          );
+          if (warning.code == TelnyxWarningCodes.lowBytesReceived) {
+            _txClient.healthMonitor?.onNoRtp(callId, 'inbound');
+          } else if (warning.code == TelnyxWarningCodes.lowBytesSent &&
+              _hasActiveUnmutedLocalAudioTrack()) {
+            _txClient.healthMonitor?.onNoRtp(callId, 'outbound');
+          }
+        });
       },
     );
     // Re-read the nullable monitor for every interval so shutdown can safely
