@@ -13,6 +13,7 @@ class CustomFormField extends StatefulWidget {
   final String? Function(String?)? validator;
   final bool isPassword;
   final TextInputType? keyboardType;
+  final String? semanticsIdentifier;
 
   const CustomFormField({
     Key? key,
@@ -22,6 +23,7 @@ class CustomFormField extends StatefulWidget {
     this.validator,
     this.isPassword = false,
     this.keyboardType,
+    this.semanticsIdentifier,
   }) : super(key: key);
 
   @override
@@ -45,28 +47,31 @@ class _CustomFormFieldState extends State<CustomFormField> {
             ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500),
           ),
         ),
-        TextFormField(
-          controller: widget.controller,
-          keyboardType: widget.keyboardType,
-          obscureText: widget.isPassword && !_isPasswordVisible,
-          decoration: InputDecoration(
-            hintText: widget.hintText,
-            suffixIcon: widget.isPassword
-                ? IconButton(
-                    icon: Icon(
-                      _isPasswordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isPasswordVisible = !_isPasswordVisible;
-                      });
-                    },
-                  )
-                : null,
+        Semantics(
+          identifier: widget.semanticsIdentifier,
+          child: TextFormField(
+            controller: widget.controller,
+            keyboardType: widget.keyboardType,
+            obscureText: widget.isPassword && !_isPasswordVisible,
+            decoration: InputDecoration(
+              hintText: widget.hintText,
+              suffixIcon: widget.isPassword
+                  ? IconButton(
+                      icon: Icon(
+                        _isPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _isPasswordVisible = !_isPasswordVisible;
+                        });
+                      },
+                    )
+                  : null,
+            ),
+            validator: widget.validator,
           ),
-          validator: widget.validator,
         ),
       ],
     );
@@ -326,22 +331,19 @@ class _AddProfileFormState extends State<AddProfileForm> {
               ),
             ),
             const SizedBox(height: spacingS),
-            Semantics(
-              identifier: 'caller_number_field',
-              container: true,
-              child: CustomFormField(
-                key: const ValueKey('caller_number_field'),
-                title: 'Caller ID Number',
-                controller: _sipCallerIDNumberController,
-                hintText: 'Enter your caller ID number',
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a caller ID number';
-                  }
-                  return null;
-                },
-              ),
+            CustomFormField(
+              key: const ValueKey('caller_number_field'),
+              semanticsIdentifier: 'caller_number_field',
+              title: 'Caller ID Number',
+              controller: _sipCallerIDNumberController,
+              hintText: 'Enter your caller ID number',
+              keyboardType: TextInputType.phone,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a caller ID number';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: spacingS),
             // Region Selection
@@ -353,8 +355,8 @@ class _AddProfileFormState extends State<AddProfileForm> {
                   child: Text(
                     'Region',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 DropdownButtonFormField<Region>(
@@ -423,12 +425,9 @@ class _AddProfileFormState extends State<AddProfileForm> {
                       ),
                       Text(
                         'Forces TURN relay for all connections, preventing local network access prompts',
-                        style: Theme.of(
-                          context,
-                        )
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.grey[600]),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ),
