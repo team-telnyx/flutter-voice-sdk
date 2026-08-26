@@ -35,6 +35,28 @@ class _CustomFormFieldState extends State<CustomFormField> {
 
   @override
   Widget build(BuildContext context) {
+    final formField = TextFormField(
+      controller: widget.controller,
+      keyboardType: widget.keyboardType,
+      obscureText: widget.isPassword && !_isPasswordVisible,
+      decoration: InputDecoration(
+        hintText: widget.hintText,
+        suffixIcon: widget.isPassword
+            ? IconButton(
+                icon: Icon(
+                  _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  });
+                },
+              )
+            : null,
+      ),
+      validator: widget.validator,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -47,32 +69,14 @@ class _CustomFormFieldState extends State<CustomFormField> {
             ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500),
           ),
         ),
-        Semantics(
-          identifier: widget.semanticsIdentifier,
-          child: TextFormField(
-            controller: widget.controller,
-            keyboardType: widget.keyboardType,
-            obscureText: widget.isPassword && !_isPasswordVisible,
-            decoration: InputDecoration(
-              hintText: widget.hintText,
-              suffixIcon: widget.isPassword
-                  ? IconButton(
-                      icon: Icon(
-                        _isPasswordVisible
-                            ? Icons.visibility
-                            : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
-                    )
-                  : null,
-            ),
-            validator: widget.validator,
+        if (widget.semanticsIdentifier == null)
+          formField
+        else
+          Semantics(
+            identifier: widget.semanticsIdentifier,
+            container: true,
+            child: formField,
           ),
-        ),
       ],
     );
   }
@@ -278,57 +282,48 @@ class _AddProfileFormState extends State<AddProfileForm> {
                 },
               ),
             ] else ...[
-              Semantics(
-                identifier: 'sip_username_field',
-                container: true,
-                child: CustomFormField(
-                  key: const ValueKey('sip_username_field'),
-                  title: 'SIP Username',
-                  controller: _sipUserController,
-                  hintText: 'Enter your SIP username',
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a SIP username';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(height: spacingS),
-              Semantics(
-                identifier: 'sip_password_field',
-                container: true,
-                child: CustomFormField(
-                  key: const ValueKey('sip_password_field'),
-                  title: 'SIP Password',
-                  controller: _sipPasswordController,
-                  hintText: 'Enter your SIP password',
-                  isPassword: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a SIP password';
-                    }
-                    return null;
-                  },
-                ),
-              ),
-            ],
-            const SizedBox(height: spacingS),
-            Semantics(
-              identifier: 'caller_name_field',
-              container: true,
-              child: CustomFormField(
-                key: const ValueKey('caller_name_field'),
-                title: 'Caller ID Name',
-                controller: _sipCallerIDNameController,
-                hintText: 'Enter your caller ID name',
+              CustomFormField(
+                key: const ValueKey('sip_username_field'),
+                semanticsIdentifier: 'sip_username_field',
+                title: 'SIP Username',
+                controller: _sipUserController,
+                hintText: 'Enter your SIP username',
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter a caller ID name';
+                    return 'Please enter a SIP username';
                   }
                   return null;
                 },
               ),
+              const SizedBox(height: spacingS),
+              CustomFormField(
+                key: const ValueKey('sip_password_field'),
+                semanticsIdentifier: 'sip_password_field',
+                title: 'SIP Password',
+                controller: _sipPasswordController,
+                hintText: 'Enter your SIP password',
+                isPassword: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a SIP password';
+                  }
+                  return null;
+                },
+              ),
+            ],
+            const SizedBox(height: spacingS),
+            CustomFormField(
+              key: const ValueKey('caller_name_field'),
+              semanticsIdentifier: 'caller_name_field',
+              title: 'Caller ID Name',
+              controller: _sipCallerIDNameController,
+              hintText: 'Enter your caller ID name',
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a caller ID name';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: spacingS),
             CustomFormField(
