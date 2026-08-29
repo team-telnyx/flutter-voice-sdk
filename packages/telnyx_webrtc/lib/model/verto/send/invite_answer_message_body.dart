@@ -65,7 +65,7 @@ class InviteParams {
     if (trickle != null) {
       data['trickle'] = trickle;
     }
-    if (answeredDeviceToken != null) {
+    if (answeredDeviceToken != null && answeredDeviceToken!.isNotEmpty) {
       data['answered_device_token'] = answeredDeviceToken;
     }
     return data;
