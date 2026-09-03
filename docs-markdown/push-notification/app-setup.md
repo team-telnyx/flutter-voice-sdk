@@ -410,6 +410,33 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
 ```swift
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
+    private func activateWebRTCAudio(_ audioSession: AVAudioSession) {
+        let rtcAudioSession = RTCAudioSession.sharedInstance()
+        let wasAudioEnabled = rtcAudioSession.isAudioEnabled
+        rtcAudioSession.lockForConfiguration()
+
+        let configuration = RTCAudioSessionConfiguration.webRTC()
+        configuration.categoryOptions = [.duckOthers, .allowBluetooth]
+        do {
+            try rtcAudioSession.setConfiguration(configuration)
+        } catch {
+            NSLog("WebRTC audio configuration failed: \(error)")
+        }
+
+        do {
+            try rtcAudioSession.setActive(true)
+            rtcAudioSession.isAudioEnabled = true
+        } catch {
+            rtcAudioSession.isAudioEnabled = false
+            NSLog("WebRTC audio activation failed: \(error)")
+        }
+        rtcAudioSession.unlockForConfiguration()
+
+        if rtcAudioSession.isAudioEnabled && !wasAudioEnabled {
+            rtcAudioSession.audioSessionDidActivate(audioSession)
+        }
+    }
+
     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
         NSLog("onRunner ::  Accept")
         action.fulfill()
@@ -432,8 +459,7 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
 
     func didActivateAudioSession(_ audioSession: AVAudioSession) {
         NSLog("onRunner  :: Activate Audio Session")
-        RTCAudioSession.sharedInstance().audioSessionDidActivate(audioSession)
-        RTCAudioSession.sharedInstance().isAudioEnabled = true
+        activateWebRTCAudio(audioSession)
     }
 
     func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
@@ -445,7 +471,7 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
     ....
   ```  
 
-Note: Notice for didActivateAudioSession and didDeactivateAudioSession that we are handling WebRTC manually. This is to handle the before mentioned bug where there is no audio on iOS when using it with CallKit.
+Note: `didActivateAudioSession` and `didDeactivateAudioSession` manually bridge CallKit ownership into WebRTC. Keep activation idempotent, do not mark audio enabled when `setActive(true)` fails, and verify the state shortly after answering. The demo `AppDelegate.swift` includes a guarded post-answer recovery that is cancelled by decline, end, timeout, or deactivation.
 
 1. Register / Invalidate the push device token for iOS within AppDelegate.swift class
 ```swift
@@ -827,5 +853,4 @@ No migration is required for the timeout feature - it works automatically with e
 - The timeout only applies to accepted push notifications (`isAnswer: true`)
 - Normal incoming calls (not from push) are not affected by this timeout
 - If INVITE arrives after timeout, it will be ignored as the call is already terminated
-
 

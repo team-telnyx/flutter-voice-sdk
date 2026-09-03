@@ -9,6 +9,10 @@ import WebRTC
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
     private let audioRaceChannelName = "org.telnyx.webrtc/audio-race-debug"
+    private var audioLifecycleGeneration = 0
+    #if DEBUG
+    private var audioRaceChannel: FlutterMethodChannel?
+    #endif
 
     private func activateWebRTCAudio(_ audioSession: AVAudioSession, reason: String) {
         let rtcAudioSession = RTCAudioSession.sharedInstance()
@@ -19,25 +23,38 @@ import WebRTC
         configuration.categoryOptions = [.duckOthers, .allowBluetooth]
         do {
             try rtcAudioSession.setConfiguration(configuration)
+        } catch {
+            print("[CALLKIT_AUDIO] Configuration failed: \(error)")
+        }
+
+        var activationSucceeded = false
+        do {
             try rtcAudioSession.setActive(true)
+            activationSucceeded = true
         } catch {
             print("[CALLKIT_AUDIO] Activation failed: \(error)")
         }
-        rtcAudioSession.isAudioEnabled = true
+        rtcAudioSession.isAudioEnabled = activationSucceeded
         rtcAudioSession.unlockForConfiguration()
-        if !wasAudioEnabled {
+        if activationSucceeded && !wasAudioEnabled {
             rtcAudioSession.audioSessionDidActivate(audioSession)
         }
     }
 
     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
         print("[iOS_PUSH_DEBUG] AppDelegate - onAccept called by CallKit for call ID: \\(call.uuid)")
+        audioLifecycleGeneration += 1
+        let verificationGeneration = audioLifecycleGeneration
         action.fulfill()
-        verifyAudioAfterAnswer()
+        verifyAudioAfterAnswer(generation: verificationGeneration)
     }
 
-    private func verifyAudioAfterAnswer() {
+    private func verifyAudioAfterAnswer(generation: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
+            guard self?.audioLifecycleGeneration == generation else {
+                print("[CALLKIT_AUDIO] Skipping stale post-answer verification")
+                return
+            }
             let rtcAudioSession = RTCAudioSession.sharedInstance()
             if rtcAudioSession.isAudioEnabled {
                 print("[CALLKIT_AUDIO] Post-answer verification passed")
@@ -54,16 +71,19 @@ import WebRTC
     }
     
     func onDecline(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
+        audioLifecycleGeneration += 1
         print("onRunner ::  Decline")
         action.fulfill()
     }
     
     func onEnd(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
+        audioLifecycleGeneration += 1
         print("onRunner ::  End")
         action.fulfill()
     }
     
     func onTimeOut(_ call: flutter_callkit_incoming.Call) {
+        audioLifecycleGeneration += 1
         print("onRunner ::  TimeOut")
     }
     
@@ -73,6 +93,7 @@ import WebRTC
     }
     
     func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
+        audioLifecycleGeneration += 1
         print("onRunner  :: DeActivate Audio Session")
 
         RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
@@ -84,24 +105,6 @@ import WebRTC
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
-
-      #if DEBUG
-      if let controller = window?.rootViewController as? FlutterViewController {
-          let audioRaceChannel = FlutterMethodChannel(
-              name: audioRaceChannelName,
-              binaryMessenger: controller.binaryMessenger
-          )
-          audioRaceChannel.setMethodCallHandler { [weak self] call, result in
-              guard call.method == "simulateAudioSetupRace" else {
-                  result(FlutterMethodNotImplemented)
-                  return
-              }
-              let delayMilliseconds = (call.arguments as? [String: Any])?["delayMilliseconds"] as? Int ?? 250
-              self?.simulateAudioSetupRace(delay: Double(delayMilliseconds) / 1_000)
-              result(["scheduled": true, "delayMilliseconds": delayMilliseconds])
-          }
-      }
-      #endif
       
       //Setup VOIP
       let mainQueue = DispatchQueue.main
@@ -111,11 +114,44 @@ import WebRTC
 
       RTCAudioSession.sharedInstance().useManualAudio = true
       RTCAudioSession.sharedInstance().isAudioEnabled = false
-      
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+
+      let didFinishLaunching = super.application(
+          application,
+          didFinishLaunchingWithOptions: launchOptions
+      )
+
+      #if DEBUG
+      DispatchQueue.main.async { [weak self] in
+          self?.installAudioRaceDebugChannel()
+      }
+      #endif
+
+      return didFinishLaunching
   }
 
     #if DEBUG
+    private func installAudioRaceDebugChannel() {
+        guard let controller = window?.rootViewController as? FlutterViewController else {
+            print("[VSUP-226] Audio race channel unavailable: missing FlutterViewController")
+            return
+        }
+        let channel = FlutterMethodChannel(
+            name: audioRaceChannelName,
+            binaryMessenger: controller.binaryMessenger
+        )
+        channel.setMethodCallHandler { [weak self] call, result in
+            guard call.method == "simulateAudioSetupRace" else {
+                result(FlutterMethodNotImplemented)
+                return
+            }
+            let delayMilliseconds =
+                (call.arguments as? [String: Any])?["delayMilliseconds"] as? Int ?? 250
+            self?.simulateAudioSetupRace(delay: Double(delayMilliseconds) / 1_000)
+            result(["scheduled": true, "delayMilliseconds": delayMilliseconds])
+        }
+        audioRaceChannel = channel
+    }
+
     private func simulateAudioSetupRace(delay: TimeInterval) {
         print("[VSUP-226] Scheduling late audio reset in \(delay)s")
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
