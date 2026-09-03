@@ -8,10 +8,49 @@ import WebRTC
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
+    private let audioRaceChannelName = "org.telnyx.webrtc/audio-race-debug"
+
+    private func activateWebRTCAudio(_ audioSession: AVAudioSession, reason: String) {
+        let rtcAudioSession = RTCAudioSession.sharedInstance()
+        let wasAudioEnabled = rtcAudioSession.isAudioEnabled
+        print("[CALLKIT_AUDIO] Activating WebRTC audio (\(reason)); enabled=\(rtcAudioSession.isAudioEnabled)")
+        rtcAudioSession.lockForConfiguration()
+        let configuration = RTCAudioSessionConfiguration.webRTC()
+        configuration.categoryOptions = [.duckOthers, .allowBluetooth]
+        do {
+            try rtcAudioSession.setConfiguration(configuration)
+            try rtcAudioSession.setActive(true)
+        } catch {
+            print("[CALLKIT_AUDIO] Activation failed: \(error)")
+        }
+        rtcAudioSession.isAudioEnabled = true
+        rtcAudioSession.unlockForConfiguration()
+        if !wasAudioEnabled {
+            rtcAudioSession.audioSessionDidActivate(audioSession)
+        }
+    }
+
     func onAccept(_ call: flutter_callkit_incoming.Call, _ action: CXAnswerCallAction) {
         print("[iOS_PUSH_DEBUG] AppDelegate - onAccept called by CallKit for call ID: \\(call.uuid)")
         action.fulfill()
-        
+        verifyAudioAfterAnswer()
+    }
+
+    private func verifyAudioAfterAnswer() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
+            let rtcAudioSession = RTCAudioSession.sharedInstance()
+            if rtcAudioSession.isAudioEnabled {
+                print("[CALLKIT_AUDIO] Post-answer verification passed")
+            } else if AVAudioSession.sharedInstance().category == .playAndRecord {
+                print("[CALLKIT_AUDIO] Recovering disabled audio after CallKit answer")
+                self?.activateWebRTCAudio(
+                    AVAudioSession.sharedInstance(),
+                    reason: "post-answer verification"
+                )
+            } else {
+                print("[CALLKIT_AUDIO] Verification skipped; CallKit session is not active")
+            }
+        }
     }
     
     func onDecline(_ call: flutter_callkit_incoming.Call, _ action: CXEndCallAction) {
@@ -30,9 +69,7 @@ import WebRTC
     
     func didActivateAudioSession(_ audioSession: AVAudioSession) {
         print("onRunner  :: Activate Audio Session")
-
-        RTCAudioSession.sharedInstance().audioSessionDidActivate(audioSession)
-        RTCAudioSession.sharedInstance().isAudioEnabled = true
+        activateWebRTCAudio(audioSession, reason: "CallKit didActivate")
     }
     
     func didDeactivateAudioSession(_ audioSession: AVAudioSession) {
@@ -47,6 +84,24 @@ import WebRTC
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     GeneratedPluginRegistrant.register(with: self)
+
+      #if DEBUG
+      if let controller = window?.rootViewController as? FlutterViewController {
+          let audioRaceChannel = FlutterMethodChannel(
+              name: audioRaceChannelName,
+              binaryMessenger: controller.binaryMessenger
+          )
+          audioRaceChannel.setMethodCallHandler { [weak self] call, result in
+              guard call.method == "simulateAudioSetupRace" else {
+                  result(FlutterMethodNotImplemented)
+                  return
+              }
+              let delayMilliseconds = (call.arguments as? [String: Any])?["delayMilliseconds"] as? Int ?? 250
+              self?.simulateAudioSetupRace(delay: Double(delayMilliseconds) / 1_000)
+              result(["scheduled": true, "delayMilliseconds": delayMilliseconds])
+          }
+      }
+      #endif
       
       //Setup VOIP
       let mainQueue = DispatchQueue.main
@@ -59,6 +114,22 @@ import WebRTC
       
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
+
+    #if DEBUG
+    private func simulateAudioSetupRace(delay: TimeInterval) {
+        print("[VSUP-226] Scheduling late audio reset in \(delay)s")
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            RTCAudioSession.sharedInstance().isAudioEnabled = false
+            print("[VSUP-226] Injected late setup reset; enabled=false")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+                self?.activateWebRTCAudio(
+                    AVAudioSession.sharedInstance(),
+                    reason: "debug connected-call recovery"
+                )
+            }
+        }
+    }
+    #endif
     
     // Call back from Recent history
         override func application(_ application: UIApplication,
