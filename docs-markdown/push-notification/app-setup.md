@@ -410,7 +410,9 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
 ```swift
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
-    private func activateWebRTCAudio(_ audioSession: AVAudioSession) {
+    // Minimal activation excerpt. The demo AppDelegate.swift is the source of truth for
+    // guarded post-answer recovery and lifecycle invalidation.
+    private func activateWebRTCAudio(_ audioSession: AVAudioSession, reason: String) {
         let rtcAudioSession = RTCAudioSession.sharedInstance()
         let wasAudioEnabled = rtcAudioSession.isAudioEnabled
         rtcAudioSession.lockForConfiguration()
@@ -423,16 +425,21 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
             NSLog("WebRTC audio configuration failed: \(error)")
         }
 
+        var activationSucceeded = false
         do {
             try rtcAudioSession.setActive(true)
-            rtcAudioSession.isAudioEnabled = true
+            activationSucceeded = true
         } catch {
+            NSLog("WebRTC audio activation (\(reason)) failed: \(error)")
+        }
+        if activationSucceeded {
+            rtcAudioSession.isAudioEnabled = true
+        } else if !wasAudioEnabled {
             rtcAudioSession.isAudioEnabled = false
-            NSLog("WebRTC audio activation failed: \(error)")
         }
         rtcAudioSession.unlockForConfiguration()
 
-        if rtcAudioSession.isAudioEnabled && !wasAudioEnabled {
+        if activationSucceeded && !wasAudioEnabled {
             rtcAudioSession.audioSessionDidActivate(audioSession)
         }
     }
@@ -853,4 +860,3 @@ No migration is required for the timeout feature - it works automatically with e
 - The timeout only applies to accepted push notifications (`isAnswer: true`)
 - Normal incoming calls (not from push) are not affected by this timeout
 - If INVITE arrives after timeout, it will be ignored as the call is already terminated
-

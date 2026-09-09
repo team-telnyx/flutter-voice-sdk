@@ -9,6 +9,7 @@ import WebRTC
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
     private let audioRaceChannelName = "org.telnyx.webrtc/audio-race-debug"
+    private let postAnswerVerificationDelay: TimeInterval = 0.75
     private var audioLifecycleGeneration = 0
     #if DEBUG
     private var audioRaceChannel: FlutterMethodChannel?
@@ -34,7 +35,11 @@ import WebRTC
         } catch {
             print("[CALLKIT_AUDIO] Activation failed: \(error)")
         }
-        rtcAudioSession.isAudioEnabled = activationSucceeded
+        if activationSucceeded {
+            rtcAudioSession.isAudioEnabled = true
+        } else if !wasAudioEnabled {
+            rtcAudioSession.isAudioEnabled = false
+        }
         rtcAudioSession.unlockForConfiguration()
         if activationSucceeded && !wasAudioEnabled {
             rtcAudioSession.audioSessionDidActivate(audioSession)
@@ -50,7 +55,7 @@ import WebRTC
     }
 
     private func verifyAudioAfterAnswer(generation: Int) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + postAnswerVerificationDelay) { [weak self] in
             guard self?.audioLifecycleGeneration == generation else {
                 print("[CALLKIT_AUDIO] Skipping stale post-answer verification")
                 return
@@ -155,9 +160,12 @@ import WebRTC
     private func simulateAudioSetupRace(delay: TimeInterval) {
         print("[VSUP-226] Scheduling late audio reset in \(delay)s")
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            RTCAudioSession.sharedInstance().isAudioEnabled = false
+            let rtcAudioSession = RTCAudioSession.sharedInstance()
+            rtcAudioSession.lockForConfiguration()
+            rtcAudioSession.isAudioEnabled = false
+            rtcAudioSession.unlockForConfiguration()
             print("[VSUP-226] Injected late setup reset; enabled=false")
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + (self?.postAnswerVerificationDelay ?? 0.75)) {
                 self?.activateWebRTCAudio(
                     AVAudioSession.sharedInstance(),
                     reason: "debug connected-call recovery"
