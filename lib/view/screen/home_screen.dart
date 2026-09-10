@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +25,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // Change by hand for VSUP-226 validation. The native hook is DEBUG-only.
+  static const bool enableAudioRaceDebug = false;
+  static const MethodChannel _audioRaceChannel =
+      MethodChannel('org.telnyx.webrtc/audio-race-debug');
   final TextEditingController _targetIdController = TextEditingController();
   final TextEditingController _conversationIdController =
       TextEditingController();
@@ -177,7 +182,21 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Start Call Muted Off':
         _toggleMuteOnStart();
         break;
+      case 'Inject Audio Setup Race':
+        _injectAudioSetupRace();
+        break;
     }
+  }
+
+  Future<void> _injectAudioSetupRace() async {
+    await _audioRaceChannel.invokeMethod<void>(
+      'simulateAudioSetupRace',
+      const {'delayMilliseconds': 250},
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Audio race scheduled; check Xcode logs')),
+    );
   }
 
   void _toggleMuteOnStart() {
@@ -319,6 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Force ICE Renegotiation',
                   'Export Logs',
                   'Diagnostics',
+                  if (enableAudioRaceDebug) 'Inject Audio Setup Race',
                 ].map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
