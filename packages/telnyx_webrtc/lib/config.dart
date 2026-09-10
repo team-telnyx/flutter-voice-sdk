@@ -31,10 +31,7 @@ class DefaultConfig {
   /// (last-resort fallback for restrictive firewalls that block non-443 traffic)
   static const String defaultTurns443 = 'turns:turn.telnyx.com:443';
 
-  /// Secondary production TURNS endpoint retained during DNS migration.
-  static const String secondaryTurns443 = 'turns:turn2.telnyx.com:443';
-
-  /// Production STUN server
+/// Production STUN server
   static const String defaultStun = 'stun:stun.telnyx.com:3478';
 
   // MARK: - Development TURN/STUN Servers
@@ -88,11 +85,6 @@ class DefaultConfig {
         // TURNS 443 (last-resort fallback for restrictive firewalls)
         TxIceServer(
           urls: [defaultTurns443],
-          username: username,
-          credential: password,
-        ),
-        TxIceServer(
-          urls: [secondaryTurns443],
           username: username,
           credential: password,
         ),
