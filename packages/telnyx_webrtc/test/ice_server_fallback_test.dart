@@ -269,8 +269,8 @@ void main() {
               defaultServerConfig: clientDefault,
             );
 
-            // Production includes both primary and secondary TURNS endpoints.
-            expect(result.length, 6);
+            // Production includes the TURNS 443 endpoint.
+            expect(result.length, 5);
             expect(result, equals(DefaultConfig.defaultProdIceServers));
           },
         );
