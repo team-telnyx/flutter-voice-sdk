@@ -35,6 +35,7 @@ import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
 import 'package:telnyx_flutter_webrtc/utils/media_recovery_helper.dart';
+import 'package:telnyx_flutter_webrtc/utils/call_acceptance_guard.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
@@ -71,6 +72,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
   IncomingInviteParams? _incomingInvite;
+  final CallAcceptanceGuard _callAcceptanceGuard = CallAcceptanceGuard();
   DateTime? _ignoreAndroidCallKitEventsUntil;
   CallQualityMetrics? _callQualityMetrics;
   List<TranscriptItem> _transcript = [];
@@ -244,6 +246,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i('TxClientViewModel :: Reset Call Info');
     BackgroundDetector.ignore = false;
     _incomingInvite = null;
+    _callAcceptanceGuard.reset();
     _currentCall = null;
     _speakerPhone = false;
     _mute = false;
@@ -1070,6 +1073,17 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i(
       'TelnyxClientViewModel.accept: Called. acceptFromPush: $acceptFromPush, _incomingInvite exists: ${_incomingInvite != null}, callState: $callState. pushData: $pushData',
     );
+
+    final invite = _incomingInvite;
+
+    // Claim this invite synchronously, before activeCalls() or any other await.
+    // CallKit may deliver duplicate CXAnswerCallAction events within the same
+    // event-loop window; a state-only guard set after an await is racy.
+    if (invite != null && !_callAcceptanceGuard.tryClaim(invite.callID)) {
+      logger.i('Accept :: Duplicate accept ignored for call ${invite.callID}.');
+      return;
+    }
+
     if (!kIsWeb) {
       await FlutterCallkitIncoming.activeCalls().then((value) {
         logger.i(
@@ -1085,13 +1099,19 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i(
         'Accept :: Already connecting or in a call, ignoring request :: $callState',
       );
+      _callAcceptanceGuard.release(invite?.callID);
       return;
     }
 
     // --- Main Acceptance Logic ---
-    if (_incomingInvite != null) {
+    if (invite != null) {
       // Invite is ready NOW. Perform the acceptance actions.
-      await _performAccept(_incomingInvite!);
+      try {
+        await _performAccept(invite);
+      } catch (_) {
+        _callAcceptanceGuard.release(invite.callID);
+        rethrow;
+      }
     } else if (acceptFromPush) {
       // Accept intent came from push, but invite hasn't arrived. Set up waiting state.
       logger.i(
