@@ -532,7 +532,19 @@ class TelnyxClientViewModel with ChangeNotifier {
                 logger.i(
                   'ObserveResponses :: Invite received while waiting, calling _performAccept.',
                 );
-                await _performAccept(_incomingInvite!);
+                final invite = _incomingInvite!;
+                if (_callAcceptanceGuard.tryClaim(invite.callID)) {
+                  try {
+                    await _performAccept(invite);
+                  } catch (_) {
+                    _callAcceptanceGuard.release(invite.callID);
+                    rethrow;
+                  }
+                } else {
+                  logger.i(
+                    'ObserveResponses :: Duplicate push accept ignored for call ${invite.callID}.',
+                  );
+                }
               } else if (!callFromPush) {
                 logger.i(
                   'ObserveResponses :: Invite - Not from push, showing notification.',
@@ -1213,6 +1225,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       callState = CallStateStatus.idle;
       waitingForInvite = false;
       notifyListeners();
+      rethrow;
     }
   }
 
