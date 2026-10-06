@@ -591,6 +591,26 @@ void call(String destination) {
 }
 ```
 
+## Enabling iOS Missed-Call Push Notifications
+
+Backend missed-call cleanup pushes are opt-in for Flutter iOS registrations. Set `enableMissedCallNotifications: true` on the `CredentialConfig` or `TokenConfig` that includes your APNS/PushKit token:
+
+```dart
+final credentialConfig = CredentialConfig(
+  sipUser: 'username',
+  sipPassword: 'password',
+  sipCallerIDName: 'Caller Name',
+  sipCallerIDNumber: '1234567890',
+  notificationToken: 'your_ios_voip_token',
+  enableMissedCallNotifications: true,
+  debug: true,
+);
+
+_telnyxClient.connectWithCredential(credentialConfig);
+```
+
+The option defaults to `false`. When enabled, the SDK advertises `Flutter-mpn-<version>` in the login User-Agent so Telnyx can send iOS missed-call cleanup pushes (`"Missed call!"`). When disabled, the SDK advertises `Flutter-<version>` and does not opt in. Android missed-call cleanup push behavior is unchanged.
+
 ### Handling Late Notifications
 If notifications arrive very late due to no internet connectivity, It is good to always flag it as a missed call. You can do that using the
 code snippet below :

@@ -10,7 +10,9 @@ class VersionUtils {
   }
 
   /// Constructs the user agent string in the format Flutter-{SDK-Version}
-  static String getUserAgent() {
-    return 'Flutter-$_sdkVersion';
+  /// or Flutter-mpn-{SDK-Version} when missed call notifications are enabled.
+  static String getUserAgent({bool enableMissedCallNotifications = false}) {
+    final prefix = enableMissedCallNotifications ? 'Flutter-mpn' : 'Flutter';
+    return '$prefix-$_sdkVersion';
   }
 }

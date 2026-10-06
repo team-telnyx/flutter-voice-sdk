@@ -1660,7 +1660,9 @@ class TelnyxClient {
       loginParams: {'decline_push': 'true'},
       sessionId: sessid,
       userVariables: notificationParams,
-      userAgent: VersionUtils.getUserAgent(),
+      userAgent: VersionUtils.getUserAgent(
+        enableMissedCallNotifications: config.enableMissedCallNotifications,
+      ),
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -1702,7 +1704,9 @@ class TelnyxClient {
       loginParams: {'decline_push': 'true'},
       userVariables: notificationParams,
       sessionId: sessid,
-      userAgent: VersionUtils.getUserAgent(),
+      userAgent: VersionUtils.getUserAgent(
+        enableMissedCallNotifications: config.enableMissedCallNotifications,
+      ),
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -2210,7 +2214,9 @@ class TelnyxClient {
       loginParams: {'attach_call': 'true'},
       sessionId: sessid,
       userVariables: notificationParams,
-      userAgent: VersionUtils.getUserAgent(),
+      userAgent: VersionUtils.getUserAgent(
+        enableMissedCallNotifications: config.enableMissedCallNotifications,
+      ),
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -2267,7 +2273,9 @@ class TelnyxClient {
       loginParams: {'attach_call': 'true'},
       userVariables: notificationParams,
       sessionId: sessid,
-      userAgent: VersionUtils.getUserAgent(),
+      userAgent: VersionUtils.getUserAgent(
+        enableMissedCallNotifications: config.enableMissedCallNotifications,
+      ),
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -3069,6 +3077,7 @@ class TelnyxClient {
       enableStructuredErrors: c.enableStructuredErrors,
       enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
       mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+      enableMissedCallNotifications: c.enableMissedCallNotifications,
     );
   }
 
@@ -3110,6 +3119,7 @@ class TelnyxClient {
       enableStructuredErrors: c.enableStructuredErrors,
       enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
       mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+      enableMissedCallNotifications: c.enableMissedCallNotifications,
     );
   }
 
