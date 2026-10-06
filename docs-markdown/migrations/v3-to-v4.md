@@ -12,7 +12,7 @@ Version 4.0.0 introduces improved push notification handling, specifically for m
 
 ### Missed Call Notification Handling (Required for iOS)
 
-**Action Required:** v4.0.0 requires you to update your iOS `AppDelegate.swift` to handle missed call VoIP push notifications.
+**Action Required:** v4.0.0 requires you to opt in to iOS missed-call cleanup pushes and update your iOS `AppDelegate.swift` to handle missed call VoIP push notifications.
 
 **Why This is Critical:**
 
@@ -25,6 +25,23 @@ Per Apple's PushKit policy, apps receiving VoIP push notifications **must report
 - ⚠️ Poor user experience
 
 ## Migration Steps
+
+### iOS: Enable Missed-Call Push Opt-In
+
+Set `enableMissedCallNotifications: true` on the `CredentialConfig` or `TokenConfig` used for iOS PushKit registration:
+
+```dart
+final tokenConfig = TokenConfig(
+  sipToken: 'your_jwt_token',
+  sipCallerIDName: 'Caller Name',
+  sipCallerIDNumber: '1234567890',
+  notificationToken: 'your_ios_voip_token',
+  enableMissedCallNotifications: true,
+  debug: true,
+);
+```
+
+This option defaults to `false`. When enabled, the SDK advertises `Flutter-mpn-<version>` in the login User-Agent so Telnyx can send iOS missed-call cleanup pushes. When disabled, the SDK advertises `Flutter-<version>` and does not opt in. Android behavior is unchanged.
 
 ### iOS: Update AppDelegate.swift
 

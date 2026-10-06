@@ -174,6 +174,7 @@ class CredentialConfig extends Config {
       required super.sipCallerIDNumber,
       super.notificationToken,
       super.autoReconnect,
+      super.enableMissedCallNotifications,
       required super.debug,
       super.ringTonePath,
       super.ringbackPath,
@@ -197,6 +198,7 @@ class TokenConfig extends Config {
       required super.sipCallerIDNumber,
       super.notificationToken,
       super.autoReconnect,
+      super.enableMissedCallNotifications,
       required super.debug,
       super.ringTonePath,
       super.ringbackPath,
@@ -205,6 +207,25 @@ class TokenConfig extends Config {
    final String sipToken;
 }
  ```
+
+#### Enabling iOS Missed-Call Push Notifications
+
+Backend missed-call cleanup pushes are opt-in for Flutter iOS registrations. Set `enableMissedCallNotifications: true` on the `CredentialConfig` or `TokenConfig` used to connect:
+
+```dart
+final tokenConfig = TokenConfig(
+  sipToken: 'your_jwt_token',
+  sipCallerIDName: 'Caller Name',
+  sipCallerIDNumber: '1234567890',
+  notificationToken: 'your_ios_voip_token',
+  enableMissedCallNotifications: true,
+  debug: true,
+);
+
+_telnyxClient.connectWithToken(tokenConfig);
+```
+
+This option defaults to `false`. When enabled, the SDK advertises `Flutter-mpn-<version>` in the login User-Agent so Telnyx can send iOS missed-call cleanup pushes (`"Missed call!"`). When disabled, the SDK advertises `Flutter-<version>` and does not opt in. Android missed-call cleanup push behavior is unchanged.
 
 ### Creating a call invitation
 In order to make a call invitation, we first create an instance of the Call class with the .call instance. This creates a Call class which can be used to interact with calls (invite, accept, decline, etc).
