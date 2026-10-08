@@ -1652,7 +1652,11 @@ class TelnyxClient {
       pushDeviceToken: notificationToken,
       pushNotificationProvider:
           defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
-      pushWhenActive: config.pushWhenActive,
+      // Only emit login-level opt-in flags when the caller has explicitly
+      // set pushWhenActive to true; preserve the legacy wire payload shape
+      // for callers who never set the flag (Android/iOS opt-in parity).
+      pushWhenActive: config.pushWhenActive ? true : null,
+      pnLateFanout: config.pushWhenActive ? true : null,
     );
 
     final loginParams = LoginParams(
@@ -1696,7 +1700,11 @@ class TelnyxClient {
       pushDeviceToken: notificationToken,
       pushNotificationProvider:
           defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
-      pushWhenActive: config.pushWhenActive,
+      // Only emit login-level opt-in flags when the caller has explicitly
+      // set pushWhenActive to true; preserve the legacy wire payload shape
+      // for callers who never set the flag (Android/iOS opt-in parity).
+      pushWhenActive: config.pushWhenActive ? true : null,
+      pnLateFanout: config.pushWhenActive ? true : null,
     );
 
     final loginParams = LoginParams(
@@ -2198,13 +2206,21 @@ class TelnyxClient {
       notificationParams = UserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'android',
-        pushWhenActive: config.pushWhenActive,
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = UserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'ios',
-        pushWhenActive: config.pushWhenActive,
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     }
 
@@ -2258,13 +2274,21 @@ class TelnyxClient {
       notificationParams = UserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'android',
-        pushWhenActive: config.pushWhenActive,
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = UserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'ios',
-        pushWhenActive: config.pushWhenActive,
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     }
 
