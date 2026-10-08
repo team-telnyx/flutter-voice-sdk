@@ -1652,6 +1652,7 @@ class TelnyxClient {
       pushDeviceToken: notificationToken,
       pushNotificationProvider:
           defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      pushWhenActive: config.pushWhenActive,
     );
 
     final loginParams = LoginParams(
@@ -1695,6 +1696,7 @@ class TelnyxClient {
       pushDeviceToken: notificationToken,
       pushNotificationProvider:
           defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      pushWhenActive: config.pushWhenActive,
     );
 
     final loginParams = LoginParams(
@@ -2196,11 +2198,13 @@ class TelnyxClient {
       notificationParams = UserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'android',
+        pushWhenActive: config.pushWhenActive,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = UserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'ios',
+        pushWhenActive: config.pushWhenActive,
       );
     }
 
@@ -2254,11 +2258,13 @@ class TelnyxClient {
       notificationParams = UserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'android',
+        pushWhenActive: config.pushWhenActive,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = UserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'ios',
+        pushWhenActive: config.pushWhenActive,
       );
     }
 
@@ -2626,13 +2632,14 @@ class TelnyxClient {
     // Auto-populate answeredDeviceToken from the stored push token when
     // push-when-active is enabled on the active login config. The explicit
     // parameter always wins so callers retain override control. We only fall
-    // back to the stored token when it is present and non-empty so the wire
-    // payload never carries a blank `answered_device_token`.
-    if (answeredDeviceToken == null || answeredDeviceToken.isEmpty) {
+    // back to the stored token when it is present and non-empty after
+    // trimming so the wire payload never carries a blank or whitespace-only
+    // `answered_device_token`.
+    if (answeredDeviceToken == null || answeredDeviceToken.trim().isEmpty) {
       final activeConfig = _storedCredentialConfig ?? _storedTokenConfig;
       if (activeConfig?.pushWhenActive == true) {
         final storedToken = activeConfig?.notificationToken;
-        if (storedToken != null && storedToken.isNotEmpty) {
+        if (storedToken != null && storedToken.trim().isNotEmpty) {
           answeredDeviceToken = storedToken;
           GlobalLogger().i(
             'TelnyxClient.acceptCall: pushWhenActive enabled, '
