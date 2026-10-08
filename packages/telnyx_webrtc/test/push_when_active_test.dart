@@ -8,6 +8,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 void main() {
@@ -179,6 +180,150 @@ void main() {
         (json['params'] as Map<String, dynamic>)['answered_device_token'],
         equals('push-token-abc'),
       );
+    });
+  });
+
+  group('InviteAnswerMessageBody.answeredDeviceToken whitespace handling', () {
+    // The resolver/serializer MUST trim the value before deciding whether to
+    // emit `answered_device_token`. A whitespace-only token would otherwise be
+    // shipped on the wire as `"   "`, which the backend treats as valid and
+    // forwards to the callee. Reviewer feedback: the trim guard must live on
+    // the serializer side (not just at the acceptCall fallback) so any caller
+    // path that constructs `InviteParams` with a stray blank token cannot
+    // leak the value onto the wire.
+    test('omits answered_device_token when single space', () {
+      final params = InviteParams(
+        sdp: 'v=0\r\n',
+        sessid: 'sess-1',
+        answeredDeviceToken: ' ',
+      );
+
+      final json = params.toJson();
+
+      expect(json.containsKey('answered_device_token'), isFalse);
+    });
+
+    test('omits answered_device_token when only whitespace (tabs/newlines)', () {
+      final params = InviteParams(
+        sdp: 'v=0\r\n',
+        sessid: 'sess-1',
+        answeredDeviceToken: '\t \n',
+      );
+
+      final json = params.toJson();
+
+      expect(json.containsKey('answered_device_token'), isFalse);
+    });
+
+    test('emits answered_device_token when value has surrounding whitespace '
+        'but non-blank content', () {
+      // A token like " abc " is unusual but conceptually non-blank — we
+      // serialize the raw value rather than silently mutating it. The trim
+      // guard is for the *gate* (whether to emit), not for reformatting the
+      // payload. This matches the contract used by the Android/iOS SDKs.
+      final params = InviteParams(
+        sdp: 'v=0\r\n',
+        sessid: 'sess-1',
+        answeredDeviceToken: ' abc ',
+      );
+
+      final json = params.toJson();
+
+      expect(json['answered_device_token'], equals(' abc '));
+    });
+  });
+
+  group('UserVariables login-level opt-in keys', () {
+    // Reviewer feedback: ensure `push_when_active` / `pn_late_fanout` keys
+    // are emitted on the login payload ONLY when the caller has explicitly
+    // opted in. Existing apps that never set these flags must continue to
+    // produce a wire payload with only `push_device_token`,
+    // `push_notification_provider`, and `push_notification_environment`.
+    test('omits push_when_active when null', () {
+      final vars = UserVariables(
+        pushDeviceToken: 'tok',
+        pushNotificationProvider: 'android',
+      );
+
+      final json = vars.toJson();
+
+      expect(json.containsKey('push_when_active'), isFalse);
+    });
+
+    test('omits pn_late_fanout when null', () {
+      final vars = UserVariables(
+        pushDeviceToken: 'tok',
+        pushNotificationProvider: 'android',
+      );
+
+      final json = vars.toJson();
+
+      expect(json.containsKey('pn_late_fanout'), isFalse);
+    });
+
+    test('emits push_when_active when true', () {
+      final vars = UserVariables(
+        pushDeviceToken: 'tok',
+        pushNotificationProvider: 'ios',
+        pushWhenActive: true,
+      );
+
+      final json = vars.toJson();
+
+      expect(json['push_when_active'], isTrue);
+    });
+
+    test('emits push_when_active when explicitly false (caller opted in)', () {
+      // Even an explicit `false` is a deliberate choice and must round-trip;
+      // a caller using pushWhenActive: false is asserting "no, do not enable
+      // late fan-out". Omitting the key would be ambiguous.
+      final vars = UserVariables(
+        pushDeviceToken: 'tok',
+        pushNotificationProvider: 'ios',
+        pushWhenActive: false,
+      );
+
+      final json = vars.toJson();
+
+      expect(json['push_when_active'], isFalse);
+    });
+
+    test('round-trips push_when_active through fromJson', () {
+      final wire = {
+        'push_device_token': 'tok',
+        'push_notification_provider': 'ios',
+        'push_when_active': true,
+        'pn_late_fanout': true,
+      };
+
+      final vars = UserVariables.fromJson(wire);
+
+      expect(vars.pushWhenActive, isTrue);
+      expect(vars.pnLateFanout, isTrue);
+
+      final reserialized = vars.toJson();
+      expect(reserialized['push_when_active'], isTrue);
+      expect(reserialized['pn_late_fanout'], isTrue);
+    });
+
+    test('legacy payload (no opt-in keys) deserializes cleanly', () {
+      // Backwards compatibility: a pre-feature login payload from the wire
+      // contains only the legacy three keys. fromJson must not blow up and
+      // pushWhenActive / pnLateFanout must default to null (=> no emit).
+      final wire = {
+        'push_device_token': 'tok',
+        'push_notification_provider': 'android',
+        'push_notification_environment': 'production',
+      };
+
+      final vars = UserVariables.fromJson(wire);
+
+      expect(vars.pushWhenActive, isNull);
+      expect(vars.pnLateFanout, isNull);
+
+      final reserialized = vars.toJson();
+      expect(reserialized.containsKey('push_when_active'), isFalse);
+      expect(reserialized.containsKey('pn_late_fanout'), isFalse);
     });
   });
 }
