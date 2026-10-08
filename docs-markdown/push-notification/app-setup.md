@@ -48,6 +48,16 @@ telnyxClient.connectWithCredential(credentialConfig);
 * When `pushWhenActive: true` but no `notificationToken` is configured (or the token is blank), no `answered_device_token` field is sent. Apps never need to send an empty value.
 * Your app does **not** need to pass `answeredDeviceToken` manually to `acceptCall`. The SDK wires it through from the config when `pushWhenActive` is enabled.
 
+### Login-level opt-in keys
+
+For backend parity with the Android/iOS SDKs, when `pushWhenActive: true` is set on the config, the SDK also emits the matching wire-level flags on the `login` payload so the backend can pre-arm late-fan-out handling for the session:
+
+* `userVariables.push_when_active` is set to `true` when the config opt-in is enabled.
+* `userVariables.pn_late_fanout` is set to `true` alongside it (kept under a separate name so the backend can evolve the two independently if needed).
+
+These keys are only emitted when the caller has explicitly opted in — existing apps that never set `pushWhenActive` produce the same login payload as before (only `push_device_token`, `push_notification_provider`, and `push_notification_environment`). The resolver trims the value before deciding whether to send `answered_device_token`, so a blank or whitespace-only configured token is never shipped on the wire.
+
+
 See the [`pushWhenActive` parameter reference](../method-objects/Config.md#config-parameters) for the full configuration field description.
 
 ### Expected Call Flow
