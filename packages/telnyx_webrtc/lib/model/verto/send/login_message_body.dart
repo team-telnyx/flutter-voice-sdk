@@ -88,18 +88,39 @@ class LoginParams {
 class UserVariables {
   String? pushDeviceToken;
   String? pushNotificationProvider;
+  bool pushWhenActive;
+  bool pnLateFanout;
 
-  UserVariables({this.pushDeviceToken, this.pushNotificationProvider});
+  UserVariables({
+    this.pushDeviceToken,
+    this.pushNotificationProvider,
+    this.pushWhenActive = false,
+    this.pnLateFanout = false,
+  });
 
-  UserVariables.fromJson(Map<String, dynamic> json) {
+  UserVariables.fromJson(Map<String, dynamic> json)
+      : pushWhenActive = _jsonBool(json['push_when_active']),
+        pnLateFanout = _jsonBool(json['pn_late_fanout']) {
     pushDeviceToken = json['push_device_token'];
     pushNotificationProvider = json['push_notification_provider'];
+  }
+
+  static bool _jsonBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return false;
   }
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['push_device_token'] = pushDeviceToken;
     data['push_notification_provider'] = pushNotificationProvider;
+    if (pushWhenActive) {
+      data['push_when_active'] = true;
+    }
+    if (pnLateFanout) {
+      data['pn_late_fanout'] = true;
+    }
     const String pushEnvironment = kDebugMode ? 'debug' : 'production';
     data['push_notification_environment'] = pushEnvironment;
     GlobalLogger().d('pushEnvironment: $pushEnvironment');

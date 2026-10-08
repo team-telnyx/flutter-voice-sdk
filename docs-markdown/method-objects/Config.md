@@ -49,6 +49,7 @@ class Config {
 - **`reconnectionTimeout`** (int?, optional): Reconnection timeout in milliseconds (Default 60 seconds). This is the maximum time allowed for a call to be in the RECONNECTING or DROPPED state
 - **`region`** (Region, optional): The region to use for the connection (defaults to `Region.auto`)
 - **`fallbackOnRegionFailure`** (bool, optional): Whether the SDK should default to AUTO after attempting and failing to connect to a specified region (defaults to `true`)
+- **`pushWhenActive`** (bool, optional): Opts this registration into push-when-active multi-device routing. When `true` and `notificationToken` is non-blank, login `userVariables` include `push_when_active` and `pn_late_fanout`, and answered calls automatically include the token as `answered_device_token` in the `telnyx_rtc.answer` payload. Defaults to `false`.
 
 #### Available Regions
 
@@ -84,6 +85,7 @@ The base Config class contains shared fields that are used by both the `TokenCon
 /// [reconnectionTimeout] is the reconnection timeout in milliseconds (Default 60 seconds)
 /// [region] is the region to use for the connection (Auto by default)
 /// [fallbackOnRegionFailure] determines whether the SDK should default to AUTO after attempting and failing to connect to a specified region
+/// [pushWhenActive] opts into push-when-active routing and automatic `answered_device_token` answers (default: false)
 class TokenConfig extends Config {
   TokenConfig({
     required this.sipToken,
@@ -99,6 +101,7 @@ class TokenConfig extends Config {
     super.reconnectionTimeout,
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
+    super.pushWhenActive = false,
   });
 
   final String sipToken;
@@ -125,6 +128,7 @@ class TokenConfig extends Config {
 /// [reconnectionTimeout] is the reconnection timeout in milliseconds (Default 60 seconds)
 /// [region] is the region to use for the connection (Auto by default)
 /// [fallbackOnRegionFailure] determines whether the SDK should default to AUTO after attempting and failing to connect to a specified region
+/// [pushWhenActive] opts into push-when-active routing and automatic `answered_device_token` answers (default: false)
 class CredentialConfig extends Config {
   CredentialConfig({
     required this.sipUser,
@@ -141,6 +145,7 @@ class CredentialConfig extends Config {
     super.reconnectionTimeout,
     super.region = Region.auto,
     super.fallbackOnRegionFailure = true,
+    super.pushWhenActive = false,
   });
 
   final String sipUser;

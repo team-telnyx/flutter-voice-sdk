@@ -16,6 +16,34 @@ Telnyx WebRTC supports multidevice push notifications. A single user can have up
 
 This effectivly means that you can have up to 5 devices that can receive push notifications for the same incoming call.
 
+## Push When Active / Answered Elsewhere
+
+For multi-device setups where the same SIP user may receive an incoming call on more than one device, enable `pushWhenActive` together with a non-empty `notificationToken`. When this option is enabled, the SDK tells Telnyx during login that this registration should participate in push-when-active routing by sending `push_when_active` and `pn_late_fanout` in the login `userVariables`.
+
+When your app answers the call through the normal Flutter API (`call.answer()` / `TelnyxClient.acceptCall(...)`), the SDK automatically includes the configured push token as `answered_device_token` in the outgoing `telnyx_rtc.answer` payload. Apps do not need to pass the token again at answer time.
+
+```dart
+final config = CredentialConfig(
+  sipUser: sipUser,
+  sipPassword: sipPassword,
+  sipCallerIDName: 'Flutter User',
+  sipCallerIDNumber: '+15555550123',
+  notificationToken: fcmOrApnsToken,
+  pushWhenActive: true,
+  logLevel: LogLevel.debug,
+  debug: false,
+);
+
+_telnyxClient.connectWithCredential(config);
+```
+
+Behavior:
+
+- `pushWhenActive` defaults to `false`, preserving the existing login and answer payloads.
+- When enabled with a non-blank `notificationToken`, the login payload includes `push_when_active` and `pn_late_fanout`, and the answer payload includes `answered_device_token`.
+- If `notificationToken` is missing, empty, or whitespace-only, `answered_device_token` is omitted.
+- An explicit non-blank `answeredDeviceToken` passed to `acceptCall(...)` still wins for advanced/custom token sources; blank explicit values are ignored.
+
 ## Handling Foreground and Terminated Calls
 
 When the app is in the foreground you do not need to use push notifications to receive calls, however it still might be beneficial to use CallKit to show native UI for the calls. When the app is terminated you will need to use push notifications to receive calls as described below.

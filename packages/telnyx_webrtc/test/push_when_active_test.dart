@@ -1,13 +1,13 @@
 // VSDK-432 — pushWhenActive: tests for the Config field that drives
 // automatic `answered_device_token` population on answer payloads.
 //
-// These tests cover the SDK core (Config surface + InviteAnswerMessageBody
-// serialization). The end-to-end TelnyxClient.acceptCall auto-population path
-// is exercised via the existing integration suites; this file focuses on the
-// small, fast-to-run contract that gates regressions.
+// These tests cover the SDK core: Config surface, login userVariables,
+// answered-device-token resolution, and InviteAnswerMessageBody serialization.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
+import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
 void main() {
@@ -106,6 +106,177 @@ void main() {
     });
   });
 
+
+  group('Login userVariables pushWhenActive serialization', () {
+    test('omits push_when_active and pn_late_fanout by default', () {
+      final userVariables = UserVariables(
+        pushDeviceToken: 'push-token-abc',
+        pushNotificationProvider: 'android',
+      );
+
+      final json = userVariables.toJson();
+
+      expect(json.containsKey('push_when_active'), isFalse);
+      expect(json.containsKey('pn_late_fanout'), isFalse);
+    });
+
+    test('includes push_when_active and pn_late_fanout when enabled', () {
+      final userVariables = UserVariables(
+        pushDeviceToken: 'push-token-abc',
+        pushNotificationProvider: 'ios',
+        pushWhenActive: true,
+        pnLateFanout: true,
+      );
+
+      final json = userVariables.toJson();
+
+      expect(json['push_when_active'], isTrue);
+      expect(json['pn_late_fanout'], isTrue);
+    });
+
+    test('parses boolean or string pushWhenActive values from JSON', () {
+      final booleanVariables = UserVariables.fromJson({
+        'push_when_active': true,
+        'pn_late_fanout': true,
+      });
+      final stringVariables = UserVariables.fromJson({
+        'push_when_active': 'true',
+        'pn_late_fanout': 'true',
+      });
+
+      expect(booleanVariables.pushWhenActive, isTrue);
+      expect(booleanVariables.pnLateFanout, isTrue);
+      expect(stringVariables.pushWhenActive, isTrue);
+      expect(stringVariables.pnLateFanout, isTrue);
+    });
+  });
+
+  group('TelnyxClient answeredDeviceToken resolution', () {
+    test('disabled pushWhenActive does not use configured token', () {
+      final config = CredentialConfig(
+        sipUser: 'testuser',
+        sipPassword: 'testpass',
+        sipCallerIDName: 'Test User',
+        sipCallerIDNumber: '+123****7890',
+        logLevel: LogLevel.debug,
+        debug: false,
+        notificationToken: 'push-token-123',
+      );
+
+      expect(
+        resolvePushWhenActiveAnsweredDeviceToken(
+          explicitAnsweredDeviceToken: null,
+          activeConfig: config,
+        ),
+        isNull,
+      );
+    });
+
+    test('enabled pushWhenActive uses configured credential token', () {
+      final config = CredentialConfig(
+        sipUser: 'testuser',
+        sipPassword: 'testpass',
+        sipCallerIDName: 'Test User',
+        sipCallerIDNumber: '+123****7890',
+        logLevel: LogLevel.debug,
+        debug: false,
+        notificationToken: 'push-token-123',
+        pushWhenActive: true,
+      );
+
+      expect(
+        resolvePushWhenActiveAnsweredDeviceToken(
+          explicitAnsweredDeviceToken: null,
+          activeConfig: config,
+        ),
+        equals('push-token-123'),
+      );
+    });
+
+    test('enabled pushWhenActive uses configured token auth token', () {
+      final config = TokenConfig(
+        sipToken: 'testtoken',
+        sipCallerIDName: 'Test User',
+        sipCallerIDNumber: '+123****7890',
+        logLevel: LogLevel.debug,
+        debug: false,
+        notificationToken: 'push-token-456',
+        pushWhenActive: true,
+      );
+
+      expect(
+        resolvePushWhenActiveAnsweredDeviceToken(
+          explicitAnsweredDeviceToken: null,
+          activeConfig: config,
+        ),
+        equals('push-token-456'),
+      );
+    });
+
+    test('enabled pushWhenActive ignores blank or whitespace configured token', () {
+      final config = CredentialConfig(
+        sipUser: 'testuser',
+        sipPassword: 'testpass',
+        sipCallerIDName: 'Test User',
+        sipCallerIDNumber: '+123****7890',
+        logLevel: LogLevel.debug,
+        debug: false,
+        notificationToken: '   ',
+        pushWhenActive: true,
+      );
+
+      expect(
+        resolvePushWhenActiveAnsweredDeviceToken(
+          explicitAnsweredDeviceToken: null,
+          activeConfig: config,
+        ),
+        isNull,
+      );
+    });
+
+    test('explicit non-blank token wins over configured token', () {
+      final config = CredentialConfig(
+        sipUser: 'testuser',
+        sipPassword: 'testpass',
+        sipCallerIDName: 'Test User',
+        sipCallerIDNumber: '+123****7890',
+        logLevel: LogLevel.debug,
+        debug: false,
+        notificationToken: 'configured-token',
+        pushWhenActive: true,
+      );
+
+      expect(
+        resolvePushWhenActiveAnsweredDeviceToken(
+          explicitAnsweredDeviceToken: ' explicit-token ',
+          activeConfig: config,
+        ),
+        equals('explicit-token'),
+      );
+    });
+
+    test('explicit blank token falls back to configured token when enabled', () {
+      final config = CredentialConfig(
+        sipUser: 'testuser',
+        sipPassword: 'testpass',
+        sipCallerIDName: 'Test User',
+        sipCallerIDNumber: '+123****7890',
+        logLevel: LogLevel.debug,
+        debug: false,
+        notificationToken: 'configured-token',
+        pushWhenActive: true,
+      );
+
+      expect(
+        resolvePushWhenActiveAnsweredDeviceToken(
+          explicitAnsweredDeviceToken: '   ',
+          activeConfig: config,
+        ),
+        equals('configured-token'),
+      );
+    });
+  });
+
   group('InviteAnswerMessageBody.answeredDeviceToken serialization', () {
     // The wire field name MUST remain `answered_device_token` (snake_case)
     // regardless of what the Dart field name is. The backend matches on the
@@ -126,6 +297,18 @@ void main() {
         sdp: 'v=0\r\n',
         sessid: 'sess-1',
         answeredDeviceToken: '',
+      );
+
+      final json = params.toJson();
+
+      expect(json.containsKey('answered_device_token'), isFalse);
+    });
+
+    test('omits answered_device_token when whitespace-only string', () {
+      final params = InviteParams(
+        sdp: 'v=0\r\n',
+        sessid: 'sess-1',
+        answeredDeviceToken: '   ',
       );
 
       final json = params.toJson();
