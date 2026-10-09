@@ -121,16 +121,14 @@ String? resolvePushWhenActiveAnsweredDeviceToken({
 UserVariables _pushUserVariables({
   required String? pushDeviceToken,
   required String pushNotificationProvider,
-  required bool pushWhenActive,
+  bool? pushWhenActive,
+  bool? pnLateFanout,
 }) {
   return UserVariables(
     pushDeviceToken: pushDeviceToken,
     pushNotificationProvider: pushNotificationProvider,
-    // Only emit login-level opt-in flags when the caller has explicitly
-    // set pushWhenActive to true; preserve the legacy wire payload shape
-    // for existing apps that leave it at the default false value.
-    pushWhenActive: pushWhenActive ? true : null,
-    pnLateFanout: pushWhenActive ? true : null,
+    pushWhenActive: pushWhenActive,
+    pnLateFanout: pnLateFanout,
   );
 }
 
