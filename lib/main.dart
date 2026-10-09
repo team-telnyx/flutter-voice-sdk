@@ -13,8 +13,11 @@ import 'package:telnyx_flutter_webrtc/view/telnyx_client_view_model.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:telnyx_webrtc/model/push_notification.dart';
+import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_flutter_webrtc/utils/theme.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
+import 'package:telnyx_flutter_webrtc/service/diagnostics_latency_service.dart';
+import 'package:telnyx_flutter_webrtc/service/diagnostics_log_service.dart';
 import 'package:telnyx_flutter_webrtc/service/platform_push_service.dart';
 import 'package:telnyx_flutter_webrtc/service/android_push_notification_handler.dart'
     show androidBackgroundMessageHandler;
@@ -39,6 +42,20 @@ class AppInitializer {
   Future<void> initialize() async {
     if (!_isInitialized) {
       _isInitialized = true;
+
+      // Install the SDK log collector before anything else logs, so the
+      // Diagnostics view opens onto a populated buffer rather than only what
+      // happened after it was opened. The SDK ships LogCollector and a global
+      // slot for it but never installs one.
+      DiagnosticsLogService.instance.install();
+
+      // Likewise start retaining latency metrics now. The tracker's stream is
+      // broadcast with no replay, so anything emitted before the diagnostics
+      // view opens — registration in particular — is lost unless captured here.
+      DiagnosticsLatencyService.instance.attach(
+        txClientViewModel.latencyTracker,
+      );
+
       logger.i('[AppInitializer] Initializing...');
 
       // Initialize Firebase first, ensuring it's ready before platform handlers use it.
@@ -101,15 +118,20 @@ Future<void> main() async {
       FirebaseMessaging.onBackgroundMessage(
         _firebaseMessagingBackgroundHandler,
       );
-      final config = await txClientViewModel.getConfig();
       runApp(
         BackgroundDetector(
           skipWeb: true,
           onLifecycleEvent: (AppLifecycleState state) {
             if (state == AppLifecycleState.resumed) {
               logger.i(
-                '[BackgroundDetector] We are in the foreground, CONNECTING',
+                '[BackgroundDetector] We are in the foreground, checking for pending push answer',
               );
+              // When the app was already running but backgrounded (e.g. screen
+              // locked), answering an incoming push call is stored as an accept
+              // intent (setPushMetaData isAnswer: true) from the FCM background
+              // isolate. _MyAppState.initState does not run again in this case,
+              // so consume the pending accept here and reconnect to auto-answer.
+              _consumePendingPushAnswer();
             } else if (state == AppLifecycleState.paused) {
               logger.i(
                 '[BackgroundDetector] We are in the background, DISCONNECTING',
@@ -128,6 +150,36 @@ Future<void> main() async {
   );
 }
 
+/// Consumes a pending "answer" intent that was stored by the FCM background
+/// isolate while the app was backgrounded (e.g. the screen was locked). Because
+/// the background isolate does not share static state or the widget tree with
+/// the main isolate, the accept is persisted via [TelnyxClient.setPushMetaData]
+/// and only actioned once the app returns to the foreground.
+Future<void> _consumePendingPushAnswer() async {
+  if (kIsWeb) return;
+  try {
+    final pushData = await TelnyxClient.getPushData();
+    if (pushData == null || pushData['isAnswer'] != true) {
+      return;
+    }
+    // Avoid double-processing if the answer is already being handled (e.g. the
+    // main-isolate CallKit listener already picked up the accept event).
+    if (txClientViewModel.callState == CallStateStatus.connectingToCall ||
+        txClientViewModel.callState == CallStateStatus.ongoingCall) {
+      logger.i(
+        '[_consumePendingPushAnswer] Answer already in progress, skipping.',
+      );
+      return;
+    }
+    logger.i('[_consumePendingPushAnswer] Consuming pending push answer.');
+    // Clear the stored intent so we don't re-trigger on a subsequent resume.
+    TelnyxClient.clearPushMetaData();
+    await handlePush(Map<dynamic, dynamic>.from(pushData));
+  } catch (e) {
+    logger.e('[_consumePendingPushAnswer] Error consuming push answer: $e');
+  }
+}
+
 Future<void> handlePush(Map<dynamic, dynamic> data) async {
   logger.i('[handlePush] Started. Raw data: $data');
   txClientViewModel.setPushCallStatus(true);
@@ -138,6 +190,12 @@ Future<void> handlePush(Map<dynamic, dynamic> data) async {
     logger.i(
       '[handlePush] Answer action detected - setting call state to connectingToCall',
     );
+    // Suppress the lifecycle-driven auto-disconnect while we reconnect and
+    // auto-answer. This flag lives in the main isolate; setting it in the FCM
+    // background isolate (via NotificationService) has no effect here, so a
+    // paused/resumed churn on a locked device would otherwise tear down the
+    // in-progress reconnect. Cleared again in resetCallInfo() when the call ends.
+    BackgroundDetector.ignore = true;
     txClientViewModel.callState = CallStateStatus.connectingToCall;
   }
 
@@ -176,23 +234,26 @@ class _MyAppState extends State<MyApp> {
     // Platform-specific logic for handling initial push data when app starts.
     // For Android, this checks if the app was launched from a terminated state by a notification.
     // For iOS, this is less critical as CallKit events usually drive the flow after launch.
-    PlatformPushService.handler.getInitialPushData().then((data) {
-      if (data != null) {
-        final Map<dynamic, dynamic> mutablePayload = Map.from(data);
-        final answer = mutablePayload['isAnswer'] = true;
-        PlatformPushService.handler.processIncomingCallAction(
-          data,
-          isAnswer: answer,
-          isDecline: !answer,
-        );
-      } else {
-        logger.i('[_MyAppState] Android: No initial push data found.');
-      }
-    }).catchError((e) {
-      logger.e(
-        '[_MyAppState] Android: Error fetching initial push data: $e',
-      );
-    });
+    PlatformPushService.handler
+        .getInitialPushData()
+        .then((data) {
+          if (data != null) {
+            final Map<dynamic, dynamic> mutablePayload = Map.from(data);
+            final answer = mutablePayload['isAnswer'] = true;
+            PlatformPushService.handler.processIncomingCallAction(
+              data,
+              isAnswer: answer,
+              isDecline: !answer,
+            );
+          } else {
+            logger.i('[_MyAppState] Android: No initial push data found.');
+          }
+        })
+        .catchError((e) {
+          logger.e(
+            '[_MyAppState] Android: Error fetching initial push data: $e',
+          );
+        });
   }
 
   @override

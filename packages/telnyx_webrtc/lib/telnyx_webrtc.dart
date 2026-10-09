@@ -34,6 +34,28 @@ export './model/verto/send/send_bye_message_body.dart';
 
 export './peer/peer.dart';
 
+// Error & Warning system (VSDK-415/416)
+export './model/errors/telnyx_error.dart';
+export './model/errors/telnyx_error_codes.dart';
+export './model/errors/telnyx_error_event.dart';
+export './model/errors/telnyx_error_factory.dart';
+export './model/errors/telnyx_warning.dart';
+export './model/errors/telnyx_warning_codes.dart';
+export './model/errors/telnyx_warning_event.dart';
+export './model/errors/telnyx_warning_factory.dart';
+export './model/errors/sdk_errors.dart';
+export './model/errors/sdk_warnings.dart';
+export './model/errors/media_error_classifier.dart';
+export './model/errors/media_permission_recovery.dart';
+export './model/errors/media_permissions_recovery_config.dart';
+export './model/errors/request_timeout_error.dart';
+
+// Reporting & Diagnostics (VSDK-419/420/421)
+export './utils/logging/log_collector.dart';
+export './utils/pre_call_diagnosis.dart';
+export './utils/stats/quality_warning_monitor.dart';
+export './services/reconnect_token_store.dart';
+
 export './utils/stats/call_report_collector.dart';
 export './utils/stats/call_report_log_collector.dart';
 

@@ -25,6 +25,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:telnyx_webrtc/model/call_state.dart';
 import 'package:telnyx_webrtc/model/gateway_state.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
 
 /// Callback for call state changes
 typedef CallStateCallback = void Function(CallState state);
@@ -134,7 +136,7 @@ class Call {
   /// - READ ONLY in practice - do not assign directly
   /// - Modified only through `callHandler.changeState()`
   /// - Represents states like: newCall, ringing, connecting, active, held, done, etc.
-  late CallState callState;
+  CallState callState = CallState.newCall;
 
   /// AudioService instance to handle audio playback (lazy initialized)
   AudioService get audioService => _audioService ??= AudioService();
@@ -167,6 +169,11 @@ class Call {
 
   /// The unique identifier for the call, used to track the call session
   String? callId;
+
+  /// The call ID of a previous (pre-restart) call that this call was recovered
+  /// from, used to correlate a restored call with the one that was persisted in
+  /// the active-calls recovery marker (VSDK-418). Null for fresh calls.
+  String? recoveredCallId;
 
   /// The Peer connection instance used for WebRTC communication
   Peer? peerConnection;
@@ -210,6 +217,15 @@ class Call {
   /// }
   /// ```
   String? telnyxCallControlId;
+
+  /// Telnyx session identifier received from signaling.
+  String? telnyxSessionId;
+
+  /// Telnyx leg identifier received from signaling.
+  String? telnyxLegId;
+
+  /// Authoritative signaling datacenter retained across ATTACH recovery.
+  String? resolvedDatacenter;
 
   /// Callback for call quality metrics updates.
   /// This will be called periodically with updated metrics when debug mode is enabled.
@@ -267,7 +283,17 @@ class Call {
     if (sdp != null) {
       peerConnection?.remoteSessionReceived(sdp);
     } else {
-      ArgumentError(sdp);
+      // Invalid params — SDP was required but missing.
+      final err = ArgumentError.notNull('sdp');
+      GlobalLogger().e('Call :: onRemoteSessionReceived called with null SDP');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.invalidCallParameters,
+          originalError: err,
+          message: 'Remote SDP was null when answering a call',
+        ),
+        callId: callId,
+      );
     }
   }
 
@@ -292,6 +318,7 @@ class Call {
     bool debug = false,
     bool useTrickleIce = false,
     String? answeredDeviceToken,
+    bool forceRelayCandidateForRecovery = false,
   }) {
     // Store the session information for later use
     sessionCallerName = callerName;
@@ -299,6 +326,8 @@ class Call {
     sessionDestinationNumber = invite.callerIdNumber ?? '';
     sessionClientState = clientState;
     this.customHeaders = Map.from(customHeaders);
+    telnyxSessionId ??= invite.telnyxSessionId;
+    telnyxLegId ??= invite.telnyxLegId;
 
     // Track whether this is a reconnection scenario
     isReconnection = isAttach;
@@ -313,6 +342,7 @@ class Call {
       debug: debug,
       useTrickleIce: useTrickleIce,
       answeredDeviceToken: answeredDeviceToken,
+      forceRelayCandidateForRecovery: forceRelayCandidateForRecovery,
     );
   }
 
@@ -376,7 +406,18 @@ class Call {
       GlobalLogger().d('Session end peer connection null');
     }
 
-    txSocket.send(jsonByeMessage);
+    try {
+      txSocket.send(jsonByeMessage);
+    } catch (e) {
+      GlobalLogger().e('Call :: Failed to send BYE message: $e');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.byeSendFailed,
+          originalError: e,
+        ),
+        callId: callId,
+      );
+    }
     if (peerConnection != null) {
       peerConnection?.closeSession();
     } else {
@@ -438,6 +479,8 @@ class Call {
         callerNumber:
             sessionCallerNumber.isNotEmpty ? sessionCallerNumber : null,
         state: callState.toString().split('.').last,
+        telnyxSessionId: telnyxSessionId,
+        telnyxLegId: telnyxLegId,
       )
           .catchError((error) {
         GlobalLogger().e('Failed to post call report: $error');
@@ -478,7 +521,18 @@ class Call {
     );
 
     final String jsonDtmfMessage = jsonEncode(dtmfMessageBody);
-    txSocket.send(jsonDtmfMessage);
+    try {
+      txSocket.send(jsonDtmfMessage);
+    } catch (e) {
+      GlobalLogger().e('Call :: Failed to send DTMF: $e');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.unexpectedError,
+          originalError: e,
+        ),
+        callId: callId,
+      );
+    }
   }
 
   /// Either mutes or unmutes local audio based on the current mute state
@@ -510,14 +564,53 @@ class Call {
   /// - Ensures proper callback execution and consistency across the SDK
   void onHoldUnholdPressed() {
     if (onHold) {
-      _sendHoldModifier('unhold');
-      onHold = false;
-      callHandler.changeState(CallState.active);
+      try {
+        _sendHoldModifier('unhold');
+        onHold = false;
+        callHandler.changeState(CallState.active);
+      } catch (e) {
+        GlobalLogger().e('Call :: Failed to send unhold modifier: $e');
+        _txClient.emitTelnyxError(
+          createTelnyxError(
+            TelnyxErrorCodes.holdFailed,
+            originalError: e,
+          ),
+          callId: callId,
+        );
+      }
     } else {
-      _sendHoldModifier('hold');
-      onHold = true;
-      callHandler.changeState(CallState.held);
+      try {
+        _sendHoldModifier('hold');
+        onHold = true;
+        callHandler.changeState(CallState.held);
+      } catch (e) {
+        GlobalLogger().e('Call :: Failed to send hold modifier: $e');
+        _txClient.emitTelnyxError(
+          createTelnyxError(
+            TelnyxErrorCodes.holdFailed,
+            originalError: e,
+          ),
+          callId: callId,
+        );
+      }
     }
+  }
+
+  /// Triggers a WebRTC ICE restart for this call by starting an ICE
+  /// renegotiation on the underlying peer connection.
+  ///
+  /// Used by the [SignalingHealthMonitor] recovery authority when signaling is
+  /// healthy but media has degraded. Returns `true` when a restart could be
+  /// started (a peer connection and call ID are present).
+  bool restartIce() {
+    final peer = peerConnection;
+    final id = callId;
+    if (peer == null || id == null) {
+      return false;
+    }
+    // startIceRenegotiation is async and handles its own errors internally.
+    unawaited(peer.startIceRenegotiation(id, sessid));
+    return true;
   }
 
   /// Handles call quality metrics updates.
@@ -561,7 +654,19 @@ class Call {
     );
 
     final String jsonModifyMessage = jsonEncode(modifyMessage);
-    txSocket.send(jsonModifyMessage);
+    try {
+      txSocket.send(jsonModifyMessage);
+    } catch (e) {
+      GlobalLogger().e('Call :: Failed to send hold/unhold modifier: $e');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.holdFailed,
+          originalError: e,
+        ),
+        callId: callId,
+      );
+      rethrow;
+    }
   }
 
   /// AI Assistant Conversation Method.
@@ -662,7 +767,18 @@ class Call {
     );
 
     final String jsonConversationMessage = jsonEncode(conversationMessage);
-    txSocket.send(jsonConversationMessage);
+    try {
+      txSocket.send(jsonConversationMessage);
+    } catch (e) {
+      GlobalLogger().e('Call :: Failed to send conversation message: $e');
+      _txClient.emitTelnyxError(
+        createTelnyxError(
+          TelnyxErrorCodes.unexpectedError,
+          originalError: e,
+        ),
+        callId: callId,
+      );
+    }
   }
 
   /// Plays an audio file from the assets directory.

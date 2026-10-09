@@ -6,9 +6,16 @@ import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 /// addresses, as well as default ICE server configurations for TURN/STUN.
 class DefaultConfig {
   // MARK: - Host Configuration
+  /// Production signaling host address.
   static const String telnyxProdHostAddress = 'rtc.telnyx.com';
+
+  /// Development signaling host address.
   static const String telnyxDevHostAddress = 'rtcdev.telnyx.com';
+
+  /// Port used for the signaling WebSocket connection.
   static const int telnyxPort = 443;
+
+  /// Default production signaling WebSocket URL.
   static const String socketHostAddress =
       'wss://${DefaultConfig.telnyxProdHostAddress}:${DefaultConfig.telnyxPort}';
 
@@ -17,14 +24,14 @@ class DefaultConfig {
   static const String defaultTurn = 'turn:turn.telnyx.com:3478?transport=tcp';
 
   /// Production TURN server with UDP transport (preferred for lower latency)
-  static const String defaultTurnUdp = 'turn:turn.telnyx.com:3478?transport=udp';
+  static const String defaultTurnUdp =
+      'turn:turn.telnyx.com:3478?transport=udp';
 
-  /// Production TURNS server with TCP transport over TLS on port 443
+  /// Primary production TURNS server over TLS on port 443.
   /// (last-resort fallback for restrictive firewalls that block non-443 traffic)
-  static const String defaultTurns443 =
-      'turns:turn.telnyx.com:443?transport=tcp';
+  static const String defaultTurns443 = 'turns:turn.telnyx.com:443';
 
-  /// Production STUN server
+/// Production STUN server
   static const String defaultStun = 'stun:stun.telnyx.com:3478';
 
   // MARK: - Development TURN/STUN Servers
@@ -36,8 +43,7 @@ class DefaultConfig {
 
   /// Development TURNS server with TCP transport over TLS on port 443
   /// (last-resort fallback for restrictive firewalls that block non-443 traffic)
-  static const String devTurns443 =
-      'turns:turndev.telnyx.com:443?transport=tcp';
+  static const String devTurns443 = 'turns:turndev.telnyx.com:443';
 
   /// Development STUN server
   static const String devStun = 'stun:stundev.telnyx.com:3478';
@@ -47,7 +53,10 @@ class DefaultConfig {
   static const String googleStun = 'stun:stun.l.google.com:19302';
 
   // MARK: - TURN Authentication
+  /// Default username used to authenticate against the TURN servers.
   static const username = 'testuser';
+
+  /// Default password (credential) used to authenticate against the TURN servers.
   static const password = 'testpassword';
 
   // MARK: - Default ICE Servers
@@ -59,8 +68,7 @@ class DefaultConfig {
   /// - Google STUN server (fallback)
   /// - Telnyx TURN server with UDP transport (preferred)
   /// - Telnyx TURN server with TCP transport (fallback)
-  /// - Telnyx TURNS server with TCP transport over TLS on port 443
-  ///   (last-resort fallback for restrictive firewalls)
+  /// - Primary and secondary Telnyx TURNS endpoints on port 443
   static List<TxIceServer> get defaultProdIceServers => [
         const TxIceServer(urls: [defaultStun]),
         const TxIceServer(urls: [googleStun]),

@@ -1,4 +1,8 @@
 /// Represents an error that occurred during WebSocket communication with Telnyx.
+@Deprecated(
+  'Use TelnyxError and createTelnyxError() from model/errors/ instead. '
+  'Will be removed in v3.0.0',
+)
 class TelnyxSocketError {
   /// The error code for the socket error.
   int errorCode = 0;
@@ -17,6 +21,10 @@ class TelnyxSocketError {
 }
 
 /// Contains constant error messages and codes used in Telnyx WebRTC communication.
+@Deprecated(
+  'Use TelnyxErrorCodes from model/errors/telnyx_error_codes.dart instead. '
+  'Will be removed in v3.0.0',
+)
 class TelnyxErrorConstants {
   /// The error message for token registration errors.
   static const tokenError = 'Token registration error';

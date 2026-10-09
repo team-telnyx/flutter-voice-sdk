@@ -6,6 +6,7 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
 import 'package:telnyx_webrtc/model/network_reason.dart';
 import 'package:telnyx_webrtc/model/tx_ice_server.dart';
+import 'package:telnyx_webrtc/src/ice_server_resolver.dart' as ice_resolver;
 import 'package:telnyx_webrtc/model/verto/receive/update_media_response.dart';
 import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
@@ -29,7 +30,6 @@ import 'package:telnyx_webrtc/utils/codec_utils.dart';
 import 'package:telnyx_webrtc/utils/constants.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/default_logger.dart';
-import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/preference_storage.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
@@ -51,12 +51,37 @@ import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/call_manager.dart';
 import 'package:telnyx_webrtc/utils/latency_tracker.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_event.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_factory.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
+import 'package:telnyx_webrtc/services/signaling_health_monitor.dart';
+import 'package:telnyx_webrtc/services/reconnect_token_store.dart';
+import 'package:telnyx_webrtc/services/request_timeout_tracker.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
 
 /// Callback for when the socket receives an error
+@Deprecated(
+  'Use TelnyxClient.onTelnyxError or the errors stream instead. '
+  'Will be removed in v3.0.0',
+)
 typedef OnSocketErrorReceived = void Function(TelnyxSocketError message);
+
+/// Callback for structured SDK error events (VSDK-415).
+///
+/// The [event] is either a [TelnyxErrorEvent] (non-recoverable) or a
+/// [TelnyxMediaRecoveryErrorEvent] (recoverable inbound media failure). Use
+/// [isMediaRecoveryErrorEvent] to discriminate.
+typedef OnTelnyxError = void Function(Object event);
+
+/// Callback for structured SDK warning events (VSDK-415).
+typedef OnTelnyxWarning = void Function(TelnyxWarningEvent event);
 
 /// Callback for when transcript updates occur
 typedef OnTranscriptUpdate = void Function(List<TranscriptItem> transcript);
@@ -101,8 +126,11 @@ UserVariables _pushUserVariables({
   return UserVariables(
     pushDeviceToken: pushDeviceToken,
     pushNotificationProvider: pushNotificationProvider,
-    pushWhenActive: pushWhenActive,
-    pnLateFanout: pushWhenActive,
+    // Only emit login-level opt-in flags when the caller has explicitly
+    // set pushWhenActive to true; preserve the legacy wire payload shape
+    // for existing apps that leave it at the default false value.
+    pushWhenActive: pushWhenActive ? true : null,
+    pnLateFanout: pushWhenActive ? true : null,
   );
 }
 
@@ -120,7 +148,25 @@ class TelnyxClient {
   late OnSocketMessageReceived onSocketMessageReceived;
 
   /// Callback for when the socket receives an error
+  @Deprecated(
+    'Use onTelnyxError or the errors stream instead. '
+    'Will be removed in v3.0.0',
+  )
   late OnSocketErrorReceived onSocketErrorReceived;
+
+  /// Optional callback for structured SDK error events (VSDK-415).
+  ///
+  /// Fires *alongside* the legacy [onSocketErrorReceived] — never instead of
+  /// it. Receives a [TelnyxErrorEvent] or a [TelnyxMediaRecoveryErrorEvent].
+  /// Only invoked when structured errors are enabled via
+  /// [Config.enableStructuredErrors] (default true).
+  OnTelnyxError? onTelnyxError;
+
+  /// Optional callback for structured SDK warning events (VSDK-415).
+  ///
+  /// Only invoked when structured errors are enabled via
+  /// [Config.enableStructuredErrors] (default true).
+  OnTelnyxWarning? onTelnyxWarning;
 
   /// Callback for when transcript updates occur
   /// Note: this is only relevant for Assistant AI conversations
@@ -301,6 +347,634 @@ class TelnyxClient {
       );
       _cancelReconnectionTimer(callId);
     }
+    // Keep the signaling-health monitor lifecycle in sync with active calls.
+    _syncHealthMonitorLifecycle();
+    // Persist a narrow recovery marker for the current active calls.
+    _persistActiveCallsMarker();
+  }
+
+  // ── Structured error/warning surface (VSDK-415) ─────────────────────
+
+  /// Whether structured error/warning callbacks are enabled for the current
+  /// session. Set from [Config.enableStructuredErrors] during connect.
+  bool _enableStructuredErrors = true;
+
+  /// Whether the [SignalingHealthMonitor] is enabled for the current session.
+  bool _enableSignalingHealthMonitor = true;
+
+  /// The media-permission recovery configuration retained from [Config].
+  MediaPermissionsRecoveryConfig? _mediaPermissionsRecovery;
+
+  /// The media-permission recovery configuration for the current session, or
+  /// null when disabled. Consumed by the [Peer.createStream] answer path.
+  MediaPermissionsRecoveryConfig? get mediaPermissionsRecovery =>
+      _mediaPermissionsRecovery;
+
+  /// The signaling-health monitor instance, created when enabled.
+  SignalingHealthMonitor? _healthMonitor;
+
+  /// The signaling-health monitor for the current session (test/inspection).
+  SignalingHealthMonitor? get healthMonitor => _healthMonitor;
+
+  /// Per-request timeout tracker for critical JSON-RPC methods (VSDK-416).
+  /// Active only when the health monitor is enabled; null otherwise.
+  RequestTimeoutTracker? _requestTimeoutTracker;
+
+  /// The reconnect policy currently applied to health-triggered recovery.
+  @visibleForTesting
+  bool get autoReconnectLoginForTest => _autoReconnectLogin;
+
+  // ── Stream-based error/warning surface (VSDK-415) ──────────────────
+
+  /// Controller for error events. Typed as [Object] because both
+  /// [TelnyxErrorEvent] and [TelnyxMediaRecoveryErrorEvent] flow through it,
+  /// matching the [OnTelnyxError] callback signature.
+  late final StreamController<Object> _errorStreamController;
+  late final StreamController<TelnyxWarningEvent> _warningStreamController;
+  bool _streamControllersInitialized = false;
+
+  void _initStreamControllers() {
+    if (_streamControllersInitialized) return;
+    _errorStreamController = StreamController<Object>.broadcast(sync: true);
+    _warningStreamController =
+        StreamController<TelnyxWarningEvent>.broadcast(sync: true);
+    _streamControllersInitialized = true;
+  }
+
+  /// Structured error stream. Mirrors JS SDK's `client.on('telnyx.error', ...)`.
+  ///
+  /// Emits both [TelnyxErrorEvent] (non-recoverable) and
+  /// [TelnyxMediaRecoveryErrorEvent] (recoverable) instances, matching the
+  /// [onTelnyxError] callback. Use [isMediaRecoveryErrorEvent] to
+  /// discriminate, or the [fatalErrors] / [recoverableErrors] convenience
+  /// getters.
+  Stream<Object> get errors {
+    _initStreamControllers();
+    return _errorStreamController.stream;
+  }
+
+  /// Structured warning stream. Mirrors JS SDK's `client.on('telnyx.warning', ...)`.
+  ///
+  /// Provides a Dart-idiomatic API that composes with StreamBuilder, Riverpod,
+  /// and Bloc. Events are emitted alongside the [onTelnyxWarning] callback.
+  Stream<TelnyxWarningEvent> get warnings {
+    _initStreamControllers();
+    return _warningStreamController.stream;
+  }
+
+  /// Convenience: terminal (fatal, non-recoverable) errors only.
+  Stream<TelnyxErrorEvent> get fatalErrors => errors
+      .where((e) => e is TelnyxErrorEvent && e.error.fatal)
+      .cast<TelnyxErrorEvent>();
+
+  /// Convenience: recoverable (media permission recovery) errors only.
+  Stream<TelnyxMediaRecoveryErrorEvent> get recoverableErrors => errors
+      .where((e) => e is TelnyxMediaRecoveryErrorEvent)
+      .cast<TelnyxMediaRecoveryErrorEvent>();
+
+  /// Captures the enable flags and recovery config from [config] at connect.
+  void _applyStructuredConfig(Config config) {
+    // A fresh connect is not an explicit logout — re-enable marker persistence.
+    _explicitDisconnectInProgress = false;
+    // Supersede any in-flight explicit-disconnect clear so it cannot erase the
+    // recovery data this new session is about to persist (VSDK-418).
+    _recoveryEpoch++;
+    _enableStructuredErrors = config.enableStructuredErrors;
+    _enableSignalingHealthMonitor = config.enableSignalingHealthMonitor;
+    _mediaPermissionsRecovery = config.mediaPermissionsRecovery;
+
+    // Apply autoReconnect immediately (?? true) so the health monitor and
+    // reconnect logic never read a prior session's stale value before the
+    // login message is sent (VSDK-415/416 adversarial hardening).
+    _autoReconnectLogin = config.autoReconnect ?? true;
+
+    // Instantiate the health monitor when enabled (idempotent per session).
+    if (_enableSignalingHealthMonitor) {
+      _healthMonitor ??= SignalingHealthMonitor(_TelnyxHealthSession(this));
+      // Create the request-timeout tracker alongside the health monitor.
+      // It feeds SignalingHealthMonitor.onRequestTimeout() when critical
+      // methods (modify, bye, ping) don't receive a response in time.
+      _requestTimeoutTracker = RequestTimeoutTracker(
+        onTimeout: (method, requestId, timeoutMs) {
+          GlobalLogger().w(
+            'Request timeout: $method (id=$requestId) after ${timeoutMs}ms',
+          );
+          _healthMonitor?.onRequestTimeout(requestId, timeoutMs, method);
+          // Also emit a structured error for critical methods.
+          if (SignalingHealthMonitor.isCriticalMethod(method)) {
+            emitStructuredErrorCode(
+              TelnyxErrorCodes.webSocketError,
+              message:
+                  'Signaling request $method timed out after ${timeoutMs}ms',
+              originalError:
+                  'request_timeout:$method:$requestId:${timeoutMs}ms',
+            );
+          }
+        },
+      );
+    } else {
+      _healthMonitor?.stop();
+      _healthMonitor = null;
+      _requestTimeoutTracker?.cancelAll();
+      _requestTimeoutTracker = null;
+    }
+
+    // Reset health-monitor transient state on every fresh/reconnect config
+    // application so no pending/probe state from a prior session survives a
+    // reconnect. Stop clears all transient state (probe-in-flight, pending
+    // media recovery, last-inbound timestamp), then lifecycle sync restarts it
+    // only when an initialized active call exists.
+    final monitor = _healthMonitor;
+    if (monitor != null) {
+      monitor.stop();
+      // Cancel any pending request-timeout timers from the prior session so
+      // stale responses on a new socket don't fire against a dead tracker.
+      _requestTimeoutTracker?.cancelAll();
+      _syncHealthMonitorLifecycle();
+    }
+  }
+
+  /// Test seam: apply the structured-config flags/recovery from [config]
+  /// without opening a socket. Mirrors what the connect paths do.
+  @visibleForTesting
+  void applyStructuredConfigForTest(Config config) =>
+      _applyStructuredConfig(config);
+
+  /// Test seam: build a copy of [config] with the region changed to
+  /// [Region.auto], preserving every other Config option. Mirrors the
+  /// region-fallback path in [_onClose].
+  @visibleForTesting
+  Config copyConfigWithAutoRegionForTest(Config config) =>
+      _copyConfigWithAutoRegion(config);
+
+  /// Central helper: emit a structured [TelnyxErrorEvent] via [onTelnyxError]
+  /// and the [errors] stream.
+  ///
+  /// Respects the [Config.enableStructuredErrors] flag. Never throws — a
+  /// failing app callback must not break SDK internals.
+  void emitTelnyxError(TelnyxError error, {String? callId}) {
+    if (!_enableStructuredErrors) return;
+    _initStreamControllers();
+    final event =
+        TelnyxErrorEvent(error: error, sessionId: sessid, callId: callId);
+    // Existing callback
+    final cb = onTelnyxError;
+    if (cb != null) {
+      try {
+        cb(event);
+      } catch (e) {
+        GlobalLogger().e('onTelnyxError callback threw: $e');
+      }
+    }
+    // Stream emission
+    _errorStreamController.add(event);
+  }
+
+  /// Central helper: emit a recoverable [TelnyxMediaRecoveryErrorEvent] via
+  /// [onTelnyxError] and the [errors] stream.
+  void emitTelnyxMediaRecoveryError(TelnyxMediaRecoveryErrorEvent event) {
+    if (!_enableStructuredErrors) return;
+    _initStreamControllers();
+    // Existing callback
+    final cb = onTelnyxError;
+    if (cb != null) {
+      try {
+        cb(event);
+      } catch (e) {
+        GlobalLogger().e('onTelnyxError callback threw: $e');
+      }
+    }
+    // Stream emission
+    _errorStreamController.add(event);
+  }
+
+  /// Central helper: emit a structured [TelnyxWarningEvent] via
+  /// [onTelnyxWarning] and the [warnings] stream. Respects the feature flag
+  /// and never throws.
+  void emitTelnyxWarning(
+    TelnyxWarning warning, {
+    String? callId,
+    String? reason,
+    String? source,
+  }) {
+    if (!_enableStructuredErrors) return;
+    _initStreamControllers();
+    final event = TelnyxWarningEvent(
+      warning: warning,
+      reason: reason,
+      source: source,
+      sessionId: sessid,
+      callId: callId,
+    );
+    // Existing callback
+    final cb = onTelnyxWarning;
+    if (cb != null) {
+      try {
+        cb(event);
+      } catch (e) {
+        GlobalLogger().e('onTelnyxWarning callback threw: $e');
+      }
+    }
+    // Stream emission
+    _warningStreamController.add(event);
+  }
+
+  /// Convenience: build a structured warning from [code] and emit it.
+  void emitWarningCode(
+    int code, {
+    String? callId,
+    String? reason,
+    String? source,
+  }) {
+    if (!_enableStructuredErrors) return;
+    emitTelnyxWarning(
+      createTelnyxWarning(code),
+      callId: callId,
+      reason: reason,
+      source: source,
+    );
+  }
+
+  /// Convenience: build a structured error from [code] and emit it.
+  void emitStructuredErrorCode(
+    int code, {
+    Object? originalError,
+    String? message,
+    bool? fatal,
+    String? callId,
+  }) {
+    emitTelnyxError(
+      createTelnyxError(
+        code,
+        originalError: originalError,
+        message: message,
+        fatal: fatal,
+      ),
+      callId: callId,
+    );
+  }
+
+  /// Maps a legacy [TelnyxSocketError] (from a server `error` message) onto a
+  /// structured error code and emits it alongside the legacy callback.
+  void _emitStructuredForSocketError(TelnyxSocketError error) {
+    if (!_enableStructuredErrors) return;
+    final int code;
+    switch (error.errorCode) {
+      case TelnyxErrorConstants.credentialErrorCode:
+        code = TelnyxErrorCodes.invalidCredentials;
+        break;
+      case TelnyxErrorConstants.tokenErrorCode:
+        code = TelnyxErrorCodes.authenticationRequired;
+        break;
+      case TelnyxErrorConstants.gatewayFailedErrorCode:
+      case TelnyxErrorConstants.gatewayTimeoutErrorCode:
+        code = TelnyxErrorCodes.gatewayFailed;
+        break;
+      default:
+        // An unrecognized server error is NOT necessarily a login failure —
+        // map it to a generic code and carry the raw server context (VSDK-415).
+        code = TelnyxErrorCodes.unexpectedError;
+    }
+    emitStructuredErrorCode(
+      code,
+      message: error.errorMessage,
+      originalError: 'server error ${error.errorCode}: ${error.errorMessage}',
+    );
+  }
+
+  // ── Signaling-health session hooks (VSDK-416) ───────────────────────
+  //
+  // TelnyxClient owns a lightweight production adapter
+  // ([_TelnyxHealthSession]) that implements [ISignalingHealthSession] and
+  // delegates to these methods. An adapter is used instead of `implements`
+  // because the interface's `isConnected` getter would collide with the
+  // long-standing public `isConnected()` method.
+
+  /// Signaling recovery authority: force a socket reconnect/reattach when
+  /// signaling is unhealthy. Never also triggers ICE restart — the monitor
+  /// guarantees exactly one recovery path.
+  void _healthSocketDisconnect() {
+    GlobalLogger().i(
+      'SignalingHealthMonitor requested socket reconnect (signaling unhealthy)',
+    );
+    emitTelnyxWarning(
+      createTelnyxWarning(TelnyxWarningCodes.signalingRecoveryRequired),
+      reason: 'Signaling unhealthy — reconnecting socket',
+      source: 'health_monitor',
+    );
+    if (_autoReconnectLogin) {
+      _reconnectToSocket();
+    } else {
+      _closeSocketSafely();
+    }
+  }
+
+  /// Media recovery authority: restart ICE for [callId] when signaling is
+  /// healthy but media has degraded.
+  TriggerIceRestartResult _healthTriggerIceRestart(String? callId) {
+    if (callId == null) {
+      return const TriggerIceRestartResult(started: false);
+    }
+    final call = calls[callId];
+    if (call == null) {
+      return const TriggerIceRestartResult(started: false);
+    }
+    emitTelnyxWarning(
+      createTelnyxWarning(TelnyxWarningCodes.mediaRecoveryRequired),
+      callId: callId,
+      reason: 'Signaling healthy, media degraded — restarting ICE',
+      source: 'health_monitor',
+    );
+    final started = call.restartIce();
+    if (!started) {
+      // ICE restart could not start — the call is likely in a terminal state
+      // (peer already closed, no active connection). This is benign, not a
+      // failure. Log and return without escalating to socket reconnect.
+      // JS mirrors: BaseSession.triggerIceRestart() → started:false → log only.
+      // (VSDK-397)
+      GlobalLogger().d(
+        'ICE restart not started for call $callId — call may be in terminal state',
+      );
+    }
+    return TriggerIceRestartResult(started: started);
+  }
+
+  /// Signaling probe authority: send a `telnyx_rtc.ping` on the current socket
+  /// so the [SignalingHealthMonitor] can resolve "unknown" signaling health by
+  /// provoking a response (VSDK-416). The JSON is the standard, already
+  /// supported ping request — only the SDK is now the sender.
+  ///
+  /// NOTE: The probe is NOT tracked by [_requestTimeoutTracker] because the
+  /// health monitor already bounds probe timeout via [_probeTimeout] (5 s).
+  /// Adding a second timer would be redundant and can leak in tests.
+  void _sendSignalingProbe() {
+    try {
+      final probeId = const Uuid().v4();
+      final probe = <String, dynamic>{
+        'jsonrpc': JsonRPCConstant.jsonrpc,
+        'id': probeId,
+        'method': SocketMethod.ping,
+        'params': <String, dynamic>{},
+      };
+      txSocket.send(jsonEncode(probe));
+      // Attach the probe request id to the health monitor so it can release
+      // the in-flight probe only when the matching JSON-RPC response arrives
+      // (not for any unrelated inbound frame). See
+      // [SignalingHealthMonitor.attachProbeRequestId] and
+      // [SignalingHealthMonitor.resolveProbe].
+      _healthMonitor?.attachProbeRequestId(probeId);
+    } catch (e) {
+      GlobalLogger().w('Failed to send signaling probe: $e');
+    }
+  }
+
+  /// Start the health monitor when a call becomes active; stop it when there
+  /// are no active calls. Idempotent — safe to call repeatedly.
+  void _syncHealthMonitorLifecycle() {
+    final monitor = _healthMonitor;
+    if (monitor == null) return;
+    if (activeCalls().isNotEmpty) {
+      monitor.start();
+    } else {
+      monitor.stop();
+    }
+  }
+
+  /// Single recovery authority for a peer-connection ICE failure (VSDK-416).
+  ///
+  /// Called by both the native and web [Peer] implementations so the recovery
+  /// behavior is identical across platforms. Emits a structured
+  /// `peerConnectionFailed` warning, then takes *exactly one* recovery action:
+  ///
+  /// - When the signaling-health monitor is enabled it is the sole authority —
+  ///   it decides ICE restart (healthy signaling) vs. socket reconnect
+  ///   (unhealthy). The peer must NOT also renegotiate directly.
+  /// - When the monitor is disabled, the legacy self-heal applies: a direct ICE
+  ///   restart, but only when the failure followed a disconnect
+  ///   ([afterDisconnect]).
+  void handlePeerIceConnectionFailed(
+    String callId, {
+    required bool afterDisconnect,
+  }) {
+    emitWarningCode(
+      TelnyxWarningCodes.peerConnectionFailed,
+      callId: callId,
+      reason: 'ICE connection failed',
+      source: 'peer_failure',
+    );
+    final monitor = _healthMonitor;
+    if (monitor != null) {
+      // The monitor owns recovery — it decides ICE restart vs. socket
+      // reconnect. Do NOT also renegotiate directly (would double-restart).
+      monitor.onPeerFailure(callId, PeerFailureEvidence.iceFailed);
+      return;
+    }
+    // Legacy self-heal when the monitor is disabled: direct ICE restart, but
+    // only when the failure followed a disconnect.
+    if (afterDisconnect) {
+      calls[callId]?.restartIce();
+    }
+  }
+
+  /// Single recovery authority for a peer-connection state failure (VSDK-416).
+  ///
+  /// Emits a structured `peerConnectionFailed` warning and routes the failure
+  /// to the health monitor (when enabled). Shared by native and web peers.
+  void handlePeerConnectionFailed(String callId) {
+    emitWarningCode(
+      TelnyxWarningCodes.peerConnectionFailed,
+      callId: callId,
+      reason: 'Peer connection failed',
+      source: 'peer_failure',
+    );
+    _healthMonitor?.onPeerFailure(callId, PeerFailureEvidence.connectionFailed);
+  }
+
+  // ── Reconnect / session persistence (VSDK-418) ──────────────────────
+
+  /// Whether an explicit user disconnect/logout is in progress. When true,
+  /// active-call marker persistence is suppressed so an explicit clear is not
+  /// immediately re-populated. Internal network recovery does NOT set this.
+  bool _explicitDisconnectInProgress = false;
+
+  // ── Token expiry warning (VSDK-397) ─────────────────────────────────
+
+  /// Timer for the TOKEN_EXPIRING_SOON warning. Set after tokenLogin when
+  /// the login token is a JWT, fired 120 s before expiry. Mirrors JS
+  /// BaseSession._tokenExpiryTimeout.
+  Timer? _tokenExpiryTimer;
+  static const int _tokenExpiryWarningSeconds = 120;
+
+  /// Monotonic epoch bumped on every connect (in [_applyStructuredConfig]).
+  ///
+  /// An explicit disconnect captures the current epoch and hands it to
+  /// [_clearPersistedRecovery]; if a rapid subsequent connect bumps the epoch
+  /// before the (asynchronous) clear runs, the clear is superseded and skipped
+  /// so it cannot erase the new session's freshly persisted recovery data
+  /// (VSDK-418).
+  int _recoveryEpoch = 0;
+
+  /// Test-only awaitable that gates [_clearPersistedRecovery] so a deterministic
+  /// test can hold an in-flight clear open while a reconnect persists new data.
+  /// Null in production (zero overhead).
+  @visibleForTesting
+  Future<void>? recoveryClearGate;
+
+  /// The recovery marker read at startup, awaiting reattachment after login.
+  StoredActiveCalls? _pendingReattach;
+
+  /// The startup recovery marker awaiting reattachment (inspection/testing).
+  StoredActiveCalls? get pendingReattach => _pendingReattach;
+
+  /// Defensively read a fresh persisted reconnect session id for URL injection.
+  /// Returns null (leaving the URL unchanged) on any storage failure or when
+  /// nothing fresh is stored.
+  Future<String?> _resolveReconnectVoiceSdkId() async {
+    try {
+      return await ReconnectTokenStore.getReconnectSessionId();
+    } catch (e) {
+      GlobalLogger().w('Failed to read reconnect session id: $e');
+      return null;
+    }
+  }
+
+  /// Persist the server-provided voice_sdk_id, current session id, and a
+  /// timestamp after a successful registration/login (VSDK-418).
+  Future<void> _persistReconnectSession({String? voiceSdkIdOverride}) async {
+    try {
+      final serverVoiceSdkId = voiceSdkIdOverride ?? voiceSdkId;
+      if (serverVoiceSdkId != null && serverVoiceSdkId.isNotEmpty) {
+        await ReconnectTokenStore.setReconnectToken(serverVoiceSdkId);
+      }
+      await ReconnectTokenStore.setReconnectSessionId(sessid);
+    } catch (e) {
+      GlobalLogger().w('Failed to persist reconnect session: $e');
+    }
+  }
+
+  /// Test/inspection seam for [_persistReconnectSession].
+  @visibleForTesting
+  Future<void> persistReconnectSessionForTest() => _persistReconnectSession();
+
+  /// Build a narrow projection of the current active calls — only the call ID
+  /// and custom headers. Never credentials, access tokens, SDP, ICE/TURN data,
+  /// media streams, peer objects, or arbitrary call state (VSDK-418 security).
+  List<StoredActiveCall> _activeCallProjection() {
+    return activeCalls()
+        .values
+        .where((c) => c.callId != null)
+        .map(
+          (c) => StoredActiveCall(
+            id: c.callId!,
+            customHeaders: [Map<String, String>.from(c.customHeaders)],
+          ),
+        )
+        .toList();
+  }
+
+  /// Persist (or clear when empty) the active-calls recovery marker (VSDK-418).
+  void _persistActiveCallsMarker() {
+    if (_explicitDisconnectInProgress) return;
+    final projection = _activeCallProjection();
+    final currentSessid = sessid;
+    unawaited(() async {
+      try {
+        if (projection.isEmpty) {
+          await ReconnectTokenStore.clearActiveCallsRecoveryMarker();
+        } else {
+          await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+            projection,
+            currentSessid,
+          );
+        }
+      } catch (e) {
+        GlobalLogger().w('Failed to persist active-calls marker: $e');
+      }
+    }());
+  }
+
+  /// Whether the cold-start recovery marker has been auto-loaded for this
+  /// client instance. Reset only by constructing a new client.
+  bool _startupRecoveryMarkerLoaded = false;
+
+  /// Auto-load the persisted active-calls recovery marker exactly once per
+  /// client lifetime (cold start), before the first registration completes.
+  ///
+  /// This makes [_attemptPendingReattach] reachable after REGED on a real
+  /// connect path without the app having to invoke
+  /// [readRecoveryMarkerAtStartup] manually (VSDK-418). Subsequent in-session
+  /// reconnects are no-ops so the client never reattaches against markers it
+  /// persisted itself during the current session.
+  Future<void> _ensureStartupRecoveryMarkerLoaded() async {
+    if (_startupRecoveryMarkerLoaded) return;
+    _startupRecoveryMarkerLoaded = true;
+    await readRecoveryMarkerAtStartup();
+  }
+
+  /// Read a fresh active-calls recovery marker at startup and stash it for a
+  /// reattachment attempt once login completes (VSDK-418).
+  Future<StoredActiveCalls?> readRecoveryMarkerAtStartup() async {
+    try {
+      _pendingReattach =
+          await ReconnectTokenStore.getActiveCallsRecoveryMarker();
+      return _pendingReattach;
+    } catch (e) {
+      GlobalLogger().w('Failed to read recovery marker at startup: $e');
+      return null;
+    }
+  }
+
+  /// Attempt reattachment for a pending startup marker after login.
+  ///
+  /// The Flutter SDK reattaches through the existing `attach_call` login flow
+  /// (see [SocketMethod.attach]); there is no bespoke Verto reattach RPC. This
+  /// method therefore correlates the persisted call IDs against the calls the
+  /// backend re-established for the current session: matched calls get their
+  /// [Call.recoveredCallId] set; unmatched calls surface a structured
+  /// `SESSION_NOT_REATTACHED` (48501) error. The stale marker is always cleared.
+  Future<void> _attemptPendingReattach() async {
+    final marker = _pendingReattach;
+    if (marker == null) return;
+    _pendingReattach = null;
+
+    for (final stored in marker.calls) {
+      final reestablished = calls[stored.id];
+      if (reestablished != null) {
+        reestablished.recoveredCallId = stored.id;
+      } else {
+        emitStructuredErrorCode(
+          TelnyxErrorCodes.sessionNotReattached,
+          message:
+              'Session/call ${stored.id} was not reattached by the backend',
+          callId: stored.id,
+        );
+      }
+    }
+
+    try {
+      await ReconnectTokenStore.clearActiveCallsRecoveryMarker();
+    } catch (e) {
+      GlobalLogger().w('Failed to clear stale recovery marker: $e');
+    }
+  }
+
+  /// Test/inspection seam for [_attemptPendingReattach].
+  @visibleForTesting
+  Future<void> attemptPendingReattachForTest() => _attemptPendingReattach();
+
+  /// Clear all persisted recovery data. Called on explicit user
+  /// disconnect/logout only — never from internal network recovery.
+  Future<void> _clearPersistedRecovery(int epoch) async {
+    try {
+      // Test-only delay hook (null in production).
+      final gate = recoveryClearGate;
+      if (gate != null) await gate;
+      // Superseded by a newer connect → skip so we don't erase its fresh data.
+      if (epoch != _recoveryEpoch) return;
+      await ReconnectTokenStore.clearAll();
+    } catch (e) {
+      GlobalLogger().w('Failed to clear persisted recovery data: $e');
+    }
   }
 
   // For instances where the SDP is not contained within ANSWER, but received early via a MEDIA message
@@ -390,30 +1064,11 @@ class TelnyxClient {
   /// 3. Default ICE servers from serverConfiguration
   List<TxIceServer> _getEffectiveIceServers() {
     final config = _storedCredentialConfig ?? _storedTokenConfig;
-
-    // First priority: custom ICE servers from Config
-    final configIceServers = config?.iceServers;
-    if (configIceServers != null && configIceServers.isNotEmpty) {
-      GlobalLogger().i(
-        'TelnyxClient :: Using custom ICE servers from Config (${configIceServers.length} servers)',
-      );
-      return configIceServers;
-    }
-
-    // Second priority: ICE servers from serverConfiguration in Config
-    final serverConfig = config?.serverConfiguration;
-    if (serverConfig != null) {
-      GlobalLogger().i(
-        'TelnyxClient :: Using ICE servers from serverConfiguration (${serverConfig.webRTCIceServers.length} servers)',
-      );
-      return serverConfig.webRTCIceServers;
-    }
-
-    // Third priority: ICE servers from _serverConfiguration (client-level default)
-    GlobalLogger().i(
-      'TelnyxClient :: Using ICE servers from default serverConfiguration (${_serverConfiguration.webRTCIceServers.length} servers)',
+    return ice_resolver.resolveEffectiveIceServers(
+      configIceServers: config?.iceServers,
+      serverConfig: config?.serverConfiguration,
+      defaultServerConfig: _serverConfiguration,
     );
-    return _serverConfiguration.webRTCIceServers;
   }
 
   /// Returns whether or not the client is connected to the socket connection
@@ -1033,7 +1688,11 @@ class TelnyxClient {
       pushDeviceToken: notificationToken,
       pushNotificationProvider:
           defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
-      pushWhenActive: config.pushWhenActive,
+      // Only emit login-level opt-in flags when the caller has explicitly
+      // set pushWhenActive to true; preserve the legacy wire payload shape
+      // for callers who never set the flag (Android/iOS opt-in parity).
+      pushWhenActive: config.pushWhenActive ? true : null,
+      pnLateFanout: config.pushWhenActive ? true : null,
     );
 
     final loginParams = LoginParams(
@@ -1077,7 +1736,11 @@ class TelnyxClient {
       pushDeviceToken: notificationToken,
       pushNotificationProvider:
           defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
-      pushWhenActive: config.pushWhenActive,
+      // Only emit login-level opt-in flags when the caller has explicitly
+      // set pushWhenActive to true; preserve the legacy wire payload shape
+      // for callers who never set the flag (Android/iOS opt-in parity).
+      pushWhenActive: config.pushWhenActive ? true : null,
+      pnLateFanout: config.pushWhenActive ? true : null,
     );
 
     final loginParams = LoginParams(
@@ -1194,6 +1857,57 @@ class TelnyxClient {
     }
   }
 
+  /// Wires the [txSocket] callbacks for the given [connectionGeneration] and
+  /// opens the connection to [hostAddress]. Shared by the token and credential
+  /// connect paths. [onOpenLogin] performs the appropriate login once open;
+  /// [updateStateOnClose] preserves the historical per-path close behavior.
+  void _wireSocketAndConnect({
+    required int connectionGeneration,
+    required String hostAddress,
+    required void Function() onOpenLogin,
+    required String onOpenLogTag,
+    required bool updateStateOnClose,
+  }) {
+    txSocket.hostAddress = hostAddress;
+    _socketHost = hostAddress; // Store for call report endpoint
+    GlobalLogger().i('connecting to WebSocket $hostAddress');
+    txSocket
+      ..onOpen = () {
+        if (!_isActiveConnectionGeneration(connectionGeneration)) {
+          return;
+        }
+        _closed = false;
+        _updateConnectionState(true);
+        _isRegionFallbackAttempt =
+            false; // Reset fallback flag on successful connection
+        GlobalLogger().i('$onOpenLogTag (via _onOpen): Web Socket is now '
+            'connected');
+        latencyTracker.markRegistrationMilestone(
+          LatencyTracker.milestoneSocketConnected,
+        );
+        _onOpen();
+        onOpenLogin();
+      }
+      ..onMessage = (dynamic data) {
+        if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+        _onMessage(data);
+      }
+      ..onClose = (int closeCode, String closeReason) {
+        if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+        GlobalLogger().i('Closed [$closeCode, $closeReason]!');
+        if (updateStateOnClose) {
+          _updateConnectionState(false);
+        }
+        final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
+        _onClose(wasClean, closeCode, closeReason);
+      }
+      ..onPing = (SocketConnectionMetrics metrics) {
+        if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+        onConnectionMetricsUpdate?.call(metrics);
+      }
+      ..connect();
+  }
+
   /// Connects to the WebSocket using the provided [tokenConfig]
   void connectWithToken(TokenConfig tokenConfig) {
     if (!_prepareForConnection()) return;
@@ -1201,6 +1915,10 @@ class TelnyxClient {
 
     // Store current config for potential fallback
     _currentConfig = tokenConfig;
+    _applyStructuredConfig(tokenConfig);
+    // Auto-load the cold-start recovery marker so reattach can fire after REGED
+    // without the app calling readRecoveryMarkerAtStartup manually (VSDK-418).
+    unawaited(_ensureStartupRecoveryMarkerLoaded());
 
     // Start registration latency tracking
     latencyTracker.startRegistrationTracking();
@@ -1218,55 +1936,36 @@ class TelnyxClient {
         LogLevel.info,
         'connecting to WebSocket $_serverConfiguration.socketUrl',
       );
-    try {
-      // Build the host address with region support
-      final hostAddress = _buildHostAddress(
-        tokenConfig,
-        voiceSdkId: _pushMetaData?.voiceSdkId,
-      );
-
-      txSocket.hostAddress = hostAddress;
-      _socketHost = hostAddress; // Store for call report endpoint
-      GlobalLogger().i('connecting to WebSocket $hostAddress');
-      txSocket
-        ..onOpen = () {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) {
-            return;
-          }
-          _closed = false;
-          _updateConnectionState(true);
-          _isRegionFallbackAttempt =
-              false; // Reset fallback flag on successful connection
-          GlobalLogger().i(
-            'TelnyxClient.connectWithToken (via _onOpen): Web Socket is now connected',
-          );
-          latencyTracker.markRegistrationMilestone(
-            LatencyTracker.milestoneSocketConnected,
-          );
-          _onOpen();
-          tokenLogin(tokenConfig);
-        }
-        ..onMessage = (dynamic data) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          _onMessage(data);
-        }
-        ..onClose = (int closeCode, String closeReason) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          _updateConnectionState(false);
-          final wasClean = WebSocketUtils.isCleanClose(closeCode, closeReason);
-          _onClose(wasClean, closeCode, closeReason);
-        }
-        ..onPing = (SocketConnectionMetrics metrics) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          onConnectionMetricsUpdate?.call(metrics);
-        }
-        ..connect();
-    } catch (e) {
-      GlobalLogger().e(e.toString());
-      _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
-    }
+    // Defensively read a fresh persisted reconnect session id (VSDK-418) and
+    // inject it as voice_sdk_id before the initial connection. Push metadata
+    // takes precedence; a missing/failed read leaves the URL unchanged.
+    unawaited(() async {
+      final resolvedVoiceSdkId =
+          _pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId();
+      if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+      try {
+        final hostAddress = _buildHostAddress(
+          tokenConfig,
+          voiceSdkId: resolvedVoiceSdkId,
+        );
+        _wireSocketAndConnect(
+          connectionGeneration: connectionGeneration,
+          hostAddress: hostAddress,
+          onOpenLogin: () => tokenLogin(tokenConfig),
+          onOpenLogTag: 'TelnyxClient.connectWithToken',
+          updateStateOnClose: true,
+        );
+      } catch (e) {
+        GlobalLogger().e(e.toString());
+        _updateConnectionState(false);
+        GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
+        // Structured WebSocket connect failure (VSDK-415).
+        emitStructuredErrorCode(
+          TelnyxErrorCodes.webSocketConnectionFailed,
+          originalError: e,
+        );
+      }
+    }());
   }
 
   /// Connects to the WebSocket using the provided [CredentialConfig]
@@ -1276,6 +1975,10 @@ class TelnyxClient {
 
     // Store current config for potential fallback
     _currentConfig = credentialConfig;
+    _applyStructuredConfig(credentialConfig);
+    // Auto-load the cold-start recovery marker so reattach can fire after REGED
+    // without the app calling readRecoveryMarkerAtStartup manually (VSDK-418).
+    unawaited(_ensureStartupRecoveryMarkerLoaded());
 
     // Start registration latency tracking
     latencyTracker.startRegistrationTracking();
@@ -1292,57 +1995,36 @@ class TelnyxClient {
     _logger
       ..setLogLevel(credentialConfig.logLevel)
       ..log(LogLevel.info, 'connect()');
-    try {
-      // Build the host address with region support
-      final hostAddress = _buildHostAddress(
-        credentialConfig,
-        voiceSdkId: _pushMetaData?.voiceSdkId,
-      );
-
-      txSocket.hostAddress = hostAddress;
-      _socketHost = hostAddress; // Store for call report endpoint
-      GlobalLogger().i('connecting to WebSocket $hostAddress');
-      txSocket
-        ..onOpen = () {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) {
-            return;
-          }
-          _closed = false;
-          _updateConnectionState(true);
-          _isRegionFallbackAttempt =
-              false; // Reset fallback flag on successful connection
-          GlobalLogger().i(
-            'TelnyxClient.connectWithCredential (via _onOpen): Web Socket is now connected',
-          );
-          latencyTracker.markRegistrationMilestone(
-            LatencyTracker.milestoneSocketConnected,
-          );
-          _onOpen();
-          credentialLogin(credentialConfig);
-        }
-        ..onMessage = (dynamic data) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          _onMessage(data);
-        }
-        ..onClose = (int closeCode, String closeReason) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          GlobalLogger().i('Closed [$closeCode, $closeReason]!');
-          final bool wasClean = WebSocketUtils.isCleanClose(
-            closeCode,
-            closeReason,
-          );
-          _onClose(wasClean, closeCode, closeReason);
-        }
-        ..onPing = (SocketConnectionMetrics metrics) {
-          if (!_isActiveConnectionGeneration(connectionGeneration)) return;
-          onConnectionMetricsUpdate?.call(metrics);
-        }
-        ..connect();
-    } catch (e) {
-      GlobalLogger().e(e.toString());
-      _updateConnectionState(false);
-      GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
-    }
+    // Defensively read a fresh persisted reconnect session id (VSDK-418) and
+    // inject it as voice_sdk_id before the initial connection. Push metadata
+    // takes precedence; a missing/failed read leaves the URL unchanged.
+    unawaited(() async {
+      final resolvedVoiceSdkId =
+          _pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId();
+      if (!_isActiveConnectionGeneration(connectionGeneration)) return;
+      try {
+        final hostAddress = _buildHostAddress(
+          credentialConfig,
+          voiceSdkId: resolvedVoiceSdkId,
+        );
+        _wireSocketAndConnect(
+          connectionGeneration: connectionGeneration,
+          hostAddress: hostAddress,
+          onOpenLogin: () => credentialLogin(credentialConfig),
+          onOpenLogTag: 'TelnyxClient.connectWithCredential',
+          updateStateOnClose: false,
+        );
+      } catch (e) {
+        GlobalLogger().e(e.toString());
+        _updateConnectionState(false);
+        GlobalLogger().e('WebSocket $_serverConfiguration.socketUrl error: $e');
+        // Structured WebSocket connect failure (VSDK-415).
+        emitStructuredErrorCode(
+          TelnyxErrorCodes.webSocketConnectionFailed,
+          originalError: e,
+        );
+      }
+    }());
   }
 
   @Deprecated(
@@ -1360,6 +2042,13 @@ class TelnyxClient {
     }
     if (!_prepareForConnection()) return;
     final connectionGeneration = _connectionGeneration;
+
+    // Reapply the structured-error / health-monitor / media-recovery config
+    // from the stored config so a bare reconnect stays consistent with the
+    // last connectWith* call (VSDK-415/416/418).
+    if (_currentConfig != null) {
+      _applyStructuredConfig(_currentConfig!);
+    }
 
     GlobalLogger().i('connecting to WebSocket $_serverConfiguration.socketUrl');
     try {
@@ -1553,13 +2242,21 @@ class TelnyxClient {
       notificationParams = _pushUserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'android',
-        pushWhenActive: config.pushWhenActive,
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = _pushUserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'ios',
-        pushWhenActive: config.pushWhenActive,
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     }
 
@@ -1613,13 +2310,21 @@ class TelnyxClient {
       notificationParams = _pushUserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'android',
-        pushWhenActive: config.pushWhenActive,
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = _pushUserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'ios',
-        pushWhenActive: config.pushWhenActive,
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     }
 
@@ -1646,6 +2351,75 @@ class TelnyxClient {
         txSocket.send(jsonLoginMessage);
       });
     }
+
+    // Schedule TOKEN_EXPIRING_SOON warning if the token is a JWT (VSDK-397).
+    _checkTokenExpiry(config.sipToken);
+  }
+
+  /// Decodes the JWT [token] and schedules a [TelnyxWarningCodes.tokenExpiringSoon]
+  /// warning 120 s before expiry. If already within 120 s of expiry, emits
+  /// immediately. Non-JWT tokens are skipped silently.
+  ///
+  /// Mirrors JS BaseSession._checkTokenExpiry() (VSDK-397).
+  ///
+  /// Note: The warning is advisory, not authoritative — the server is the
+  /// source of truth for token validity. On mobile, device clock skew (NTP
+  /// not synced, manual time change, timezone jumps) can cause the warning
+  /// to fire early/late. This matches the JS implementation which has the
+  /// same caveat with Date.now() (AFK review N1).
+  void _checkTokenExpiry(String? token) {
+    _clearTokenExpiryTimer();
+    if (token == null || token.isEmpty) return;
+
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return; // not a JWT
+
+      // JWT payload is base64url-encoded.
+      String payload = parts[1];
+      // Pad to a multiple of 4 for base64 decode.
+      payload += '=' * ((4 - payload.length % 4) % 4);
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final json = jsonDecode(decoded) as Map<String, dynamic>;
+      final exp = json['exp'];
+      if (exp is! num) return;
+
+      final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final secondsUntilExpiry = exp.toInt() - nowSec;
+
+      if (secondsUntilExpiry <= 0) {
+        // Already expired — login will fail and error handler will fire.
+        return;
+      } else if (secondsUntilExpiry <= _tokenExpiryWarningSeconds) {
+        // Expiring very soon — emit immediately.
+        _emitTokenExpiryWarning();
+      } else {
+        // Schedule warning for 120 s before expiry.
+        final delayMs =
+            (secondsUntilExpiry - _tokenExpiryWarningSeconds) * 1000;
+        _tokenExpiryTimer = Timer(
+          Duration(milliseconds: delayMs),
+          _emitTokenExpiryWarning,
+        );
+      }
+    } catch (e) {
+      // Not a valid JWT — skip silently.
+      GlobalLogger()
+          .d('login_token is not a decodable JWT, skipping expiry check: $e');
+    }
+  }
+
+  void _emitTokenExpiryWarning() {
+    emitWarningCode(
+      TelnyxWarningCodes.tokenExpiringSoon,
+      reason: 'JWT token expiring soon',
+      source: 'auth',
+    );
+  }
+
+  void _clearTokenExpiryTimer() {
+    _tokenExpiryTimer?.cancel();
+    _tokenExpiryTimer = null;
   }
 
   /// Performs an anonymous login to the Telnyx backend for AI assistant connections.
@@ -1808,6 +2582,8 @@ class TelnyxClient {
       useTrickleIce: useTrickleIce,
     );
 
+    final effectiveIceServers = _getEffectiveIceServers();
+
     // Create the peer connection with debug enabled if requested
     inviteCall.peerConnection = Peer(
       inviteCall.txSocket,
@@ -1817,7 +2593,7 @@ class TelnyxClient {
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      _getEffectiveIceServers(),
+      effectiveIceServers,
     );
     // Apply call report config from stored config
     final callReportConfig = _storedCredentialConfig ?? _storedTokenConfig;
@@ -1827,6 +2603,19 @@ class TelnyxClient {
       callReportMaxLogEntries:
           callReportConfig?.callReportMaxLogEntries ?? 1000,
     );
+    // Build and cache ClientSummary for call reports
+    if (callReportConfig != null) {
+      inviteCall.peerConnection?.setClientSummary(
+        ClientSummary.fromConfig(
+          config: callReportConfig,
+          iceServers: effectiveIceServers,
+          host: _socketHost,
+          useTrickleIce: useTrickleIce,
+          mutedMicOnStart: mutedMicOnStart,
+          audioConstraints: audioConstraints,
+        ),
+      );
+    }
     // Convert AudioCodec objects to Map format for the peer connection
     List<Map<String, dynamic>>? codecMaps;
     if (preferredCodecs != null && preferredCodecs.isNotEmpty) {
@@ -1851,8 +2640,9 @@ class TelnyxClient {
     inviteCall.callHandler.changeState(CallState.newCall);
 
     // Register the outbound call with CallManager and set as current.
-    callManager.registerCall(inviteCall);
-    callManager.setCurrentCall(inviteCall);
+    callManager
+      ..registerCall(inviteCall)
+      ..setCurrentCall(inviteCall);
 
     return inviteCall;
   }
@@ -1897,6 +2687,7 @@ class TelnyxClient {
     bool mutedMicOnStart = false,
     AudioConstraints? audioConstraints,
     String? answeredDeviceToken,
+    bool forceRelayCandidateForRecovery = false,
   }) {
     // Auto-populate answeredDeviceToken from the stored push token when
     // push-when-active is enabled on the active login config. The explicit
@@ -1925,25 +2716,33 @@ class TelnyxClient {
       ..sessionClientState = clientState;
 
     final destinationNum = invite.callerIdNumber;
+    answerCall
+      ..telnyxSessionId ??= invite.telnyxSessionId
+      ..telnyxLegId ??= invite.telnyxLegId
+      ..resolvedDatacenter ??= invite.variables?.freeSWITCHSwitchname ??
+          invite.variables?.freeSWITCHHostname;
 
     // Start latency tracking for inbound call
-    latencyTracker.startCallTracking(
-      answerCall.callId!,
-      isOutbound: false,
-      useTrickleIce: useTrickleIce,
-    );
-    latencyTracker.markAnswerInitiated(answerCall.callId!);
+    latencyTracker
+      ..startCallTracking(
+        answerCall.callId!,
+        isOutbound: false,
+        useTrickleIce: useTrickleIce,
+      )
+      ..markAnswerInitiated(answerCall.callId!);
+
+    final effectiveIceServers = _getEffectiveIceServers();
 
     // Create the peer connection
     answerCall.peerConnection = Peer(
       txSocket,
       debug || _debug,
       this,
-      getForceRelayCandidate(),
+      forceRelayCandidateForRecovery || getForceRelayCandidate(),
       useTrickleIce,
       audioConstraints,
       mutedMicOnStart,
-      _getEffectiveIceServers(),
+      effectiveIceServers,
     );
     // Apply call report config from stored config
     final answerCallReportConfig =
@@ -1953,6 +2752,26 @@ class TelnyxClient {
       callReportLogLevel: answerCallReportConfig?.callReportLogLevel ?? 'debug',
       callReportMaxLogEntries:
           answerCallReportConfig?.callReportMaxLogEntries ?? 1000,
+    );
+    // Build and cache ClientSummary for call reports
+    if (answerCallReportConfig != null) {
+      answerCall.peerConnection?.setClientSummary(
+        ClientSummary.fromConfig(
+          config: answerCallReportConfig,
+          iceServers: effectiveIceServers,
+          host: _socketHost,
+          useTrickleIce: useTrickleIce,
+          mutedMicOnStart: mutedMicOnStart,
+          audioConstraints: audioConstraints,
+        ),
+      );
+    }
+    answerCall.peerConnection?.setResolvedCallReportConnection(
+      dc: answerCall.resolvedDatacenter,
+    );
+    answerCall.peerConnection?.setCallReportIdentifiers(
+      sessionId: answerCall.telnyxSessionId,
+      legId: answerCall.telnyxLegId,
     );
 
     // Set up the session with the callback if debug is enabled
@@ -1979,8 +2798,9 @@ class TelnyxClient {
     // Register the accepted call with CallManager and set it as the current
     // active call. If there was a previous currentCall it should already have
     // been put on hold by holdCurrentAndAcceptIncoming before this point.
-    callManager.registerCall(answerCall);
-    callManager.setCurrentCall(answerCall);
+    callManager
+      ..registerCall(answerCall)
+      ..setCurrentCall(answerCall);
 
     clearPushMetaData();
     return answerCall;
@@ -2134,6 +2954,12 @@ class TelnyxClient {
     _cancelConnectivitySubscription();
     clearPushMetaData();
     GlobalLogger().i('disconnect()');
+    // Explicit user disconnect/logout clears all persisted recovery data
+    // (VSDK-418) and stops the signaling-health monitor (VSDK-416).
+    _explicitDisconnectInProgress = true;
+    _healthMonitor?.stop();
+    _clearTokenExpiryTimer();
+    unawaited(_clearPersistedRecovery(_recoveryEpoch));
     if (_closed) {
       GlobalLogger().i('WebSocket is already closed');
       closeCallback?.call(0, 'Client send disconnect');
@@ -2162,6 +2988,12 @@ class TelnyxClient {
     _cancelConnectivitySubscription();
     clearPushMetaData();
     GlobalLogger().i('disconnect()');
+    // Explicit user disconnect/logout clears all persisted recovery data
+    // (VSDK-418) and stops the signaling-health monitor (VSDK-416).
+    _explicitDisconnectInProgress = true;
+    _healthMonitor?.stop();
+    _clearTokenExpiryTimer();
+    unawaited(_clearPersistedRecovery(_recoveryEpoch));
     if (_closed) return;
     // Don't wait for the WebSocket 'close' event, do it now.
     _closed = true;
@@ -2179,6 +3011,9 @@ class TelnyxClient {
     final shouldCloseSocket = !_closed;
     _disposed = true;
     _closed = true;
+    _healthMonitor?.stop();
+    _clearTokenExpiryTimer();
+    _requestTimeoutTracker?.cancelAll();
     _invalidateConnectionGeneration();
     _invalidateGatewayResponseTimer();
     _resetGatewayCounters();
@@ -2193,6 +3028,11 @@ class TelnyxClient {
       _closeSocketSafely();
     }
     _disposeLatencyTracker();
+    if (_streamControllersInitialized) {
+      _errorStreamController.close();
+      _warningStreamController.close();
+      _streamControllersInitialized = false;
+    }
   }
 
   /// WebSocket Event Handlers
@@ -2209,9 +3049,29 @@ class TelnyxClient {
     GlobalLogger().i('WebSocket closed');
     if (wasClean == false) {
       GlobalLogger().i('WebSocket abrupt disconnection');
+      // Structured (non-fatal) WebSocket runtime error (VSDK-415).
+      emitStructuredErrorCode(
+        TelnyxErrorCodes.webSocketError,
+        message: 'WebSocket closed unexpectedly [$code, $reason]',
+      );
+
+      // When auto-reconnect is disabled and this is not an intentional
+      // disconnect, emit RECONNECTION_FAILED_WITH_NO_AUTO_RECONNECT (36005)
+      // so the app knows the session won't recover automatically (VSDK-397).
+      if (!_autoReconnectLogin && !_explicitDisconnectInProgress) {
+        emitWarningCode(
+          TelnyxWarningCodes.reconnectionFailedWithNoAutoReconnect,
+          reason: 'auto_reconnect_disabled',
+          source: 'socket_close',
+        );
+      }
     }
 
-    // Handle region fallback if connection failed and fallback is enabled
+    // Handle region fallback if connection failed and fallback is enabled.
+    // Uses a typed copy helper to preserve *every* Config option from the
+    // current config, only changing the region to Region.auto. This prevents
+    // silent option loss (e.g. enableStructuredErrors, ICE servers, timeouts)
+    // that the prior hand-written constructors dropped (VSDK-415/416 B1).
     if (!wasClean &&
         _currentConfig != null &&
         _currentConfig!.region != Region.auto &&
@@ -2222,63 +3082,130 @@ class TelnyxClient {
       );
       _isRegionFallbackAttempt = true;
 
-      // Create a fallback config with auto region
-      Config fallbackConfig;
-      if (_currentConfig is TokenConfig) {
-        final tokenConfig = _currentConfig as TokenConfig;
-        fallbackConfig = TokenConfig(
-          sipToken: tokenConfig.sipToken,
-          sipCallerIDName: tokenConfig.sipCallerIDName,
-          sipCallerIDNumber: tokenConfig.sipCallerIDNumber,
-          notificationToken: tokenConfig.notificationToken,
-          region: Region.auto,
-          // Force auto region for fallback
-          fallbackOnRegionFailure: tokenConfig.fallbackOnRegionFailure,
-          logLevel: tokenConfig.logLevel,
-          customLogger: tokenConfig.customLogger,
-          reconnectionTimeout: tokenConfig.reconnectionTimeout,
-          debug: tokenConfig.debug,
-        );
+      // Capture the auto-region fallback config NOW, before scheduling, so the
+      // timer callback does not dereference the mutable _currentConfig field
+      // (which may be reassigned by a concurrent connect/disconnect before the
+      // timer fires). A captured immutable copy is race-free (VSDK-415/416).
+      final fallbackConfig = _copyConfigWithAutoRegion(_currentConfig!);
 
-        // Retry connection with auto region
-        _scheduleConnectionTimer(
-          const Duration(milliseconds: 1000),
-          () {
-            connectWithToken(fallbackConfig as TokenConfig);
-          },
-          generation: connectionGeneration,
-        );
-      } else if (_currentConfig is CredentialConfig) {
-        final credConfig = _currentConfig as CredentialConfig;
-        fallbackConfig = CredentialConfig(
-          sipUser: credConfig.sipUser,
-          sipPassword: credConfig.sipPassword,
-          sipCallerIDName: credConfig.sipCallerIDName,
-          sipCallerIDNumber: credConfig.sipCallerIDNumber,
-          notificationToken: credConfig.notificationToken,
-          region: Region.auto,
-          // Force auto region for fallback
-          fallbackOnRegionFailure: credConfig.fallbackOnRegionFailure,
-          logLevel: credConfig.logLevel,
-          customLogger: credConfig.customLogger,
-          reconnectionTimeout: credConfig.reconnectionTimeout,
-          debug: credConfig.debug,
-        );
-
-        // Retry connection with auto region
-        _scheduleConnectionTimer(
-          const Duration(milliseconds: 1000),
-          () {
-            connectWithCredential(fallbackConfig as CredentialConfig);
-          },
-          generation: connectionGeneration,
-        );
-      }
+      // Retry connection with the auto-region copy after a short delay.
+      _scheduleConnectionTimer(
+        const Duration(milliseconds: 1000),
+        () {
+          if (fallbackConfig is TokenConfig) {
+            connectWithToken(fallbackConfig);
+          } else if (fallbackConfig is CredentialConfig) {
+            connectWithCredential(fallbackConfig);
+          }
+        },
+        generation: connectionGeneration,
+      );
     }
+  }
+
+  /// Build a copy of [config] with the region changed to [Region.auto],
+  /// preserving every other Config option exactly.
+  ///
+  /// Used by the region-fallback path in [_onClose] so no option is silently
+  /// dropped. A single typed helper prevents omissions that a hand-written
+  /// constructor list would be prone to (VSDK-415/416 B1).
+  Config _copyConfigWithAutoRegion(Config config) {
+    if (config is TokenConfig) {
+      return _copyTokenConfigWithRegion(config, Region.auto);
+    } else if (config is CredentialConfig) {
+      return _copyCredentialConfigWithRegion(config, Region.auto);
+    }
+    // Unreachable for the two concrete Config subclasses in use; defensive.
+    return config;
+  }
+
+  /// Copies a [TokenConfig] preserving every field except [region].
+  TokenConfig _copyTokenConfigWithRegion(
+    TokenConfig c,
+    Region region,
+  ) {
+    return TokenConfig(
+      sipToken: c.sipToken,
+      sipCallerIDName: c.sipCallerIDName,
+      sipCallerIDNumber: c.sipCallerIDNumber,
+      notificationToken: c.notificationToken,
+      autoReconnect: c.autoReconnect,
+      logLevel: c.logLevel,
+      debug: c.debug,
+      ringTonePath: c.ringTonePath,
+      ringbackPath: c.ringbackPath,
+      customLogger: c.customLogger,
+      reconnectionTimeout: c.reconnectionTimeout,
+      pushAnswerTimeout: c.pushAnswerTimeout,
+      region: region,
+      fallbackOnRegionFailure: c.fallbackOnRegionFailure,
+      forceRelayCandidate: c.forceRelayCandidate,
+      iceServers: c.iceServers,
+      serverConfiguration: c.serverConfiguration,
+      callReportInterval: c.callReportInterval,
+      callReportLogLevel: c.callReportLogLevel,
+      callReportMaxLogEntries: c.callReportMaxLogEntries,
+      enableCallReports: c.enableCallReports,
+      debugOutput: c.debugOutput,
+      debugLogLevel: c.debugLogLevel,
+      debugLogMaxEntries: c.debugLogMaxEntries,
+      callReportFlushInterval: c.callReportFlushInterval,
+      prefetchIceCandidates: c.prefetchIceCandidates,
+      autoRecoverCalls: c.autoRecoverCalls,
+      hangupOnBeforeUnload: c.hangupOnBeforeUnload,
+      maxReconnectAttempts: c.maxReconnectAttempts,
+      enableStructuredErrors: c.enableStructuredErrors,
+      enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
+      mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+    );
+  }
+
+  CredentialConfig _copyCredentialConfigWithRegion(
+    CredentialConfig c,
+    Region region,
+  ) {
+    return CredentialConfig(
+      sipUser: c.sipUser,
+      sipPassword: c.sipPassword,
+      sipCallerIDName: c.sipCallerIDName,
+      sipCallerIDNumber: c.sipCallerIDNumber,
+      notificationToken: c.notificationToken,
+      autoReconnect: c.autoReconnect,
+      logLevel: c.logLevel,
+      debug: c.debug,
+      ringTonePath: c.ringTonePath,
+      ringbackPath: c.ringbackPath,
+      customLogger: c.customLogger,
+      reconnectionTimeout: c.reconnectionTimeout,
+      pushAnswerTimeout: c.pushAnswerTimeout,
+      region: region,
+      fallbackOnRegionFailure: c.fallbackOnRegionFailure,
+      forceRelayCandidate: c.forceRelayCandidate,
+      iceServers: c.iceServers,
+      serverConfiguration: c.serverConfiguration,
+      callReportInterval: c.callReportInterval,
+      callReportLogLevel: c.callReportLogLevel,
+      callReportMaxLogEntries: c.callReportMaxLogEntries,
+      enableCallReports: c.enableCallReports,
+      debugOutput: c.debugOutput,
+      debugLogLevel: c.debugLogLevel,
+      debugLogMaxEntries: c.debugLogMaxEntries,
+      callReportFlushInterval: c.callReportFlushInterval,
+      prefetchIceCandidates: c.prefetchIceCandidates,
+      autoRecoverCalls: c.autoRecoverCalls,
+      hangupOnBeforeUnload: c.hangupOnBeforeUnload,
+      maxReconnectAttempts: c.maxReconnectAttempts,
+      enableStructuredErrors: c.enableStructuredErrors,
+      enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
+      mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+    );
   }
 
   void _onMessage(dynamic data) async {
     if (_isTornDown) return;
+
+    // Every inbound WebSocket message is signaling-health activity (VSDK-416).
+    _healthMonitor?.onSocketActivity();
 
     GlobalLogger().i(
       'TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString().trim()}',
@@ -2301,11 +3228,21 @@ class TelnyxClient {
             final ReceivedResult errorResult = ReceivedResult.fromJson(
               messageJson,
             );
+            // Resolve the in-flight signaling probe (if any) when the JSON-RPC
+            // error matches the probe's request id. An error response still
+            // proves the signaling path is alive (the server answered), even
+            // if the ping itself was rejected — VSDK-416 Gap 1 hardening.
+            _healthMonitor?.resolveProbe(errorResult.id);
+            if (errorResult.id != null) {
+              _requestTimeoutTracker?.resolve(errorResult.id!);
+            }
             final TelnyxSocketError error = TelnyxSocketError(
               errorCode: errorResult.error?.errorCode ?? 0,
               errorMessage: errorResult.error?.errorMessage ?? 'Unknown error',
             );
             onSocketErrorReceived.call(error);
+            // Structured error alongside the legacy callback (VSDK-415).
+            _emitStructuredForSocketError(error);
           } else if (messageJson.containsKey('result')) {
             final paramJson = jsonEncode(messageJson);
             _logger.log(
@@ -2316,6 +3253,14 @@ class TelnyxClient {
             final ReceivedResult stateMessage = ReceivedResult.fromJson(
               messageJson,
             );
+            // Resolve the in-flight signaling probe (if any) when the JSON-RPC
+            // result matches the probe's request id. Unrelated inbound frames
+            // MUST NOT release the probe — VSDK-416 Gap 1 hardening.
+            _healthMonitor?.resolveProbe(stateMessage.id);
+            // Resolve any pending request-timeout timer for this response.
+            if (stateMessage.id != null) {
+              _requestTimeoutTracker?.resolve(stateMessage.id!);
+            }
             final mainMessage = ReceivedMessage(
               jsonrpc: stateMessage.jsonrpc,
               method: SocketMethod.gatewayState,
@@ -2346,6 +3291,10 @@ class TelnyxClient {
                         );
                       }
                       _waitingForReg = false;
+                      // Capture the server-provided voice_sdk_id *before* the
+                      // push-driven path clears _pushMetaData below, otherwise
+                      // the reconnect token would be lost (VSDK-418).
+                      final registeredVoiceSdkId = voiceSdkId;
                       final message = TelnyxMessage(
                         socketMethod: SocketMethod.clientReady,
                         message: mainMessage,
@@ -2381,6 +3330,16 @@ class TelnyxClient {
                       }
                       _registered = true;
                       _updateConnectionStatus();
+
+                      // Persist reconnect session identifiers and attempt any
+                      // pending startup reattachment (VSDK-418). The captured
+                      // voice_sdk_id survives the push-path clear above.
+                      unawaited(
+                        _persistReconnectSession(
+                          voiceSdkIdOverride: registeredVoiceSdkId,
+                        ),
+                      );
+                      unawaited(_attemptPendingReattach());
                     }
                     break;
                   }
@@ -2406,6 +3365,11 @@ class TelnyxClient {
                         errorMessage: TelnyxErrorConstants.gatewayFailedError,
                       );
                       onSocketErrorReceived(error);
+                      // Structured error alongside legacy callback (VSDK-415).
+                      emitStructuredErrorCode(
+                        TelnyxErrorCodes.gatewayFailed,
+                        message: TelnyxErrorConstants.gatewayFailedError,
+                      );
                     }
                     break;
                   }
@@ -2426,12 +3390,18 @@ class TelnyxClient {
                       _attemptReconnection();
                     } else {
                       _invalidateGatewayResponseTimer();
+                      const failWaitMessage =
+                          'Gateway registration has received fail wait response';
                       final error = TelnyxSocketError(
                         errorCode: TelnyxErrorConstants.gatewayFailedErrorCode,
-                        errorMessage:
-                            'Gateway registration has received fail wait response',
+                        errorMessage: failWaitMessage,
                       );
                       onSocketErrorReceived(error);
+                      // Structured error alongside legacy callback (VSDK-415).
+                      emitStructuredErrorCode(
+                        TelnyxErrorCodes.gatewayFailed,
+                        message: failWaitMessage,
+                      );
                     }
                     break;
                   }
@@ -2596,11 +3566,12 @@ class TelnyxClient {
 
                   // Mark invite received for latency tracking
                   if (offerCall.callId != null) {
-                    latencyTracker.startCallTracking(
-                      offerCall.callId!,
-                      isOutbound: false,
-                    );
-                    latencyTracker.markInviteReceived(offerCall.callId!);
+                    latencyTracker
+                      ..startCallTracking(
+                        offerCall.callId!,
+                        isOutbound: false,
+                      )
+                      ..markInviteReceived(offerCall.callId!);
                   }
 
                   onSocketMessageReceived.call(message);
@@ -2656,17 +3627,48 @@ class TelnyxClient {
                     message: invite,
                   );
 
+                  final attachCallId = invite.inviteParams?.callID;
                   // Preserve speakerphone state from existing call before reconnection
-                  final existingCall = calls[invite.inviteParams?.callID];
+                  final existingCall = calls[attachCallId];
+                  // Mobile flutter_webrtc commonly omits the non-standard ICE
+                  // networkType stat. Without a reliable VPN signal, relay
+                  // escalation intentionally remains disabled.
+                  final forceRelayCandidateForRecovery = existingCall
+                          ?.peerConnection?.shouldForceRelayForRecovery ??
+                      false;
+                  if (forceRelayCandidateForRecovery) {
+                    GlobalLogger().w(
+                      'ATTACH :: forcing relay-only ICE for stalled VPN media path on $attachCallId',
+                    );
+                  }
                   final bool wasSpeakerPhoneEnabled =
                       existingCall?.speakerPhone ?? false;
                   GlobalLogger().i(
                     'ATTACH :: Preserving speakerphone state: $wasSpeakerPhoneEnabled',
                   );
 
+                  // If the SDK has active calls but this Attach's callID is
+                  // not among them, the server is reattaching a session the
+                  // client doesn't know about — emit warning (VSDK-397).
+                  if (attachCallId != null &&
+                      existingCall == null &&
+                      calls.isNotEmpty) {
+                    emitWarningCode(
+                      TelnyxWarningCodes.unknownReattachedSession,
+                      callId: attachCallId,
+                      reason:
+                          'Attach for callID $attachCallId does not match any active call (${calls.length} active)',
+                      source: 'attach',
+                    );
+                  }
+
                   //play ringtone for web
                   final Call offerCall = _createCall()
                     ..callId = invite.inviteParams?.callID
+                    ..recoveredCallId = existingCall?.callId
+                    ..telnyxSessionId = existingCall?.telnyxSessionId
+                    ..telnyxLegId = existingCall?.telnyxLegId
+                    ..resolvedDatacenter = existingCall?.resolvedDatacenter
                     ..speakerPhone =
                         wasSpeakerPhoneEnabled; // Preserve the state
                   updateCall(offerCall);
@@ -2679,6 +3681,8 @@ class TelnyxClient {
                     invite.inviteParams!.callerIdNumber ?? '',
                     'State',
                     isAttach: true,
+                    forceRelayCandidateForRecovery:
+                        forceRelayCandidateForRecovery,
                   );
                   // Cancel the pending answer timeout since ATTACH arrived
                   _cancelPendingAnswerTimeout();
@@ -2733,14 +3737,30 @@ class TelnyxClient {
                       'Telnyx Call Control ID :: ${answerCall.telnyxCallControlId}',
                     );
                   }
+                  answerCall
+                    ..telnyxSessionId ??=
+                        inviteAnswer.inviteParams?.telnyxSessionId
+                    ..telnyxLegId ??= inviteAnswer.inviteParams?.telnyxLegId
+                    ..resolvedDatacenter ??= inviteAnswer
+                            .inviteParams?.variables?.freeSWITCHSwitchname ??
+                        inviteAnswer
+                            .inviteParams?.variables?.freeSWITCHHostname;
+                  answerCall.peerConnection?.setResolvedCallReportConnection(
+                    dc: answerCall.resolvedDatacenter,
+                  );
+                  answerCall.peerConnection?.setCallReportIdentifiers(
+                    sessionId: answerCall.telnyxSessionId,
+                    legId: answerCall.telnyxLegId,
+                  );
 
                   // Mark latency milestones for answer received
                   if (answerCall.callId != null) {
-                    latencyTracker.markCallMilestone(
-                      answerCall.callId!,
-                      LatencyTracker.milestoneRemoteSdpReceived,
-                    );
-                    latencyTracker.markCallAnsweredByRemote(answerCall.callId!);
+                    latencyTracker
+                      ..markCallMilestone(
+                        answerCall.callId!,
+                        LatencyTracker.milestoneRemoteSdpReceived,
+                      )
+                      ..markCallAnsweredByRemote(answerCall.callId!);
                   }
 
                   final message = TelnyxMessage(
@@ -2878,6 +3898,19 @@ class TelnyxClient {
 
                   GlobalLogger().i(
                     'Telnyx Leg ID :: ${ringing.inviteParams?.telnyxLegId.toString()}',
+                  );
+                  ringingCall
+                    ..telnyxSessionId ??= ringing.inviteParams?.telnyxSessionId
+                    ..telnyxLegId ??= ringing.inviteParams?.telnyxLegId
+                    ..resolvedDatacenter ??=
+                        ringing.inviteParams?.variables?.freeSWITCHSwitchname ??
+                            ringing.inviteParams?.variables?.freeSWITCHHostname;
+                  ringingCall.peerConnection?.setResolvedCallReportConnection(
+                    dc: ringingCall.resolvedDatacenter,
+                  );
+                  ringingCall.peerConnection?.setCallReportIdentifiers(
+                    sessionId: ringingCall.telnyxSessionId,
+                    legId: ringingCall.telnyxLegId,
                   );
                   final message = TelnyxMessage(
                     socketMethod: SocketMethod.ringing,
@@ -3179,6 +4212,11 @@ class TelnyxClient {
         errorMessage: 'Maximum reconnection attempts reached',
       );
       onSocketErrorReceived(error);
+      // Structured error alongside legacy callback (VSDK-415).
+      emitStructuredErrorCode(
+        TelnyxErrorCodes.reconnectionExhausted,
+        message: 'Maximum reconnection attempts reached',
+      );
       return;
     }
 
@@ -3223,4 +4261,29 @@ class TelnyxClient {
   SocketConnectionMetrics getConnectionMetrics() {
     return txSocket.getConnectionMetrics();
   }
+}
+
+/// Production adapter that exposes a [TelnyxClient] to the
+/// [SignalingHealthMonitor] via the [ISignalingHealthSession] interface
+/// (VSDK-416). Owned by the client; delegates every call back to it.
+class _TelnyxHealthSession implements ISignalingHealthSession {
+  _TelnyxHealthSession(this._client);
+
+  final TelnyxClient _client;
+
+  @override
+  bool? get isConnected => _client.isConnected();
+
+  @override
+  bool? hasActiveCall() => _client.activeCalls().isNotEmpty;
+
+  @override
+  void socketDisconnect() => _client._healthSocketDisconnect();
+
+  @override
+  TriggerIceRestartResult? triggerIceRestart(String? callId) =>
+      _client._healthTriggerIceRestart(callId);
+
+  @override
+  void sendProbe() => _client._sendSignalingProbe();
 }

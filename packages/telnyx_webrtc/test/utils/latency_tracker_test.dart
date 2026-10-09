@@ -19,24 +19,24 @@ void main() {
         tracker.startRegistrationTracking();
         expect(tracker.isTrackingRegistration, isTrue);
 
-        final metrics = tracker.getCurrentCallMetrics('__registration__');
         // Registration tracking is separate from call tracking
         // Verify we can mark milestones
-        tracker.markRegistrationMilestone(LatencyTracker.milestoneSocketConnected);
-        tracker.markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
+        tracker
+          ..markRegistrationMilestone(LatencyTracker.milestoneSocketConnected)
+          ..markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
         // No crash = success
       });
 
       test('completeRegistrationTracking emits metrics', () {
         LatencyMetrics? receivedMetrics;
-        tracker.setLatencyMetricsListener((metrics) {
-          receivedMetrics = metrics;
-        });
-
-        tracker.startRegistrationTracking();
-        tracker.markRegistrationMilestone(LatencyTracker.milestoneSocketConnected);
-        tracker.markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
-        tracker.completeRegistrationTracking();
+        tracker
+          ..setLatencyMetricsListener((metrics) {
+            receivedMetrics = metrics;
+          })
+          ..startRegistrationTracking()
+          ..markRegistrationMilestone(LatencyTracker.milestoneSocketConnected)
+          ..markRegistrationMilestone(LatencyTracker.milestoneLoginSent)
+          ..completeRegistrationTracking();
 
         expect(receivedMetrics, isNotNull);
         expect(receivedMetrics!.registrationLatencyMs, isNotNull);
@@ -49,9 +49,10 @@ void main() {
       });
 
       test('completeRegistrationTracking emits via stream', () async {
-        tracker.startRegistrationTracking();
-        tracker.markRegistrationMilestone(LatencyTracker.milestoneSocketConnected);
-        tracker.markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
+        tracker
+          ..startRegistrationTracking()
+          ..markRegistrationMilestone(LatencyTracker.milestoneSocketConnected)
+          ..markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
 
         final metricsFuture = tracker.latencyMetricsStream.first;
         tracker.completeRegistrationTracking();
@@ -62,7 +63,8 @@ void main() {
 
       test('markRegistrationMilestone does nothing when not tracking', () {
         // Should not throw
-        tracker.markRegistrationMilestone(LatencyTracker.milestoneSocketConnected);
+        tracker
+            .markRegistrationMilestone(LatencyTracker.milestoneSocketConnected);
       });
     });
 
@@ -73,7 +75,10 @@ void main() {
         final metrics = tracker.getCurrentCallMetrics('call1');
         expect(metrics, isNotNull);
         expect(metrics!.isOutbound, isTrue);
-        expect(metrics.milestones, contains(LatencyTracker.milestoneCallInitiated));
+        expect(
+          metrics.milestones,
+          contains(LatencyTracker.milestoneCallInitiated),
+        );
       });
 
       test('markCallMilestone records elapsed time', () async {
@@ -82,34 +87,41 @@ void main() {
         tracker.markCallMilestone('call1', LatencyTracker.milestonePeerCreated);
 
         final metrics = tracker.getCurrentCallMetrics('call1');
-        expect(metrics!.milestones[LatencyTracker.milestonePeerCreated],
-            greaterThanOrEqualTo(10));
+        expect(
+          metrics!.milestones[LatencyTracker.milestonePeerCreated],
+          greaterThanOrEqualTo(10),
+        );
       });
 
       test('markCallMilestone ignores unknown call IDs', () {
         // Should not throw
-        tracker.markCallMilestone('unknown', LatencyTracker.milestonePeerCreated);
+        tracker.markCallMilestone(
+          'unknown',
+          LatencyTracker.milestonePeerCreated,
+        );
       });
 
       test('completeCallTracking emits metrics and cleans up', () {
         LatencyMetrics? receivedMetrics;
-        tracker.setLatencyMetricsListener((metrics) {
-          receivedMetrics = metrics;
-        });
-
-        tracker.startCallTracking('call1', isOutbound: true);
-        tracker.markCallMilestone('call1', LatencyTracker.milestonePeerCreated);
-        tracker.markCallMilestone('call1', LatencyTracker.milestoneInviteSent);
-        tracker.markCallMilestone('call1', LatencyTracker.milestoneIceConnected);
-        tracker.markCallMilestone('call1', LatencyTracker.milestonePeerConnected);
-        tracker.completeCallTracking('call1');
+        tracker
+          ..setLatencyMetricsListener((metrics) {
+            receivedMetrics = metrics;
+          })
+          ..startCallTracking('call1', isOutbound: true)
+          ..markCallMilestone('call1', LatencyTracker.milestonePeerCreated)
+          ..markCallMilestone('call1', LatencyTracker.milestoneInviteSent)
+          ..markCallMilestone('call1', LatencyTracker.milestoneIceConnected)
+          ..markCallMilestone('call1', LatencyTracker.milestonePeerConnected)
+          ..completeCallTracking('call1');
 
         expect(receivedMetrics, isNotNull);
         expect(receivedMetrics!.callId, 'call1');
         expect(receivedMetrics!.isOutbound, isTrue);
         expect(receivedMetrics!.callSetupLatencyMs, greaterThanOrEqualTo(0));
-        expect(receivedMetrics!.milestones,
-            contains(LatencyTracker.milestoneCallActive));
+        expect(
+          receivedMetrics!.milestones,
+          contains(LatencyTracker.milestoneCallActive),
+        );
 
         // Should be cleaned up
         expect(tracker.getCurrentCallMetrics('call1'), isNull);
@@ -117,12 +129,12 @@ void main() {
 
       test('cancelCallTracking removes call without emitting', () {
         LatencyMetrics? receivedMetrics;
-        tracker.setLatencyMetricsListener((metrics) {
-          receivedMetrics = metrics;
-        });
-
-        tracker.startCallTracking('call1', isOutbound: false);
-        tracker.cancelCallTracking('call1');
+        tracker
+          ..setLatencyMetricsListener((metrics) {
+            receivedMetrics = metrics;
+          })
+          ..startCallTracking('call1', isOutbound: false)
+          ..cancelCallTracking('call1');
 
         expect(receivedMetrics, isNull);
         expect(tracker.getCurrentCallMetrics('call1'), isNull);
@@ -131,74 +143,89 @@ void main() {
 
     group('Inbound Call Milestones', () {
       test('markInviteReceived records milestone', () {
-        tracker.startCallTracking('call1', isOutbound: false);
-        tracker.markInviteReceived('call1');
+        tracker
+          ..startCallTracking('call1', isOutbound: false)
+          ..markInviteReceived('call1');
 
         final metrics = tracker.getCurrentCallMetrics('call1');
-        expect(metrics!.milestones,
-            contains(LatencyTracker.milestoneInviteReceived));
+        expect(
+          metrics!.milestones,
+          contains(LatencyTracker.milestoneInviteReceived),
+        );
       });
 
       test('markAnswerInitiated records milestone', () {
-        tracker.startCallTracking('call1', isOutbound: false);
-        tracker.markAnswerInitiated('call1');
+        tracker
+          ..startCallTracking('call1', isOutbound: false)
+          ..markAnswerInitiated('call1');
 
         final metrics = tracker.getCurrentCallMetrics('call1');
-        expect(metrics!.milestones,
-            contains(LatencyTracker.milestoneAnswerInitiated));
+        expect(
+          metrics!.milestones,
+          contains(LatencyTracker.milestoneAnswerInitiated),
+        );
       });
     });
 
     group('Outbound Call Milestones', () {
       test('markRemoteRinging records milestone', () {
-        tracker.startCallTracking('call1', isOutbound: true);
-        tracker.markRemoteRinging('call1');
+        tracker
+          ..startCallTracking('call1', isOutbound: true)
+          ..markRemoteRinging('call1');
 
         final metrics = tracker.getCurrentCallMetrics('call1');
-        expect(metrics!.milestones,
-            contains(LatencyTracker.milestoneRemoteRinging));
+        expect(
+          metrics!.milestones,
+          contains(LatencyTracker.milestoneRemoteRinging),
+        );
       });
 
       test('markCallAnsweredByRemote records milestone', () {
-        tracker.startCallTracking('call1', isOutbound: true);
-        tracker.markCallAnsweredByRemote('call1');
+        tracker
+          ..startCallTracking('call1', isOutbound: true)
+          ..markCallAnsweredByRemote('call1');
 
         final metrics = tracker.getCurrentCallMetrics('call1');
-        expect(metrics!.milestones,
-            contains(LatencyTracker.milestoneCallAnsweredByRemote));
+        expect(
+          metrics!.milestones,
+          contains(LatencyTracker.milestoneCallAnsweredByRemote),
+        );
       });
     });
 
     group('ICE Milestones', () {
       test('markFirstSrflxRelayCandidate only marks once', () {
-        tracker.startCallTracking('call1', isOutbound: true);
-
-        tracker.markFirstSrflxRelayCandidate('call1', 'srflx');
-        tracker.markFirstSrflxRelayCandidate('call1', 'relay');
+        tracker
+          ..startCallTracking('call1', isOutbound: true)
+          ..markFirstSrflxRelayCandidate('call1', 'srflx')
+          ..markFirstSrflxRelayCandidate('call1', 'relay');
 
         final metrics = tracker.getCurrentCallMetrics('call1');
-        final timestamp =
-            metrics!.milestones[LatencyTracker.milestoneFirstSrflxRelayCandidate];
+        final timestamp = metrics!
+            .milestones[LatencyTracker.milestoneFirstSrflxRelayCandidate];
         expect(timestamp, isNotNull);
         // Should only be recorded once
       });
 
       test('markFirstSrflxRelayCandidate ignores invalid types', () {
-        tracker.startCallTracking('call1', isOutbound: true);
-
-        tracker.markFirstSrflxRelayCandidate('call1', 'host');
+        tracker
+          ..startCallTracking('call1', isOutbound: true)
+          ..markFirstSrflxRelayCandidate('call1', 'host');
 
         final metrics = tracker.getCurrentCallMetrics('call1');
-        expect(metrics!.milestones,
-            isNot(contains(LatencyTracker.milestoneFirstSrflxRelayCandidate)));
+        expect(
+          metrics!.milestones,
+          isNot(contains(LatencyTracker.milestoneFirstSrflxRelayCandidate)),
+        );
       });
     });
 
     group('Derived Metrics', () {
       test('calculateAnswerDelay returns correct value', () {
-        tracker.startCallTracking('call1', isOutbound: false);
-        tracker.markInviteReceived('call1');
-        tracker.markAnswerInitiated('call1');
+        tracker
+          ..startCallTracking('call1', isOutbound: false)
+          ..markInviteReceived('call1')
+          ..markAnswerInitiated('call1');
 
         final delay = tracker.calculateAnswerDelay('call1');
         expect(delay, isNotNull);
@@ -212,16 +239,18 @@ void main() {
       });
 
       test('calculateRemoteAnswerTime returns correct value', () {
-        tracker.startCallTracking('call1', isOutbound: true);
-        tracker.markCallMilestone('call1', LatencyTracker.milestoneInviteSent);
-        tracker.markCallAnsweredByRemote('call1');
+        tracker
+          ..startCallTracking('call1', isOutbound: true)
+          ..markCallMilestone('call1', LatencyTracker.milestoneInviteSent)
+          ..markCallAnsweredByRemote('call1');
 
         final time = tracker.calculateRemoteAnswerTime('call1');
         expect(time, isNotNull);
         expect(time, greaterThanOrEqualTo(0));
       });
 
-      test('calculateRemoteAnswerTime returns null without required milestones', () {
+      test('calculateRemoteAnswerTime returns null without required milestones',
+          () {
         tracker.startCallTracking('call1', isOutbound: true);
         // No invite_sent or call_answered_by_remote
         expect(tracker.calculateRemoteAnswerTime('call1'), isNull);
@@ -230,31 +259,41 @@ void main() {
 
     group('Reset and Cleanup', () {
       test('reset clears all state', () {
-        tracker.startRegistrationTracking();
-        tracker.startCallTracking('call1', isOutbound: true);
-        tracker.reset();
+        tracker
+          ..startRegistrationTracking()
+          ..startCallTracking('call1', isOutbound: true)
+          ..reset();
 
         expect(tracker.isTrackingRegistration, isFalse);
         expect(tracker.getCurrentCallMetrics('call1'), isNull);
       });
 
       test('multiple calls tracked independently', () {
-        tracker.startCallTracking('call1', isOutbound: true);
-        tracker.startCallTracking('call2', isOutbound: false);
-
-        tracker.markCallMilestone('call1', LatencyTracker.milestoneInviteSent);
-        tracker.markInviteReceived('call2');
+        tracker
+          ..startCallTracking('call1', isOutbound: true)
+          ..startCallTracking('call2', isOutbound: false)
+          ..markCallMilestone('call1', LatencyTracker.milestoneInviteSent)
+          ..markInviteReceived('call2');
 
         final metrics1 = tracker.getCurrentCallMetrics('call1');
         final metrics2 = tracker.getCurrentCallMetrics('call2');
 
-        expect(metrics1!.milestones, contains(LatencyTracker.milestoneInviteSent));
-        expect(metrics1.milestones,
-            isNot(contains(LatencyTracker.milestoneInviteReceived)));
-        expect(metrics2!.milestones,
-            contains(LatencyTracker.milestoneInviteReceived));
-        expect(metrics2.milestones,
-            isNot(contains(LatencyTracker.milestoneInviteSent)));
+        expect(
+          metrics1!.milestones,
+          contains(LatencyTracker.milestoneInviteSent),
+        );
+        expect(
+          metrics1.milestones,
+          isNot(contains(LatencyTracker.milestoneInviteReceived)),
+        );
+        expect(
+          metrics2!.milestones,
+          contains(LatencyTracker.milestoneInviteReceived),
+        );
+        expect(
+          metrics2.milestones,
+          isNot(contains(LatencyTracker.milestoneInviteSent)),
+        );
       });
     });
   });

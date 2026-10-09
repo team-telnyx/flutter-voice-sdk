@@ -13,6 +13,7 @@ class CustomFormField extends StatefulWidget {
   final String? Function(String?)? validator;
   final bool isPassword;
   final TextInputType? keyboardType;
+  final String? semanticsIdentifier;
 
   const CustomFormField({
     Key? key,
@@ -22,6 +23,7 @@ class CustomFormField extends StatefulWidget {
     this.validator,
     this.isPassword = false,
     this.keyboardType,
+    this.semanticsIdentifier,
   }) : super(key: key);
 
   @override
@@ -33,6 +35,28 @@ class _CustomFormFieldState extends State<CustomFormField> {
 
   @override
   Widget build(BuildContext context) {
+    final formField = TextFormField(
+      controller: widget.controller,
+      keyboardType: widget.keyboardType,
+      obscureText: widget.isPassword && !_isPasswordVisible,
+      decoration: InputDecoration(
+        hintText: widget.hintText,
+        suffixIcon: widget.isPassword
+            ? IconButton(
+                icon: Icon(
+                  _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  });
+                },
+              )
+            : null,
+      ),
+      validator: widget.validator,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -45,29 +69,14 @@ class _CustomFormFieldState extends State<CustomFormField> {
             ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w500),
           ),
         ),
-        TextFormField(
-          controller: widget.controller,
-          keyboardType: widget.keyboardType,
-          obscureText: widget.isPassword && !_isPasswordVisible,
-          decoration: InputDecoration(
-            hintText: widget.hintText,
-            suffixIcon: widget.isPassword
-                ? IconButton(
-                    icon: Icon(
-                      _isPasswordVisible
-                          ? Icons.visibility
-                          : Icons.visibility_off,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _isPasswordVisible = !_isPasswordVisible;
-                      });
-                    },
-                  )
-                : null,
+        if (widget.semanticsIdentifier == null)
+          formField
+        else
+          Semantics(
+            identifier: widget.semanticsIdentifier,
+            container: true,
+            child: formField,
           ),
-          validator: widget.validator,
-        ),
       ],
     );
   }
@@ -273,75 +282,63 @@ class _AddProfileFormState extends State<AddProfileForm> {
                 },
               ),
             ] else ...[
-              Semantics(
-                identifier: 'sip_username_field',
-                container: true,
-                child: CustomFormField(
-                  key: const ValueKey('sip_username_field'),
-                  title: 'SIP Username',
-                  controller: _sipUserController,
-                  hintText: 'Enter your SIP username',
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a SIP username';
-                    }
-                    return null;
-                  },
-                ),
+              CustomFormField(
+                key: const ValueKey('sip_username_field'),
+                semanticsIdentifier: 'sip_username_field',
+                title: 'SIP Username',
+                controller: _sipUserController,
+                hintText: 'Enter your SIP username',
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a SIP username';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: spacingS),
-              Semantics(
-                identifier: 'sip_password_field',
-                container: true,
-                child: CustomFormField(
-                  key: const ValueKey('sip_password_field'),
-                  title: 'SIP Password',
-                  controller: _sipPasswordController,
-                  hintText: 'Enter your SIP password',
-                  isPassword: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter a SIP password';
-                    }
-                    return null;
-                  },
-                ),
+              CustomFormField(
+                key: const ValueKey('sip_password_field'),
+                semanticsIdentifier: 'sip_password_field',
+                title: 'SIP Password',
+                controller: _sipPasswordController,
+                hintText: 'Enter your SIP password',
+                isPassword: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter a SIP password';
+                  }
+                  return null;
+                },
               ),
             ],
             const SizedBox(height: spacingS),
-            Semantics(
-              identifier: 'caller_name_field',
-              container: true,
-              child: CustomFormField(
-                key: const ValueKey('caller_name_field'),
-                title: 'Caller ID Name',
-                controller: _sipCallerIDNameController,
-                hintText: 'Enter your caller ID name',
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a caller ID name';
-                  }
-                  return null;
-                },
-              ),
+            CustomFormField(
+              key: const ValueKey('caller_name_field'),
+              semanticsIdentifier: 'caller_name_field',
+              title: 'Caller ID Name',
+              controller: _sipCallerIDNameController,
+              hintText: 'Enter your caller ID name',
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a caller ID name';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: spacingS),
-            Semantics(
-              identifier: 'caller_number_field',
-              container: true,
-              child: CustomFormField(
-                key: const ValueKey('caller_number_field'),
-                title: 'Caller ID Number',
-                controller: _sipCallerIDNumberController,
-                hintText: 'Enter your caller ID number',
-                keyboardType: TextInputType.phone,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter a caller ID number';
-                  }
-                  return null;
-                },
-              ),
+            CustomFormField(
+              key: const ValueKey('caller_number_field'),
+              semanticsIdentifier: 'caller_number_field',
+              title: 'Caller ID Number',
+              controller: _sipCallerIDNumberController,
+              hintText: 'Enter your caller ID number',
+              keyboardType: TextInputType.phone,
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter a caller ID number';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: spacingS),
             // Region Selection
@@ -353,8 +350,8 @@ class _AddProfileFormState extends State<AddProfileForm> {
                   child: Text(
                     'Region',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          fontWeight: FontWeight.w500,
-                        ),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 DropdownButtonFormField<Region>(
@@ -423,12 +420,9 @@ class _AddProfileFormState extends State<AddProfileForm> {
                       ),
                       Text(
                         'Forces TURN relay for all connections, preventing local network access prompts',
-                        style: Theme.of(
-                          context,
-                        )
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.grey[600]),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[600],
+                        ),
                       ),
                     ],
                   ),

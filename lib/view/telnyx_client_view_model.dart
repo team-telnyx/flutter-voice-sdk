@@ -19,6 +19,9 @@ import 'package:telnyx_webrtc/model/call_termination_reason.dart';
 import 'package:telnyx_webrtc/model/socket_method.dart';
 import 'package:telnyx_webrtc/model/telnyx_message.dart';
 import 'package:telnyx_webrtc/model/telnyx_socket_error.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_event.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
+import 'package:telnyx_webrtc/utils/latency_tracker.dart';
 import 'package:telnyx_webrtc/model/verto/receive/received_message_body.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/model/connection_status.dart';
@@ -31,6 +34,8 @@ import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/model/socket_connection_metrics.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_flutter_webrtc/utils/config_helper.dart';
+import 'package:telnyx_flutter_webrtc/utils/media_recovery_helper.dart';
+import 'package:telnyx_flutter_webrtc/utils/call_acceptance_guard.dart';
 import 'package:telnyx_flutter_webrtc/service/notification_service.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 
@@ -67,6 +72,7 @@ class TelnyxClientViewModel with ChangeNotifier {
   CredentialConfig? _credentialConfig;
   TokenConfig? _tokenConfig;
   IncomingInviteParams? _incomingInvite;
+  final CallAcceptanceGuard _callAcceptanceGuard = CallAcceptanceGuard();
   DateTime? _ignoreAndroidCallKitEventsUntil;
   CallQualityMetrics? _callQualityMetrics;
   List<TranscriptItem> _transcript = [];
@@ -193,6 +199,16 @@ class TelnyxClientViewModel with ChangeNotifier {
   /// The list of calls currently on hold.
   List<Call> get heldCalls => _telnyxClient.callManager.heldCalls;
 
+  /// The SDK's latency tracker, used by the diagnostics view to read
+  /// registration and call setup timings. Exposes both a broadcast stream
+  /// (`latencyMetricsStream`) and point-in-time getters.
+  LatencyTracker get latencyTracker => _telnyxClient.latencyTracker;
+
+  /// The config the client is currently connected with, whichever of the two
+  /// credential/token flavours was used. Null before the first connect.
+  /// The diagnostics view reads the debug fields off this.
+  Config? get activeConfig => _credentialConfig ?? _tokenConfig;
+
   IncomingInviteParams? get incomingInvitation {
     return _incomingInvite;
   }
@@ -230,6 +246,7 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i('TxClientViewModel :: Reset Call Info');
     BackgroundDetector.ignore = false;
     _incomingInvite = null;
+    _callAcceptanceGuard.reset();
     _currentCall = null;
     _speakerPhone = false;
     _mute = false;
@@ -515,7 +532,19 @@ class TelnyxClientViewModel with ChangeNotifier {
                 logger.i(
                   'ObserveResponses :: Invite received while waiting, calling _performAccept.',
                 );
-                await _performAccept(_incomingInvite!);
+                final invite = _incomingInvite!;
+                if (_callAcceptanceGuard.tryClaim(invite.callID)) {
+                  try {
+                    await _performAccept(invite);
+                  } catch (_) {
+                    _callAcceptanceGuard.release(invite.callID);
+                    rethrow;
+                  }
+                } else {
+                  logger.i(
+                    'ObserveResponses :: Duplicate push accept ignored for call ${invite.callID}.',
+                  );
+                }
               } else if (!callFromPush) {
                 logger.i(
                   'ObserveResponses :: Invite - Not from push, showing notification.',
@@ -704,6 +733,14 @@ class TelnyxClientViewModel with ChangeNotifier {
         }
       }
       // Observe Socket Error Messages
+      //
+      // ⚠️ DEPRECATED: This callback is kept for backward compatibility only.
+      // New code should use [onTelnyxError] below or the planned `client.errors`
+      // stream. The legacy TelnyxSocketError only covers 5 error codes (-32000
+      // through -32004); the new structured API covers 24 error codes across
+      // SDP, media, call-control, transport, auth, ICE, network, and session
+      // categories. This callback will be removed in v3.0.0.
+      // ignore: deprecated_member_use
       ..onSocketErrorReceived = (TelnyxSocketError error) {
         _setErrorDialog(
           formatSignalingErrorMessage(error.errorCode, error.errorMessage),
@@ -759,6 +796,70 @@ class TelnyxClientViewModel with ChangeNotifier {
             }
         }
         notifyListeners();
+      }
+      // ── Structured Error API (VSDK-415) ──────────────────────────────
+      //
+      // These callbacks fire alongside the legacy onSocketErrorReceived
+      // above — never instead of it. They provide rich TelnyxError objects
+      // with code, name, message, description, causes, solutions, and fatal
+      // flag. A media recovery event is recoverable (offers resume()/
+      // reject()).
+      //
+      // When the stream API is available (planned next minor), you can also
+      // use:
+      //
+      //   client.errors.listen((event) { ... });
+      //   client.warnings.listen((event) { ... });
+      //
+      // The stream API wraps the same emission pipeline and composes
+      // naturally with StreamBuilder, Riverpod, or Bloc.
+      ..onTelnyxError = (Object event) {
+        if (event is TelnyxMediaRecoveryErrorEvent) {
+          logger.i(
+            'Structured recoverable media error [${event.error.code}] '
+            '${event.error.name} for call ${event.callId}',
+          );
+          // Recover the inbound call: request the mic permission and resume()
+          // when granted, otherwise reject() (VSDK-417). Fail-safe internally.
+          unawaited(resolveMediaRecovery(event));
+        } else if (event is TelnyxErrorEvent) {
+          final error = event.error;
+          logger.i(
+            'Structured error [${error.code}] ${error.name}: '
+            '${error.message}',
+          );
+          // Show a user-facing dialog for fatal errors.
+          if (error.fatal) {
+            _setErrorDialog(
+              '${error.message}\n\n'
+              'Code: ${error.code}\n'
+              '${error.description}',
+            );
+          }
+        }
+      }
+      // ── Structured Warning API (VSDK-415/416) ───────────────────────
+      //
+      // Warnings are non-fatal degraded conditions (high jitter, low MOS,
+      // ICE connectivity lost, etc.). Use them for quality indicators and
+      // toast notifications. When the stream API is available, use:
+      //
+      //   client.warnings.listen((event) { ... });
+      ..onTelnyxWarning = (TelnyxWarningEvent event) {
+        final warning = event.warning;
+        logger.i(
+          'Structured warning [${warning.code}] ${warning.name}'
+          '${event.reason != null ? ' — ${event.reason}' : ''}',
+        );
+        // Show a toast for quality warnings so the user is aware.
+        Fluttertoast.showToast(
+          msg: '⚠️ ${warning.message}',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 2,
+          backgroundColor: Colors.orange,
+          textColor: Colors.white,
+        );
       }
       // Observe Transcript Updates
       ..onTranscriptUpdate = (List<TranscriptItem> transcriptItems) {
@@ -984,6 +1085,17 @@ class TelnyxClientViewModel with ChangeNotifier {
     logger.i(
       'TelnyxClientViewModel.accept: Called. acceptFromPush: $acceptFromPush, _incomingInvite exists: ${_incomingInvite != null}, callState: $callState. pushData: $pushData',
     );
+
+    final invite = _incomingInvite;
+
+    // Claim this invite synchronously, before activeCalls() or any other await.
+    // CallKit may deliver duplicate CXAnswerCallAction events within the same
+    // event-loop window; a state-only guard set after an await is racy.
+    if (invite != null && !_callAcceptanceGuard.tryClaim(invite.callID)) {
+      logger.i('Accept :: Duplicate accept ignored for call ${invite.callID}.');
+      return;
+    }
+
     if (!kIsWeb) {
       await FlutterCallkitIncoming.activeCalls().then((value) {
         logger.i(
@@ -999,13 +1111,19 @@ class TelnyxClientViewModel with ChangeNotifier {
       logger.i(
         'Accept :: Already connecting or in a call, ignoring request :: $callState',
       );
+      _callAcceptanceGuard.release(invite?.callID);
       return;
     }
 
     // --- Main Acceptance Logic ---
-    if (_incomingInvite != null) {
+    if (invite != null) {
       // Invite is ready NOW. Perform the acceptance actions.
-      await _performAccept(_incomingInvite!);
+      try {
+        await _performAccept(invite);
+      } catch (_) {
+        _callAcceptanceGuard.release(invite.callID);
+        rethrow;
+      }
     } else if (acceptFromPush) {
       // Accept intent came from push, but invite hasn't arrived. Set up waiting state.
       logger.i(
@@ -1107,6 +1225,7 @@ class TelnyxClientViewModel with ChangeNotifier {
       callState = CallStateStatus.idle;
       waitingForInvite = false;
       notifyListeners();
+      rethrow;
     }
   }
 

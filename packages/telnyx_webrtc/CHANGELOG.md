@@ -1,3 +1,16 @@
+## [4.4.0](https://pub.dev/packages/telnyx_webrtc/versions/4.4.0) (2026-07-08)
+### Bug Fix
+- Fixed `AudioService.stopAudio()` disposing the reusable audio player, causing unstable ringtone/ringback playback on subsequent calls
+- Fixed `TelnyxClient` connectivity subscription leak — subscription is now retained and cancelled on disconnect/dispose
+- Added idempotent `TelnyxClient.dispose()` for proper resource teardown (timers, subscriptions, latency tracker)
+- Guarded stale reconnect/socket callbacks by connection generation so old timers cannot act on newer sessions
+- Fixed native `_cleanSessions()` to cancel pending ICE negotiation/trickle timers and stop stats/report collection before peer close/dispose
+- Fixed `WebRTCStatsReporter` startup race — stop during the 2-second startup delay now prevents timer creation
+- Fixed `playLocalFile()` to cancel in-flight playback attempts when `stopAudio()` or `dispose()` preempts them
+
+### Enhancement
+- Added `Semantics` identifiers and `ValueKey`s to demo app widgets for on-device E2E test automation (Maestro/Appium)
+
 ## [4.3.0](https://pub.dev/packages/telnyx_webrtc/versions/4.3.0) (2026-05-18)
 ### Enhancement
 - Added CallTimings logs to call report JSON

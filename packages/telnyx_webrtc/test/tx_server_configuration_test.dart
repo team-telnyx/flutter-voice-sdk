@@ -56,9 +56,8 @@ void main() {
 
         expect(config.webRTCIceServers, isNotEmpty);
         // Should contain STUN and TURN servers
-        final urls = config.webRTCIceServers
-            .expand((server) => server.urls)
-            .toList();
+        final urls =
+            config.webRTCIceServers.expand((server) => server.urls).toList();
         expect(urls.any((url) => url.contains('stun:')), isTrue);
         expect(urls.any((url) => url.contains('turn:')), isTrue);
       });
@@ -92,11 +91,16 @@ void main() {
 
         expect(config.webRTCIceServers, isNotEmpty);
         // Should contain dev STUN and TURN servers
-        final urls = config.webRTCIceServers
-            .expand((server) => server.urls)
-            .toList();
-        expect(urls.any((url) => url.contains('stundev') || url.contains('stun')), isTrue);
-        expect(urls.any((url) => url.contains('turndev') || url.contains('turn')), isTrue);
+        final urls =
+            config.webRTCIceServers.expand((server) => server.urls).toList();
+        expect(
+          urls.any((url) => url.contains('stundev') || url.contains('stun')),
+          isTrue,
+        );
+        expect(
+          urls.any((url) => url.contains('turndev') || url.contains('turn')),
+          isTrue,
+        );
       });
 
       test('accepts custom ICE servers', () {
@@ -165,7 +169,8 @@ void main() {
 
       test('creates copy with updated environment', () {
         final original = TxServerConfiguration.production();
-        final copy = original.copyWith(environment: WebRTCEnvironment.development);
+        final copy =
+            original.copyWith(environment: WebRTCEnvironment.development);
 
         expect(copy.environment, WebRTCEnvironment.development);
       });

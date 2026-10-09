@@ -31,9 +31,25 @@ import 'package:telnyx_webrtc/utils/version_utils.dart';
 import 'package:uuid/uuid.dart';
 import 'package:telnyx_webrtc/model/audio_constraints.dart';
 import 'package:telnyx_webrtc/utils/call_timing_benchmark.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
+import 'package:telnyx_webrtc/model/errors/media_permission_recovery.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
+import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+
+/// Function signature for acquiring a local media stream, allowing tests to
+/// inject a deterministic `getUserMedia` implementation (web parity, VSDK-417).
+typedef GetUserMediaFn = Future<MediaStream> Function(
+  Map<String, dynamic> constraints,
+);
 
 /// Represents a peer in the WebRTC communication.
 class Peer {
+  /// Optional override for `getUserMedia`, used to exercise the media-permission
+  /// recovery flow (VSDK-417) deterministically in tests. When null the real
+  /// `navigator.mediaDevices.getUserMedia` is used.
+  @visibleForTesting
+  GetUserMediaFn? getUserMediaOverride;
+
   /// The peer connection instance.
   RTCPeerConnection? peerConnection;
 
@@ -98,23 +114,49 @@ class Peer {
 
   /// Optional stats reporter (for debug).
   WebRTCStatsReporter? _statsManager;
-  
+
   /// Call report collector (always enabled for post-call reporting).
   CallReportCollector? _callReportCollector;
+
+  /// Whether the latest call diagnostics justify relay-only recovery.
+  bool get shouldForceRelayForRecovery =>
+      _callReportCollector?.shouldForceRelayCandidateForRecovery() ?? false;
   CallReportLogCollector? _callReportLogCollector;
+
+  /// Cached [ClientSummary] built at call start so [postCallReport] can
+  /// include it in the final [CallSummary] without needing the original
+  /// [Config] reference.
+  ClientSummary? _clientSummary;
+  String? _callReportTelnyxSessionId;
+  String? _callReportTelnyxLegId;
 
   /// Renderers for Web
   final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
   final RTCVideoRenderer _remoteRenderer = RTCVideoRenderer();
 
+  /// Called when the signaling state of the peer changes.
   Function(SignalingState state)? onSignalingStateChange;
+
+  /// Called when the call state changes for a given session.
   Function(Session session, CallState state)? onCallStateChange;
+
+  /// Called when the local media stream becomes available.
   Function(MediaStream stream)? onLocalStream;
+
+  /// Called when a remote media stream is added to a session.
   Function(Session session, MediaStream stream)? onAddRemoteStream;
+
+  /// Called when a remote media stream is removed from a session.
   Function(Session session, MediaStream stream)? onRemoveRemoteStream;
+
+  /// Called when the set of active peers is updated.
   Function(dynamic event)? onPeersUpdate;
+
+  /// Called when a data channel message is received for a session.
   Function(Session session, RTCDataChannel dc, RTCDataChannelMessage data)?
       onDataChannelMessage;
+
+  /// Called when a data channel is opened for a session.
   Function(Session session, RTCDataChannel dc)? onDataChannel;
 
   /// Callback for call quality metrics updates.
@@ -225,7 +267,8 @@ class Peer {
           audioTracks[0].enableSpeakerphone(enable);
         } else {
           GlobalLogger().w(
-              'Peer :: No audio tracks available :: Unable to toggle speaker mode');
+            'Peer :: No audio tracks available :: Unable to toggle speaker mode',
+          );
         }
       }
       return;
@@ -238,7 +281,8 @@ class Peer {
         GlobalLogger().d('Peer :: Speaker Enabled :: $enable');
       } else {
         GlobalLogger().w(
-            'Peer :: No audio tracks available :: Unable to toggle speaker mode');
+          'Peer :: No audio tracks available :: Unable to toggle speaker mode',
+        );
       }
     } else {
       GlobalLogger().d(
@@ -447,6 +491,11 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Peer :: _createOffer error: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpCreateOfferFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -455,15 +504,29 @@ class Peer {
   /// [sdp] The SDP string of the remote description.
   void remoteSessionReceived(String sdp) async {
     CallTimingBenchmark.start(isOutbound: true);
-    
+
     // Extract and cache remote ICE candidates from the SDP
     _callReportCollector?.cacheIceCandidatesFromSdp(sdp, isLocal: false);
-    
+
     final session = _sessions[_selfId];
     if (session != null) {
-      await session.peerConnection?.setRemoteDescription(
-        RTCSessionDescription(sdp, 'answer'),
-      );
+      try {
+        await session.peerConnection?.setRemoteDescription(
+          RTCSessionDescription(sdp, 'answer'),
+        );
+      } catch (e) {
+        GlobalLogger().e(
+          'Web Peer :: setRemoteDescription failed in remoteSessionReceived: $e',
+        );
+        // Note: we can't reliably resolve the callId here because
+        // Call.peerConnection is typed against the mobile Peer class on VM;
+        // emit without callId so the session-scoped listeners still see it.
+        _txClient.emitStructuredErrorCode(
+          TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+          originalError: e,
+        );
+        rethrow;
+      }
       CallTimingBenchmark.mark('remote_answer_sdp_set');
 
       // Process any queued candidates after setting remote SDP
@@ -527,13 +590,28 @@ class Peer {
 
     // Extract and cache remote ICE candidates from the SDP
     if (invite.sdp != null) {
-      _callReportCollector?.cacheIceCandidatesFromSdp(invite.sdp!, isLocal: false);
+      _callReportCollector?.cacheIceCandidatesFromSdp(
+        invite.sdp!,
+        isLocal: false,
+      );
     }
 
     // Set the remote SDP from the inbound INVITE
-    await session.peerConnection?.setRemoteDescription(
-      RTCSessionDescription(invite.sdp, 'offer'),
-    );
+    try {
+      await session.peerConnection?.setRemoteDescription(
+        RTCSessionDescription(invite.sdp, 'offer'),
+      );
+    } catch (e) {
+      GlobalLogger().e(
+        'Web Peer :: setRemoteDescription failed in accept(): $e',
+      );
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+        originalError: e,
+        callId: callId,
+      );
+      rethrow;
+    }
     CallTimingBenchmark.mark('remote_sdp_set');
 
     // Process any queued candidates after setting remote SDP
@@ -709,6 +787,11 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Peer :: _createAnswer error: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpCreateAnswerFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -777,18 +860,102 @@ class Peer {
   ///
   /// [media] The type of media to create (currently ignored, defaults to audio).
   /// Returns a [Future] that completes with the [MediaStream].
-  Future<MediaStream> createStream(String media) async {
+  Future<MediaStream> createStream(
+    String media, {
+    bool isAnswer = false,
+    String? callId,
+  }) async {
     GlobalLogger().i('Peer :: Creating stream');
     final Map<String, dynamic> mediaConstraints = {
       'audio': (_audioConstraints ?? AudioConstraints.enabled()).toMap(),
       'video': false,
     };
-    final MediaStream stream = await navigator.mediaDevices.getUserMedia(
-      mediaConstraints,
-    );
+    final getUserMedia =
+        getUserMediaOverride ?? navigator.mediaDevices.getUserMedia;
+    try {
+      final MediaStream stream = await getUserMedia(mediaConstraints);
+      onLocalStream?.call(stream);
+      return stream;
+    } catch (error) {
+      return _handleGetUserMediaFailure(
+        error: error,
+        getUserMedia: getUserMedia,
+        mediaConstraints: mediaConstraints,
+        isAnswer: isAnswer,
+        callId: callId ?? currentSession?.sid ?? '',
+      );
+    }
+  }
 
-    onLocalStream?.call(stream);
-    return stream;
+  /// Handles a `getUserMedia` failure with structured error classification and,
+  /// for enabled inbound-answer paths, the media-permission recovery flow
+  /// (VSDK-417). Mirrors the native [Peer] implementation for web parity.
+  Future<MediaStream> _handleGetUserMediaFailure({
+    required Object error,
+    required GetUserMediaFn getUserMedia,
+    required Map<String, dynamic> mediaConstraints,
+    required bool isAnswer,
+    required String callId,
+  }) async {
+    final int errorCode = classifyMediaErrorCode(error);
+    final recovery = _txClient.mediaPermissionsRecovery;
+
+    if (recovery != null && recovery.enabled && isAnswer) {
+      final telnyxError = createTelnyxError(
+        errorCode,
+        originalError: error,
+        fatal: false,
+      );
+      final flow = MediaPermissionRecovery.start(
+        config: recovery,
+        error: telnyxError,
+        sessionId: _txClient.sessid,
+        callId: callId,
+      );
+      _txClient.emitTelnyxMediaRecoveryError(flow.toEvent());
+
+      final result = await flow.result;
+      flow.dispose();
+
+      switch (result) {
+        case MediaRecoveryResult.resumed:
+          try {
+            final MediaStream stream = await getUserMedia(mediaConstraints);
+            onLocalStream?.call(stream);
+            recovery.onSuccess?.call();
+            return stream;
+          } catch (retryError) {
+            recovery.onError?.call(retryError);
+            _txClient.emitStructuredErrorCode(
+              classifyMediaErrorCode(retryError),
+              originalError: retryError,
+              callId: callId,
+            );
+            rethrow;
+          }
+        case MediaRecoveryResult.rejected:
+          final rejectedError = Exception(
+            'Call was rejected during media recovery flow',
+          );
+          recovery.onError?.call(rejectedError);
+          throw rejectedError;
+        case MediaRecoveryResult.timedOut:
+          final timeoutError = Exception('Media recovery flow timed out');
+          recovery.onError?.call(timeoutError);
+          throw timeoutError;
+        case MediaRecoveryResult.retryFailed:
+          final retryFailedError = Exception('Media recovery retry failed');
+          recovery.onError?.call(retryFailedError);
+          throw retryFailedError;
+      }
+    }
+
+    _txClient.emitStructuredErrorCode(
+      errorCode,
+      originalError: error,
+      callId: callId,
+    );
+    throw error;
   }
 
   /// Initializes the local and remote video renderers.
@@ -820,7 +987,11 @@ class Peer {
     if (media != 'data') {
       // Run both operations in parallel since they are independent
       final results = await Future.wait([
-        createStream(media),
+        createStream(
+          media,
+          isAnswer: direction == 'inbound',
+          callId: callId,
+        ),
         createPeerConnection(
           {
             ..._buildIceConfiguration(),
@@ -962,20 +1133,23 @@ class Peer {
             // Cancel any reconnection timer for this call
             _txClient.onCallStateChangedToActive(callId);
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
-            if (_previousIceConnectionState ==
-                RTCIceConnectionState.RTCIceConnectionStateDisconnected) {
-              GlobalLogger().i(
-                'Peer :: ICE connection failed, starting renegotiation...',
-              );
-              startIceRenegotiation(callId, newSession.sid);
-              break;
-            } else {
-              GlobalLogger().d(
-                'Peer :: ICE connection failed without prior disconnection, not renegotiating',
-              );
-              break;
-            }
+            // Native/web parity (VSDK-415/416): route to the single recovery
+            // authority, which emits a structured warning and takes exactly
+            // one recovery action.
+            _txClient.handlePeerIceConnectionFailed(
+              callId,
+              afterDisconnect: _previousIceConnectionState ==
+                  RTCIceConnectionState.RTCIceConnectionStateDisconnected,
+            );
+            break;
           case RTCIceConnectionState.RTCIceConnectionStateDisconnected:
+            // Structured warning for lost ICE connectivity (VSDK-415 parity).
+            _txClient.emitWarningCode(
+              TelnyxWarningCodes.iceConnectivityLost,
+              callId: callId,
+              reason: 'ICE connectivity lost',
+              source: 'peer',
+            );
             _statsManager?.stopStatsReporting();
             return;
           default:
@@ -990,6 +1164,11 @@ class Peer {
           currentCall?.callHandler.changeState(CallState.active);
           onCallStateChange?.call(newSession, CallState.active);
           CallTimingBenchmark.end();
+        } else if (state ==
+            RTCPeerConnectionState.RTCPeerConnectionStateFailed) {
+          // Native/web parity (VSDK-415/416): structured warning + route to
+          // the single recovery authority.
+          _txClient.handlePeerConnectionFailed(callId);
         }
       }
       ..onSignalingState = (state) {
@@ -1070,9 +1249,41 @@ class Peer {
     _callReportMaxLogEntries = callReportMaxLogEntries;
   }
 
+  /// Cache a [ClientSummary] built from the active [Config] so it can be
+  /// included in the final call report payload. Should be called at call
+  /// start (e.g. from `invite()` / `answer()`). This is deliberately a
+  /// call-start snapshot; later recovery changes such as relay escalation do
+  /// not rewrite the original client configuration.
+  void setClientSummary(ClientSummary? summary) {
+    _clientSummary = summary;
+  }
+
+  /// Adds authoritative connection metadata received after call creation.
+  void setResolvedCallReportConnection({String? region, String? dc}) {
+    _clientSummary = _clientSummary?.copyWithResolvedConnection(
+      region: region,
+      dc: dc,
+    );
+    _callReportCollector?.updateStoredCallMetadata(
+      clientSummary: _clientSummary,
+    );
+  }
+
+  /// Adds authoritative Telnyx identifiers received after call creation.
+  void setCallReportIdentifiers({String? sessionId, String? legId}) {
+    _callReportTelnyxSessionId = sessionId ?? _callReportTelnyxSessionId;
+    _callReportTelnyxLegId = legId ?? _callReportTelnyxLegId;
+    _callReportCollector?.updateStoredCallMetadata(
+      telnyxSessionId: _callReportTelnyxSessionId,
+      telnyxLegId: _callReportTelnyxLegId,
+    );
+  }
+
   /// Get the log collector for external event logging
   CallReportLogCollector? get callReportLogCollector => _callReportLogCollector;
 
+  /// Starts collecting WebRTC statistics for the given call and peer
+  /// connection, reporting call quality updates via [onCallQualityChange].
   Future<bool> startStats(
     String callId,
     String peerId,
@@ -1095,6 +1306,20 @@ class Peer {
       destinationNumber: destinationNumber,
       callerNumber: callerNumber,
     );
+    _callReportLogCollector?.logNewCall(
+      callId: callId,
+      direction: direction ?? 'unknown',
+      audio: true,
+      video: false,
+      debug: _debug,
+      forceRelayCandidate: _forceRelayCandidate,
+      mutedMicOnStart: _initialMuteState,
+      trickleIce: _useTrickleIce,
+      destinationNumber: destinationNumber,
+      callerNumber: callerNumber,
+      telnyxSessionId: _callReportTelnyxSessionId,
+      telnyxLegId: _callReportTelnyxLegId,
+    );
 
     // Always start call report collector (for post-call reporting)
     _callReportCollector = CallReportCollector(
@@ -1105,6 +1330,26 @@ class Peer {
     );
     _callReportCollector?.start(pc);
     GlobalLogger().d('Peer :: CallReportCollector started for $callId');
+
+    final callReportId = _txClient.callReportId;
+    final host = _txClient.socketHost;
+    if (callReportId != null && host != null) {
+      _callReportCollector?.storeUploadConfig(
+        callReportId: callReportId,
+        host: host,
+        summary: CallSummary(
+          callId: callId,
+          destinationNumber: destinationNumber,
+          callerNumber: callerNumber,
+          direction: direction ?? 'unknown',
+          telnyxSessionId: _callReportTelnyxSessionId,
+          telnyxLegId: _callReportTelnyxLegId,
+          sdkVersion: VersionUtils.getSDKVersion(),
+          clientSummary: _clientSummary,
+        ),
+        voiceSdkId: _txClient.voiceSdkId,
+      );
+    }
 
     // Only start WebRTC stats reporter if debug mode is enabled
     if (!_debug) {
@@ -1161,12 +1406,14 @@ class Peer {
     final host = _txClient.socketHost;
 
     if (callReportId == null) {
-      GlobalLogger().d('Peer :: Cannot post call report: callReportId not available');
+      GlobalLogger()
+          .d('Peer :: Cannot post call report: callReportId not available');
       return;
     }
 
     if (host == null) {
-      GlobalLogger().e('Peer :: Cannot post call report: socket host not available');
+      GlobalLogger()
+          .e('Peer :: Cannot post call report: socket host not available');
       return;
     }
 
@@ -1185,12 +1432,14 @@ class Peer {
       telnyxSessionId: telnyxSessionId,
       telnyxLegId: telnyxLegId,
       sdkVersion: VersionUtils.getSDKVersion(),
+      clientSummary: _clientSummary,
     );
 
     // Store upload config for intermediate segment flushing
     _callReportCollector!.storeUploadConfig(
       callReportId: callReportId,
       host: host,
+      summary: summary,
       voiceSdkId: _txClient.voiceSdkId,
     );
 
@@ -1230,7 +1479,7 @@ class Peer {
       _localStream = null;
     }
     // Stop stats
-    stopStats(session.sid);
+    unawaited(stopStats(session.sid));
     // Close peer connection
     if (session.peerConnection != null) {
       await session.peerConnection?.close();
@@ -1351,6 +1600,11 @@ class Peer {
       _send(jsonCandidateMessage);
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error sending trickle ICE candidate: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1374,6 +1628,11 @@ class Peer {
       _send(jsonEndOfCandidatesMessage);
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error sending end of candidates: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1407,6 +1666,11 @@ class Peer {
       } catch (e) {
         GlobalLogger().e(
           'Web Peer :: Error adding remote candidate: $e',
+        );
+        _txClient.emitStructuredErrorCode(
+          TelnyxErrorCodes.sdpSendFailed,
+          originalError: e,
+          callId: callId,
         );
       }
     }
@@ -1461,6 +1725,14 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error during ICE renegotiation: $e');
+      // Native/web parity (VSDK-415/416): structured ICE-restart failure +
+      // escalate to a socket reconnect via the recovery authority.
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.iceRestartFailed,
+        originalError: e,
+        callId: callId,
+      );
+      _txClient.healthMonitor?.onIceRestartFailed(callId);
     }
   }
 
@@ -1494,6 +1766,11 @@ class Peer {
       _socket.send(jsonMessage);
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error sending updateMedia message: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSendFailed,
+        originalError: e,
+        callId: callId,
+      );
     }
   }
 
@@ -1530,6 +1807,11 @@ class Peer {
       );
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error handling updateMedia response: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+        originalError: e,
+        callId: response.callID,
+      );
     }
   }
 

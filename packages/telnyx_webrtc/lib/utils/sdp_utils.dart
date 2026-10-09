@@ -2,10 +2,9 @@ import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 
 /// Utility class for Session Description Protocol (SDP) manipulation.
 class SdpUtils {
-  
   /// Adds trickle ICE capability to an SDP if not already present.
   /// This adds "a=ice-options:trickle" at the session level after the origin (o=) line.
-  /// 
+  ///
   /// [sdp] The original SDP string
   /// [useTrickleIce] Whether trickle ICE is enabled
   /// @return The modified SDP with ice-options:trickle added, or original if no modification needed
@@ -15,13 +14,15 @@ class SdpUtils {
     }
 
     final lines = sdp.split('\r\n').toList();
-    var result = _handleTrickleIceModification(lines);
-    
+    final result = _handleTrickleIceModification(lines);
+
     if (result != null) {
       GlobalLogger().i('SdpUtils :: Modified SDP with trickle ICE capability');
       return result;
     } else {
-      GlobalLogger().i('SdpUtils :: SDP already contains trickle ICE or no modification needed');
+      GlobalLogger().i(
+        'SdpUtils :: SDP already contains trickle ICE or no modification needed',
+      );
       return sdp;
     }
   }
@@ -51,7 +52,7 @@ class SdpUtils {
   /// Handles an existing ice-options line
   static String? _handleExistingIceOptions(List<String> lines, int index) {
     final currentOptions = lines[index];
-    
+
     if (currentOptions == 'a=ice-options:trickle') {
       // Already has exactly what we want
       return null;
@@ -59,7 +60,9 @@ class SdpUtils {
       // Replace any ice-options line with just trickle
       // This handles cases like "a=ice-options:trickle renomination"
       lines[index] = 'a=ice-options:trickle';
-      GlobalLogger().i('SdpUtils :: Replaced ice-options line from \'$currentOptions\' to \'a=ice-options:trickle\'');
+      GlobalLogger().i(
+        'SdpUtils :: Replaced ice-options line from \'$currentOptions\' to \'a=ice-options:trickle\'',
+      );
       return lines.join('\r\n');
     }
   }
@@ -67,14 +70,18 @@ class SdpUtils {
   /// Adds a new ice-options line to the SDP
   static String? _addNewIceOptions(List<String> lines) {
     final insertIndex = _findOriginLineInsertIndex(lines);
-    
+
     if (insertIndex != -1) {
       // Insert ice-options:trickle at session level (after origin line)
       lines.insert(insertIndex, 'a=ice-options:trickle');
-      GlobalLogger().i('SdpUtils :: Added a=ice-options:trickle to SDP at index $insertIndex');
+      GlobalLogger().i(
+        'SdpUtils :: Added a=ice-options:trickle to SDP at index $insertIndex',
+      );
       return lines.join('\r\n');
     } else {
-      GlobalLogger().w('SdpUtils :: Could not find origin line in SDP, returning original');
+      GlobalLogger().w(
+        'SdpUtils :: Could not find origin line in SDP, returning original',
+      );
       return null;
     }
   }
@@ -90,15 +97,15 @@ class SdpUtils {
   }
 
   /// Checks if an SDP contains trickle ICE capability.
-  /// 
+  ///
   /// [sdp] The SDP string to check
   /// @return true if the SDP advertises trickle ICE support
   static bool hasTrickleIceCapability(String sdp) {
-    return sdp.contains("a=ice-options:trickle");
+    return sdp.contains('a=ice-options:trickle');
   }
 
   /// Removes ICE candidates from SDP for trickle ICE
-  /// 
+  ///
   /// [sdp] The SDP string to process
   /// @return The SDP with ICE candidates removed
   static String removeIceCandidatesFromSdp(String sdp) {
@@ -113,7 +120,8 @@ class SdpUtils {
     }
 
     final modifiedSdp = modifiedLines.join('\r\n');
-    GlobalLogger().i('SdpUtils :: Removed ICE candidates from SDP for trickle ICE');
+    GlobalLogger()
+        .i('SdpUtils :: Removed ICE candidates from SDP for trickle ICE');
     return modifiedSdp;
   }
 }

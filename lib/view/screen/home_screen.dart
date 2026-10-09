@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_callkit_incoming/flutter_callkit_incoming.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import 'package:telnyx_flutter_webrtc/view/widgets/call_controls/call_controls.d
 import 'package:telnyx_flutter_webrtc/view/widgets/codec_selector_dialog.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/audio_constraints_dialog.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/common/bottom_action_widget.dart';
+import 'package:telnyx_flutter_webrtc/view/widgets/diagnostics/diagnostics_bottom_sheet.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/header/control_header.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/login/login_controls.dart';
 import 'package:telnyx_flutter_webrtc/view/widgets/test_status_overlay.dart';
@@ -23,6 +25,10 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // Change by hand for VSUP-226 validation. The native hook is DEBUG-only.
+  static const bool enableAudioRaceDebug = false;
+  static const MethodChannel _audioRaceChannel =
+      MethodChannel('org.telnyx.webrtc/audio-race-debug');
   final TextEditingController _targetIdController = TextEditingController();
   final TextEditingController _conversationIdController =
       TextEditingController();
@@ -147,6 +153,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Export Logs':
         Provider.of<TelnyxClientViewModel>(context, listen: false).exportLogs();
         break;
+      case 'Diagnostics':
+        DiagnosticsBottomSheet.show(context);
+        break;
       case 'Disable Push Notifications':
         Provider.of<TelnyxClientViewModel>(
           context,
@@ -173,7 +182,21 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Start Call Muted Off':
         _toggleMuteOnStart();
         break;
+      case 'Inject Audio Setup Race':
+        _injectAudioSetupRace();
+        break;
     }
+  }
+
+  Future<void> _injectAudioSetupRace() async {
+    await _audioRaceChannel.invokeMethod<void>(
+      'simulateAudioSetupRace',
+      const {'delayMilliseconds': 250},
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Audio race scheduled; check Xcode logs')),
+    );
   }
 
   void _toggleMuteOnStart() {
@@ -269,6 +292,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Audio Codecs',
                       'Audio Constraints',
                       'Export Logs',
+                      'Diagnostics',
                       'Disable Push Notifications',
                       'Force ICE Renegotiation',
                     ].map((String choice) {
@@ -291,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     : 'Enable Debugging';
                 return [
                   'Export Logs',
+                  'Diagnostics',
                   debugToggleText,
                   'Assistant Login',
                   'Force ICE Renegotiation',
@@ -312,6 +337,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 return [
                   'Force ICE Renegotiation',
                   'Export Logs',
+                  'Diagnostics',
+                  if (enableAudioRaceDebug) 'Inject Audio Setup Race',
                 ].map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,

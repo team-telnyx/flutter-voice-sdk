@@ -1,8 +1,27 @@
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/logging/custom_logger.dart';
+import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 import 'package:telnyx_webrtc/model/region.dart';
 import 'package:telnyx_webrtc/model/tx_ice_server.dart';
 import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
+import 'package:telnyx_webrtc/model/errors/media_permissions_recovery_config.dart';
+import 'package:telnyx_webrtc/config/debug_output.dart';
+import 'package:telnyx_webrtc/config/debug_log_level.dart';
+
+// Re-export MediaPermissionsRecoveryConfig so consumers can configure inbound
+// media-permission recovery from telnyx_config.dart directly.
+export 'package:telnyx_webrtc/model/errors/media_permissions_recovery_config.dart';
+
+// Re-export GlobalLogger so tests/consumers can import it from telnyx_config.dart
+export 'package:telnyx_webrtc/utils/logging/global_logger.dart';
+
+// Re-export debug enums so consumers don't need a separate import.
+export 'package:telnyx_webrtc/config/debug_output.dart';
+export 'package:telnyx_webrtc/config/debug_log_level.dart';
+
+// Re-export CallReportOptions so tests/consumers can import it from telnyx_config.dart
+export 'package:telnyx_webrtc/utils/stats/call_report_collector.dart'
+    show CallReportOptions, ClientSummary;
 
 /// Base configuration class for common parameters
 class Config {
@@ -28,6 +47,18 @@ class Config {
     this.callReportInterval = 5000,
     this.callReportLogLevel = 'debug',
     this.callReportMaxLogEntries = 1000,
+    this.enableCallReports = true,
+    this.debugOutput = DebugOutput.socket,
+    this.debugLogLevel = DebugLogLevel.info,
+    this.debugLogMaxEntries = 1000,
+    this.callReportFlushInterval = 180000,
+    this.prefetchIceCandidates = true,
+    this.autoRecoverCalls = true,
+    this.hangupOnBeforeUnload = true,
+    this.maxReconnectAttempts = 10,
+    this.enableStructuredErrors = true,
+    this.enableSignalingHealthMonitor = true,
+    this.mediaPermissionsRecovery,
   });
 
   /// Name associated with the SIP account
@@ -136,6 +167,66 @@ class Config {
 
   /// Maximum number of structured log entries to buffer per call (default: 1000)
   final int callReportMaxLogEntries;
+
+  /// Enable call report stats collection (default: true)
+  final bool enableCallReports;
+
+  /// Debug output destination for call reports and diagnostics (default: [DebugOutput.socket])
+  final DebugOutput debugOutput;
+
+  /// Debug log level filter for the GlobalLogger (default: [DebugLogLevel.info])
+  final DebugLogLevel debugLogLevel;
+
+  /// Maximum number of debug log entries to buffer (default: 1000)
+  final int debugLogMaxEntries;
+
+  /// Call report flush interval in milliseconds for intermediate segments (default: 180000 = 3 min)
+  final int callReportFlushInterval;
+
+  /// Whether to prefetch ICE candidates before setLocalDescription (default: true)
+  final bool prefetchIceCandidates;
+
+  /// Whether to automatically recover calls on reconnect (default: true)
+  final bool autoRecoverCalls;
+
+  /// Whether to hangup on page beforeunload event (default: true)
+  final bool hangupOnBeforeUnload;
+
+  /// Maximum reconnection attempts before giving up; 0 means unlimited (default: 10)
+  final int maxReconnectAttempts;
+
+  /// Whether the SDK emits structured [TelnyxError]/[TelnyxWarning] events via
+  /// the `onTelnyxError` / `onTelnyxWarning` callbacks (default: true).
+  ///
+  /// When disabled, the legacy `onSocketErrorReceived` behavior is preserved
+  /// but no structured error/warning callbacks are fired.
+  final bool enableStructuredErrors;
+
+  /// Whether the SDK runs the [SignalingHealthMonitor] during active calls to
+  /// detect signaling/media degradation and choose a single recovery path
+  /// (default: true).
+  final bool enableSignalingHealthMonitor;
+
+  /// Optional configuration for inbound media-permission recovery.
+  ///
+  /// When null or disabled, a failed `getUserMedia` while answering an inbound
+  /// call fails normally (with a structured error still emitted). When enabled,
+  /// the SDK emits a recoverable [TelnyxMediaRecoveryErrorEvent] so the app can
+  /// prompt the user to fix permissions and then `resume()` the call.
+  final MediaPermissionsRecoveryConfig? mediaPermissionsRecovery;
+
+  /// Apply the [debugLogLevel] to the GlobalLogger by setting a level filter.
+  /// Messages below the configured level are suppressed.
+  void applyDebugLogLevel() {
+    final levelMap = <DebugLogLevel, LogLevel>{
+      DebugLogLevel.debug: LogLevel.debug,
+      DebugLogLevel.info: LogLevel.info,
+      DebugLogLevel.warning: LogLevel.warning,
+      DebugLogLevel.error: LogLevel.error,
+    };
+    final minLevel = levelMap[debugLogLevel] ?? LogLevel.info;
+    GlobalLogger.logger = _LevelFilterLogger(GlobalLogger.logger, minLevel);
+  }
 }
 
 /// Creates an instance of CredentialConfig which can be used to log in
@@ -195,6 +286,18 @@ class CredentialConfig extends Config {
     super.callReportInterval = 5000,
     super.callReportLogLevel = 'debug',
     super.callReportMaxLogEntries = 1000,
+    super.enableCallReports = true,
+    super.debugOutput = DebugOutput.socket,
+    super.debugLogLevel = DebugLogLevel.info,
+    super.debugLogMaxEntries = 1000,
+    super.callReportFlushInterval = 180000,
+    super.prefetchIceCandidates = true,
+    super.autoRecoverCalls = true,
+    super.hangupOnBeforeUnload = true,
+    super.maxReconnectAttempts = 10,
+    super.enableStructuredErrors = true,
+    super.enableSignalingHealthMonitor = true,
+    super.mediaPermissionsRecovery,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -260,8 +363,41 @@ class TokenConfig extends Config {
     super.callReportInterval = 5000,
     super.callReportLogLevel = 'debug',
     super.callReportMaxLogEntries = 1000,
+    super.enableCallReports = true,
+    super.debugOutput = DebugOutput.socket,
+    super.debugLogLevel = DebugLogLevel.info,
+    super.debugLogMaxEntries = 1000,
+    super.callReportFlushInterval = 180000,
+    super.prefetchIceCandidates = true,
+    super.autoRecoverCalls = true,
+    super.hangupOnBeforeUnload = true,
+    super.maxReconnectAttempts = 10,
+    super.enableStructuredErrors = true,
+    super.enableSignalingHealthMonitor = true,
+    super.mediaPermissionsRecovery,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API
   final String sipToken;
+}
+
+/// Wraps a [CustomLogger] and suppresses messages below [_minLevel].
+class _LevelFilterLogger implements CustomLogger {
+  _LevelFilterLogger(this._inner, this._minLevel);
+
+  final CustomLogger _inner;
+  final LogLevel _minLevel;
+
+  @override
+  void setLogLevel(LogLevel level) => _inner.setLogLevel(level);
+
+  @override
+  void log(LogLevel level, String message) {
+    final msgPriority = level.priority;
+    final minPriority = _minLevel.priority;
+    if (msgPriority != null && minPriority != null) {
+      if (msgPriority < minPriority) return;
+    }
+    _inner.log(level, message);
+  }
 }
