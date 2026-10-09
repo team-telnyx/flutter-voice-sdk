@@ -91,9 +91,9 @@ jobs:
           VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-          awk -v version="$VERSION" '
-            $0 ~ "^## \\[" version "\\]" {capture=1}
-            capture && NR > 1 && $0 ~ /^## \[/ {exit}
+          awk -v header="## [$VERSION]" '
+            capture && /^## \[/ {exit}
+            index($0, header) == 1 {capture=1}
             capture {print}
           ' packages/telnyx_webrtc/CHANGELOG.md > release_body.md
           if [[ ! -s release_body.md ]]; then

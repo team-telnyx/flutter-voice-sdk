@@ -26,6 +26,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   create_release_pr:
@@ -77,8 +78,8 @@ jobs:
           VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -euo pipefail
-          CURRENT=$(grep -E '^version:' packages/telnyx_webrtc/pubspec.yaml | awk '{print $2}')
-          if [[ "$(printf '%s\n%s\n' "$CURRENT" "$VERSION" | sort -V | tail -n1)" != "$VERSION" || "$CURRENT" == "$VERSION" ]]; then
+          CURRENT=$(awk '/^version:/ {print $2}' packages/telnyx_webrtc/pubspec.yaml)
+          if ! dpkg --compare-versions "$(sed 's/-/~/' <<<"$VERSION")" gt "$(sed 's/-/~/' <<<"$CURRENT")"; then
             echo "$VERSION is not newer than current pubspec version $CURRENT" >&2
             exit 1
           fi
@@ -101,7 +102,7 @@ jobs:
           search_args=()
           if [[ -n "$PREVIOUS_TAG" ]]; then
             git rev-list "$PREVIOUS_TAG"..HEAD > commits.txt
-            search_args=(--search "merged:>=$(git log -1 --format=%cs "$PREVIOUS_TAG")")
+            search_args=(--search "merged:>=$(git log -1 --format=%cI "$PREVIOUS_TAG")")
           else
             git rev-list HEAD > commits.txt
           fi
