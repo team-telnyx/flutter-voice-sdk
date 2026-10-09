@@ -66,10 +66,11 @@ jobs:
           sha=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "release/$VERSION" \
             --state merged --json mergeCommit --jq '.[0].mergeCommit.oid // empty')
           if [[ -z "$sha" ]]; then
-            echo "No merged release/$VERSION PR found" >&2
+            echo "::error::No merged release/$VERSION PR found"
             exit 1
           fi
-          git merge-base --is-ancestor "$sha" origin/main
+          git merge-base --is-ancestor "$sha" origin/main \
+            || { echo "::error::Release PR merge commit $sha is not on main"; exit 1; }
           git checkout --detach "$sha"
 
       - name: Validate merged release files
@@ -78,11 +79,16 @@ jobs:
           TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
-          grep -qx "version: $VERSION" packages/telnyx_webrtc/pubspec.yaml
-          grep -qx "  static const String _sdkVersion = '$VERSION';" packages/telnyx_webrtc/lib/utils/version_utils.dart
-          grep -q "^## \[$VERSION\]" packages/telnyx_webrtc/CHANGELOG.md
+          PKG=packages/telnyx_webrtc
+          grep -qxF "version: $VERSION" "$PKG/pubspec.yaml" \
+            || { echo "::error::pubspec.yaml is not $VERSION"; exit 1; }
+          for f in "$PKG/lib/utils/version_utils.dart" lib/utils/version_utils.dart; do
+            grep -qF "_sdkVersion = '$VERSION';" "$f" || { echo "::error::$f is not $VERSION"; exit 1; }
+          done
+          awk -v h="## [$VERSION]" 'index($0, h) == 1 {found=1} END {exit !found}' "$PKG/CHANGELOG.md" \
+            || { echo "::error::CHANGELOG.md has no '## [$VERSION]' section"; exit 1; }
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists" >&2
+            echo "::error::Tag $TAG already exists"
             exit 1
           fi
 
@@ -93,11 +99,11 @@ jobs:
           set -euo pipefail
           awk -v header="## [$VERSION]" '
             capture && /^## \[/ {exit}
-            index($0, header) == 1 {capture=1}
+            index($0, header) == 1 {capture=1; next}
             capture {print}
           ' packages/telnyx_webrtc/CHANGELOG.md > release_body.md
-          if [[ ! -s release_body.md ]]; then
-            echo "No CHANGELOG section found for $VERSION" >&2
+          if ! grep -q '[^[:space:]]' release_body.md; then
+            echo "::error::CHANGELOG section for $VERSION is missing or empty"
             exit 1
           fi
 
