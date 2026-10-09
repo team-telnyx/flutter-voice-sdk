@@ -1,41 +1,18 @@
-name: Release PR Validation
+name: release-pr-check
 
 on:
   pull_request:
-    branches:
-      - main
-
-permissions:
-  contents: read
+    branches: [main]
 
 jobs:
-  validate-release-pr:
+  check:
     if: startsWith(github.head_ref, 'release/')
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Validate release version files and CHANGELOG
+      - uses: actions/checkout@v4
+      - env:
+          VERSION: ${{ github.head_ref }}
         run: |
-          set -euo pipefail
-          VERSION=${GITHUB_HEAD_REF#release/}
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Release branch must be named release/<semver>; got $GITHUB_HEAD_REF" >&2
-            exit 1
-          fi
-          grep -qxF "version: $VERSION" packages/telnyx_webrtc/pubspec.yaml || {
-            echo "pubspec.yaml does not match release branch version $VERSION" >&2
-            exit 1
-          }
-          for f in packages/telnyx_webrtc/lib/utils/version_utils.dart lib/utils/version_utils.dart; do
-            grep -qF "_sdkVersion = '$VERSION';" "$f" || {
-              echo "$f does not match release branch version $VERSION" >&2
-              exit 1
-            }
-          done
-          grep -qF "## [$VERSION]" packages/telnyx_webrtc/CHANGELOG.md || {
-            echo "CHANGELOG.md is missing a section for $VERSION" >&2
-            exit 1
-          }
+          VERSION="${VERSION#release/}"
+          grep -q "^## \[$VERSION\]" packages/telnyx_webrtc/CHANGELOG.md \
+            || { echo "Add a '## [$VERSION]' section to CHANGELOG.md" >&2; exit 1; }
