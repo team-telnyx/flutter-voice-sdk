@@ -4,6 +4,10 @@
 # - packages/telnyx_webrtc/pubspec.yaml
 # - packages/telnyx_webrtc/lib/utils/version_utils.dart
 # - packages/telnyx_webrtc/CHANGELOG.md
+#
+# Requires RELEASE_AUTOMATION_TOKEN to be a PAT or GitHub App token with contents
+# and pull-request write access. Using GITHUB_TOKEN here would create a release PR
+# whose CI workflows do not run.
 name: release-01-create-pull-request
 
 on:
@@ -20,8 +24,7 @@ on:
         default: ''
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   create_release_pr:
@@ -33,92 +36,101 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Normalize version and find previous tag
-        id: release
-        shell: bash
+      - name: Require release automation token
+        env:
+          RELEASE_AUTOMATION_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
         run: |
           set -euo pipefail
-          VERSION="${{ github.event.inputs.version }}"
-          VERSION="${VERSION#v}"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Version must be semver-like, for example 4.5.0 or 4.5.0-beta.1" >&2
+          if [[ -z "$RELEASE_AUTOMATION_TOKEN" ]]; then
+            echo "RELEASE_AUTOMATION_TOKEN must be configured so release PR pushes trigger CI." >&2
             exit 1
           fi
-          TAG="v${VERSION}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists" >&2
-            exit 1
-          fi
-          PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$' | head -n 1 || true)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Normalize version
+        id: release
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          python3 scripts/release/update_flutter_release.py normalize \
+            --version "$RELEASE_VERSION" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Get previous release tag
+        id: previous_tag
+        run: |
+          git tag --list > tags.txt
+          PREVIOUS_TAG=$(python3 scripts/release/update_flutter_release.py previous-tag \
+            --version "${{ steps.release.outputs.version }}" \
+            --tags-file tags.txt)
           echo "previous_tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
-          echo "Release version: $VERSION"
-          echo "Release tag: $TAG"
           echo "Previous tag: ${PREVIOUS_TAG:-<none>}"
 
-      - name: Generate release notes from merged PRs
+      - name: Generate changelog from merged PRs
         id: pr_list
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PREVIOUS_TAG: ${{ steps.release.outputs.previous_tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIOUS_TAG: ${{ steps.previous_tag.outputs.previous_tag }}
           EXTRA_NOTES: ${{ github.event.inputs.release_notes }}
-        shell: bash
         run: |
           set -euo pipefail
           if [[ -n "$PREVIOUS_TAG" ]]; then
-            git log --pretty=format:"%H" "$PREVIOUS_TAG"..HEAD > commits.txt
+            git log --reverse --pretty=format:"%H" "$PREVIOUS_TAG"..HEAD > commits.txt
           else
-            git log --pretty=format:"%H" HEAD > commits.txt
+            git log --reverse --pretty=format:"%H" HEAD > commits.txt
           fi
 
-          gh pr list --state merged --base main --limit 200 --json title,number,mergeCommit \
-            --jq '.[] | [.title, .number, (.mergeCommit.oid // "")] | @tsv' > pr_data.tsv
+          : > pr_data.tsv
+          : > seen_prs.txt
+          while IFS= read -r commit; do
+            [[ -n "$commit" ]] || continue
+            gh api \
+              -H "Accept: application/vnd.github+json" \
+              "repos/${GITHUB_REPOSITORY}/commits/${commit}/pulls" \
+              --jq '.[] | [.number, .title, ([.labels[].name] | join(","))] | @tsv' >> pr_candidates.tsv
+          done < commits.txt
 
-          : > generated_changelog.md
-          if [[ -n "$EXTRA_NOTES" ]]; then
-            printf '%s\n\n' "$EXTRA_NOTES" >> generated_changelog.md
+          if [[ -f pr_candidates.tsv ]]; then
+            while IFS=$'\t' read -r number title labels; do
+              [[ -n "$number" ]] || continue
+              if ! grep -qx "$number" seen_prs.txt; then
+                echo "$number" >> seen_prs.txt
+                printf '%s\t%s\t%s\n' "$number" "$title" "$labels" >> pr_data.tsv
+              fi
+            done < pr_candidates.tsv
           fi
 
-          echo "### Changes since ${PREVIOUS_TAG:-repository start}" >> generated_changelog.md
-          added=false
-          while IFS=$'\t' read -r title number commit; do
-            if [[ -n "$commit" ]] && grep -q "$commit" commits.txt; then
-              echo "- PR #$number: $title" >> generated_changelog.md
-              added=true
-            fi
-          done < pr_data.tsv
+          python3 scripts/release/update_flutter_release.py format-changelog \
+            --pr-data pr_data.tsv \
+            --previous-tag "$PREVIOUS_TAG" \
+            --output generated_changelog.md
 
-          if [[ "$added" == "false" ]]; then
-            echo "- No merged pull requests detected in this range." >> generated_changelog.md
-          fi
-
+          delimiter="EOF_$(openssl rand -hex 8)"
           {
-            echo "changelog<<EOF"
+            echo "changelog<<$delimiter"
             cat generated_changelog.md
-            echo "EOF"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
       - name: Update package version and changelog
         run: |
-          python3 scripts/release/update_flutter_release.py \
+          python3 scripts/release/update_flutter_release.py update \
             --version "${{ steps.release.outputs.version }}" \
             --changelog generated_changelog.md
 
       - name: Cleanup generated helper files
-        run: rm -f commits.txt pr_data.tsv generated_changelog.md
+        run: rm -f tags.txt commits.txt seen_prs.txt pr_candidates.tsv pr_data.tsv generated_changelog.md
 
       - name: Create release pull request
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
           commit-message: "chore: release telnyx_webrtc v${{ steps.release.outputs.version }}"
           title: "Release telnyx_webrtc v${{ steps.release.outputs.version }}"
           body: |
             Auto-created release PR for `telnyx_webrtc` **v${{ steps.release.outputs.version }}**.
 
             Target release tag: `${{ steps.release.outputs.tag }}`
-            Previous release tag: `${{ steps.release.outputs.previous_tag }}`
+            Previous release tag: `${{ steps.previous_tag.outputs.previous_tag }}`
 
             ## Changelog preview
             ${{ steps.pr_list.outputs.changelog }}

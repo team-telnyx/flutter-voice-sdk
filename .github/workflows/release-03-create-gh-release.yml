@@ -1,8 +1,8 @@
 # Creates a GitHub Release for telnyx_webrtc from the release PR already merged to main.
 #
-# This intentionally mirrors the iOS release-03 flow. Publishing to pub.dev is kept
-# in publish.yml; after this workflow creates the vX.Y.Z tag, use the existing
-# Publish to pub.dev workflow if the tag-created event does not trigger it.
+# Requires RELEASE_AUTOMATION_TOKEN to be a PAT or GitHub App token with contents
+# write access. The resulting tag push triggers publish.yml; GITHUB_TOKEN-created
+# tags would not trigger the pub.dev publish workflow.
 name: release-03-create-gh-release
 
 on:
@@ -19,7 +19,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   create_github_release:
@@ -32,66 +32,50 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Normalize version and validate package files
-        id: release
-        shell: bash
+      - name: Require release automation token
+        env:
+          RELEASE_AUTOMATION_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
         run: |
           set -euo pipefail
-          VERSION="${{ github.event.inputs.version }}"
-          VERSION="${VERSION#v}"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Version must be semver-like, for example 4.5.0 or 4.5.0-beta.1" >&2
+          if [[ -z "$RELEASE_AUTOMATION_TOKEN" ]]; then
+            echo "RELEASE_AUTOMATION_TOKEN must be configured so the release tag triggers pub.dev publishing." >&2
             exit 1
           fi
-          TAG="v${VERSION}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists" >&2
+
+      - name: Normalize version
+        id: release
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          python3 scripts/release/update_flutter_release.py normalize \
+            --version "$RELEASE_VERSION" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Validate merged release files
+        run: |
+          python3 scripts/release/update_flutter_release.py validate \
+            --version "${{ steps.release.outputs.version }}"
+          if git rev-parse "${{ steps.release.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Tag ${{ steps.release.outputs.tag }} already exists" >&2
             exit 1
           fi
-          PUBSPEC_VERSION=$(grep -E '^version:' packages/telnyx_webrtc/pubspec.yaml | awk '{print $2}')
-          VERSION_UTILS_VERSION=$(grep -E "static const String _sdkVersion" packages/telnyx_webrtc/lib/utils/version_utils.dart | sed -E "s/.*'([^']+)'.*/\1/")
-          if [[ "$PUBSPEC_VERSION" != "$VERSION" ]]; then
-            echo "pubspec.yaml version is $PUBSPEC_VERSION but workflow input is $VERSION" >&2
-            exit 1
-          fi
-          if [[ "$VERSION_UTILS_VERSION" != "$VERSION" ]]; then
-            echo "version_utils.dart version is $VERSION_UTILS_VERSION but workflow input is $VERSION" >&2
-            exit 1
-          fi
-          if ! grep -q "^## \[$VERSION\]" packages/telnyx_webrtc/CHANGELOG.md; then
-            echo "CHANGELOG.md does not contain a top-level section for $VERSION" >&2
-            exit 1
-          fi
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build release notes from CHANGELOG.md
-        env:
-          VERSION: ${{ steps.release.outputs.version }}
         run: |
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-          version = os.environ['VERSION']
-          changelog = Path('packages/telnyx_webrtc/CHANGELOG.md').read_text()
-          heading = f'## [{version}]'
-          start = changelog.find(heading)
-          if start == -1:
-              raise SystemExit(f'Missing changelog section for {version}')
-          next_start = changelog.find('\n## [', start + 1)
-          section = changelog[start: next_start if next_start != -1 else len(changelog)].strip()
-          Path('release_body.md').write_text(section + '\n')
-          PY
+          python3 scripts/release/update_flutter_release.py release-notes \
+            --version "${{ steps.release.outputs.version }}" \
+            --output release_body.md
 
       - name: Create GitHub Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
           TAG: ${{ steps.release.outputs.tag }}
           VERSION: ${{ steps.release.outputs.version }}
           PRERELEASE: ${{ github.event.inputs.prerelease }}
         run: |
           set -euo pipefail
-          args=("$TAG" --target "$GITHUB_SHA" --title "telnyx_webrtc $VERSION" --notes-file release_body.md)
+          target_sha="$(git rev-parse HEAD)"
+          args=("$TAG" --target "$target_sha" --title "telnyx_webrtc $VERSION" --notes-file release_body.md)
           if [[ "$PRERELEASE" == "true" ]]; then
             args+=(--prerelease)
           fi
