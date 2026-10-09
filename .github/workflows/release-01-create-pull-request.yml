@@ -37,6 +37,7 @@ jobs:
       - name: Checkout repository with full history and tags
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Require release automation token
@@ -58,6 +59,16 @@ jobs:
             --version "$RELEASE_VERSION" \
             --github-output "$GITHUB_OUTPUT"
 
+      - name: Ensure release tag does not exist
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+
       - name: Get previous release tag
         id: previous_tag
         run: |
@@ -76,31 +87,23 @@ jobs:
           EXTRA_NOTES: ${{ github.event.inputs.release_notes }}
         run: |
           set -euo pipefail
+          search_args=()
           if [[ -n "$PREVIOUS_TAG" ]]; then
-            git log --reverse --pretty=format:"%H" "$PREVIOUS_TAG"..HEAD > commits.txt
+            git rev-list "$PREVIOUS_TAG"..HEAD > commits.txt
+            search_args=(--search "merged:>=$(git log -1 --format=%cs "$PREVIOUS_TAG")")
           else
-            git log --reverse --pretty=format:"%H" HEAD > commits.txt
+            git rev-list HEAD > commits.txt
           fi
 
-          : > pr_data.tsv
-          : > seen_prs.txt
-          while IFS= read -r commit; do
-            [[ -n "$commit" ]] || continue
-            gh api \
-              -H "Accept: application/vnd.github+json" \
-              "repos/${GITHUB_REPOSITORY}/commits/${commit}/pulls" \
-              --jq '.[] | [.number, .title, ([.labels[].name] | join(","))] | @tsv' >> pr_candidates.tsv
-          done < commits.txt
+          gh pr list --repo "$GITHUB_REPOSITORY" --state merged --base main --limit 1000 \
+            "${search_args[@]}" \
+            --json number,title,labels,mergeCommit \
+            --jq '.[] | [.mergeCommit.oid, (.number|tostring), .title, ([.labels[].name]|join(","))] | @tsv' \
+            > merged_prs.tsv
 
-          if [[ -f pr_candidates.tsv ]]; then
-            while IFS=$'\t' read -r number title labels; do
-              [[ -n "$number" ]] || continue
-              if ! grep -qx "$number" seen_prs.txt; then
-                echo "$number" >> seen_prs.txt
-                printf '%s\t%s\t%s\n' "$number" "$title" "$labels" >> pr_data.tsv
-              fi
-            done < pr_candidates.tsv
-          fi
+          # Keep only PRs whose merge commit is in this release range.
+          awk -F'\t' 'NR==FNR {in_range[$1]=1; next} ($1 in in_range) {print $2"\t"$3"\t"$4}' \
+            commits.txt merged_prs.tsv > pr_data.tsv
 
           python3 scripts/release/update_flutter_release.py format-changelog \
             --pr-data pr_data.tsv \
@@ -121,7 +124,7 @@ jobs:
             --changelog generated_changelog.md
 
       - name: Cleanup generated helper files
-        run: rm -f tags.txt commits.txt seen_prs.txt pr_candidates.tsv pr_data.tsv generated_changelog.md
+        run: rm -f tags.txt commits.txt merged_prs.tsv pr_data.tsv generated_changelog.md
 
       - name: Create release pull request
         uses: peter-evans/create-pull-request@v6

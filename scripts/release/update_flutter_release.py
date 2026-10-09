@@ -14,6 +14,14 @@ SEMVER_RE = re.compile(
     r"^v?(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
     r"(?P<prerelease>-[0-9A-Za-z.-]+)?(?P<build>\+[0-9A-Za-z.-]+)?$"
 )
+LABEL_SECTIONS = {
+    "breaking": "Breaking",
+    "bug": "Bug Fixing",
+    "enhancement": "Enhancement",
+    "feature": "Enhancement",
+}
+BREAKING_RE = re.compile(r"(?<![\w-])breaking\b|^\w+(\([^)]*\))?!:", re.IGNORECASE)
+FIX_RE = re.compile(r"\b(fix|fixes|fixed|bug|bugfix|hotfix)\b", re.IGNORECASE)
 PACKAGE = Path("packages/telnyx_webrtc")
 
 
@@ -134,10 +142,13 @@ def update_changelog(path: Path, version: str, changelog_body: str) -> None:
 
 
 def classify_pr(title: str, labels: str) -> str:
-    haystack = f"{title} {labels}".lower()
-    if "breaking" in haystack:
+    label_set = {label.strip().lower() for label in labels.split(",") if label.strip()}
+    for label, section in LABEL_SECTIONS.items():
+        if label in label_set:
+            return section
+    if BREAKING_RE.search(title):
         return "Breaking"
-    if any(token in haystack for token in ("bug", "fix", "hotfix", "patch")):
+    if FIX_RE.search(title):
         return "Bug Fixing"
     return "Enhancement"
 
@@ -229,6 +240,9 @@ def cmd_format_changelog(args: argparse.Namespace) -> None:
 
 def cmd_update(args: argparse.Namespace) -> None:
     version = parse_version(args.version).normalized
+    current = parse_version(read_pubspec_version(args.root))
+    if parse_version(version).sort_key <= current.sort_key:
+        raise SystemExit(f"{version} is not newer than current pubspec version {current.normalized}")
     pkg = package_root(args.root)
     changelog_body = args.changelog.read_text()
     update_pubspec(pkg / "pubspec.yaml", version)

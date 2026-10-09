@@ -3,9 +3,6 @@
 # Requires RELEASE_AUTOMATION_TOKEN to be a PAT or GitHub App token with contents
 # write access. The resulting tag push triggers publish.yml; GITHUB_TOKEN-created
 # tags would not trigger the pub.dev publish workflow.
-#
-# Run this immediately after merging the generated release PR. If unrelated commits
-# reach main first, rerun release-01 so the changelog and tag cover the same range.
 name: release-03-create-gh-release
 
 on:
@@ -15,14 +12,10 @@ on:
         description: 'Package version to release, for example 4.5.0'
         required: true
         type: string
-      prerelease:
-        description: 'Mark the GitHub release as a prerelease'
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   create_github_release:
@@ -54,6 +47,21 @@ jobs:
             --version "$RELEASE_VERSION" \
             --github-output "$GITHUB_OUTPUT"
 
+      - name: Check out the release PR merge commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          sha=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "release/$VERSION" \
+            --state merged --json mergeCommit --jq '.[0].mergeCommit.oid // empty')
+          if [[ -z "$sha" ]]; then
+            echo "No merged release/$VERSION PR found" >&2
+            exit 1
+          fi
+          git merge-base --is-ancestor "$sha" origin/main
+          git checkout --detach "$sha"
+
       - name: Validate merged release files
         run: |
           python3 scripts/release/update_flutter_release.py validate \
@@ -74,7 +82,7 @@ jobs:
           GH_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
           TAG: ${{ steps.release.outputs.tag }}
           VERSION: ${{ steps.release.outputs.version }}
-          PRERELEASE: ${{ github.event.inputs.prerelease }}
+          PRERELEASE: ${{ steps.release.outputs.is_prerelease }}
         run: |
           set -euo pipefail
           target_sha="$(git rev-parse HEAD)"
