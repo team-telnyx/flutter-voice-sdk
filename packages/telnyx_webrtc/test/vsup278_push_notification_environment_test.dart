@@ -64,7 +64,8 @@ void main() {
   });
 
   group('Config.pushNotificationEnvironment opt-in', () {
-    test('CredentialConfig accepts pushNotificationEnvironment=development', () {
+    test('CredentialConfig accepts pushNotificationEnvironment=development',
+        () {
       final config = CredentialConfig(
         sipUser: 'testuser',
         sipPassword: 'testpass',
@@ -125,8 +126,7 @@ void main() {
       expect(json['push_notification_environment'], equals('development'));
     });
 
-    test('falls back to kDebugMode default when null (release profile)',
-        () {
+    test('falls back to kDebugMode default when null (release profile)', () {
       // In a release profile, kDebugMode is false and the legacy default
       // is `production`. The override field being null must reproduce the
       // pre-existing behaviour exactly.

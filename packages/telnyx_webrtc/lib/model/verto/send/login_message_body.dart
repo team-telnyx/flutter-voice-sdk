@@ -121,8 +121,8 @@ class UserVariables {
     // directly (e.g. from the telnyx_client) can override via
     // [pushNotificationEnvironment] when the actual APNs / FCM environment
     // does not match the Flutter build mode (VSUP-278).
-    final String pushEnvironment = pushNotificationEnvironment ??
-        (kDebugMode ? 'debug' : 'production');
+    final String pushEnvironment =
+        pushNotificationEnvironment ?? (kDebugMode ? 'debug' : 'production');
     data['push_notification_environment'] = pushEnvironment;
     GlobalLogger().d('pushEnvironment: $pushEnvironment');
     // Only emit login-level opt-in flags when they have been set so existing
