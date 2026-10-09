@@ -1,0 +1,164 @@
+# Creates a Flutter SDK release pull request.
+#
+# The PR updates:
+# - packages/telnyx_webrtc/pubspec.yaml
+# - packages/telnyx_webrtc/lib/utils/version_utils.dart
+# - lib/utils/version_utils.dart
+#
+# The CHANGELOG section is intentionally written/reviewed by a human in the
+# generated release PR. The workflow puts the merged PR list in the PR body as
+# release-notes input instead of generating customer-facing CHANGELOG prose.
+#
+# Uses GITHUB_TOKEN, matching the iOS release workflows. PRs opened with
+# GITHUB_TOKEN do not trigger CI, so checks start once a maintainer pushes the
+# CHANGELOG commit to the release PR. Requires the repository setting
+# "Allow GitHub Actions to create and approve pull requests".
+#
+# Note: Flutter intentionally skips release-02 because this repo does not have the
+# iOS docs-generation release step.
+name: release-01-create-pull-request
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version to release, for example 4.5.0'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  create_release_pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with full history and tags
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Normalize version
+        id: release
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version: $RELEASE_VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure release branch does not already exist
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "release/$VERSION" >/dev/null; then
+            echo "release/$VERSION already exists; update that PR instead of re-running release-01" >&2
+            exit 1
+          fi
+
+      - name: Ensure release tag does not exist
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+
+      - name: Ensure version is newer than current package version
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          CURRENT=$(awk '/^version:/ {print $2}' packages/telnyx_webrtc/pubspec.yaml)
+          if ! dpkg --compare-versions "$(sed 's/-/~/' <<<"$VERSION")" gt "$(sed 's/-/~/' <<<"$CURRENT")"; then
+            echo "$VERSION is not newer than current pubspec version $CURRENT" >&2
+            exit 1
+          fi
+
+      - name: Get previous release tag
+        id: previous_tag
+        run: |
+          set -euo pipefail
+          PREVIOUS_TAG=$(git tag --sort=-v:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+          echo "previous_tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
+          echo "Previous tag: ${PREVIOUS_TAG:-<none>}"
+
+      - name: Generate release PR notes from merged PRs
+        id: pr_list
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIOUS_TAG: ${{ steps.previous_tag.outputs.previous_tag }}
+        run: |
+          set -euo pipefail
+          search_args=()
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            git rev-list "$PREVIOUS_TAG"..HEAD > commits.txt
+            search_args=(--search "merged:>=$(git log -1 --format=%cI "$PREVIOUS_TAG")")
+          else
+            git rev-list HEAD > commits.txt
+          fi
+
+          gh pr list --repo "$GITHUB_REPOSITORY" --state merged --base main --limit 1000 \
+            "${search_args[@]}" \
+            --json number,title,labels,mergeCommit \
+            --jq '.[] | [.mergeCommit.oid, (.number|tostring), .title, ([.labels[].name]|join(","))] | @tsv' \
+            > merged_prs.tsv
+
+          awk -F'\t' 'NR==FNR {in_range[$1]=1; next} ($1 in in_range) {print "- PR #"$2": "$3}' \
+            commits.txt merged_prs.tsv > release_notes.md
+
+          if [[ ! -s release_notes.md ]]; then
+            echo "- No merged pull requests detected in this range." > release_notes.md
+          fi
+
+          delimiter="EOF_$(openssl rand -hex 8)"
+          {
+            echo "notes<<$delimiter"
+            cat release_notes.md
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Update package version
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          scripts/release/setup_version.sh "$VERSION"
+
+      - name: Cleanup generated helper files
+        run: rm -f commits.txt merged_prs.tsv release_notes.md
+
+      - name: Create release pull request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: release telnyx_webrtc v${{ steps.release.outputs.version }}"
+          title: "Release telnyx_webrtc v${{ steps.release.outputs.version }}"
+          body: |
+            Auto-created release PR for `telnyx_webrtc` **v${{ steps.release.outputs.version }}**.
+
+            Target release tag: `${{ steps.release.outputs.tag }}`
+            Previous release tag: `${{ steps.previous_tag.outputs.previous_tag }}`
+
+            ## Merged PRs since previous release
+            ${{ steps.pr_list.outputs.notes }}
+
+            ## Release checklist
+            - [ ] Confirm version bump in `packages/telnyx_webrtc/pubspec.yaml`
+            - [ ] Confirm SDK user-agent version in `packages/telnyx_webrtc/lib/utils/version_utils.dart`
+            - [ ] Confirm demo/root SDK fallback version in `lib/utils/version_utils.dart`
+            - [ ] Add/update the customer-facing section in `packages/telnyx_webrtc/CHANGELOG.md`
+            - [ ] After merge, run `release-03-create-gh-release` with version `${{ steps.release.outputs.version }}`
+          branch: release/${{ steps.release.outputs.version }}
+          base: main
+          delete-branch: true

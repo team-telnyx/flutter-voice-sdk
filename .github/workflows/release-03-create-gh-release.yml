@@ -1,0 +1,124 @@
+# Creates a GitHub Release for telnyx_webrtc from the release PR already merged to main.
+#
+# Uses GITHUB_TOKEN. Tags created with GITHUB_TOKEN do not trigger publish.yml's
+# tag-push event, so this workflow dispatches publish.yml on the new tag instead.
+# Requires "Enable publishing from workflow_dispatch events" in the pub.dev
+# package admin settings.
+name: release-03-create-gh-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version to release, for example 4.5.0'
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: read
+
+jobs:
+  create_github_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main with full history and tags
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Normalize version
+        id: release
+        env:
+          RELEASE_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version: $RELEASE_VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the release PR merge commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          sha=$(gh pr list --repo "$GITHUB_REPOSITORY" --base main --head "release/$VERSION" \
+            --state merged --json mergeCommit --jq '.[0].mergeCommit.oid // empty')
+          if [[ -z "$sha" ]]; then
+            echo "::error::No merged release/$VERSION PR found"
+            exit 1
+          fi
+          git merge-base --is-ancestor "$sha" origin/main \
+            || { echo "::error::Release PR merge commit $sha is not on main"; exit 1; }
+          git checkout --detach "$sha"
+
+      - name: Validate merged release files
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          PKG=packages/telnyx_webrtc
+          grep -qxF "version: $VERSION" "$PKG/pubspec.yaml" \
+            || { echo "::error::pubspec.yaml is not $VERSION"; exit 1; }
+          for f in "$PKG/lib/utils/version_utils.dart" lib/utils/version_utils.dart; do
+            grep -qF "_sdkVersion = '$VERSION';" "$f" || { echo "::error::$f is not $VERSION"; exit 1; }
+          done
+          awk -v h="## [$VERSION]" 'index($0, h) == 1 {found=1} END {exit !found}' "$PKG/CHANGELOG.md" \
+            || { echo "::error::CHANGELOG.md has no '## [$VERSION]' section"; exit 1; }
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+      - name: Build release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          awk -v header="## [$VERSION]" '
+            capture && /^## \[/ {exit}
+            index($0, header) == 1 {capture=1; next}
+            capture {print}
+          ' packages/telnyx_webrtc/CHANGELOG.md > release_body.md
+          if ! grep -q '[^[:space:]]' release_body.md; then
+            echo "::error::CHANGELOG section for $VERSION is missing or empty"
+            exit 1
+          fi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          PRERELEASE: ${{ steps.release.outputs.is_prerelease }}
+        run: |
+          set -euo pipefail
+          target_sha="$(git rev-parse HEAD)"
+          args=("$TAG" --target "$target_sha" --title "telnyx_webrtc $VERSION" --notes-file release_body.md)
+          if [[ "$PRERELEASE" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "${args[@]}"
+
+      - name: Start pub.dev publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+          echo "Started 'Publish to pub.dev' on $TAG"
