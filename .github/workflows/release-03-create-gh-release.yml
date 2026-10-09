@@ -1,0 +1,98 @@
+# Creates a GitHub Release for telnyx_webrtc from the release PR already merged to main.
+#
+# This intentionally mirrors the iOS release-03 flow. Publishing to pub.dev is kept
+# in publish.yml; after this workflow creates the vX.Y.Z tag, use the existing
+# Publish to pub.dev workflow if the tag-created event does not trigger it.
+name: release-03-create-gh-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version to release, for example 4.5.0'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark the GitHub release as a prerelease'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  create_github_release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main with full history and tags
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Normalize version and validate package files
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          VERSION="${VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version must be semver-like, for example 4.5.0 or 4.5.0-beta.1" >&2
+            exit 1
+          fi
+          TAG="v${VERSION}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists" >&2
+            exit 1
+          fi
+          PUBSPEC_VERSION=$(grep -E '^version:' packages/telnyx_webrtc/pubspec.yaml | awk '{print $2}')
+          VERSION_UTILS_VERSION=$(grep -E "static const String _sdkVersion" packages/telnyx_webrtc/lib/utils/version_utils.dart | sed -E "s/.*'([^']+)'.*/\1/")
+          if [[ "$PUBSPEC_VERSION" != "$VERSION" ]]; then
+            echo "pubspec.yaml version is $PUBSPEC_VERSION but workflow input is $VERSION" >&2
+            exit 1
+          fi
+          if [[ "$VERSION_UTILS_VERSION" != "$VERSION" ]]; then
+            echo "version_utils.dart version is $VERSION_UTILS_VERSION but workflow input is $VERSION" >&2
+            exit 1
+          fi
+          if ! grep -q "^## \[$VERSION\]" packages/telnyx_webrtc/CHANGELOG.md; then
+            echo "CHANGELOG.md does not contain a top-level section for $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          version = os.environ['VERSION']
+          changelog = Path('packages/telnyx_webrtc/CHANGELOG.md').read_text()
+          heading = f'## [{version}]'
+          start = changelog.find(heading)
+          if start == -1:
+              raise SystemExit(f'Missing changelog section for {version}')
+          next_start = changelog.find('\n## [', start + 1)
+          section = changelog[start: next_start if next_start != -1 else len(changelog)].strip()
+          Path('release_body.md').write_text(section + '\n')
+          PY
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
+        run: |
+          set -euo pipefail
+          args=("$TAG" --target "$GITHUB_SHA" --title "telnyx_webrtc $VERSION" --notes-file release_body.md)
+          if [[ "$PRERELEASE" == "true" ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "${args[@]}"
