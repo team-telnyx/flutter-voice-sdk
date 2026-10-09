@@ -1,3 +1,7 @@
+## [Unreleased]
+### Bug Fix
+- Fixed macOS trickle ICE race that could end the candidate stream before late relay/srflx candidates arrived (VSUP-279 / GH #297) — the primary end-of-candidates signal is now `RTCIceGatheringStateComplete`, with the per-candidate timer demoted to a 5-second bounded safety-net fallback
+
 ## [4.4.0](https://pub.dev/packages/telnyx_webrtc/versions/4.4.0) (2026-07-08)
 ### Bug Fix
 - Fixed `AudioService.stopAudio()` disposing the reusable audio player, causing unstable ringtone/ringback playback on subsequent calls

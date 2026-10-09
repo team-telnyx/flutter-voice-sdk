@@ -93,9 +93,13 @@ class Peer {
       1000; // 1000ms timeout for negotiation -- Longer on Web
   Function()? _onNegotiationComplete;
 
-  // Add trickle ICE end-of-candidates timer fields
+  // Add trickle ICE end-of-candidates timer fields.
+  // This is a SAFETY-NET fallback timer only — the primary end-of-candidates
+  // signal is `RTCIceGatheringStateComplete` (handled in `onIceGatheringState`).
+  // See VSUP-279 / GH #297 for context on the 500ms -> 5s fallback change.
   Timer? _trickleIceTimer;
-  static const int _trickleIceTimeout = 500; // 500ms timeout for trickle ICE
+  static const int _trickleIceFallbackTimeoutMs =
+      5000; // 5s fallback after the last candidate
   String? _currentTrickleCallId;
   bool _endOfCandidatesSent = false;
 
@@ -684,7 +688,9 @@ class Peer {
             CallTimingBenchmark.markFirstCandidate();
             _sendCandidate(callId, candidate);
 
-            // Reset the trickle ICE timer when a candidate is generated
+            // (Re)arm the trickle ICE FALLBACK timer. The primary signal is
+            // `RTCIceGatheringStateComplete`; this is only a safety net for
+            // platforms/networks where that callback never fires (VSUP-279).
             _startTrickleIceTimer(callId);
           } else {
             GlobalLogger().i(
@@ -1181,6 +1187,15 @@ class Peer {
       }
       ..onIceGatheringState = (state) {
         GlobalLogger().i('Peer :: ICE Gathering State change :: $state');
+        // Primary trickle-ICE end-of-candidates signal.
+        // The null-candidate callback (see onIceCandidate) and this gathering
+        // state callback both route through `_sendEndOfCandidatesAndCleanup`,
+        // which is idempotent via `_endOfCandidatesSent`. See VSUP-279 / GH #297
+        // for the macOS relay-gather race that motivated this change.
+        if (state == RTCIceGatheringState.RTCIceGatheringStateComplete &&
+            _useTrickleIce) {
+          _sendEndOfCandidatesAndCleanup(callId);
+        }
         // Log to call report
         _callReportLogCollector?.logIceGatheringStateChanged(
           callId: callId,
@@ -1531,8 +1546,17 @@ class Peer {
     _negotiationTimer = null;
   }
 
-  /// Starts/resets the trickle ICE timer that sends endOfCandidates after inactivity
-  /// Uses a single delayed timer instead of periodic polling for better efficiency.
+  /// Starts/resets the trickle ICE FALLBACK timer.
+  ///
+  /// This is a safety-net only — the primary end-of-candidates signal is the
+  /// `RTCIceGatheringStateComplete` callback in `onIceGatheringState`. If the
+  /// complete state never fires for a given platform/network, this timer
+  /// guarantees we still emit end-of-candidates within
+  /// `_trickleIceFallbackTimeoutMs` of the last candidate.
+  ///
+  /// Uses a single delayed timer instead of periodic polling for efficiency.
+  /// Idempotent w.r.t. `_sendEndOfCandidatesAndCleanup` via the
+  /// `_endOfCandidatesSent` flag.
   void _startTrickleIceTimer(String callId) {
     // If this is a new call, initialize the call ID and reset flags
     if (_currentTrickleCallId != callId) {
@@ -1540,14 +1564,20 @@ class Peer {
       _endOfCandidatesSent = false;
     }
 
+    // If end-of-candidates has already been sent (e.g. via the gathering
+    // state callback), do not re-arm the fallback timer.
+    if (_endOfCandidatesSent) {
+      return;
+    }
+
     // Cancel existing timer and start a fresh one (resets on each candidate)
     _trickleIceTimer?.cancel();
     _trickleIceTimer = Timer(
-      const Duration(milliseconds: _trickleIceTimeout),
+      const Duration(milliseconds: _trickleIceFallbackTimeoutMs),
       () {
         if (!_endOfCandidatesSent && _currentTrickleCallId != null) {
           GlobalLogger().i(
-            'Web Peer :: Trickle ICE timeout reached - sending end of candidates',
+            'Web Peer :: Trickle ICE fallback timeout reached (${_trickleIceFallbackTimeoutMs}ms) - sending end of candidates',
           );
           _sendEndOfCandidatesAndCleanup(_currentTrickleCallId!);
         }
