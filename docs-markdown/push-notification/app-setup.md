@@ -1,6 +1,6 @@
 ## Introduction
 
-This document provides a guide on how to set up push notifications for incoming calls on the Telnyx Voice SDK Flutter Plugin. 
+This document provides a guide on how to set up push notifications for incoming calls on the Telnyx Voice SDK Flutter Plugin.
 
 It is important to understand how push notifications work in general in relation to Telnyx services. When you connect to the TelnyxClient, you establish a socket connection that can receive and handle incoming calls. However, if your application is in the background or terminated, the socket connection closes and can no longer receive invitations.
 
@@ -124,7 +124,7 @@ Future<void> main() async {
       // Android Only - Push Notifications
         await Firebase.initializeApp();
         FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      
+
         await FirebaseMessaging.instance
                 .setForegroundNotificationPresentationOptions(
          alert: true,
@@ -156,7 +156,7 @@ Future<void> main() async {
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       // Show notifcation
       showNotification(message);
-      
+
       // Listen to action from FlutterCallkitIncoming
       FlutterCallkitIncoming.onEvent.listen((CallEvent? event) async {
        switch (event!.event) {
@@ -200,7 +200,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
        compileOptions {
            coreLibraryDesugaringEnabled true
-           sourceCompatibility JavaVersion.VERSION_1_8 
+           sourceCompatibility JavaVersion.VERSION_1_8
            targetCompatibility JavaVersion.VERSION_1_8
        }
 
@@ -250,7 +250,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
    // Create high importance channel
    const AndroidNotificationChannel channel = AndroidNotificationChannel(
      'telnyx_call_channel', // Unique ID for the channel
-     'Incoming Calls', // User-visible name 
+     'Incoming Calls', // User-visible name
      description: 'Notifications for incoming Telnyx calls.', // User-visible description
      importance: Importance.max, // Crucial for heads-up display
      playSound: true,
@@ -277,7 +277,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
    ```html
    <meta-data
        android:name="com.google.firebase.messaging.default_notification_channel_id"
-       android:value="telnyx_call_channel" /> 
+       android:value="telnyx_call_channel" />
    ```
    *(Note: The ID 'telnyx_call_channel' must match the ID used in the Dart code.)*
 
@@ -324,7 +324,7 @@ FlutterCallkitIncoming.onEvent.listen((CallEvent? event) {
       });
 ```
 4. To handle push notifications on the background,  use the `FirebaseMessaging.onBackgroundMessage` method to listen for incoming calls and show a notification and make sure to set the ` TelnyxClient.setPushMetaData` when user answers the call.
-```dart 
+```dart
  TelnyxClient.setPushMetaData(
                  message.data, isAnswer: true, isDecline: false);
 ```
@@ -341,7 +341,7 @@ bool waitingForInvite = false;
 void accept() {
 
 if (_incomingInvite != null) {
-    // accept the call if the incomingInvite arrives on time 
+    // accept the call if the incomingInvite arrives on time
       _currentCall = _telnyxClient.acceptCall(
           _incomingInvite!, _localName, _localNumber, "State");
     } else {
@@ -392,7 +392,7 @@ For a full example please view the [Demo Application Example](https://github.com
       let voipRegistry: PKPushRegistry = PKPushRegistry(queue: mainQueue)
       voipRegistry.delegate = self
       voipRegistry.desiredPushTypes = [PKPushType.voIP]
-      
+
       RTCAudioSession.sharedInstance().useManualAudio = true
       RTCAudioSession.sharedInstance().isAudioEnabled = false
 
@@ -416,7 +416,7 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
       RTCAudioSession.sharedInstance().isAudioEnabled = false
 ```
 
-2. Implement the CallkitIncomingAppDelegate within AppDelegate so that you can action on calls that are received. Callin action.fulfill() will allows us to listen to the events and act on them in our dart code. 
+2. Implement the CallkitIncomingAppDelegate within AppDelegate so that you can action on calls that are received. Callin action.fulfill() will allows us to listen to the events and act on them in our dart code.
 ```swift
 @main
 @objc class AppDelegate: FlutterAppDelegate, PKPushRegistryDelegate, CallkitIncomingAppDelegate {
@@ -484,9 +484,9 @@ Also, as we are using WebRTC we need to add the following lines to avoid a bug w
         RTCAudioSession.sharedInstance().audioSessionDidDeactivate(audioSession)
         RTCAudioSession.sharedInstance().isAudioEnabled = false
     }
-    
+
     ....
-  ```  
+  ```
 
 Note: `didActivateAudioSession` and `didDeactivateAudioSession` manually bridge CallKit ownership into WebRTC. Keep activation idempotent, do not mark audio enabled when `setActive(true)` fails, and verify the state shortly after answering. The demo `AppDelegate.swift` includes a guarded post-answer recovery that is cancelled by decline, end, timeout, or deactivation.
 
@@ -498,7 +498,7 @@ Note: `didActivateAudioSession` and `didDeactivateAudioSession` manually bridge 
             //Save deviceToken to your server
             SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP(deviceToken)
         }
-        
+
         func pushRegistry(_ registry: PKPushRegistry, didInvalidatePushTokenFor type: PKPushType) {
             SwiftFlutterCallkitIncomingPlugin.sharedInstance?.setDevicePushTokenVoIP("")
         }
@@ -511,22 +511,22 @@ Note: `didActivateAudioSession` and `didDeactivateAudioSession` manually bridge 
   override func application(_ application: UIApplication,
                                   continue userActivity: NSUserActivity,
                                   restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool {
-                                  
+
             let nameCaller = handleObj.getDecryptHandle()["nameCaller"] as? String ?? ""
             let handle = handleObj.getDecryptHandle()["handle"] as? String ?? ""
             let data = flutter_callkit_incoming.Data(id: UUID().uuidString, nameCaller: nameCaller, handle: handle, type: isVideo ? 1 : 0)
             //set more data...
             data.nameCaller = "dummy"
             SwiftFlutterCallkitIncomingPlugin.sharedInstance?.startCall(data, fromPushKit: true)
-         
-         }                         
+
+         }
 ```
 3. Listen for incoming calls in AppDelegate.swift class and grab the relevant metadata from the push payload to pass to showCallkitIncoming (eg. the callerName, callerNumber, callID, etc)
-```swift 
+```swift
     func pushRegistry(_ registry: PKPushRegistry, didReceiveIncomingPushWith payload: PKPushPayload, for type: PKPushType, completion: @escaping () -> Void) {
             print("didReceiveIncomingPushWith")
             guard type == .voIP else { return }
-            
+
             if let metadata = payload.dictionaryPayload["metadata"] as? [String: Any] {
                 var callID = UUID.init().uuidString
                 if let newCallId = (metadata["call_id"] as? String),
@@ -535,19 +535,19 @@ Note: `didActivateAudioSession` and `didDeactivateAudioSession` manually bridge 
                 }
                 let callerName = (metadata["caller_name"] as? String) ?? ""
                 let callerNumber = (metadata["caller_number"] as? String) ?? ""
-                
+
                 let id = payload.dictionaryPayload["call_id"] as? String ??  UUID().uuidString
-                
+
                 let data = flutter_callkit_incoming.Data(id: id, nameCaller: callerName, handle: callerNumber, type: isVideo ? 1 : 0)
                 data.extra = payload.dictionaryPayload as NSDictionary
-                data.normalHandle = 1              
-                
+                data.normalHandle = 1
+
                 let caller = callerName.isEmpty ? (callerNumber.isEmpty ? "Unknown" : callerNumber) : callerName
                 let uuid = UUID(uuidString: callID)
-                
+
                 data.uuid = uuid!.uuidString
                 data.nameCaller = caller
-                
+
                 SwiftFlutterCallkitIncomingPlugin.sharedInstance?.showCallkitIncoming(data, fromPushKit: true)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                     completion()
@@ -589,14 +589,14 @@ void call(String destination) {
       'State',
       customHeaders: {'X-Header-1': 'Value1', 'X-Header-2': 'Value2'},
    );
-   
+
    var params = CallKitParams(
       id: _currentCall?.callId,
       nameCaller: _localName,
       appName: 'My Calling App',
       handle: destination,
    );
-   
+
    FlutterCallkitIncoming.startCall(params);
 }
 ```
@@ -797,7 +797,7 @@ _telnyxClient.onSocketMessageReceived = (TelnyxMessage message) {
     case SocketMethod.bye:
       final byeMessage = message.message as ReceivedMessage;
       final byeParams = ReceiveByeMessageBody.fromJson(byeMessage.result);
-      
+
       if (byeParams.terminationReason?.reason == CallTerminationReason.ORIGINATOR_CANCEL) {
         // Handle timeout case - call was cancelled due to missing INVITE
         print('Call terminated due to timeout - no INVITE received');

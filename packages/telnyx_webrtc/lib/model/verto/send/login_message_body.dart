@@ -98,11 +98,17 @@ class UserVariables {
     this.pnLateFanout,
   });
 
-  UserVariables.fromJson(Map<String, dynamic> json) {
+  UserVariables.fromJson(Map<String, dynamic> json)
+      : pushWhenActive = _jsonBool(json['push_when_active']),
+        pnLateFanout = _jsonBool(json['pn_late_fanout']) {
     pushDeviceToken = json['push_device_token'];
     pushNotificationProvider = json['push_notification_provider'];
-    pushWhenActive = json['push_when_active'];
-    pnLateFanout = json['pn_late_fanout'];
+  }
+
+  static bool? _jsonBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return null;
   }
 
   Map<String, dynamic> toJson() {

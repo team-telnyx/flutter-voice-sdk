@@ -217,10 +217,9 @@ void main() {
 
     test('emits answered_device_token when value has surrounding whitespace '
         'but non-blank content', () {
-      // A token like " abc " is unusual but conceptually non-blank — we
-      // serialize the raw value rather than silently mutating it. The trim
-      // guard is for the *gate* (whether to emit), not for reformatting the
-      // payload. This matches the contract used by the Android/iOS SDKs.
+      // A token like " abc " is unusual but conceptually non-blank. Normalize
+      // before serializing so the backend receives the usable token value and
+      // whitespace-only values are still omitted.
       final params = InviteParams(
         sdp: 'v=0\r\n',
         sessid: 'sess-1',
@@ -229,7 +228,7 @@ void main() {
 
       final json = params.toJson();
 
-      expect(json['answered_device_token'], equals(' abc '));
+      expect(json['answered_device_token'], equals('abc'));
     });
   });
 
