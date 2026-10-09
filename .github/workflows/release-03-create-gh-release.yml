@@ -1,8 +1,9 @@
 # Creates a GitHub Release for telnyx_webrtc from the release PR already merged to main.
 #
-# Requires RELEASE_AUTOMATION_TOKEN to be a PAT or GitHub App token with contents
-# write access. The resulting tag push triggers publish.yml; GITHUB_TOKEN-created
-# tags would not trigger the pub.dev publish workflow.
+# Uses GITHUB_TOKEN. Tags created with GITHUB_TOKEN do not trigger publish.yml's
+# tag-push event, so this workflow dispatches publish.yml on the new tag instead.
+# Requires "Enable publishing from workflow_dispatch events" in the pub.dev
+# package admin settings.
 name: release-03-create-gh-release
 
 on:
@@ -14,7 +15,8 @@ on:
         type: string
 
 permissions:
-  contents: read
+  actions: write
+  contents: write
   pull-requests: read
 
 jobs:
@@ -27,16 +29,6 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-
-      - name: Require release automation token
-        env:
-          RELEASE_AUTOMATION_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$RELEASE_AUTOMATION_TOKEN" ]]; then
-            echo "RELEASE_AUTOMATION_TOKEN must be configured so the release tag triggers pub.dev publishing." >&2
-            exit 1
-          fi
 
       - name: Normalize version
         id: release
@@ -109,7 +101,7 @@ jobs:
 
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.release.outputs.tag }}
           VERSION: ${{ steps.release.outputs.version }}
           PRERELEASE: ${{ steps.release.outputs.is_prerelease }}
@@ -121,3 +113,12 @@ jobs:
             args+=(--prerelease)
           fi
           gh release create "${args[@]}"
+
+      - name: Start pub.dev publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+          echo "Started 'Publish to pub.dev' on $TAG"

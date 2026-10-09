@@ -9,9 +9,10 @@
 # generated release PR. The workflow puts the merged PR list in the PR body as
 # release-notes input instead of generating customer-facing CHANGELOG prose.
 #
-# Requires RELEASE_AUTOMATION_TOKEN to be a PAT or GitHub App token with contents
-# and pull-request write access. Using GITHUB_TOKEN here would create a release PR
-# whose CI workflows do not run.
+# Uses GITHUB_TOKEN, matching the iOS release workflows. PRs opened with
+# GITHUB_TOKEN do not trigger CI, so checks start once a maintainer pushes the
+# CHANGELOG commit to the release PR. Requires the repository setting
+# "Allow GitHub Actions to create and approve pull requests".
 #
 # Note: Flutter intentionally skips release-02 because this repo does not have the
 # iOS docs-generation release step.
@@ -26,8 +27,8 @@ on:
         type: string
 
 permissions:
-  contents: read
-  pull-requests: read
+  contents: write
+  pull-requests: write
 
 jobs:
   create_release_pr:
@@ -39,16 +40,6 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-
-      - name: Require release automation token
-        env:
-          RELEASE_AUTOMATION_TOKEN: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$RELEASE_AUTOMATION_TOKEN" ]]; then
-            echo "RELEASE_AUTOMATION_TOKEN must be configured so release PR pushes trigger CI." >&2
-            exit 1
-          fi
 
       - name: Normalize version
         id: release
@@ -150,7 +141,7 @@ jobs:
       - name: Create release pull request
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ secrets.RELEASE_AUTOMATION_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: release telnyx_webrtc v${{ steps.release.outputs.version }}"
           title: "Release telnyx_webrtc v${{ steps.release.outputs.version }}"
           body: |
