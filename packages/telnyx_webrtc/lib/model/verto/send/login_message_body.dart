@@ -88,12 +88,27 @@ class LoginParams {
 class UserVariables {
   String? pushDeviceToken;
   String? pushNotificationProvider;
+  bool? pushWhenActive;
+  bool? pnLateFanout;
 
-  UserVariables({this.pushDeviceToken, this.pushNotificationProvider});
+  UserVariables({
+    this.pushDeviceToken,
+    this.pushNotificationProvider,
+    this.pushWhenActive,
+    this.pnLateFanout,
+  });
 
-  UserVariables.fromJson(Map<String, dynamic> json) {
+  UserVariables.fromJson(Map<String, dynamic> json)
+      : pushWhenActive = _jsonBool(json['push_when_active']),
+        pnLateFanout = _jsonBool(json['pn_late_fanout']) {
     pushDeviceToken = json['push_device_token'];
     pushNotificationProvider = json['push_notification_provider'];
+  }
+
+  static bool? _jsonBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) return value.toLowerCase() == 'true';
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -103,6 +118,14 @@ class UserVariables {
     const String pushEnvironment = kDebugMode ? 'debug' : 'production';
     data['push_notification_environment'] = pushEnvironment;
     GlobalLogger().d('pushEnvironment: $pushEnvironment');
+    // Only emit login-level opt-in flags when they have been set so existing
+    // apps (which never set them) keep their current login payload shape.
+    if (pushWhenActive != null) {
+      data['push_when_active'] = pushWhenActive;
+    }
+    if (pnLateFanout != null) {
+      data['pn_late_fanout'] = pnLateFanout;
+    }
     return data;
   }
 }

@@ -98,6 +98,40 @@ typedef OnConnectionMetricsUpdate = void Function(
 typedef ConnectivityChangesProvider = Stream<List<ConnectivityResult>>
     Function();
 
+String? _nonBlankPushToken(String? token) {
+  final trimmed = token?.trim();
+  return trimmed != null && trimmed.isNotEmpty ? trimmed : null;
+}
+
+@visibleForTesting
+String? resolvePushWhenActiveAnsweredDeviceToken({
+  required String? explicitAnsweredDeviceToken,
+  required Config? activeConfig,
+}) {
+  final explicitToken = _nonBlankPushToken(explicitAnsweredDeviceToken);
+  if (explicitToken != null) return explicitToken;
+
+  if (activeConfig?.pushWhenActive == true) {
+    return _nonBlankPushToken(activeConfig?.notificationToken);
+  }
+
+  return null;
+}
+
+UserVariables _pushUserVariables({
+  required String? pushDeviceToken,
+  required String pushNotificationProvider,
+  bool? pushWhenActive,
+  bool? pnLateFanout,
+}) {
+  return UserVariables(
+    pushDeviceToken: pushDeviceToken,
+    pushNotificationProvider: pushNotificationProvider,
+    pushWhenActive: pushWhenActive,
+    pnLateFanout: pnLateFanout,
+  );
+}
+
 /// Represents the main entry point for interacting with the Telnyx RTC SDK.
 ///
 /// This class manages the WebSocket connection to the Telnyx backend, handles
@@ -1648,10 +1682,15 @@ class TelnyxClient {
     final notificationToken = config.notificationToken;
     UserVariables? notificationParams;
 
-    notificationParams = UserVariables(
+    notificationParams = _pushUserVariables(
       pushDeviceToken: notificationToken,
       pushNotificationProvider:
           defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      // Only emit login-level opt-in flags when the caller has explicitly
+      // set pushWhenActive to true; preserve the legacy wire payload shape
+      // for callers who never set the flag (Android/iOS opt-in parity).
+      pushWhenActive: config.pushWhenActive ? true : null,
+      pnLateFanout: config.pushWhenActive ? true : null,
     );
 
     final loginParams = LoginParams(
@@ -1691,10 +1730,15 @@ class TelnyxClient {
     final notificationToken = config.notificationToken;
     UserVariables? notificationParams;
 
-    notificationParams = UserVariables(
+    notificationParams = _pushUserVariables(
       pushDeviceToken: notificationToken,
       pushNotificationProvider:
           defaultTargetPlatform == TargetPlatform.android ? 'android' : 'ios',
+      // Only emit login-level opt-in flags when the caller has explicitly
+      // set pushWhenActive to true; preserve the legacy wire payload shape
+      // for callers who never set the flag (Android/iOS opt-in parity).
+      pushWhenActive: config.pushWhenActive ? true : null,
+      pnLateFanout: config.pushWhenActive ? true : null,
     );
 
     final loginParams = LoginParams(
@@ -2193,14 +2237,24 @@ class TelnyxClient {
     _autoReconnectLogin = config.autoReconnect ?? true;
 
     if (defaultTargetPlatform == TargetPlatform.android) {
-      notificationParams = UserVariables(
+      notificationParams = _pushUserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'android',
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      notificationParams = UserVariables(
+      notificationParams = _pushUserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'ios',
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     }
 
@@ -2251,14 +2305,24 @@ class TelnyxClient {
     _autoReconnectLogin = config.autoReconnect ?? true;
 
     if (defaultTargetPlatform == TargetPlatform.android) {
-      notificationParams = UserVariables(
+      notificationParams = _pushUserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'android',
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      notificationParams = UserVariables(
+      notificationParams = _pushUserVariables(
         pushDeviceToken: fcmToken,
         pushNotificationProvider: 'ios',
+        // Only emit login-level opt-in flags when the caller has explicitly
+        // set pushWhenActive to true; preserve the legacy wire payload shape
+        // for callers who never set the flag (Android/iOS opt-in parity).
+        pushWhenActive: config.pushWhenActive ? true : null,
+        pnLateFanout: config.pushWhenActive ? true : null,
       );
     }
 
@@ -2602,7 +2666,11 @@ class TelnyxClient {
   /// - [audioConstraints]: Optional audio constraints for the call.
   /// - [answeredDeviceToken]: Optional device token (FCM/APNS) to include when
   ///   answering a push notification call. This allows the backend to identify
-  ///   which device answered the call.
+  ///   which device answered the call. If omitted but the active login config
+  ///   has [Config.pushWhenActive] set to `true` and a non-empty
+  ///   [Config.notificationToken] is configured, the SDK will auto-populate this
+  ///   from the stored push token so the answer payload includes
+  ///   `answered_device_token`.
   ///
   /// Returns the [Call] object associated with the accepted call.
   Call acceptCall(
@@ -2619,6 +2687,24 @@ class TelnyxClient {
     String? answeredDeviceToken,
     bool forceRelayCandidateForRecovery = false,
   }) {
+    // Auto-populate answeredDeviceToken from the stored push token when
+    // push-when-active is enabled on the active login config. The explicit
+    // parameter always wins when non-blank so callers retain override control.
+    // Blank and whitespace-only values are ignored so the wire payload never
+    // carries an unusable `answered_device_token`.
+    final resolvedAnsweredDeviceToken = resolvePushWhenActiveAnsweredDeviceToken(
+      explicitAnsweredDeviceToken: answeredDeviceToken,
+      activeConfig: _storedCredentialConfig ?? _storedTokenConfig,
+    );
+    if (answeredDeviceToken != resolvedAnsweredDeviceToken &&
+        resolvedAnsweredDeviceToken != null) {
+      GlobalLogger().i(
+        'TelnyxClient.acceptCall: pushWhenActive enabled, '
+        'auto-populated answeredDeviceToken from stored config',
+      );
+    }
+    answeredDeviceToken = resolvedAnsweredDeviceToken;
+
     final Call answerCall = getCallOrNull(invite.callID!) ?? _createCall()
       ..callId = invite.callID
       ..sessionCallerName = callerName
