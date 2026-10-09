@@ -112,11 +112,26 @@ class Peer {
   static const int _negotiationTimeout = 300; // 300ms timeout for negotiation
   Function()? _onNegotiationComplete;
 
-  // Add trickle ICE end-of-candidates timer fields
+  // Add trickle ICE end-of-candidates timer fields.
+  // This is a SAFETY-NET fallback timer only — the primary end-of-candidates
+  // signal is `RTCIceGatheringStateComplete` (handled in `onIceGatheringState`).
+  // We keep a bounded fallback because (a) some platforms never fire the
+  // complete state under relay/srflx gather, and (b) on macOS in particular,
+  // gathering a usable relay/srflx candidate can take noticeably longer than
+  // the previous 500ms window, which used to prematurely end the candidate
+  // stream and drop the late relay route — see VSUP-279 / GH #297.
   Timer? _trickleIceTimer;
-  static const int _trickleIceTimeout = 500; // 500ms timeout for trickle ICE
+  static const int _trickleIceFallbackTimeoutMs =
+      5000; // 5s fallback after the last candidate
   String? _currentTrickleCallId;
   bool _endOfCandidatesSent = false;
+
+  /// Test seam: exposes the trickle ICE fallback timeout so tests can guard
+  /// against silent regressions of the macOS gather race fix (VSUP-279).
+  /// Production callers should NOT depend on this value — the primary
+  /// end-of-candidates signal is `RTCIceGatheringStateComplete`.
+  @visibleForTesting
+  static int get trickleIceFallbackTimeoutMs => _trickleIceFallbackTimeoutMs;
 
   final Map<String, Session> _sessions = {};
 
@@ -1198,7 +1213,9 @@ class Peer {
           }
           _sendTrickleCandidate(candidate, callId);
 
-          // Reset the trickle ICE timer when a candidate is generated
+          // (Re)arm the trickle ICE FALLBACK timer. The primary signal is
+          // `RTCIceGatheringStateComplete`; this is only a safety net for
+          // platforms/networks where that callback never fires (VSUP-279).
           _startTrickleIceTimer(callId);
         } else {
           // Traditional ICE: filter and collect candidates
@@ -1386,6 +1403,17 @@ class Peer {
             callId,
             LatencyTracker.milestoneIceGatheringComplete,
           );
+          // Primary trickle-ICE end-of-candidates signal.
+          // The null-candidate callback (see onIceCandidate) and this gathering
+          // state callback both route through `_sendEndOfCandidatesAndCleanup`,
+          // which is idempotent via `_endOfCandidatesSent`. This replaces the
+          // previous 500ms inactivity timer that could fire BEFORE gathering
+          // actually completed on macOS for slow relay/srflx candidates — see
+          // VSUP-279 / GH #297. The 5s fallback timer still runs as a safety
+          // net for platforms where the complete state never fires.
+          if (_useTrickleIce) {
+            _sendEndOfCandidatesAndCleanup(callId);
+          }
           break;
         default:
           break;
@@ -1772,8 +1800,17 @@ class Peer {
     _negotiationTimer = null;
   }
 
-  /// Starts/resets the trickle ICE timer that sends endOfCandidates after inactivity
-  /// Uses a single delayed timer instead of periodic polling for better efficiency.
+  /// Starts/resets the trickle ICE FALLBACK timer.
+  ///
+  /// This is a safety-net only — the primary end-of-candidates signal is the
+  /// `RTCIceGatheringStateComplete` callback in `onIceGatheringState`. If the
+  /// complete state never fires for a given platform/network, this timer
+  /// guarantees we still emit end-of-candidates within
+  /// `_trickleIceFallbackTimeoutMs` of the last candidate.
+  ///
+  /// Uses a single delayed timer instead of periodic polling for efficiency.
+  /// Idempotent w.r.t. `_sendEndOfCandidatesAndCleanup` via the
+  /// `_endOfCandidatesSent` flag.
   void _startTrickleIceTimer(String callId) {
     // If this is a new call, initialize the call ID and reset flags
     if (_currentTrickleCallId != callId) {
@@ -1781,14 +1818,21 @@ class Peer {
       _endOfCandidatesSent = false;
     }
 
+    // If end-of-candidates has already been sent (e.g. via the gathering
+    // state callback), do not re-arm the fallback timer.
+    if (_endOfCandidatesSent) {
+      return;
+    }
+
     // Cancel existing timer and start a fresh one (resets on each candidate)
     _trickleIceTimer?.cancel();
     _trickleIceTimer = Timer(
-      const Duration(milliseconds: _trickleIceTimeout),
+      const Duration(milliseconds: _trickleIceFallbackTimeoutMs),
       () {
         if (!_endOfCandidatesSent && _currentTrickleCallId != null) {
-          GlobalLogger()
-              .i('Trickle ICE timeout reached - sending end of candidates');
+          GlobalLogger().i(
+            'Trickle ICE fallback timeout reached (${_trickleIceFallbackTimeoutMs}ms) - sending end of candidates',
+          );
           _sendEndOfCandidatesAndCleanup(_currentTrickleCallId!);
         }
       },

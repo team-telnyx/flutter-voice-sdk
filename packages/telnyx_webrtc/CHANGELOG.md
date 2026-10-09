@@ -1,3 +1,7 @@
+## [Unreleased]
+### Bug Fix
+- Fixed macOS trickle ICE race that could end the candidate stream before late relay/srflx candidates arrived (VSUP-279 / GH #297) — the primary end-of-candidates signal is now `RTCIceGatheringStateComplete`, with the per-candidate timer demoted to a 5-second bounded safety-net fallback
+
 ## [4.5.0](https://pub.dev/packages/telnyx_webrtc/versions/4.5.0) (2026-10-12)
 ### Enhancement
 - Added structured error and warning reporting matching the JS SDK. Listen on `TelnyxClient.errors`, `warnings`, `fatalErrors` and `recoverableErrors`; existing callbacks still fire
@@ -13,6 +17,7 @@
 - Fall back to the default ICE servers when the server-provided configuration contains entries with empty URLs
 - Example app: prevent the same incoming call from being accepted twice
 - Example app (iOS): harden CallKit audio activation so answered calls don't end up without audio
+
 
 ## [4.4.0](https://pub.dev/packages/telnyx_webrtc/versions/4.4.0) (2026-07-08)
 ### Bug Fix
