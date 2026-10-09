@@ -3,6 +3,7 @@
 # The PR updates:
 # - packages/telnyx_webrtc/pubspec.yaml
 # - packages/telnyx_webrtc/lib/utils/version_utils.dart
+# - lib/utils/version_utils.dart
 #
 # The CHANGELOG section is intentionally written/reviewed by a human in the
 # generated release PR. The workflow puts the merged PR list in the PR body as
@@ -62,6 +63,16 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure release branch does not already exist
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "release/$VERSION" >/dev/null; then
+            echo "release/$VERSION already exists; update that PR instead of re-running release-01" >&2
+            exit 1
+          fi
 
       - name: Ensure release tag does not exist
         env:
@@ -154,6 +165,7 @@ jobs:
             ## Release checklist
             - [ ] Confirm version bump in `packages/telnyx_webrtc/pubspec.yaml`
             - [ ] Confirm SDK user-agent version in `packages/telnyx_webrtc/lib/utils/version_utils.dart`
+            - [ ] Confirm demo/root SDK fallback version in `lib/utils/version_utils.dart`
             - [ ] Add/update the customer-facing section in `packages/telnyx_webrtc/CHANGELOG.md`
             - [ ] After merge, run `release-03-create-gh-release` with version `${{ steps.release.outputs.version }}`
           branch: release/${{ steps.release.outputs.version }}

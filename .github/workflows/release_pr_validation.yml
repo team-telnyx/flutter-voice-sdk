@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   check:
     if: startsWith(github.head_ref, 'release/')
@@ -11,8 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - env:
-          VERSION: ${{ github.head_ref }}
+          BRANCH: ${{ github.head_ref }}
         run: |
-          VERSION="${VERSION#release/}"
-          grep -q "^## \[$VERSION\]" packages/telnyx_webrtc/CHANGELOG.md \
-            || { echo "Add a '## [$VERSION]' section to CHANGELOG.md" >&2; exit 1; }
+          set -euo pipefail
+          VERSION="${BRANCH#release/}"
+          PKG=packages/telnyx_webrtc
+          grep -qxF "version: $VERSION" "$PKG/pubspec.yaml" \
+            || { echo "pubspec.yaml is not $VERSION" >&2; exit 1; }
+          for f in "$PKG/lib/utils/version_utils.dart" lib/utils/version_utils.dart; do
+            grep -qF "_sdkVersion = '$VERSION';" "$f" || { echo "$f is not $VERSION" >&2; exit 1; }
+          done
+          awk -v h="## [$VERSION]" 'index($0, h) == 1 {found=1} END {exit !found}' "$PKG/CHANGELOG.md" \
+            || { echo "Add a '## [$VERSION]' section to $PKG/CHANGELOG.md" >&2; exit 1; }

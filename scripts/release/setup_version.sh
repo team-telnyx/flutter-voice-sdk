@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="$1"
+VERSION="${1:-}"
+[[ -n "$VERSION" ]] || { echo "usage: $0 <version>" >&2; exit 1; }
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
   echo "Invalid version: $VERSION" >&2
   exit 1
