@@ -99,6 +99,18 @@ jobs:
             exit 1
           fi
 
+      - name: Sync Linear release
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: sync
+          version: ${{ steps.release.outputs.version }}
+          name: Flutter Voice SDK ${{ steps.release.outputs.version }}
+          release_notes: release_body.md
+          links: |
+            GitHub Release=${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ steps.release.outputs.tag }}
+            Workflow Run=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -113,6 +125,13 @@ jobs:
             args+=(--prerelease)
           fi
           gh release create "${args[@]}"
+
+      - name: Complete Linear release
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: complete
+          version: ${{ steps.release.outputs.version }}
 
       - name: Start pub.dev publish
         env:
