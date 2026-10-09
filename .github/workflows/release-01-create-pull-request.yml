@@ -8,6 +8,9 @@
 # Requires RELEASE_AUTOMATION_TOKEN to be a PAT or GitHub App token with contents
 # and pull-request write access. Using GITHUB_TOKEN here would create a release PR
 # whose CI workflows do not run.
+#
+# Note: Flutter intentionally skips release-02 because this repo does not have the
+# iOS docs-generation release step.
 name: release-01-create-pull-request
 
 on:
@@ -143,4 +146,3 @@ jobs:
           branch: release/${{ steps.release.outputs.version }}
           base: main
           delete-branch: true
-          labels: auto-generated,release

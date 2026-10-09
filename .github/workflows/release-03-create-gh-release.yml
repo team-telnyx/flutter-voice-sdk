@@ -3,6 +3,9 @@
 # Requires RELEASE_AUTOMATION_TOKEN to be a PAT or GitHub App token with contents
 # write access. The resulting tag push triggers publish.yml; GITHUB_TOKEN-created
 # tags would not trigger the pub.dev publish workflow.
+#
+# Run this immediately after merging the generated release PR. If unrelated commits
+# reach main first, rerun release-01 so the changelog and tag cover the same range.
 name: release-03-create-gh-release
 
 on:
