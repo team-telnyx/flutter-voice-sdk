@@ -91,11 +91,17 @@ class UserVariables {
   bool? pushWhenActive;
   bool? pnLateFanout;
 
+  /// Overrides the `push_notification_environment` value emitted on the login
+  /// payload. When non-null, the SDK uses this value verbatim; when null,
+  /// the SDK falls back to `kDebugMode ? 'debug' : 'production'`.
+  String? pushNotificationEnvironment;
+
   UserVariables({
     this.pushDeviceToken,
     this.pushNotificationProvider,
     this.pushWhenActive,
     this.pnLateFanout,
+    this.pushNotificationEnvironment,
   });
 
   UserVariables.fromJson(Map<String, dynamic> json)
@@ -103,6 +109,7 @@ class UserVariables {
         pnLateFanout = _jsonBool(json['pn_late_fanout']) {
     pushDeviceToken = json['push_device_token'];
     pushNotificationProvider = json['push_notification_provider'];
+    pushNotificationEnvironment = json['push_notification_environment'];
   }
 
   static bool? _jsonBool(dynamic value) {
@@ -115,7 +122,13 @@ class UserVariables {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['push_device_token'] = pushDeviceToken;
     data['push_notification_provider'] = pushNotificationProvider;
-    const String pushEnvironment = kDebugMode ? 'debug' : 'production';
+    // push_notification_environment defaults to a `kDebugMode`-derived value
+    // for backwards compatibility; callers that build a UserVariables
+    // directly (e.g. from the telnyx_client) can override via
+    // [pushNotificationEnvironment] when the actual APNs / FCM environment
+    // does not match the Flutter build mode (VSUP-278).
+    final String pushEnvironment =
+        pushNotificationEnvironment ?? (kDebugMode ? 'debug' : 'production');
     data['push_notification_environment'] = pushEnvironment;
     GlobalLogger().d('pushEnvironment: $pushEnvironment');
     // Only emit login-level opt-in flags when they have been set so existing

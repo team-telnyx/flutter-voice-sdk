@@ -123,12 +123,14 @@ UserVariables _pushUserVariables({
   required String pushNotificationProvider,
   bool? pushWhenActive,
   bool? pnLateFanout,
+  String? pushNotificationEnvironment,
 }) {
   return UserVariables(
     pushDeviceToken: pushDeviceToken,
     pushNotificationProvider: pushNotificationProvider,
     pushWhenActive: pushWhenActive,
     pnLateFanout: pnLateFanout,
+    pushNotificationEnvironment: pushNotificationEnvironment,
   );
 }
 
@@ -1691,6 +1693,10 @@ class TelnyxClient {
       // for callers who never set the flag (Android/iOS opt-in parity).
       pushWhenActive: config.pushWhenActive ? true : null,
       pnLateFanout: config.pushWhenActive ? true : null,
+      // VSUP-278: forward the configurable APNs/FCM environment so release
+      // builds signed with a development entitlement advertise the correct
+      // push_notification_environment on the wire.
+      pushNotificationEnvironment: config.pushNotificationEnvironment,
     );
 
     final loginParams = LoginParams(
@@ -1739,6 +1745,10 @@ class TelnyxClient {
       // for callers who never set the flag (Android/iOS opt-in parity).
       pushWhenActive: config.pushWhenActive ? true : null,
       pnLateFanout: config.pushWhenActive ? true : null,
+      // VSUP-278: forward the configurable APNs/FCM environment so release
+      // builds signed with a development entitlement advertise the correct
+      // push_notification_environment on the wire.
+      pushNotificationEnvironment: config.pushNotificationEnvironment,
     );
 
     final loginParams = LoginParams(
@@ -2245,6 +2255,10 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        // VSUP-278: forward the configurable APNs/FCM environment so release
+        // builds signed with a development entitlement advertise the correct
+        // push_notification_environment on the wire.
+        pushNotificationEnvironment: config.pushNotificationEnvironment,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = _pushUserVariables(
@@ -2255,6 +2269,10 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        // VSUP-278: forward the configurable APNs/FCM environment so release
+        // builds signed with a development entitlement advertise the correct
+        // push_notification_environment on the wire.
+        pushNotificationEnvironment: config.pushNotificationEnvironment,
       );
     }
 
@@ -2313,6 +2331,10 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        // VSUP-278: forward the configurable APNs/FCM environment so release
+        // builds signed with a development entitlement advertise the correct
+        // push_notification_environment on the wire.
+        pushNotificationEnvironment: config.pushNotificationEnvironment,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = _pushUserVariables(
@@ -2323,6 +2345,10 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        // VSUP-278: forward the configurable APNs/FCM environment so release
+        // builds signed with a development entitlement advertise the correct
+        // push_notification_environment on the wire.
+        pushNotificationEnvironment: config.pushNotificationEnvironment,
       );
     }
 
@@ -2692,7 +2718,8 @@ class TelnyxClient {
     // parameter always wins when non-blank so callers retain override control.
     // Blank and whitespace-only values are ignored so the wire payload never
     // carries an unusable `answered_device_token`.
-    final resolvedAnsweredDeviceToken = resolvePushWhenActiveAnsweredDeviceToken(
+    final resolvedAnsweredDeviceToken =
+        resolvePushWhenActiveAnsweredDeviceToken(
       explicitAnsweredDeviceToken: answeredDeviceToken,
       activeConfig: _storedCredentialConfig ?? _storedTokenConfig,
     );
@@ -3155,6 +3182,7 @@ class TelnyxClient {
       enableStructuredErrors: c.enableStructuredErrors,
       enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
       mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+      pushNotificationEnvironment: c.pushNotificationEnvironment,
     );
   }
 
@@ -3196,6 +3224,7 @@ class TelnyxClient {
       enableStructuredErrors: c.enableStructuredErrors,
       enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
       mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+      pushNotificationEnvironment: c.pushNotificationEnvironment,
     );
   }
 
@@ -3304,8 +3333,18 @@ class TelnyxClient {
                             defaultTargetPlatform == TargetPlatform.android
                                 ? 'android'
                                 : 'ios';
-                        const String pushEnvironment =
-                            kDebugMode ? 'development' : 'production';
+                        // VSUP-278: prefer the caller-supplied
+                        // push_notification_environment (set on the active
+                        // CredentialConfig / TokenConfig) so a `--release`
+                        // build signed with a development APNs entitlement
+                        // advertises `development` on the wire; fall back to
+                        // the legacy `kDebugMode`-derived value when the
+                        // caller did not set the override.
+                        final Config? attachConfig =
+                            _storedCredentialConfig ?? _storedTokenConfig;
+                        final String pushEnvironment =
+                            attachConfig?.pushNotificationEnvironment ??
+                                (kDebugMode ? 'development' : 'production');
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
                           method: SocketMethod.attachCall,
