@@ -43,9 +43,19 @@ jobs:
         env:
           RELEASE_VERSION: ${{ github.event.inputs.version }}
         run: |
-          python3 scripts/release/update_flutter_release.py normalize \
-            --version "$RELEASE_VERSION" \
-            --github-output "$GITHUB_OUTPUT"
+          set -euo pipefail
+          VERSION="${RELEASE_VERSION#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid version: $RELEASE_VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Check out the release PR merge commit
         env:
@@ -63,19 +73,33 @@ jobs:
           git checkout --detach "$sha"
 
       - name: Validate merged release files
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
-          python3 scripts/release/update_flutter_release.py validate \
-            --version "${{ steps.release.outputs.version }}"
-          if git rev-parse "${{ steps.release.outputs.tag }}" >/dev/null 2>&1; then
-            echo "Tag ${{ steps.release.outputs.tag }} already exists" >&2
+          set -euo pipefail
+          grep -qx "version: $VERSION" packages/telnyx_webrtc/pubspec.yaml
+          grep -qx "  static const String _sdkVersion = '$VERSION';" packages/telnyx_webrtc/lib/utils/version_utils.dart
+          grep -q "^## \[$VERSION\]" packages/telnyx_webrtc/CHANGELOG.md
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists" >&2
             exit 1
           fi
 
       - name: Build release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
-          python3 scripts/release/update_flutter_release.py release-notes \
-            --version "${{ steps.release.outputs.version }}" \
-            --output release_body.md
+          set -euo pipefail
+          awk -v version="$VERSION" '
+            $0 ~ "^## \\[" version "\\]" {capture=1}
+            capture && NR > 1 && $0 ~ /^## \[/ {exit}
+            capture {print}
+          ' packages/telnyx_webrtc/CHANGELOG.md > release_body.md
+          if [[ ! -s release_body.md ]]; then
+            echo "No CHANGELOG section found for $VERSION" >&2
+            exit 1
+          fi
 
       - name: Create GitHub Release
         env:
