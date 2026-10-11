@@ -1,3 +1,19 @@
+## [4.5.0](https://pub.dev/packages/telnyx_webrtc/versions/4.5.0) (2026-10-12)
+### Enhancement
+- Added structured error and warning reporting matching the JS SDK. Listen on `TelnyxClient.errors`, `warnings`, `fatalErrors` and `recoverableErrors`; existing callbacks still fire
+- Added `PreCallDiagnostic`, which places a test call and returns a `DiagnosticReport` with MOS, jitter, RTT and ICE candidate details
+- Added signaling health monitoring that coordinates connection probes, ICE restart and socket reconnect, plus real-time call quality warnings via `QualityWarningMonitor`
+- Added opt-in microphone-permission recovery for inbound calls via `MediaPermissionsRecoveryConfig`
+- Added `pushWhenActive` to `CredentialConfig` and `TokenConfig`. When enabled with a `notificationToken`, answers include `answered_device_token` so the call is dismissed on the user's other devices
+- Added a `TOKEN_EXPIRING_SOON` warning 120 seconds before a login token expires
+- Extended call reports with a client configuration summary, transport and codec details, extended RTP/RTCP stats, and VPN-path detection with relay-only recovery
+- Added a diagnostics view to the example app
+
+### Bug Fixing
+- Fall back to the default ICE servers when the server-provided configuration contains entries with empty URLs
+- Example app: prevent the same incoming call from being accepted twice
+- Example app (iOS): harden CallKit audio activation so answered calls don't end up without audio
+
 ## [4.4.0](https://pub.dev/packages/telnyx_webrtc/versions/4.4.0) (2026-07-08)
 ### Bug Fix
 - Fixed `AudioService.stopAudio()` disposing the reusable audio player, causing unstable ringtone/ringback playback on subsequent calls
