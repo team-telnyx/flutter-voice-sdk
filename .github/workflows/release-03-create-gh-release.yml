@@ -99,7 +99,11 @@ jobs:
             exit 1
           fi
 
+      # Linear is best-effort: a Linear outage or a bad LINEAR_ACCESS_KEY must not block
+      # or half-finish the SDK release. Failures show as a warning on the run.
       - name: Sync Linear release
+        id: linear_sync
+        continue-on-error: true
         uses: linear/linear-release-action@v0
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
@@ -126,13 +130,6 @@ jobs:
           fi
           gh release create "${args[@]}"
 
-      - name: Complete Linear release
-        uses: linear/linear-release-action@v0
-        with:
-          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
-          command: complete
-          version: ${{ steps.release.outputs.version }}
-
       - name: Start pub.dev publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -141,3 +138,17 @@ jobs:
           set -euo pipefail
           gh workflow run publish.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
           echo "Started 'Publish to pub.dev' on $TAG"
+
+      - name: Complete Linear release
+        if: steps.linear_sync.outcome == 'success'
+        continue-on-error: true
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: complete
+          version: ${{ steps.release.outputs.version }}
+
+      - name: Report Linear sync failure
+        if: steps.linear_sync.outcome == 'failure'
+        run: |
+          echo "::warning::Linear release sync failed (check the LINEAR_ACCESS_KEY secret). The GitHub Release and pub.dev publish went ahead; sync this version to Linear manually."
