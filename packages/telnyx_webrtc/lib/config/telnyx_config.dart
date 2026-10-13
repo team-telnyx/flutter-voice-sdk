@@ -7,6 +7,7 @@ import 'package:telnyx_webrtc/model/tx_server_configuration.dart';
 import 'package:telnyx_webrtc/model/errors/media_permissions_recovery_config.dart';
 import 'package:telnyx_webrtc/config/debug_output.dart';
 import 'package:telnyx_webrtc/config/debug_log_level.dart';
+import 'package:telnyx_webrtc/utils/version_utils.dart';
 
 // Re-export MediaPermissionsRecoveryConfig so consumers can configure inbound
 // media-permission recovery from telnyx_config.dart directly.
@@ -59,7 +60,13 @@ class Config {
     this.enableStructuredErrors = true,
     this.enableSignalingHealthMonitor = true,
     this.mediaPermissionsRecovery,
-  });
+    this.mobileSdkName,
+    this.mobileSdkVersion,
+  }) : assert(
+          (mobileSdkName == null) == (mobileSdkVersion == null),
+          'mobileSdkName and mobileSdkVersion must be set together (both null '
+          'or both non-null). Partial overrides are not allowed.',
+        );
 
   /// Name associated with the SIP account
   final String sipCallerIDName;
@@ -215,6 +222,50 @@ class Config {
   /// prompt the user to fix permissions and then `resume()` the call.
   final MediaPermissionsRecoveryConfig? mediaPermissionsRecovery;
 
+  /// Override for the SDK name emitted on the wire as `mobile_sdk_name`.
+  ///
+  /// When `null` (default), the SDK emits `flutter`. Higher-level wrapper
+  /// libraries (e.g. Telnyx Flutter Commons) can set this together with
+  /// [mobileSdkVersion] to identify their own identity to the backend.
+  ///
+  /// MUST be set together with [mobileSdkVersion] (both null or both non-null).
+  /// Partial overrides are rejected at construction time via an `assert`.
+  ///
+  /// See [VSDK-769] ([flutter-voice-sdk#335] context).
+  ///
+  /// [flutter-voice-sdk#335]: https://github.com/team-telnyx/flutter-voice-sdk/issues/335
+  final String? mobileSdkName;
+
+  /// Override for the SDK version emitted on the wire as `mobile_sdk_version`.
+  ///
+  /// When `null` (default), the SDK emits the authoritative package version
+  /// ([VersionUtils.getSDKVersion]). Higher-level wrapper libraries can set
+  /// this together with [mobileSdkName] to identify their own identity.
+  ///
+  /// MUST be set together with [mobileSdkName] (both null or both non-null).
+  /// Partial overrides are rejected at construction time via an `assert`.
+  ///
+  /// See [VSDK-769] ([flutter-voice-sdk#335] context).
+  ///
+  /// [flutter-voice-sdk#335]: https://github.com/team-telnyx/flutter-voice-sdk/issues/335
+  final String? mobileSdkVersion;
+
+  /// Returns the SDK name to emit on the wire.
+  ///
+  /// Resolves to the override [mobileSdkName] when supplied; otherwise to the
+  /// canonical default `flutter`. Use this in serializers to avoid leaking the
+  /// `null` override into the wire payload.
+  String get effectiveSdkName => mobileSdkName ?? 'flutter';
+
+  /// Returns the SDK version to emit on the wire.
+  ///
+  /// Resolves to the override [mobileSdkVersion] when supplied; otherwise to
+  /// the authoritative package version from [VersionUtils.getSDKVersion]. Use
+  /// this in serializers to avoid leaking the `null` override into the wire
+  /// payload.
+  String get effectiveSdkVersion =>
+      mobileSdkVersion ?? VersionUtils.getSDKVersion();
+
   /// Apply the [debugLogLevel] to the GlobalLogger by setting a level filter.
   /// Messages below the configured level are suppressed.
   void applyDebugLogLevel() {
@@ -245,6 +296,7 @@ class Config {
 /// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
 /// [iceServers] custom ICE servers for WebRTC peer connections
 /// [serverConfiguration] server configuration for signaling and ICE servers
+/// [mobileSdkName] / [mobileSdkVersion] optional identity override for the SDK (both must be set together)
 class CredentialConfig extends Config {
   /// Creates an instance of CredentialConfig which can be used to log in
   ///
@@ -298,6 +350,8 @@ class CredentialConfig extends Config {
     super.enableStructuredErrors = true,
     super.enableSignalingHealthMonitor = true,
     super.mediaPermissionsRecovery,
+    super.mobileSdkName,
+    super.mobileSdkVersion,
   });
 
   /// SIP username to log in with. Either a SIP Credential from the Portal or a Generated Credential from the API
@@ -323,6 +377,7 @@ class CredentialConfig extends Config {
 /// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
 /// [iceServers] custom ICE servers for WebRTC peer connections
 /// [serverConfiguration] server configuration for signaling and ICE servers
+/// [mobileSdkName] / [mobileSdkVersion] optional identity override for the SDK (both must be set together)
 class TokenConfig extends Config {
   /// Creates an instance of TokenConfig which can be used to log in
   ///
@@ -375,6 +430,8 @@ class TokenConfig extends Config {
     super.enableStructuredErrors = true,
     super.enableSignalingHealthMonitor = true,
     super.mediaPermissionsRecovery,
+    super.mobileSdkName,
+    super.mobileSdkVersion,
   });
 
   /// Token to log in with. The token would be generated from a Generated Credential via the API
