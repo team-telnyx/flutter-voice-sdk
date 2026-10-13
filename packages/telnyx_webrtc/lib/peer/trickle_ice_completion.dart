@@ -13,8 +13,10 @@ final class TrickleIceCompletion {
     _completed = false;
   }
 
-  /// Returns whether completion should be signaled for [callId].
-  bool shouldSignal(String callId) {
+  /// Marks completion as signaled for [callId] and returns whether the caller
+  /// should signal it: true once per gathering, false for another call or a
+  /// repeat.
+  bool trySignal(String callId) {
     if (_callId != callId || _completed) {
       return false;
     }

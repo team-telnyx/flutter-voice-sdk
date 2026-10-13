@@ -1784,7 +1784,7 @@ class Peer {
 
   /// Sends end-of-candidates exactly once after WebRTC reports completion.
   void _sendEndOfCandidatesIfComplete(String callId) {
-    if (_trickleIceCompletion.shouldSignal(callId)) {
+    if (_trickleIceCompletion.trySignal(callId)) {
       CallTimingBenchmark.mark('ice_gathering_complete');
       _sendEndOfCandidates(callId);
       GlobalLogger().i(
