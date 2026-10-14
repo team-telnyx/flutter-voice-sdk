@@ -91,11 +91,26 @@ class UserVariables {
   bool? pushWhenActive;
   bool? pnLateFanout;
 
+  /// SDK identity name emitted on the wire as `mobile_sdk_name`.
+  ///
+  /// Resolved from [Config.effectiveSdkName] (defaults to `flutter` when the
+  /// caller does not supply an override). See VSDK-769.
+  String? mobileSdkName;
+
+  /// SDK identity version emitted on the wire as `mobile_sdk_version`.
+  ///
+  /// Resolved from [Config.effectiveSdkVersion] (defaults to the authoritative
+  /// package version when the caller does not supply an override). See
+  /// VSDK-769.
+  String? mobileSdkVersion;
+
   UserVariables({
     this.pushDeviceToken,
     this.pushNotificationProvider,
     this.pushWhenActive,
     this.pnLateFanout,
+    this.mobileSdkName,
+    this.mobileSdkVersion,
   });
 
   UserVariables.fromJson(Map<String, dynamic> json)
@@ -103,6 +118,8 @@ class UserVariables {
         pnLateFanout = _jsonBool(json['pn_late_fanout']) {
     pushDeviceToken = json['push_device_token'];
     pushNotificationProvider = json['push_notification_provider'];
+    mobileSdkName = json['mobile_sdk_name'];
+    mobileSdkVersion = json['mobile_sdk_version'];
   }
 
   static bool? _jsonBool(dynamic value) {
@@ -118,6 +135,16 @@ class UserVariables {
     const String pushEnvironment = kDebugMode ? 'debug' : 'production';
     data['push_notification_environment'] = pushEnvironment;
     GlobalLogger().d('pushEnvironment: $pushEnvironment');
+    // Mobile SDK identity (VSDK-769) — `mobile_sdk_name` and
+    // `mobile_sdk_version` are always emitted together. Defaults are resolved
+    // at the SDK layer (Config.effectiveSdkName / effectiveSdkVersion) so this
+    // serializer never has to special-case the override path.
+    if (mobileSdkName != null) {
+      data['mobile_sdk_name'] = mobileSdkName;
+    }
+    if (mobileSdkVersion != null) {
+      data['mobile_sdk_version'] = mobileSdkVersion;
+    }
     // Only emit login-level opt-in flags when they have been set so existing
     // apps (which never set them) keep their current login payload shape.
     if (pushWhenActive != null) {

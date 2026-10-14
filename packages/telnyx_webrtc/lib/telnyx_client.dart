@@ -123,12 +123,16 @@ UserVariables _pushUserVariables({
   required String pushNotificationProvider,
   bool? pushWhenActive,
   bool? pnLateFanout,
+  String? mobileSdkName,
+  String? mobileSdkVersion,
 }) {
   return UserVariables(
     pushDeviceToken: pushDeviceToken,
     pushNotificationProvider: pushNotificationProvider,
     pushWhenActive: pushWhenActive,
     pnLateFanout: pnLateFanout,
+    mobileSdkName: mobileSdkName,
+    mobileSdkVersion: mobileSdkVersion,
   );
 }
 
@@ -1691,6 +1695,8 @@ class TelnyxClient {
       // for callers who never set the flag (Android/iOS opt-in parity).
       pushWhenActive: config.pushWhenActive ? true : null,
       pnLateFanout: config.pushWhenActive ? true : null,
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
 
     final loginParams = LoginParams(
@@ -1739,6 +1745,8 @@ class TelnyxClient {
       // for callers who never set the flag (Android/iOS opt-in parity).
       pushWhenActive: config.pushWhenActive ? true : null,
       pnLateFanout: config.pushWhenActive ? true : null,
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
 
     final loginParams = LoginParams(
@@ -2245,6 +2253,8 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        mobileSdkName: config.effectiveSdkName,
+        mobileSdkVersion: config.effectiveSdkVersion,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = _pushUserVariables(
@@ -2255,6 +2265,8 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        mobileSdkName: config.effectiveSdkName,
+        mobileSdkVersion: config.effectiveSdkVersion,
       );
     }
 
@@ -2313,6 +2325,8 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        mobileSdkName: config.effectiveSdkName,
+        mobileSdkVersion: config.effectiveSdkVersion,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = _pushUserVariables(
@@ -2323,6 +2337,8 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        mobileSdkName: config.effectiveSdkName,
+        mobileSdkVersion: config.effectiveSdkVersion,
       );
     }
 
@@ -2460,12 +2476,22 @@ class TelnyxClient {
 
     final userAgent = UserAgent(sdkVersion: versionData, data: userAgentData);
 
+    // Mobile SDK identity (VSDK-769). Inject `mobile_sdk_name` /
+    // `mobile_sdk_version` into the userVariables map so the SDK always
+    // identifies itself on the wire. Callers may still set their own identity
+    // by passing these keys — explicit caller keys win over SDK defaults.
+    final mergedUserVariables = <String, dynamic>{
+      'mobile_sdk_name': 'flutter',
+      'mobile_sdk_version': VersionUtils.getSDKVersion(),
+      if (userVariables != null) ...userVariables,
+    };
+
     final anonymousLoginParams = AnonymousLoginParams(
       targetType: targetType,
       targetId: targetId,
       targetVersionId: targetVersionId,
       conversationId: conversationId,
-      userVariables: userVariables,
+      userVariables: mergedUserVariables,
       reconnection: reconnection,
       userAgent: userAgent,
       sessionId: sessid,
@@ -2692,7 +2718,8 @@ class TelnyxClient {
     // parameter always wins when non-blank so callers retain override control.
     // Blank and whitespace-only values are ignored so the wire payload never
     // carries an unusable `answered_device_token`.
-    final resolvedAnsweredDeviceToken = resolvePushWhenActiveAnsweredDeviceToken(
+    final resolvedAnsweredDeviceToken =
+        resolvePushWhenActiveAnsweredDeviceToken(
       explicitAnsweredDeviceToken: answeredDeviceToken,
       activeConfig: _storedCredentialConfig ?? _storedTokenConfig,
     );
@@ -3306,15 +3333,28 @@ class TelnyxClient {
                                 : 'ios';
                         const String pushEnvironment =
                             kDebugMode ? 'development' : 'production';
+                        // Mobile SDK identity (VSDK-769). Resolve the identity
+                        // pair from the active login config (preferring the
+                        // credential config to match the wire convention used
+                        // elsewhere in this file). Falls back to the SDK
+                        // defaults when no override is present.
+                        final activeConfig =
+                            _storedCredentialConfig ?? _storedTokenConfig;
+                        final userVariablesMap = <dynamic, dynamic>{
+                          'push_notification_environment': pushEnvironment,
+                          'push_notification_provider': platform,
+                          'mobile_sdk_name':
+                              activeConfig?.effectiveSdkName ?? 'flutter',
+                          'mobile_sdk_version':
+                              activeConfig?.effectiveSdkVersion ??
+                                  VersionUtils.getSDKVersion(),
+                        };
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
                           method: SocketMethod.attachCall,
                           id: const Uuid().v4(),
                           params: Params(
-                            userVariables: <dynamic, dynamic>{
-                              'push_notification_environment': pushEnvironment,
-                              'push_notification_provider': platform,
-                            },
+                            userVariables: userVariablesMap,
                           ),
                           jsonrpc: '2.0',
                         );
