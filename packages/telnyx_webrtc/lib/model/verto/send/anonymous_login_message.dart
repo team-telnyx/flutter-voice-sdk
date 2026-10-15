@@ -36,6 +36,8 @@ class AnonymousLoginParams {
   bool? reconnection;
   UserAgent? userAgent;
   String? sessionId;
+  String? mobileSdkName;
+  String? mobileSdkVersion;
 
   AnonymousLoginParams({
     this.targetType,
@@ -46,6 +48,8 @@ class AnonymousLoginParams {
     this.reconnection,
     this.userAgent,
     this.sessionId,
+    this.mobileSdkName,
+    this.mobileSdkVersion,
   });
 
   AnonymousLoginParams.fromJson(Map<String, dynamic> json) {
@@ -59,6 +63,8 @@ class AnonymousLoginParams {
     userAgent = json['User-Agent'] != null
         ? UserAgent.fromJson(json['User-Agent'])
         : null;
+    mobileSdkName = json['mobile_sdk_name'];
+    mobileSdkVersion = json['mobile_sdk_version'];
   }
 
   Map<String, dynamic> toJson() {
@@ -80,6 +86,12 @@ class AnonymousLoginParams {
     }
     if (userAgent != null) {
       data['User-Agent'] = userAgent!.toJson();
+    }
+    if (mobileSdkName != null) {
+      data['mobile_sdk_name'] = mobileSdkName;
+    }
+    if (mobileSdkVersion != null) {
+      data['mobile_sdk_version'] = mobileSdkVersion;
     }
     return data;
   }

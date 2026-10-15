@@ -10,8 +10,9 @@ class InviteAnswerMessage {
     id = json['id'].toString();
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params =
-        json['params'] != null ? InviteParams.fromJson(json['params']) : null;
+    params = json['params'] != null
+        ? InviteParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -33,6 +34,8 @@ class InviteParams {
   String? userAgent;
   bool? trickle;
   String? answeredDeviceToken;
+  String? mobileSdkName;
+  String? mobileSdkVersion;
 
   InviteParams({
     this.dialogParams,
@@ -41,6 +44,8 @@ class InviteParams {
     this.userAgent,
     this.trickle,
     this.answeredDeviceToken,
+    this.mobileSdkName,
+    this.mobileSdkVersion,
   });
 
   InviteParams.fromJson(Map<String, dynamic> json) {
@@ -52,6 +57,8 @@ class InviteParams {
     userAgent = json['User-Agent'];
     trickle = json['trickle'];
     answeredDeviceToken = json['answered_device_token'];
+    mobileSdkName = json['mobile_sdk_name'];
+    mobileSdkVersion = json['mobile_sdk_version'];
   }
 
   Map<String, dynamic> toJson() {
@@ -69,6 +76,12 @@ class InviteParams {
     if (normalizedAnsweredDeviceToken != null &&
         normalizedAnsweredDeviceToken.isNotEmpty) {
       data['answered_device_token'] = normalizedAnsweredDeviceToken;
+    }
+    if (mobileSdkName != null) {
+      data['mobile_sdk_name'] = mobileSdkName;
+    }
+    if (mobileSdkVersion != null) {
+      data['mobile_sdk_version'] = mobileSdkVersion;
     }
     return data;
   }

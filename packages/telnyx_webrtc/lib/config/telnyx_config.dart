@@ -63,10 +63,10 @@ class Config {
     this.mobileSdkName,
     this.mobileSdkVersion,
   }) : assert(
-          (mobileSdkName == null) == (mobileSdkVersion == null),
-          'mobileSdkName and mobileSdkVersion must be set together (both null '
-          'or both non-null). Partial overrides are not allowed.',
-        );
+         (mobileSdkName == null) == (mobileSdkVersion == null),
+         'mobileSdkName and mobileSdkVersion must be set together (both null '
+         'or both non-null). Partial overrides are not allowed.',
+       );
 
   /// Name associated with the SIP account
   final String sipCallerIDName;
@@ -255,7 +255,7 @@ class Config {
   /// Resolves to the override [mobileSdkName] when supplied; otherwise to the
   /// canonical default `flutter`. Use this in serializers to avoid leaking the
   /// `null` override into the wire payload.
-  String get effectiveSdkName => mobileSdkName ?? 'flutter';
+  String get effectiveSdkName => mobileSdkName ?? 'webrtc-flutter';
 
   /// Returns the SDK version to emit on the wire.
   ///
