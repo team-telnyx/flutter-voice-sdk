@@ -23,22 +23,35 @@ class AttachCallMessage {
       );
 
   Map<dynamic, dynamic> toJson() => {
-        'method': method,
-        'id': id,
-        'params': params?.toJson(),
-        'jsonrpc': jsonrpc,
-      };
+    'method': method,
+    'id': id,
+    'params': params?.toJson(),
+    'jsonrpc': jsonrpc,
+  };
 }
 
 class Params {
-  Params({required this.userVariables});
+  Params({
+    required this.userVariables,
+    this.mobileSdkName,
+    this.mobileSdkVersion,
+  });
 
   Map<dynamic, dynamic> userVariables;
+  String? mobileSdkName;
+  String? mobileSdkVersion;
 
-  factory Params.fromJson(Map<dynamic, dynamic> json) =>
-      Params(userVariables: Map<dynamic, dynamic>.from(json['userVariables']));
+  factory Params.fromJson(Map<dynamic, dynamic> json) => Params(
+    userVariables: Map<dynamic, dynamic>.from(json['userVariables']),
+    mobileSdkName: json['mobile_sdk_name'],
+    mobileSdkVersion: json['mobile_sdk_version'],
+  );
 
-  Map<dynamic, dynamic> toJson() => {'userVariables': userVariables};
+  Map<dynamic, dynamic> toJson() => {
+    'userVariables': userVariables,
+    if (mobileSdkName != null) 'mobile_sdk_name': mobileSdkName,
+    if (mobileSdkVersion != null) 'mobile_sdk_version': mobileSdkVersion,
+  };
 }
 
 //        pushNotificationProvider: json["push_notification_provider"],

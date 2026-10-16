@@ -13,8 +13,9 @@ class LoginMessage {
     id = json['id'];
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params =
-        json['params'] != null ? LoginParams.fromJson(json['params']) : null;
+    params = json['params'] != null
+        ? LoginParams.fromJson(json['params'])
+        : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -37,6 +38,8 @@ class LoginParams {
   UserVariables? userVariables;
   String? sessionId;
   String? userAgent;
+  String? mobileSdkName;
+  String? mobileSdkVersion;
 
   LoginParams({
     this.login,
@@ -46,6 +49,8 @@ class LoginParams {
     this.userVariables,
     this.sessionId,
     this.userAgent,
+    this.mobileSdkName,
+    this.mobileSdkVersion,
   });
 
   LoginParams.fromJson(Map<String, dynamic> json) {
@@ -62,6 +67,8 @@ class LoginParams {
         ? UserVariables.fromJson(json['userVariables'])
         : null;
     userAgent = json['User-Agent'];
+    mobileSdkName = json['mobile_sdk_name'];
+    mobileSdkVersion = json['mobile_sdk_version'];
   }
 
   Map<String, dynamic> toJson() {
@@ -80,6 +87,12 @@ class LoginParams {
     }
     if (userAgent != null) {
       data['User-Agent'] = userAgent;
+    }
+    if (mobileSdkName != null) {
+      data['mobile_sdk_name'] = mobileSdkName;
+    }
+    if (mobileSdkVersion != null) {
+      data['mobile_sdk_version'] = mobileSdkVersion;
     }
     return data;
   }
@@ -114,8 +127,8 @@ class UserVariables {
   });
 
   UserVariables.fromJson(Map<String, dynamic> json)
-      : pushWhenActive = _jsonBool(json['push_when_active']),
-        pnLateFanout = _jsonBool(json['pn_late_fanout']) {
+    : pushWhenActive = _jsonBool(json['push_when_active']),
+      pnLateFanout = _jsonBool(json['pn_late_fanout']) {
     pushDeviceToken = json['push_device_token'];
     pushNotificationProvider = json['push_notification_provider'];
     mobileSdkName = json['mobile_sdk_name'];

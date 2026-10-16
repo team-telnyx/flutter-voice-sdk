@@ -2,7 +2,7 @@
 //
 // Verifies the SDK identity surface introduced by VSDK-769:
 // - `Config.effectiveSdkName` / `effectiveSdkVersion` resolve to defaults
-//   (`flutter` + `VersionUtils.getSDKVersion()`) when the override pair is not
+//   (`webrtc-flutter` + `VersionUtils.getSDKVersion()`) when the override pair is not
 //   supplied, and to the override when it is.
 // - Partial overrides (name without version or vice versa) are rejected at
 //   construction time via an `assert`.
@@ -13,6 +13,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:telnyx_webrtc/config/telnyx_config.dart';
 import 'package:telnyx_webrtc/model/verto/send/login_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/anonymous_login_message.dart';
+import 'package:telnyx_webrtc/model/verto/send/invite_answer_message_body.dart';
+import 'package:telnyx_webrtc/model/verto/send/attach_call_message.dart';
 import 'package:telnyx_webrtc/utils/logging/log_level.dart';
 import 'package:telnyx_webrtc/utils/version_utils.dart';
 
@@ -22,7 +25,7 @@ void main() {
   final sdkVersion = VersionUtils.getSDKVersion();
 
   group('Config SDK identity defaults', () {
-    test('CredentialConfig defaults to flutter + package version', () {
+    test('CredentialConfig defaults to webrtc-flutter + package version', () {
       final config = CredentialConfig(
         sipUser: 'user',
         sipPassword: 'pass',
@@ -34,11 +37,11 @@ void main() {
 
       expect(config.mobileSdkName, isNull);
       expect(config.mobileSdkVersion, isNull);
-      expect(config.effectiveSdkName, equals('flutter'));
+      expect(config.effectiveSdkName, equals('webrtc-flutter'));
       expect(config.effectiveSdkVersion, equals(sdkVersion));
     });
 
-    test('TokenConfig defaults to flutter + package version', () {
+    test('TokenConfig defaults to webrtc-flutter + package version', () {
       final config = TokenConfig(
         sipToken: 'token',
         sipCallerIDName: 'Test User',
@@ -49,7 +52,7 @@ void main() {
 
       expect(config.mobileSdkName, isNull);
       expect(config.mobileSdkVersion, isNull);
-      expect(config.effectiveSdkName, equals('flutter'));
+      expect(config.effectiveSdkName, equals('webrtc-flutter'));
       expect(config.effectiveSdkVersion, equals(sdkVersion));
     });
 
@@ -76,13 +79,13 @@ void main() {
         sipCallerIDNumber: '+123****7890',
         logLevel: LogLevel.debug,
         debug: false,
-        mobileSdkName: 'telnyx_flutter_commons',
+        mobileSdkName: 'webrtc-flutter-commons',
         mobileSdkVersion: '1.2.3',
       );
 
-      expect(config.mobileSdkName, equals('telnyx_flutter_commons'));
+      expect(config.mobileSdkName, equals('webrtc-flutter-commons'));
       expect(config.mobileSdkVersion, equals('1.2.3'));
-      expect(config.effectiveSdkName, equals('telnyx_flutter_commons'));
+      expect(config.effectiveSdkName, equals('webrtc-flutter-commons'));
       expect(config.effectiveSdkVersion, equals('1.2.3'));
     });
 
@@ -93,14 +96,66 @@ void main() {
         sipCallerIDNumber: '+123****7890',
         logLevel: LogLevel.debug,
         debug: false,
-        mobileSdkName: 'telnyx_flutter_commons',
+        mobileSdkName: 'webrtc-flutter-commons',
         mobileSdkVersion: '1.2.3',
       );
 
-      expect(config.mobileSdkName, equals('telnyx_flutter_commons'));
+      expect(config.mobileSdkName, equals('webrtc-flutter-commons'));
       expect(config.mobileSdkVersion, equals('1.2.3'));
-      expect(config.effectiveSdkName, equals('telnyx_flutter_commons'));
+      expect(config.effectiveSdkName, equals('webrtc-flutter-commons'));
       expect(config.effectiveSdkVersion, equals('1.2.3'));
+    });
+  });
+
+  group('top-level Verto params identity', () {
+    void expectIdentity(Map<dynamic, dynamic> params) {
+      expect(params['mobile_sdk_name'], equals('webrtc-flutter'));
+      expect(params['mobile_sdk_version'], equals(sdkVersion));
+    }
+
+    test('credential and token login params emit identity at top level', () {
+      for (final params in [
+        LoginParams(
+          login: 'user',
+          passwd: 'pass',
+          mobileSdkName: 'webrtc-flutter',
+          mobileSdkVersion: sdkVersion,
+        ),
+        LoginParams(
+          loginToken: 'token',
+          mobileSdkName: 'webrtc-flutter',
+          mobileSdkVersion: sdkVersion,
+        ),
+      ]) {
+        expectIdentity(params.toJson());
+      }
+    });
+
+    test('anonymous login params emit identity at top level', () {
+      expectIdentity(
+        AnonymousLoginParams(
+          targetType: 'ai_assistant',
+          targetId: 'target',
+          mobileSdkName: 'webrtc-flutter',
+          mobileSdkVersion: sdkVersion,
+        ).toJson(),
+      );
+    });
+
+    test('invite, answer, and attach params emit identity at top level', () {
+      expectIdentity(
+        InviteParams(
+          mobileSdkName: 'webrtc-flutter',
+          mobileSdkVersion: sdkVersion,
+        ).toJson(),
+      );
+      expectIdentity(
+        Params(
+          userVariables: const {},
+          mobileSdkName: 'webrtc-flutter',
+          mobileSdkVersion: sdkVersion,
+        ).toJson(),
+      );
     });
   });
 

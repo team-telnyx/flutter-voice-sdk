@@ -458,6 +458,8 @@ class Peer {
           sessid: session.sid,
           userAgent: userAgent,
           trickle: _useTrickleIce,
+          mobileSdkName: _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+          mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ?? VersionUtils.getSDKVersion(),
         );
 
         final inviteMessage = InviteAnswerMessage(
@@ -843,6 +845,8 @@ class Peer {
       userAgent: userAgent,
       trickle: _useTrickleIce,
       answeredDeviceToken: answeredDeviceToken,
+      mobileSdkName: _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+      mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ?? VersionUtils.getSDKVersion(),
     );
 
     final answerMessage = InviteAnswerMessage(

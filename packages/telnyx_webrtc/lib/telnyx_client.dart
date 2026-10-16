@@ -1024,6 +1024,9 @@ class TelnyxClient {
   /// The stored [TokenConfig] for the client - if no stored token is present, this will be null
   TokenConfig? get storedToken => _storedTokenConfig;
 
+  /// Active login configuration used to derive immutable SDK identity.
+  Config? get activeConfig => _storedCredentialConfig ?? _storedTokenConfig;
+
   /// The current widget settings from AI conversation
   WidgetSettings? get currentWidgetSettings => _currentWidgetSettings;
 
@@ -1706,6 +1709,8 @@ class TelnyxClient {
       sessionId: sessid,
       userVariables: notificationParams,
       userAgent: VersionUtils.getUserAgent(),
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -1755,6 +1760,8 @@ class TelnyxClient {
       userVariables: notificationParams,
       sessionId: sessid,
       userAgent: VersionUtils.getUserAgent(),
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -2277,6 +2284,8 @@ class TelnyxClient {
       sessionId: sessid,
       userVariables: notificationParams,
       userAgent: VersionUtils.getUserAgent(),
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -2348,6 +2357,8 @@ class TelnyxClient {
       userVariables: notificationParams,
       sessionId: sessid,
       userAgent: VersionUtils.getUserAgent(),
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -2481,7 +2492,7 @@ class TelnyxClient {
     // identifies itself on the wire. Callers may still set their own identity
     // by passing these keys — explicit caller keys win over SDK defaults.
     final mergedUserVariables = <String, dynamic>{
-      'mobile_sdk_name': 'flutter',
+      'mobile_sdk_name': 'webrtc-flutter',
       'mobile_sdk_version': VersionUtils.getSDKVersion(),
       if (userVariables != null) ...userVariables,
     };
@@ -2495,6 +2506,8 @@ class TelnyxClient {
       reconnection: reconnection,
       userAgent: userAgent,
       sessionId: sessid,
+      mobileSdkName: 'webrtc-flutter',
+      mobileSdkVersion: VersionUtils.getSDKVersion(),
     );
 
     final anonymousLoginMessage = AnonymousLoginMessage(
@@ -3344,7 +3357,7 @@ class TelnyxClient {
                           'push_notification_environment': pushEnvironment,
                           'push_notification_provider': platform,
                           'mobile_sdk_name':
-                              activeConfig?.effectiveSdkName ?? 'flutter',
+                              activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
                           'mobile_sdk_version':
                               activeConfig?.effectiveSdkVersion ??
                                   VersionUtils.getSDKVersion(),
@@ -3355,6 +3368,11 @@ class TelnyxClient {
                           id: const Uuid().v4(),
                           params: Params(
                             userVariables: userVariablesMap,
+                            mobileSdkName:
+                                activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+                            mobileSdkVersion:
+                                activeConfig?.effectiveSdkVersion ??
+                                    VersionUtils.getSDKVersion(),
                           ),
                           jsonrpc: '2.0',
                         );
