@@ -1,3 +1,10 @@
+## [4.5.1](https://pub.dev/packages/telnyx_webrtc/versions/4.5.1) (2026-10-20)
+### Enhancement
+- Added optional `mobileSdkName` / `mobileSdkVersion` overrides to `CredentialConfig` and `TokenConfig` so wrapper SDKs (e.g. Flutter-based frameworks) can report their own identity; defaults to `flutter` and the current SDK version
+
+### Bug Fixing
+- Fixed SDK identity so `mobile_sdk_name` and `mobile_sdk_version` are emitted at the top-level message params across all login, attach and anonymous-login messages
+
 ## [4.5.0](https://pub.dev/packages/telnyx_webrtc/versions/4.5.0) (2026-10-12)
 ### Enhancement
 - Added structured error and warning reporting matching the JS SDK. Listen on `TelnyxClient.errors`, `warnings`, `fatalErrors` and `recoverableErrors`; existing callbacks still fire
