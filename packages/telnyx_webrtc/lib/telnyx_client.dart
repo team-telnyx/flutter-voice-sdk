@@ -124,6 +124,8 @@ UserVariables _pushUserVariables({
   bool? pushWhenActive,
   bool? pnLateFanout,
   String? pushNotificationEnvironment,
+  String? mobileSdkName,
+  String? mobileSdkVersion,
 }) {
   return UserVariables(
     pushDeviceToken: pushDeviceToken,
@@ -131,6 +133,8 @@ UserVariables _pushUserVariables({
     pushWhenActive: pushWhenActive,
     pnLateFanout: pnLateFanout,
     pushNotificationEnvironment: pushNotificationEnvironment,
+    mobileSdkName: mobileSdkName,
+    mobileSdkVersion: mobileSdkVersion,
   );
 }
 
@@ -1022,6 +1026,9 @@ class TelnyxClient {
   /// The stored [TokenConfig] for the client - if no stored token is present, this will be null
   TokenConfig? get storedToken => _storedTokenConfig;
 
+  /// Active login configuration used to derive immutable SDK identity.
+  Config? get activeConfig => _storedCredentialConfig ?? _storedTokenConfig;
+
   /// The current widget settings from AI conversation
   WidgetSettings? get currentWidgetSettings => _currentWidgetSettings;
 
@@ -1697,6 +1704,8 @@ class TelnyxClient {
       // builds signed with a development entitlement advertise the correct
       // push_notification_environment on the wire.
       pushNotificationEnvironment: config.pushNotificationEnvironment,
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
 
     final loginParams = LoginParams(
@@ -1706,6 +1715,8 @@ class TelnyxClient {
       sessionId: sessid,
       userVariables: notificationParams,
       userAgent: VersionUtils.getUserAgent(),
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -1749,6 +1760,8 @@ class TelnyxClient {
       // builds signed with a development entitlement advertise the correct
       // push_notification_environment on the wire.
       pushNotificationEnvironment: config.pushNotificationEnvironment,
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
 
     final loginParams = LoginParams(
@@ -1757,6 +1770,8 @@ class TelnyxClient {
       userVariables: notificationParams,
       sessionId: sessid,
       userAgent: VersionUtils.getUserAgent(),
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -2259,6 +2274,8 @@ class TelnyxClient {
         // builds signed with a development entitlement advertise the correct
         // push_notification_environment on the wire.
         pushNotificationEnvironment: config.pushNotificationEnvironment,
+        mobileSdkName: config.effectiveSdkName,
+        mobileSdkVersion: config.effectiveSdkVersion,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = _pushUserVariables(
@@ -2273,6 +2290,8 @@ class TelnyxClient {
         // builds signed with a development entitlement advertise the correct
         // push_notification_environment on the wire.
         pushNotificationEnvironment: config.pushNotificationEnvironment,
+        mobileSdkName: config.effectiveSdkName,
+        mobileSdkVersion: config.effectiveSdkVersion,
       );
     }
 
@@ -2283,6 +2302,8 @@ class TelnyxClient {
       sessionId: sessid,
       userVariables: notificationParams,
       userAgent: VersionUtils.getUserAgent(),
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -2335,6 +2356,8 @@ class TelnyxClient {
         // builds signed with a development entitlement advertise the correct
         // push_notification_environment on the wire.
         pushNotificationEnvironment: config.pushNotificationEnvironment,
+        mobileSdkName: config.effectiveSdkName,
+        mobileSdkVersion: config.effectiveSdkVersion,
       );
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       notificationParams = _pushUserVariables(
@@ -2349,6 +2372,8 @@ class TelnyxClient {
         // builds signed with a development entitlement advertise the correct
         // push_notification_environment on the wire.
         pushNotificationEnvironment: config.pushNotificationEnvironment,
+        mobileSdkName: config.effectiveSdkName,
+        mobileSdkVersion: config.effectiveSdkVersion,
       );
     }
 
@@ -2358,6 +2383,8 @@ class TelnyxClient {
       userVariables: notificationParams,
       sessionId: sessid,
       userAgent: VersionUtils.getUserAgent(),
+      mobileSdkName: config.effectiveSdkName,
+      mobileSdkVersion: config.effectiveSdkVersion,
     );
     final loginMessage = LoginMessage(
       id: uuid,
@@ -2486,15 +2513,27 @@ class TelnyxClient {
 
     final userAgent = UserAgent(sdkVersion: versionData, data: userAgentData);
 
+    // Mobile SDK identity (VSDK-769). Inject `mobile_sdk_name` /
+    // `mobile_sdk_version` into the userVariables map so the SDK always
+    // identifies itself on the wire. Callers may still set their own identity
+    // by passing these keys — explicit caller keys win over SDK defaults.
+    final mergedUserVariables = <String, dynamic>{
+      'mobile_sdk_name': 'webrtc-flutter',
+      'mobile_sdk_version': VersionUtils.getSDKVersion(),
+      if (userVariables != null) ...userVariables,
+    };
+
     final anonymousLoginParams = AnonymousLoginParams(
       targetType: targetType,
       targetId: targetId,
       targetVersionId: targetVersionId,
       conversationId: conversationId,
-      userVariables: userVariables,
+      userVariables: mergedUserVariables,
       reconnection: reconnection,
       userAgent: userAgent,
       sessionId: sessid,
+      mobileSdkName: 'webrtc-flutter',
+      mobileSdkVersion: VersionUtils.getSDKVersion(),
     );
 
     final anonymousLoginMessage = AnonymousLoginMessage(
@@ -3183,6 +3222,8 @@ class TelnyxClient {
       enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
       mediaPermissionsRecovery: c.mediaPermissionsRecovery,
       pushNotificationEnvironment: c.pushNotificationEnvironment,
+      mobileSdkName: c.mobileSdkName,
+      mobileSdkVersion: c.mobileSdkVersion,
     );
   }
 
@@ -3225,6 +3266,8 @@ class TelnyxClient {
       enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
       mediaPermissionsRecovery: c.mediaPermissionsRecovery,
       pushNotificationEnvironment: c.pushNotificationEnvironment,
+      mobileSdkName: c.mobileSdkName,
+      mobileSdkVersion: c.mobileSdkVersion,
     );
   }
 
@@ -3340,20 +3383,36 @@ class TelnyxClient {
                         // advertises `development` on the wire; fall back to
                         // the legacy `kDebugMode`-derived value when the
                         // caller did not set the override.
-                        final Config? attachConfig =
+                        final activeConfig =
                             _storedCredentialConfig ?? _storedTokenConfig;
                         final String pushEnvironment =
-                            attachConfig?.pushNotificationEnvironment ??
+                            activeConfig?.pushNotificationEnvironment ??
                                 (kDebugMode ? 'development' : 'production');
+                        // Mobile SDK identity (VSDK-769). Resolve the identity
+                        // pair from the active login config (preferring the
+                        // credential config to match the wire convention used
+                        // elsewhere in this file). Falls back to the SDK
+                        // defaults when no override is present.
+                        final userVariablesMap = <dynamic, dynamic>{
+                          'push_notification_environment': pushEnvironment,
+                          'push_notification_provider': platform,
+                          'mobile_sdk_name': activeConfig?.effectiveSdkName ??
+                              'webrtc-flutter',
+                          'mobile_sdk_version':
+                              activeConfig?.effectiveSdkVersion ??
+                                  VersionUtils.getSDKVersion(),
+                        };
                         final AttachCallMessage attachCallMessage =
                             AttachCallMessage(
                           method: SocketMethod.attachCall,
                           id: const Uuid().v4(),
                           params: Params(
-                            userVariables: <dynamic, dynamic>{
-                              'push_notification_environment': pushEnvironment,
-                              'push_notification_provider': platform,
-                            },
+                            userVariables: userVariablesMap,
+                            mobileSdkName: activeConfig?.effectiveSdkName ??
+                                'webrtc-flutter',
+                            mobileSdkVersion:
+                                activeConfig?.effectiveSdkVersion ??
+                                    VersionUtils.getSDKVersion(),
                           ),
                           jsonrpc: '2.0',
                         );

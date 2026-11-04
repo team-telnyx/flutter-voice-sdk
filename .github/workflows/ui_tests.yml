@@ -15,36 +15,43 @@ jobs:
       # 1) Check out repo
       - uses: actions/checkout@v3
 
-      # 2a) Create google-services.json from secret
+      # 2) Set up JDK 17 (AGP 8.9.1 requires JDK 17, not the default JDK on ubuntu-latest)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # 3a) Create google-services.json from secret
       - name: Create google-services.json
         run: |
-          cat <<EOF > android/app/google-services.json
+          cat > android/app/google-services.json <<'GOOGLE_SERVICES_EOF'
           ${{ secrets.GOOGLE_SERVICES_JSON }}
-          EOF
+          GOOGLE_SERVICES_EOF
 
-      # 2b) Create firebase-options.dart from secret
+      # 3b) Create firebase-options.dart from secret
       - name: Create firebase-options.dart
         run: |
-          cat <<EOF > lib/firebase_options.dart
+          cat > lib/firebase_options.dart <<'FIREBASE_EOF'
           ${{ secrets.FIREBASE_OPTIONS_DART }}
-          EOF
+          FIREBASE_EOF
 
-      # 3) Install Flutter
+      # 4) Install Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.32.8'
           channel: 'stable'
 
-      # 4) Install Dependencies
+      # 5) Install Dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # 5) Install Patrol CLI (must match patrol package version)
+      # 6) Install Patrol CLI (must match patrol package version)
       - name: Install Patrol CLI
         run: flutter pub global activate patrol_cli 4.3.1
 
-      # 6) Cache Gradle dependencies
+      # 7) Cache Gradle dependencies
       - name: Cache Gradle dependencies
         uses: actions/cache@v3
         with:
@@ -56,7 +63,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 7) Authenticate Cloud SDK (needed for Firebase fallback)
+      # 8) Authenticate Cloud SDK (needed for Firebase fallback)
       - name: Authenticate Cloud SDK
         uses: google-github-actions/auth@v2
         with:
@@ -65,7 +72,7 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      # 8) Build app & test APK
+      # 9) Build app & test APK
       - name: Build app & test APK
         run: |
           patrol build android \

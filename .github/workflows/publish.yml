@@ -4,9 +4,13 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
+  # Started by release-03 on the release tag. Requires "Enable publishing from
+  # workflow_dispatch events" in the pub.dev package admin settings.
+  workflow_dispatch:
 
 jobs:
   publish:
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
     permissions:
       id-token: write # Required for authentication using OIDC
       contents: read

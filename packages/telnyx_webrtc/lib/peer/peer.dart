@@ -416,6 +416,8 @@ class Peer {
           sessid: sessionId,
           userAgent: userAgent,
           trickle: _useTrickleIce,
+          mobileSdkName: _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+          mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ?? VersionUtils.getSDKVersion(),
         );
         final inviteMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
@@ -497,6 +499,8 @@ class Peer {
             sessid: sessionId,
             userAgent: userAgent,
             trickle: _useTrickleIce,
+            mobileSdkName: _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+            mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ?? VersionUtils.getSDKVersion(),
           );
           final inviteMessage = InviteAnswerMessage(
             id: const Uuid().v4(),
@@ -830,6 +834,8 @@ class Peer {
           userAgent: userAgent,
           trickle: _useTrickleIce,
           answeredDeviceToken: answeredDeviceToken,
+          mobileSdkName: _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+          mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ?? VersionUtils.getSDKVersion(),
         );
         final answerMessage = InviteAnswerMessage(
           id: const Uuid().v4(),
@@ -896,6 +902,8 @@ class Peer {
             userAgent: userAgent,
             trickle: _useTrickleIce,
             answeredDeviceToken: answeredDeviceToken,
+            mobileSdkName: _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+            mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ?? VersionUtils.getSDKVersion(),
           );
           final answerMessage = InviteAnswerMessage(
             id: const Uuid().v4(),
