@@ -4,10 +4,16 @@
 # - packages/telnyx_webrtc/pubspec.yaml
 # - packages/telnyx_webrtc/lib/utils/version_utils.dart
 # - lib/utils/version_utils.dart
+# - packages/telnyx_webrtc/CHANGELOG.md, when the COPILOT_PAT secret is set
 #
-# The CHANGELOG section is intentionally written/reviewed by a human in the
-# generated release PR. The workflow puts the merged PR list in the PR body as
-# release-notes input instead of generating customer-facing CHANGELOG prose.
+# With COPILOT_PAT set, GitHub Copilot drafts the CHANGELOG section from the merged
+# PRs. The draft starts with an <!-- AI-DRAFT --> marker line, and release-pr-check
+# fails until a maintainer reviews the section and deletes that line. Without the
+# secret, or if Copilot fails, the PR is still created and the maintainer writes the
+# section by hand. The merged PR list is always in the PR body.
+#
+# COPILOT_PAT: a fine-grained personal access token with the "Copilot Requests"
+# permission, from an account with a GitHub Copilot license (ideally a bot account).
 #
 # Uses GITHUB_TOKEN, matching the iOS release workflows. PRs opened with
 # GITHUB_TOKEN do not trigger CI, so checks start once a maintainer pushes the
@@ -135,6 +141,61 @@ jobs:
         run: |
           scripts/release/setup_version.sh "$VERSION"
 
+      - name: Check for Copilot token
+        id: copilot
+        env:
+          COPILOT_PAT: ${{ secrets.COPILOT_PAT }}
+        run: |
+          if [[ -n "$COPILOT_PAT" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::COPILOT_PAT is not set; skipping the Copilot CHANGELOG draft"
+          fi
+
+      - name: Build CHANGELOG draft prompt
+        if: steps.copilot.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ steps.release.outputs.version }}
+          PREVIOUS_TAG: ${{ steps.previous_tag.outputs.previous_tag }}
+        run: scripts/release/changelog_draft.sh prompt "$VERSION" "$PREVIOUS_TAG" "$RUNNER_TEMP/changelog_prompt.txt"
+
+      - name: Setup Node.js for Copilot CLI
+        if: steps.copilot.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Copilot CLI
+        if: steps.copilot.outputs.enabled == 'true'
+        run: npm install -g @github/copilot@1.0.89
+
+      # Copilot runs without tools, so it can only return text. A failure here never
+      # blocks the release PR; the maintainer writes the section instead.
+      - name: Draft CHANGELOG section with Copilot
+        id: draft
+        if: steps.copilot.outputs.enabled == 'true'
+        continue-on-error: true
+        timeout-minutes: 10
+        uses: actions/ai-inference@v3
+        with:
+          prompt-file: ${{ runner.temp }}/changelog_prompt.txt
+          model: gpt-4.1
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+
+      - name: Add CHANGELOG draft
+        id: changelog
+        if: steps.draft.outcome == 'success'
+        continue-on-error: true
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          DRAFT_FILE: ${{ steps.draft.outputs.response-file }}
+        run: |
+          scripts/release/changelog_draft.sh insert "$VERSION" "$DRAFT_FILE"
+          echo "drafted=true" >> "$GITHUB_OUTPUT"
+
       - name: Cleanup generated helper files
         run: rm -f commits.txt merged_prs.tsv release_notes.md
 
@@ -157,8 +218,13 @@ jobs:
             - [ ] Confirm version bump in `packages/telnyx_webrtc/pubspec.yaml`
             - [ ] Confirm SDK user-agent version in `packages/telnyx_webrtc/lib/utils/version_utils.dart`
             - [ ] Confirm demo/root SDK fallback version in `lib/utils/version_utils.dart`
-            - [ ] Add/update the customer-facing section in `packages/telnyx_webrtc/CHANGELOG.md`
+            - [ ] ${{ steps.changelog.outputs.drafted == 'true' && 'Review and edit the Copilot-drafted section in `packages/telnyx_webrtc/CHANGELOG.md`, then delete its `<!-- AI-DRAFT ... -->` line (release-pr-check fails until you do)' || 'Add the customer-facing section to `packages/telnyx_webrtc/CHANGELOG.md` (no Copilot draft was added)' }}
             - [ ] After merge, run `release-03-create-gh-release` with version `${{ steps.release.outputs.version }}`
           branch: release/${{ steps.release.outputs.version }}
           base: main
           delete-branch: true
+          add-paths: |
+            packages/telnyx_webrtc/pubspec.yaml
+            packages/telnyx_webrtc/lib/utils/version_utils.dart
+            lib/utils/version_utils.dart
+            packages/telnyx_webrtc/CHANGELOG.md
