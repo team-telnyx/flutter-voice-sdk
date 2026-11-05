@@ -2,6 +2,7 @@ library;
 
 export './call.dart';
 export './call_manager.dart';
+export './call_recovery_coordinator.dart';
 export './config/telnyx_config.dart';
 
 export './model/audio_codec.dart';
