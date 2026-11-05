@@ -123,6 +123,7 @@ UserVariables _pushUserVariables({
   required String pushNotificationProvider,
   bool? pushWhenActive,
   bool? pnLateFanout,
+  String? pushNotificationEnvironment,
   String? mobileSdkName,
   String? mobileSdkVersion,
 }) {
@@ -131,6 +132,7 @@ UserVariables _pushUserVariables({
     pushNotificationProvider: pushNotificationProvider,
     pushWhenActive: pushWhenActive,
     pnLateFanout: pnLateFanout,
+    pushNotificationEnvironment: pushNotificationEnvironment,
     mobileSdkName: mobileSdkName,
     mobileSdkVersion: mobileSdkVersion,
   );
@@ -1698,6 +1700,10 @@ class TelnyxClient {
       // for callers who never set the flag (Android/iOS opt-in parity).
       pushWhenActive: config.pushWhenActive ? true : null,
       pnLateFanout: config.pushWhenActive ? true : null,
+      // VSUP-278: forward the configurable APNs/FCM environment so release
+      // builds signed with a development entitlement advertise the correct
+      // push_notification_environment on the wire.
+      pushNotificationEnvironment: config.pushNotificationEnvironment,
       mobileSdkName: config.effectiveSdkName,
       mobileSdkVersion: config.effectiveSdkVersion,
     );
@@ -1750,6 +1756,10 @@ class TelnyxClient {
       // for callers who never set the flag (Android/iOS opt-in parity).
       pushWhenActive: config.pushWhenActive ? true : null,
       pnLateFanout: config.pushWhenActive ? true : null,
+      // VSUP-278: forward the configurable APNs/FCM environment so release
+      // builds signed with a development entitlement advertise the correct
+      // push_notification_environment on the wire.
+      pushNotificationEnvironment: config.pushNotificationEnvironment,
       mobileSdkName: config.effectiveSdkName,
       mobileSdkVersion: config.effectiveSdkVersion,
     );
@@ -2260,6 +2270,10 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        // VSUP-278: forward the configurable APNs/FCM environment so release
+        // builds signed with a development entitlement advertise the correct
+        // push_notification_environment on the wire.
+        pushNotificationEnvironment: config.pushNotificationEnvironment,
         mobileSdkName: config.effectiveSdkName,
         mobileSdkVersion: config.effectiveSdkVersion,
       );
@@ -2272,6 +2286,10 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        // VSUP-278: forward the configurable APNs/FCM environment so release
+        // builds signed with a development entitlement advertise the correct
+        // push_notification_environment on the wire.
+        pushNotificationEnvironment: config.pushNotificationEnvironment,
         mobileSdkName: config.effectiveSdkName,
         mobileSdkVersion: config.effectiveSdkVersion,
       );
@@ -2334,6 +2352,10 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        // VSUP-278: forward the configurable APNs/FCM environment so release
+        // builds signed with a development entitlement advertise the correct
+        // push_notification_environment on the wire.
+        pushNotificationEnvironment: config.pushNotificationEnvironment,
         mobileSdkName: config.effectiveSdkName,
         mobileSdkVersion: config.effectiveSdkVersion,
       );
@@ -2346,6 +2368,10 @@ class TelnyxClient {
         // for callers who never set the flag (Android/iOS opt-in parity).
         pushWhenActive: config.pushWhenActive ? true : null,
         pnLateFanout: config.pushWhenActive ? true : null,
+        // VSUP-278: forward the configurable APNs/FCM environment so release
+        // builds signed with a development entitlement advertise the correct
+        // push_notification_environment on the wire.
+        pushNotificationEnvironment: config.pushNotificationEnvironment,
         mobileSdkName: config.effectiveSdkName,
         mobileSdkVersion: config.effectiveSdkVersion,
       );
@@ -3195,6 +3221,9 @@ class TelnyxClient {
       enableStructuredErrors: c.enableStructuredErrors,
       enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
       mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+      pushNotificationEnvironment: c.pushNotificationEnvironment,
+      mobileSdkName: c.mobileSdkName,
+      mobileSdkVersion: c.mobileSdkVersion,
     );
   }
 
@@ -3236,6 +3265,9 @@ class TelnyxClient {
       enableStructuredErrors: c.enableStructuredErrors,
       enableSignalingHealthMonitor: c.enableSignalingHealthMonitor,
       mediaPermissionsRecovery: c.mediaPermissionsRecovery,
+      pushNotificationEnvironment: c.pushNotificationEnvironment,
+      mobileSdkName: c.mobileSdkName,
+      mobileSdkVersion: c.mobileSdkVersion,
     );
   }
 
@@ -3344,20 +3376,28 @@ class TelnyxClient {
                             defaultTargetPlatform == TargetPlatform.android
                                 ? 'android'
                                 : 'ios';
-                        const String pushEnvironment =
-                            kDebugMode ? 'development' : 'production';
+                        // VSUP-278: prefer the caller-supplied
+                        // push_notification_environment (set on the active
+                        // CredentialConfig / TokenConfig) so a `--release`
+                        // build signed with a development APNs entitlement
+                        // advertises `development` on the wire; fall back to
+                        // the legacy `kDebugMode`-derived value when the
+                        // caller did not set the override.
+                        final activeConfig =
+                            _storedCredentialConfig ?? _storedTokenConfig;
+                        final String pushEnvironment =
+                            activeConfig?.pushNotificationEnvironment ??
+                                (kDebugMode ? 'development' : 'production');
                         // Mobile SDK identity (VSDK-769). Resolve the identity
                         // pair from the active login config (preferring the
                         // credential config to match the wire convention used
                         // elsewhere in this file). Falls back to the SDK
                         // defaults when no override is present.
-                        final activeConfig =
-                            _storedCredentialConfig ?? _storedTokenConfig;
                         final userVariablesMap = <dynamic, dynamic>{
                           'push_notification_environment': pushEnvironment,
                           'push_notification_provider': platform,
-                          'mobile_sdk_name':
-                              activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+                          'mobile_sdk_name': activeConfig?.effectiveSdkName ??
+                              'webrtc-flutter',
                           'mobile_sdk_version':
                               activeConfig?.effectiveSdkVersion ??
                                   VersionUtils.getSDKVersion(),
@@ -3368,8 +3408,8 @@ class TelnyxClient {
                           id: const Uuid().v4(),
                           params: Params(
                             userVariables: userVariablesMap,
-                            mobileSdkName:
-                                activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+                            mobileSdkName: activeConfig?.effectiveSdkName ??
+                                'webrtc-flutter',
                             mobileSdkVersion:
                                 activeConfig?.effectiveSdkVersion ??
                                     VersionUtils.getSDKVersion(),

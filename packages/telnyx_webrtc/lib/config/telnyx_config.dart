@@ -60,13 +60,14 @@ class Config {
     this.enableStructuredErrors = true,
     this.enableSignalingHealthMonitor = true,
     this.mediaPermissionsRecovery,
+    this.pushNotificationEnvironment,
     this.mobileSdkName,
     this.mobileSdkVersion,
   }) : assert(
-         (mobileSdkName == null) == (mobileSdkVersion == null),
-         'mobileSdkName and mobileSdkVersion must be set together (both null '
-         'or both non-null). Partial overrides are not allowed.',
-       );
+          (mobileSdkName == null) == (mobileSdkVersion == null),
+          'mobileSdkName and mobileSdkVersion must be set together (both null '
+          'or both non-null). Partial overrides are not allowed.',
+        );
 
   /// Name associated with the SIP account
   final String sipCallerIDName;
@@ -222,6 +223,26 @@ class Config {
   /// prompt the user to fix permissions and then `resume()` the call.
   final MediaPermissionsRecoveryConfig? mediaPermissionsRecovery;
 
+  /// Overrides the `push_notification_environment` value emitted on the login
+  /// and attach-call payloads.
+  ///
+  /// APNs / FCM environment is independent of the Flutter build mode
+  /// (`kDebugMode`): a `--release` build signed with a development certificate
+  /// (e.g. a direct device install or a Firebase App Distribution build) still
+  /// carries an `aps-environment: development` entitlement and a sandbox PushKit
+  /// token, while `kDebugMode` would resolve to `false` and force the SDK to
+  /// advertise `production` — incoming pushes would then silently be routed to
+  /// the wrong APNs environment.
+  ///
+  /// When this field is non-null, the SDK uses the supplied value verbatim as
+  /// `push_notification_environment`. When `null` (the default), the SDK
+  /// falls back to deriving the value from `kDebugMode` (preserving the
+  /// pre-existing behaviour for callers that do not set the override).
+  ///
+  /// Common values: `'production'`, `'development'` (iOS APNs sandbox),
+  /// `'debug'` (legacy alias), or any server-accepted token.
+  final String? pushNotificationEnvironment;
+
   /// Override for the SDK name emitted on the wire as `mobile_sdk_name`.
   ///
   /// When `null` (default), the SDK emits `flutter`. Higher-level wrapper
@@ -294,6 +315,7 @@ class Config {
 /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
 /// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
+/// [pushNotificationEnvironment] when non-null, overrides the `kDebugMode`-derived `push_notification_environment` on the login + attach-call payloads. Use this when the APNs / FCM environment does not match the Flutter build mode (e.g. a `--release` build signed with a development certificate).
 /// [iceServers] custom ICE servers for WebRTC peer connections
 /// [serverConfiguration] server configuration for signaling and ICE servers
 /// [mobileSdkName] / [mobileSdkVersion] optional identity override for the SDK (both must be set together)
@@ -313,6 +335,7 @@ class CredentialConfig extends Config {
   /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
   /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
   /// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
+  /// [pushNotificationEnvironment] overrides the `kDebugMode`-derived `push_notification_environment` when non-null
   /// [iceServers] custom ICE servers for WebRTC peer connections
   /// [serverConfiguration] server configuration for signaling and ICE servers
   CredentialConfig({
@@ -350,6 +373,7 @@ class CredentialConfig extends Config {
     super.enableStructuredErrors = true,
     super.enableSignalingHealthMonitor = true,
     super.mediaPermissionsRecovery,
+    super.pushNotificationEnvironment,
     super.mobileSdkName,
     super.mobileSdkVersion,
   });
@@ -375,6 +399,7 @@ class CredentialConfig extends Config {
 /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
 /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
 /// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
+/// [pushNotificationEnvironment] when non-null, overrides the `kDebugMode`-derived `push_notification_environment` on the login + attach-call payloads. Use this when the APNs / FCM environment does not match the Flutter build mode (e.g. a `--release` build signed with a development certificate).
 /// [iceServers] custom ICE servers for WebRTC peer connections
 /// [serverConfiguration] server configuration for signaling and ICE servers
 /// [mobileSdkName] / [mobileSdkVersion] optional identity override for the SDK (both must be set together)
@@ -394,6 +419,7 @@ class TokenConfig extends Config {
   /// [pushAnswerTimeout] is the timeout in milliseconds to wait for INVITE after accepting from push notification (default: 10000ms)
   /// [forceRelayCandidate] controls whether the SDK should force TURN relay for peer connections (default: false)
   /// [pushWhenActive] when true, the SDK auto-includes the stored push token as `answered_device_token` on answer (default: false)
+  /// [pushNotificationEnvironment] overrides the `kDebugMode`-derived `push_notification_environment` when non-null
   /// [iceServers] custom ICE servers for WebRTC peer connections
   /// [serverConfiguration] server configuration for signaling and ICE servers
   TokenConfig({
@@ -430,6 +456,7 @@ class TokenConfig extends Config {
     super.enableStructuredErrors = true,
     super.enableSignalingHealthMonitor = true,
     super.mediaPermissionsRecovery,
+    super.pushNotificationEnvironment,
     super.mobileSdkName,
     super.mobileSdkVersion,
   });
