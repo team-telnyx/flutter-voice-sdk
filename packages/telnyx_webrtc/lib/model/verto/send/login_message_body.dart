@@ -13,9 +13,8 @@ class LoginMessage {
     id = json['id'];
     jsonrpc = json['jsonrpc'];
     method = json['method'];
-    params = json['params'] != null
-        ? LoginParams.fromJson(json['params'])
-        : null;
+    params =
+        json['params'] != null ? LoginParams.fromJson(json['params']) : null;
   }
 
   Map<String, dynamic> toJson() {
@@ -104,6 +103,11 @@ class UserVariables {
   bool? pushWhenActive;
   bool? pnLateFanout;
 
+  /// Overrides the `push_notification_environment` value emitted on the login
+  /// payload. When non-null, the SDK uses this value verbatim; when null,
+  /// the SDK falls back to `kDebugMode ? 'debug' : 'production'`.
+  String? pushNotificationEnvironment;
+
   /// SDK identity name emitted on the wire as `mobile_sdk_name`.
   ///
   /// Resolved from [Config.effectiveSdkName] (defaults to `flutter` when the
@@ -122,15 +126,17 @@ class UserVariables {
     this.pushNotificationProvider,
     this.pushWhenActive,
     this.pnLateFanout,
+    this.pushNotificationEnvironment,
     this.mobileSdkName,
     this.mobileSdkVersion,
   });
 
   UserVariables.fromJson(Map<String, dynamic> json)
-    : pushWhenActive = _jsonBool(json['push_when_active']),
-      pnLateFanout = _jsonBool(json['pn_late_fanout']) {
+      : pushWhenActive = _jsonBool(json['push_when_active']),
+        pnLateFanout = _jsonBool(json['pn_late_fanout']) {
     pushDeviceToken = json['push_device_token'];
     pushNotificationProvider = json['push_notification_provider'];
+    pushNotificationEnvironment = json['push_notification_environment'];
     mobileSdkName = json['mobile_sdk_name'];
     mobileSdkVersion = json['mobile_sdk_version'];
   }
@@ -145,7 +151,13 @@ class UserVariables {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['push_device_token'] = pushDeviceToken;
     data['push_notification_provider'] = pushNotificationProvider;
-    const String pushEnvironment = kDebugMode ? 'debug' : 'production';
+    // push_notification_environment defaults to a `kDebugMode`-derived value
+    // for backwards compatibility; callers that build a UserVariables
+    // directly (e.g. from the telnyx_client) can override via
+    // [pushNotificationEnvironment] when the actual APNs / FCM environment
+    // does not match the Flutter build mode (VSUP-278).
+    final String pushEnvironment =
+        pushNotificationEnvironment ?? (kDebugMode ? 'debug' : 'production');
     data['push_notification_environment'] = pushEnvironment;
     GlobalLogger().d('pushEnvironment: $pushEnvironment');
     // Mobile SDK identity (VSDK-769) — `mobile_sdk_name` and
