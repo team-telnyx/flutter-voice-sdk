@@ -139,7 +139,7 @@ jobs:
         run: rm -f commits.txt merged_prs.tsv release_notes.md
 
       - name: Create release pull request
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: release telnyx_webrtc v${{ steps.release.outputs.version }}"
