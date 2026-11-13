@@ -192,6 +192,13 @@ class TelnyxClient {
 
   PushMetaData? _pushMetaData;
   bool _isAttaching = false;
+
+  /// True while an automatic recovery reconnect (network loss, socket close,
+  /// gateway-failure retry or signaling-health reconnect) is pending. Such
+  /// reconnects may reattach the previous session (sessid / attach_call /
+  /// voice_sdk_id); an explicit connectWith* call by the app starts a fresh
+  /// session instead (VSDK-1197).
+  bool _reattachRecovery = false;
   bool _debug = false;
 
   // Stores the last known connectivity result to detect actual changes.
@@ -842,6 +849,40 @@ class TelnyxClient {
     }
   }
 
+  /// Whether the current connect is a real reattach of an existing session
+  /// (push answer, automatic recovery reconnect, or a cold start inside the
+  /// 90 s reconnect window) rather than a fresh login (VSDK-1197).
+  Future<bool> _isReattachConnect() async {
+    if (_isCallFromPush || _reattachRecovery) return true;
+    try {
+      return await ReconnectTokenStore.isReconnectSessionIdFresh();
+    } catch (e) {
+      GlobalLogger().w('Failed to check reconnect session freshness: $e');
+      return false;
+    }
+  }
+
+  /// Drop the persisted reconnect identity (voice_sdk_id / session id) and
+  /// any in-memory push metadata when the caller pins a different region than
+  /// the stored one (VSDK-1128 parity): a stale identity would otherwise
+  /// re-anchor the new session on the previous region's b2bua-rtc
+  /// regardless of the configured region (VSDK-1197).
+  Future<void> _dropReconnectIdentityIfRegionChanged(Config config) async {
+    try {
+      final storedRegion = await ReconnectTokenStore.getReconnectRegion();
+      final currentRegion = config.region.value;
+      if (storedRegion == null || storedRegion == currentRegion) return;
+      await ReconnectTokenStore.clearReconnectIdentity();
+      _pushMetaData = null;
+      GlobalLogger().i(
+        'Pinned region changed ($storedRegion -> $currentRegion): dropped '
+        'stored reconnect voice_sdk_id/session id (VSDK-1128 parity)',
+      );
+    } catch (e) {
+      GlobalLogger().w('Failed to check persisted reconnect region: $e');
+    }
+  }
+
   /// Persist the server-provided voice_sdk_id, current session id, and a
   /// timestamp after a successful registration/login (VSDK-418).
   Future<void> _persistReconnectSession({String? voiceSdkIdOverride}) async {
@@ -851,6 +892,10 @@ class TelnyxClient {
         await ReconnectTokenStore.setReconnectToken(serverVoiceSdkId);
       }
       await ReconnectTokenStore.setReconnectSessionId(sessid);
+      final activeConfig = _storedCredentialConfig ?? _storedTokenConfig;
+      if (activeConfig != null) {
+        await ReconnectTokenStore.setReconnectRegion(activeConfig.region.value);
+      }
     } catch (e) {
       GlobalLogger().w('Failed to persist reconnect session: $e');
     }
@@ -859,6 +904,11 @@ class TelnyxClient {
   /// Test/inspection seam for [_persistReconnectSession].
   @visibleForTesting
   Future<void> persistReconnectSessionForTest() => _persistReconnectSession();
+
+  /// Inspection seam for the in-memory push metadata (VSDK-1197 tests):
+  /// verifies the identity is dropped when push handling ends.
+  @visibleForTesting
+  PushMetaData? get pushMetadataForTest => _pushMetaData;
 
   /// Build a narrow projection of the current active calls — only the call ID
   /// and custom headers. Never credentials, access tokens, SDP, ICE/TURN data,
@@ -1608,6 +1658,11 @@ class TelnyxClient {
     // Clear the timeout timer reference
     _pendingAnswerTimeout = null;
 
+    // Push handling ended without an answered call: drop the in-memory push
+    // identity so a later fresh login never reuses the push's voice_sdk_id
+    // (VSDK-1197).
+    _pushMetaData = null;
+
     GlobalLogger().i(
       'Pending answer timeout handled - call terminated with ORIGINATOR_CANCEL',
     );
@@ -1960,11 +2015,15 @@ class TelnyxClient {
         'connecting to WebSocket $_serverConfiguration.socketUrl',
       );
     // Defensively read a fresh persisted reconnect session id (VSDK-418) and
-    // inject it as voice_sdk_id before the initial connection. Push metadata
-    // takes precedence; a missing/failed read leaves the URL unchanged.
+    // inject it as voice_sdk_id before the initial connection — but only for
+    // a real reattach (push answer, recovery reconnect, or a cold start
+    // inside the 90 s window). Fresh logins stay clean so the configured
+    // region decides the gateway (VSDK-1197).
     unawaited(() async {
-      final resolvedVoiceSdkId =
-          _pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId();
+      await _dropReconnectIdentityIfRegionChanged(tokenConfig);
+      final String? resolvedVoiceSdkId = await _isReattachConnect()
+          ? (_pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId())
+          : null;
       if (!_isActiveConnectionGeneration(connectionGeneration)) return;
       try {
         final hostAddress = _buildHostAddress(
@@ -2019,11 +2078,15 @@ class TelnyxClient {
       ..setLogLevel(credentialConfig.logLevel)
       ..log(LogLevel.info, 'connect()');
     // Defensively read a fresh persisted reconnect session id (VSDK-418) and
-    // inject it as voice_sdk_id before the initial connection. Push metadata
-    // takes precedence; a missing/failed read leaves the URL unchanged.
+    // inject it as voice_sdk_id before the initial connection — but only for
+    // a real reattach (push answer, recovery reconnect, or a cold start
+    // inside the 90 s window). Fresh logins stay clean so the configured
+    // region decides the gateway (VSDK-1197).
     unawaited(() async {
-      final resolvedVoiceSdkId =
-          _pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId();
+      await _dropReconnectIdentityIfRegionChanged(credentialConfig);
+      final String? resolvedVoiceSdkId = await _isReattachConnect()
+          ? (_pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId())
+          : null;
       if (!_isActiveConnectionGeneration(connectionGeneration)) return;
       try {
         final hostAddress = _buildHostAddress(
@@ -2129,6 +2192,11 @@ class TelnyxClient {
   void _reconnectToSocket() {
     if (_isTornDown) return;
     final connectionGeneration = _connectionGeneration;
+
+    // Recovery reconnects reuse the same session so the backend can reattach
+    // it via voice_sdk_id / attach_call; an app-initiated connectWith* must
+    // not inherit the flag (VSDK-1197).
+    _reattachRecovery = true;
 
     // Set reconnecting status
     if (_connectionStatus != ConnectionStatus.reconnecting) {
@@ -2250,6 +2318,13 @@ class TelnyxClient {
     if (!latencyTracker.isTrackingRegistration) {
       latencyTracker.startRegistrationTracking();
     }
+    unawaited(_doCredentialLogin(config));
+  }
+
+  /// Body of the deprecated [credentialLogin]. Kept as a private async helper
+  /// so the reconnect-identity checks (VSDK-1197) can be awaited without
+  /// changing the deprecated public API's `void` signature.
+  Future<void> _doCredentialLogin(CredentialConfig config) async {
     latencyTracker.markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
     final uuid = const Uuid().v4();
     final user = config.sipUser;
@@ -2295,11 +2370,27 @@ class TelnyxClient {
       );
     }
 
+    await _dropReconnectIdentityIfRegionChanged(config);
+    final bool reattach = await _isReattachConnect();
+    final String? storedVoiceSdkId = reattach
+        ? (_pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId())
+        : null;
+    if (!reattach) {
+      // Fresh session: make sure no stale reconnect identity leaks into the
+      // login or the connection URL (VSDK-1197).
+      try {
+        await ReconnectTokenStore.clearReconnectIdentity();
+      } catch (e) {
+        GlobalLogger().w('Failed to clear reconnect identity: $e');
+      }
+      _pushMetaData = null;
+    }
+
     final loginParams = LoginParams(
       login: user,
       passwd: password,
-      loginParams: {'attach_call': 'true'},
-      sessionId: sessid,
+      loginParams: reattach ? {'attach_call': 'true'} : null,
+      sessionId: reattach ? sessid : null,
       userVariables: notificationParams,
       userAgent: VersionUtils.getUserAgent(),
       mobileSdkName: config.effectiveSdkName,
@@ -2316,9 +2407,22 @@ class TelnyxClient {
     if (isConnected()) {
       txSocket.send(jsonLoginMessage);
     } else {
-      _connectWithCallBack(_pushMetaData, () {
-        txSocket.send(jsonLoginMessage);
-      });
+      _connectWithCallBack(
+        reattach
+            ? (_pushMetaData ??
+                (storedVoiceSdkId != null
+                    ? PushMetaData(voiceSdkId: storedVoiceSdkId)
+                    : null))
+            : null,
+        () {
+          txSocket.send(jsonLoginMessage);
+        },
+      );
+    }
+    if (reattach) {
+      // The reattach decision is consumed; a later explicit connect starts a
+      // fresh session (VSDK-1197).
+      _reattachRecovery = false;
     }
   }
 
@@ -2333,9 +2437,20 @@ class TelnyxClient {
     if (!latencyTracker.isTrackingRegistration) {
       latencyTracker.startRegistrationTracking();
     }
+    unawaited(_doTokenLogin(config));
+  }
+
+  /// Body of the deprecated [tokenLogin]. Kept as a private async helper
+  /// so the reconnect-identity checks (VSDK-1197) can be awaited without
+  /// changing the deprecated public API's `void` signature.
+  Future<void> _doTokenLogin(TokenConfig config) async {
     latencyTracker.markRegistrationMilestone(LatencyTracker.milestoneLoginSent);
     final uuid = const Uuid().v4();
     final token = config.sipToken;
+    // Schedule TOKEN_EXPIRING_SOON warning if the token is a JWT (VSDK-397).
+    // Runs before the first await so the immediate-emission path stays
+    // synchronous with tokenLogin() as callers expect.
+    _checkTokenExpiry(config.sipToken);
     final fcmToken = config.notificationToken;
     _ringBackpath = config.ringbackPath ?? '';
     _ringtonePath = config.ringTonePath ?? '';
@@ -2377,11 +2492,27 @@ class TelnyxClient {
       );
     }
 
+    await _dropReconnectIdentityIfRegionChanged(config);
+    final bool reattach = await _isReattachConnect();
+    final String? storedVoiceSdkId = reattach
+        ? (_pushMetaData?.voiceSdkId ?? await _resolveReconnectVoiceSdkId())
+        : null;
+    if (!reattach) {
+      // Fresh session: make sure no stale reconnect identity leaks into the
+      // login or the connection URL (VSDK-1197).
+      try {
+        await ReconnectTokenStore.clearReconnectIdentity();
+      } catch (e) {
+        GlobalLogger().w('Failed to clear reconnect identity: $e');
+      }
+      _pushMetaData = null;
+    }
+
     final loginParams = LoginParams(
       loginToken: token,
-      loginParams: {'attach_call': 'true'},
+      loginParams: reattach ? {'attach_call': 'true'} : null,
       userVariables: notificationParams,
-      sessionId: sessid,
+      sessionId: reattach ? sessid : null,
       userAgent: VersionUtils.getUserAgent(),
       mobileSdkName: config.effectiveSdkName,
       mobileSdkVersion: config.effectiveSdkVersion,
@@ -2398,13 +2529,23 @@ class TelnyxClient {
     if (isConnected()) {
       txSocket.send(jsonLoginMessage);
     } else {
-      _connectWithCallBack(null, () {
-        txSocket.send(jsonLoginMessage);
-      });
+      _connectWithCallBack(
+        reattach
+            ? (_pushMetaData ??
+                (storedVoiceSdkId != null
+                    ? PushMetaData(voiceSdkId: storedVoiceSdkId)
+                    : null))
+            : null,
+        () {
+          txSocket.send(jsonLoginMessage);
+        },
+      );
     }
-
-    // Schedule TOKEN_EXPIRING_SOON warning if the token is a JWT (VSDK-397).
-    _checkTokenExpiry(config.sipToken);
+    if (reattach) {
+      // The reattach decision is consumed; a later explicit connect starts a
+      // fresh session (VSDK-1197).
+      _reattachRecovery = false;
+    }
   }
 
   /// Decodes the JWT [token] and schedules a [TelnyxWarningCodes.tokenExpiringSoon]
@@ -2866,6 +3007,9 @@ class TelnyxClient {
       ..registerCall(answerCall)
       ..setCurrentCall(answerCall);
 
+    // Push handling ends here too: drop the in-memory push identity so a
+    // later fresh login never reuses the push's voice_sdk_id (VSDK-1197).
+    _pushMetaData = null;
     clearPushMetaData();
     return answerCall;
   }
@@ -3016,6 +3160,9 @@ class TelnyxClient {
     _cancelPendingAnswerTimeout();
     _cancelReconnectionTimers();
     _cancelConnectivitySubscription();
+    // Teardown also ends push handling: drop the in-memory push identity so
+    // the next login starts clean (VSDK-1197).
+    _pushMetaData = null;
     clearPushMetaData();
     GlobalLogger().i('disconnect()');
     // Explicit user disconnect/logout clears all persisted recovery data
@@ -3050,6 +3197,9 @@ class TelnyxClient {
     _cancelPendingAnswerTimeout();
     _cancelReconnectionTimers();
     _cancelConnectivitySubscription();
+    // Teardown also ends push handling: drop the in-memory push identity so
+    // the next login starts clean (VSDK-1197).
+    _pushMetaData = null;
     clearPushMetaData();
     GlobalLogger().i('disconnect()');
     // Explicit user disconnect/logout clears all persisted recovery data
@@ -3084,6 +3234,9 @@ class TelnyxClient {
     _cancelPendingAnswerTimeout();
     _cancelReconnectionTimers();
     _cancelConnectivitySubscription();
+    // Dispose also ends push handling: drop the in-memory push identity so
+    // the next client instance starts clean (VSDK-1197).
+    _pushMetaData = null;
     clearPushMetaData();
     _registered = false;
     _connected = false;
