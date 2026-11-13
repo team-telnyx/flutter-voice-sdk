@@ -2349,6 +2349,16 @@ class TelnyxClient {
     if (!latencyTracker.isTrackingRegistration) {
       latencyTracker.startRegistrationTracking();
     }
+    // Standalone entry point: when this client is torn down (fresh or after
+    // disconnect), prepare and bind the explicit attempt BEFORE capturing its
+    // generation, so the helper's generation check accepts the login it was
+    // captured for (PR #355 review: a standalone deprecated login on an
+    // initially disconnected client opened no socket). Preparing here also
+    // supersedes any obsolete pending continuation, keeping the
+    // logout-resurrection and superseded-credential guards intact.
+    if (_isTornDown && !_prepareForConnection()) {
+      return;
+    }
     unawaited(_doCredentialLogin(config, _connectionGeneration));
   }
 
@@ -2483,6 +2493,13 @@ class TelnyxClient {
     // Only start registration tracking if not already started by connectWithToken
     if (!latencyTracker.isTrackingRegistration) {
       latencyTracker.startRegistrationTracking();
+    }
+    // Standalone entry point: same prepare-before-capture contract as
+    // [credentialLogin] — a direct tokenLogin on a fresh or disconnected
+    // client must bind a live connection generation of its own (PR #355
+    // review), while a superseded continuation keeps being rejected.
+    if (_isTornDown && !_prepareForConnection()) {
+      return;
     }
     unawaited(_doTokenLogin(config, _connectionGeneration));
   }
