@@ -155,6 +155,163 @@ void main() {
     expect(states.where((state) => state == ConnectionStatus.reconnecting),
         hasLength(2));
   });
+
+  test(
+      'disconnect while a login continuation is pending opens no second socket',
+      () async {
+    // Fresh store: the login helper suspends on the persisted-region check,
+    // giving disconnect() a window to supersede it (PR #355 review).
+    client.connectWithCredential(_credentialConfig());
+    await pumpEventQueue();
+    expect(fakeSocket.connectCount, 1);
+
+    fakeSocket.emitOpen();
+    // The login helper is now suspended awaiting storage checks; tearing
+    // down the connection must invalidate it before it can reconnect.
+    client.disconnect();
+    await pumpEventQueue();
+
+    expect(fakeSocket.connectCount, 1);
+  });
+
+  test('superseded login never sends stale credentials on the new connection',
+      () async {
+    // Two rapid connects: the first login is still suspended on storage
+    // awaits when the second connect supersedes it. Only the fresh
+    // credentials may reach the wire (PR #355 review).
+    client.connectWithCredential(_credentialConfig(sipUser: 'first-user'));
+    await pumpEventQueue();
+    fakeSocket.emitOpen();
+
+    client.connectWithCredential(_credentialConfig(sipUser: 'second-user'));
+    await pumpEventQueue();
+    fakeSocket.emitOpen();
+    await pumpEventQueue();
+
+    final sent = fakeSocket.sentMessages.whereType<String>().toList();
+    expect(
+      sent.where((m) => m.contains('first-user')),
+      isEmpty,
+      reason: 'stale login continuation must be rejected',
+    );
+    expect(
+      sent.where((m) => m.contains('second-user')),
+      isNotEmpty,
+      reason: 'the current login must reach the wire',
+    );
+  });
+
+  test(
+    'standalone credentialLogin on a fresh client opens the socket and sends the login',
+    () async {
+      // PR #355 review: the deprecated public login must keep working without a
+      // prior connectWith* call. The generation check must reject only
+      // continuations superseded after their awaits, never the explicit
+      // attempt it was captured for.
+      client.credentialLogin(_credentialConfig(sipUser: 'standalone-user'));
+      await pumpEventQueue();
+
+      expect(
+        fakeSocket.connectCount,
+        1,
+        reason: 'a direct credentialLogin on a fresh client must still connect',
+      );
+
+      fakeSocket.emitOpen();
+      await pumpEventQueue();
+
+      final sent = fakeSocket.sentMessages.whereType<String>().toList();
+      expect(
+        sent.where((m) => m.contains('standalone-user')),
+        isNotEmpty,
+        reason:
+            'the standalone login must reach the wire once the socket opens',
+      );
+      expect(
+        sent.any((m) => m.contains('attach_call') || m.contains('"sessid"')),
+        isFalse,
+        reason: 'a fresh standalone login must not carry reattach fields '
+            '(VSDK-1197)',
+      );
+    },
+  );
+
+  test(
+    'standalone tokenLogin on a fresh client opens the socket and sends the login',
+    () async {
+      client.tokenLogin(_tokenConfig(sipToken: 'standalone-token'));
+      await pumpEventQueue();
+
+      expect(
+        fakeSocket.connectCount,
+        1,
+        reason: 'a direct tokenLogin on a fresh client must still connect',
+      );
+
+      fakeSocket.emitOpen();
+      await pumpEventQueue();
+
+      final sent = fakeSocket.sentMessages.whereType<String>().toList();
+      expect(
+        sent.where((m) => m.contains('standalone-token')),
+        isNotEmpty,
+        reason: 'the standalone token login must reach the wire once opened',
+      );
+    },
+  );
+
+  test(
+    'standalone credentialLogin after disconnect starts a new session',
+    () async {
+      // The explicit post-disconnect login is a fresh attempt: preparing and
+      // binding it must not resurrect the pre-disconnect continuation, whose
+      // generation was already invalidated (PR #355 review).
+      client.connectWithCredential(_credentialConfig(sipUser: 'first-user'));
+      await pumpEventQueue();
+      fakeSocket.emitOpen();
+      await pumpEventQueue();
+      client.disconnect();
+      await pumpEventQueue();
+      final connectsBefore = fakeSocket.connectCount;
+
+      client.credentialLogin(_credentialConfig(sipUser: 'second-user'));
+      await pumpEventQueue();
+
+      expect(
+        fakeSocket.connectCount,
+        connectsBefore + 1,
+        reason: 'an explicit login after disconnect is a new session, not a '
+            'cancelled continuation',
+      );
+
+      fakeSocket.emitOpen();
+      await pumpEventQueue();
+
+      final sent = fakeSocket.sentMessages.whereType<String>().toList();
+      expect(
+        sent.where((m) => m.contains('second-user')),
+        isNotEmpty,
+        reason: 'the post-disconnect login must reach the wire',
+      );
+      expect(
+        sent.any((m) => m.contains('attach_call') || m.contains('"sessid"')),
+        isFalse,
+        reason: 'a fresh post-disconnect login must not carry reattach fields',
+      );
+    },
+  );
+}
+
+TokenConfig _tokenConfig({String sipToken = 'test'}) {
+  return TokenConfig(
+    sipToken: sipToken,
+    sipCallerIDName: 'test',
+    sipCallerIDNumber: 'test',
+    notificationToken: 'test',
+    autoReconnect: true,
+    logLevel: LogLevel.info,
+    debug: false,
+  );
 }
 
 CredentialConfig _credentialConfig({
@@ -224,6 +381,8 @@ class FakeTxSocket extends TxSocket {
   void send(dynamic data) {
     sentMessages.add(data);
   }
+
+  void emitOpen() => onOpen();
 
   void emitMessage(dynamic data) {
     onMessage(data);

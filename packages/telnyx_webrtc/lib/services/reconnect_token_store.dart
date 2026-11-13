@@ -16,6 +16,7 @@ class ReconnectTokenStore {
   static const String _sessionIdStoredAtKey =
       'telnyx-voice-sdk-session-id-stored-at';
   static const String _activeCallsKey = 'telnyx-voice-sdk-active-calls';
+  static const String _regionKey = 'telnyx-voice-sdk-region';
 
   /// Max age (ms) for the reconnect session ID to be considered fresh.
   static const int reconnectSessionIdMaxAgeMs = 90 * 1000; // 90s
@@ -82,6 +83,36 @@ class ReconnectTokenStore {
 
     final currentTime = now ?? DateTime.now().millisecondsSinceEpoch;
     return currentTime - storedAt <= reconnectSessionIdMaxAgeMs;
+  }
+
+  // ── Pinned region (VSDK-1197 / VSDK-1128 parity) ─────────────
+
+  /// Get the region the stored reconnect identity was persisted under.
+  static Future<String?> getReconnectRegion() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_regionKey);
+  }
+
+  /// Store the region the reconnect identity belongs to so a later connect
+  /// can detect a region change and drop the stale identity (VSDK-1128
+  /// parity: a stale identity would re-anchor the new session on the
+  /// previous region's gateway).
+  static Future<void> setReconnectRegion(String region) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_regionKey, region);
+  }
+
+  /// Remove the persisted reconnect token and session id (leaving the
+  /// active-calls recovery marker untouched — it is cleared separately).
+  ///
+  /// Used when the pinned region changes so a stale identity cannot anchor
+  /// the new session on the previous region's gateway (VSDK-1128 parity).
+  static Future<void> clearReconnectIdentity() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_reconnectTokenKey);
+    await prefs.remove(_sessionIdKey);
+    await prefs.remove(_sessionIdStoredAtKey);
+    await prefs.remove(_regionKey);
   }
 
   // ── Active calls recovery marker ──────────────────────────────
@@ -166,6 +197,7 @@ class ReconnectTokenStore {
     await prefs.remove(_sessionIdKey);
     await prefs.remove(_sessionIdStoredAtKey);
     await prefs.remove(_activeCallsKey);
+    await prefs.remove(_regionKey);
   }
 }
 

@@ -80,7 +80,12 @@ class LoginParams {
       data['loginParams'] = loginParams;
     }
     data['passwd'] = passwd;
-    data['sessid'] = sessionId;
+    // sessid is only emitted when set: fresh logins omit it so the VSP can
+    // tell a real resume (sessid within the reconnect window) from a brand
+    // new session (VSDK-1197 / VSDK-1128 parity).
+    if (sessionId != null) {
+      data['sessid'] = sessionId;
+    }
     if (userVariables != null) {
       data['userVariables'] = userVariables!.toJson();
     }
