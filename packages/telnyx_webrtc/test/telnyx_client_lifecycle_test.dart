@@ -155,6 +155,51 @@ void main() {
     expect(states.where((state) => state == ConnectionStatus.reconnecting),
         hasLength(2));
   });
+
+  test(
+      'disconnect while a login continuation is pending opens no second socket',
+      () async {
+    // Fresh store: the login helper suspends on the persisted-region check,
+    // giving disconnect() a window to supersede it (PR #355 review).
+    client.connectWithCredential(_credentialConfig());
+    await pumpEventQueue();
+    expect(fakeSocket.connectCount, 1);
+
+    fakeSocket.emitOpen();
+    // The login helper is now suspended awaiting storage checks; tearing
+    // down the connection must invalidate it before it can reconnect.
+    client.disconnect();
+    await pumpEventQueue();
+
+    expect(fakeSocket.connectCount, 1);
+  });
+
+  test('superseded login never sends stale credentials on the new connection',
+      () async {
+    // Two rapid connects: the first login is still suspended on storage
+    // awaits when the second connect supersedes it. Only the fresh
+    // credentials may reach the wire (PR #355 review).
+    client.connectWithCredential(_credentialConfig(sipUser: 'first-user'));
+    await pumpEventQueue();
+    fakeSocket.emitOpen();
+
+    client.connectWithCredential(_credentialConfig(sipUser: 'second-user'));
+    await pumpEventQueue();
+    fakeSocket.emitOpen();
+    await pumpEventQueue();
+
+    final sent = fakeSocket.sentMessages.whereType<String>().toList();
+    expect(
+      sent.where((m) => m.contains('first-user')),
+      isEmpty,
+      reason: 'stale login continuation must be rejected',
+    );
+    expect(
+      sent.where((m) => m.contains('second-user')),
+      isNotEmpty,
+      reason: 'the current login must reach the wire',
+    );
+  });
 }
 
 CredentialConfig _credentialConfig({
@@ -224,6 +269,8 @@ class FakeTxSocket extends TxSocket {
   void send(dynamic data) {
     sentMessages.add(data);
   }
+
+  void emitOpen() => onOpen();
 
   void emitMessage(dynamic data) {
     onMessage(data);
