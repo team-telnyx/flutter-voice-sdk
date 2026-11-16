@@ -598,14 +598,37 @@ void main() {
       client.dispose();
     });
 
-    test('Connect with stored reconnect session ID adds voice_sdk_id to URL',
-        () async {
+    test(
+        'Connect with fresh stored identity and live-call marker adds '
+        'voice_sdk_id to URL', () async {
+      // Reattach requires explicit recoverable evidence: a persisted recovery
+      // marker with live calls (VSDK-1197 review). Freshness alone is never
+      // intent, so seed marker + identity + matching region.
+      await ReconnectTokenStore.setReconnectRegion('auto');
       await ReconnectTokenStore.setReconnectSessionId('sess-123');
+      await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+        [StoredActiveCall(id: 'call-1', customHeaders: [])],
+        'sess-123',
+      );
 
       client.connectWithCredential(_credentialConfig());
       await pumpEventQueue();
 
       expect(client.txSocket.hostAddress, contains('voice_sdk_id=sess-123'));
+    });
+
+    test(
+        'Connect with fresh stored identity but no recovery marker stays '
+        'fresh (VSDK-1197 review)', () async {
+      // A timestamp written by every successful REGED is not, on its own,
+      // evidence of a session to reattach: no marker, no attach fields.
+      await ReconnectTokenStore.setReconnectRegion('auto');
+      await ReconnectTokenStore.setReconnectSessionId('sess-123');
+
+      client.connectWithCredential(_credentialConfig());
+      await pumpEventQueue();
+
+      expect(client.txSocket.hostAddress, isNot(contains('voice_sdk_id')));
     });
 
     test('Connect without stored session ID does not add voice_sdk_id',
@@ -618,8 +641,15 @@ void main() {
 
     test('Reconnect path reuses the stored voice_sdk_id', () async {
       // The reconnect flow routes back through connectWithCredential, so a
-      // stored fresh session id is injected on reconnect too.
+      // stored fresh session id is injected on reconnect too. Reattach
+      // requires explicit recoverable evidence (marker with live calls,
+      // VSDK-1197 review).
+      await ReconnectTokenStore.setReconnectRegion('auto');
       await ReconnectTokenStore.setReconnectSessionId('reconnect-sess');
+      await ReconnectTokenStore.setActiveCallsRecoveryMarker(
+        [StoredActiveCall(id: 'call-1', customHeaders: [])],
+        'reconnect-sess',
+      );
 
       client.connectWithCredential(_credentialConfig());
       await pumpEventQueue();
