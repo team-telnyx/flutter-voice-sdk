@@ -778,7 +778,7 @@ class TelnyxClient {
     // Legacy self-heal when the monitor is disabled: direct ICE restart, but
     // only when the failure followed a disconnect.
     if (afterDisconnect) {
-      calls[callId]?.restartIce();
+      calls[callId]?.startLegacyIceRenegotiation();
     }
   }
 
