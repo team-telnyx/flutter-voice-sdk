@@ -391,6 +391,16 @@ class CallRecoveryMonitor {
     );
   }
 
+  /// Hands recovery over to the client-owned reconnect that follows a
+  /// network path change (Android `onNetworkPathDidChange`): any running
+  /// episode is cancelled, so it can neither reattach a second time nor carry
+  /// a relay override for an expected path switch. New failures stay ignored
+  /// while the client reconnect flow runs.
+  void onNetworkPathChanged() {
+    if (_disposed) return;
+    cancel('network-path-changed');
+  }
+
   /// Periodic active-call signaling health check. The owner calls this every
   /// [CallRecoveryConfig.signalingHealthCheckInterval] while the call is
   /// active. It intentionally ignores ICE state: media can stay connected

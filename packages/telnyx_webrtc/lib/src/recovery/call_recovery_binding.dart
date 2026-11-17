@@ -92,6 +92,14 @@ class CallRecoveryBinding extends CallRecoveryDelegate {
       _call.peerConnection?.inboundAudioPacketsReceived();
 
   @override
+  Future<CandidateEvidence?> getSelectedCandidateEvidence() async =>
+      _call.peerConnection?.selectedCandidateEvidence(_callId);
+
+  @override
+  void onCandidateEvidenceCaptured(CandidateEvidence evidence) =>
+      _client.recordRecoveryCandidateEvidence(_callId, evidence);
+
+  @override
   Future<bool> performReattachFallback() {
     _call.peerConnection?.recordRecoveryEvent('reattach_requested');
     return _client.requestRecoveryReattach(_callId);
