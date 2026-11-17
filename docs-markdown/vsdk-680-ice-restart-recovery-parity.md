@@ -16,7 +16,7 @@ internal (not exported) and lands as a stack of PRs:
 | 1 (#335) | `CallRecoveryMonitor` state machine + deterministic tests. No runtime behavior change. |
 | 2 (#358) | Wire the monitor into `Peer` (native and web), `Call` and `TelnyxClient`; retire the client-level `SignalingHealthMonitor` (`TelnyxClient.healthMonitor` stays as a deprecated getter that returns `null`). |
 | 3 (#359) | Public `Call.iceRestart()`, demo-app "Restart ICE" action, docs, CHANGELOG. |
-| 4 | Live selected-candidate evidence for the VPN relay override; network path change hand-off. |
+| 4 (#360) | Live selected-candidate evidence for the VPN relay override; network path change hand-off. |
 
 ## Legend
 
