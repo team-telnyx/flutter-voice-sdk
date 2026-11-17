@@ -120,6 +120,17 @@ void main() {
 
   Iterable<int> warningCodes() => warnings.map((w) => w.warning.code);
 
+  test('the deprecated healthMonitor getter stays source compatible', () async {
+    await connect();
+
+    // Existing callers such as `client.healthMonitor?.stop()` still compile;
+    // the client-wide monitor no longer exists, so it is always null.
+    // ignore: deprecated_member_use_from_same_package
+    client.healthMonitor?.stop();
+    // ignore: deprecated_member_use_from_same_package
+    expect(client.healthMonitor, isNull);
+  });
+
   group('monitor lifecycle', () {
     test('runs while active, pauses while held, and is disposed when done', () {
       client.applyStructuredConfigForTest(_config());

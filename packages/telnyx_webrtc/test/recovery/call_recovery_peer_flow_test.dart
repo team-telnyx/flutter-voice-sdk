@@ -244,14 +244,21 @@ void main() {
         },
       });
     await _until(() => monitor.state == CallRecoveryState.verifyingMedia);
-    expect(peerConnection.remoteDescriptions, contains('answer'));
-    expect(
-      peerConnection.remoteDescriptions.where((sdp) => sdp == 'answer'),
-      hasLength(1),
-    );
+    await pumpEventQueue();
+    expect(peerConnection.remoteDescriptions, <String?>['answer']);
 
     peerConnection.ice = RTCIceConnectionState.RTCIceConnectionStateConnected;
     await _until(() => monitor.state == CallRecoveryState.idle);
+
+    // A duplicate of the answered recovery response never reaches the legacy
+    // handler either.
+    socket.emitMessage({
+      'jsonrpc': '2.0',
+      'id': modify['id'],
+      'result': {'action': 'updateMedia', 'callID': 'call-1', 'sdp': 'dup'},
+    });
+    await pumpEventQueue();
+    expect(peerConnection.remoteDescriptions, <String?>['answer']);
 
     expect(
       warnings.map((w) => w.warning.code),

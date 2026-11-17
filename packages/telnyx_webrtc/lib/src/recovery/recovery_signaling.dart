@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:telnyx_webrtc/model/jsonrpc.dart';
@@ -54,6 +55,12 @@ class RecoverySignaling {
 
   final Map<String, _PendingRequest> _pending = <String, _PendingRequest>{};
 
+  /// Ids of recovery requests that were answered, expired, failed to send or
+  /// were reset. A later response to one of them must not reach legacy
+  /// handling.
+  final LinkedHashSet<String> _retired = LinkedHashSet<String>();
+  static const int _maxRetired = 32;
+
   /// Time since the last inbound frame, or `null` if none was seen.
   Duration? get inboundIdle => _since(_lastInboundAt);
 
@@ -72,14 +79,29 @@ class RecoverySignaling {
   ///
   /// Returns `true` when the response belonged to a recovery request, so the
   /// caller can skip legacy handling of that response.
+  ///
+  /// A response without an id resolves the single in-flight `updateMedia`
+  /// for the same call, for gateways that omit the JSON-RPC id (Android
+  /// parity).
   bool onResponse(String? id, Map<String, dynamic> message) {
     _lastConfirmedResponseAt = _now();
-    if (id == null) return false;
-    final pending = _pending.remove(id);
-    if (pending == null) return false;
-    pending.complete(message);
+    final key = id ?? _singlePendingUpdateMediaFor(_resultCallId(message));
+    if (key == null || !_pending.containsKey(key)) return false;
+    // Retired too, so a duplicate of this response cannot reach legacy
+    // handling later.
+    _retire(key)!.complete(message);
     return true;
   }
+
+  /// Whether an `updateMedia` response that [onResponse] did not resolve
+  /// still belongs to recovery and must be ignored by legacy handling: its
+  /// [id] is a retired recovery request, or a recovery `updateMedia` for
+  /// [callId] is in flight and only its own answer may be applied (Android
+  /// parity: a non-matching id is stale).
+  bool ownsUpdateMediaResponse(String? id, String? callId) =>
+      (id != null && _retired.contains(id)) ||
+      (callId != null &&
+          _pending.values.any((request) => request.callId == callId));
 
   /// Sends one correlated `telnyx_rtc.ping`. Any correlated response (result
   /// or error) proves the signaling path is alive.
@@ -96,7 +118,7 @@ class RecoverySignaling {
         }),
       );
     } catch (_) {
-      _pending.remove(id)?.cancel();
+      _retire(id)?.cancel();
       return SignalingProbeResult.error;
     }
     try {
@@ -117,7 +139,7 @@ class RecoverySignaling {
     required String sdp,
   }) async {
     final id = const Uuid().v4();
-    final future = _register(id);
+    final future = _register(id, callId: callId);
     final message = ModifyMessage(
       id: id,
       jsonrpc: JsonRPCConstant.jsonrpc,
@@ -132,7 +154,7 @@ class RecoverySignaling {
     try {
       _send(jsonEncode(message.toJson()));
     } catch (error) {
-      _pending.remove(id)?.cancel();
+      _retire(id)?.cancel();
       throw RecoverySignalingException('updateMedia could not be sent: $error');
     }
 
@@ -151,29 +173,60 @@ class RecoverySignaling {
   /// Fails every pending request. Called on disconnect and disposal.
   void reset() {
     final pending = _pending.values.toList();
-    _pending.clear();
+    _pending.keys.toList().forEach(_retire);
     for (final request in pending) {
       request.fail(const RecoverySignalingException('signaling reset'));
     }
   }
 
-  Future<Map<String, dynamic>> _register(String id) {
+  Future<Map<String, dynamic>> _register(String id, {String? callId}) {
     final request = _PendingRequest(
       Timer(requestExpiry, () {
-        _pending.remove(id)?.fail(TimeoutException('recovery request expired'));
+        _retire(id)?.fail(TimeoutException('recovery request expired'));
       }),
+      callId: callId,
     );
     _pending[id] = request;
     return request.completer.future;
+  }
+
+  /// Removes the pending request [id] and remembers its id as retired.
+  _PendingRequest? _retire(String id) {
+    _retired
+      ..remove(id)
+      ..add(id);
+    while (_retired.length > _maxRetired) {
+      _retired.remove(_retired.first);
+    }
+    return _pending.remove(id);
+  }
+
+  String? _singlePendingUpdateMediaFor(String? callId) {
+    if (callId == null) return null;
+    final ids = _pending.entries
+        .where((entry) => entry.value.callId == callId)
+        .map((entry) => entry.key)
+        .toList();
+    return ids.length == 1 ? ids.single : null;
+  }
+
+  static String? _resultCallId(Map<String, dynamic> message) {
+    final result = message['result'];
+    if (result is! Map || result['action'] != 'updateMedia') return null;
+    final callId = result['callID'];
+    return callId is String ? callId : null;
   }
 
   Duration? _since(DateTime? at) => at == null ? null : _now().difference(at);
 }
 
 class _PendingRequest {
-  _PendingRequest(this._expiry);
+  _PendingRequest(this._expiry, {this.callId});
 
   final Timer _expiry;
+
+  /// Call id of a recovery `updateMedia`; `null` for probes.
+  final String? callId;
   final Completer<Map<String, dynamic>> completer =
       Completer<Map<String, dynamic>>();
 

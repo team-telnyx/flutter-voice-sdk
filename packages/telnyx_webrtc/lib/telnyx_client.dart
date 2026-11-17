@@ -62,6 +62,7 @@ import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
 import 'package:telnyx_webrtc/src/recovery/recovery_signaling.dart';
 import 'package:telnyx_webrtc/services/reconnect_token_store.dart';
 import 'package:telnyx_webrtc/services/request_timeout_tracker.dart';
+import 'package:telnyx_webrtc/services/signaling_health_monitor.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -380,6 +381,16 @@ class TelnyxClient {
   /// null when disabled. Consumed by the [Peer.createStream] answer path.
   MediaPermissionsRecoveryConfig? get mediaPermissionsRecovery =>
       _mediaPermissionsRecovery;
+
+  /// Former client-wide signaling-health monitor. Recovery runs per call
+  /// since VSDK-680, so this is always `null`.
+  @Deprecated(
+    'Call recovery is per call since VSDK-680 and is controlled by '
+    'enableSignalingHealthMonitor. Always null; will be removed in the next '
+    'major version.',
+  )
+  // ignore: deprecated_member_use_from_same_package
+  SignalingHealthMonitor? get healthMonitor => null;
 
   /// Internal: whether calls run the per-call recovery monitor (VSDK-680).
   bool get isCallRecoveryEnabled => _enableSignalingHealthMonitor;
@@ -3776,6 +3787,19 @@ class TelnyxClient {
                       isRecoveryResponse) {
                     // Applied by the call's recovery monitor (VSDK-680).
                     GlobalLogger().i('Received recovery updateMedia response');
+                  } else if (resultMap['action'] == 'updateMedia' &&
+                      recoverySignaling.ownsUpdateMediaResponse(
+                        stateMessage.id,
+                        resultMap['callID'] as String?,
+                      )) {
+                    // Only the answer to the recovery request's own id may
+                    // touch the peer while recovery owns negotiation, and a
+                    // late answer to an expired request never does
+                    // (VSDK-680, Android parity).
+                    GlobalLogger().w(
+                      'Ignoring stale updateMedia response '
+                      '(id=${stateMessage.id})',
+                    );
                   } else if (resultMap['action'] == 'updateMedia') {
                     GlobalLogger().i('Received updateMedia response');
 

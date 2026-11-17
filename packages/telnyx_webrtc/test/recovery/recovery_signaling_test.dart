@@ -178,6 +178,101 @@ void main() {
     });
   });
 
+  group('legacy updateMedia handling', () {
+    Map<String, dynamic> updateMedia(String sdp) => <String, dynamic>{
+          'result': {'action': 'updateMedia', 'callID': 'call-1', 'sdp': sdp},
+        };
+
+    test('owns every updateMedia response for a call with a pending request',
+        () async {
+      final answer = signaling.sendUpdateMedia(
+        callId: 'call-1',
+        sessid: 'sess-1',
+        sdp: 'offer',
+      );
+
+      expect(signaling.onResponse('other', updateMedia('stale')), isFalse);
+      expect(signaling.ownsUpdateMediaResponse('other', 'call-1'), isTrue);
+      expect(
+        signaling.ownsUpdateMediaResponse('other', 'call-2'),
+        isFalse,
+        reason: 'another call keeps legacy handling',
+      );
+
+      signaling.onResponse(sent.single['id'] as String, updateMedia('answer'));
+      expect(await answer, 'answer');
+      expect(signaling.ownsUpdateMediaResponse('later', 'call-1'), isFalse);
+    });
+
+    test('a response without an id resolves the single pending request',
+        () async {
+      final answer = signaling.sendUpdateMedia(
+        callId: 'call-1',
+        sessid: 'sess-1',
+        sdp: 'offer',
+      );
+
+      expect(signaling.onResponse(null, updateMedia('answer')), isTrue);
+      expect(await answer, 'answer');
+    });
+
+    test('answered, expired and reset request ids stay recovery-owned',
+        () async {
+      final answered = signaling.sendUpdateMedia(
+        callId: 'call-1',
+        sessid: 'sess-1',
+        sdp: 'offer',
+      );
+      final answeredId = sent.last['id'] as String;
+      signaling.onResponse(answeredId, updateMedia('answer'));
+      await answered;
+
+      final short = RecoverySignaling(
+        send: (message) =>
+            sent.add(jsonDecode(message) as Map<String, dynamic>),
+        requestExpiry: const Duration(milliseconds: 10),
+      );
+      final expired = short.sendUpdateMedia(
+        callId: 'call-1',
+        sessid: 'sess-1',
+        sdp: 'offer',
+      );
+      final expiredId = sent.last['id'] as String;
+      await expectLater(expired, throwsA(isA<TimeoutException>()));
+
+      final reset = signaling.sendUpdateMedia(
+        callId: 'call-1',
+        sessid: 'sess-1',
+        sdp: 'offer',
+      );
+      final resetId = sent.last['id'] as String;
+      signaling.reset();
+      await expectLater(reset, throwsA(isA<RecoverySignalingException>()));
+
+      expect(signaling.onResponse(answeredId, updateMedia('dup')), isFalse);
+      expect(signaling.ownsUpdateMediaResponse(answeredId, 'call-1'), isTrue);
+      expect(short.ownsUpdateMediaResponse(expiredId, 'call-1'), isTrue);
+      expect(signaling.ownsUpdateMediaResponse(resetId, 'call-1'), isTrue);
+      expect(
+        signaling.ownsUpdateMediaResponse('legacy', 'call-1'),
+        isFalse,
+        reason: 'unrelated legacy renegotiation keeps working',
+      );
+    });
+
+    test('a request that could not be sent is retired', () async {
+      final failing = RecoverySignaling(
+        send: (_) => throw StateError('socket closed'),
+      );
+      await expectLater(
+        failing.sendUpdateMedia(callId: 'call-1', sessid: 's', sdp: 'o'),
+        throwsA(isA<RecoverySignalingException>()),
+      );
+      expect(failing.pendingCount, 0);
+      expect(failing.ownsUpdateMediaResponse(null, 'call-1'), isFalse);
+    });
+  });
+
   group('inboundAudioPacketsFromReports', () {
     StatsReport report(String type, Map<String, dynamic> values) =>
         StatsReport('id-$type-${values.hashCode}', type, 0, values);

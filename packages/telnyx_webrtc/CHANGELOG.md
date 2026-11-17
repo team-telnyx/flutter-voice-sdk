@@ -1,4 +1,6 @@
 ## [Unreleased]
+### Deprecated
+- `TelnyxClient.healthMonitor` and `SignalingHealthMonitor` (VSDK-680): call recovery now runs per call and is controlled by `enableSignalingHealthMonitor`. The getter always returns `null` and the class is a no-op; both will be removed in the next major version
 ### Bug Fix
 - Fixed macOS trickle ICE race that could end the candidate stream before late relay/srflx candidates arrived (VSUP-279 / GH #297) — the primary end-of-candidates signal is now `RTCIceGatheringStateComplete`, with the per-candidate timer demoted to a 5-second bounded safety-net fallback
 

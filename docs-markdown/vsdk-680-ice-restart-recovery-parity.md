@@ -14,7 +14,7 @@ internal (not exported) and lands as a stack of PRs:
 | PR | Scope |
 | --- | --- |
 | 1 | `CallRecoveryMonitor` state machine + deterministic tests. **No runtime behavior change.** |
-| 2 | Wire the monitor into `Peer` (native and web), `Call` and `TelnyxClient`; retire the client-level `SignalingHealthMonitor`. |
+| 2 | Wire the monitor into `Peer` (native and web), `Call` and `TelnyxClient`; retire the client-level `SignalingHealthMonitor` (`TelnyxClient.healthMonitor` stays as a deprecated getter that returns `null`). |
 | 3 | Public `Call.iceRestart()`, demo-app "Restart ICE" action, docs, CHANGELOG. |
 | 4 | Feed live selected-candidate evidence into the existing VPN relay override; network path change hand-off. |
 
@@ -61,7 +61,7 @@ internal (not exported) and lands as a stack of PRs:
 | Behavior | Status | Notes |
 | --- | --- | --- |
 | `createOffer(IceRestart)` → `telnyx_rtc.modify` `updateMedia` → answer on the same peer | ✅ | `Peer.startIceRenegotiation` / `handleUpdateMediaResponse` |
-| Answer correlated with the request that carried the offer | 🔌 | `main` applies any `updateMedia` response |
+| Answer correlated with the request that carried the offer | 🔌 | `main` applies any `updateMedia` response. While a recovery `updateMedia` is in flight, other `updateMedia` responses for that call are ignored, as are late responses to answered, expired or reset recovery ids (Android parity) |
 | State stays `iceRestarting` until the answer is applied | 🧩 → 🔌 | |
 | 15 s restart timeout; media reconnected at fire time → verification, else fallback | 🧩 → 🔌 | |
 | Offer / send / apply failure → fallback | 🧩 → 🔌 | `main` logs `iceRestartFailed` and reconnects without a one-shot guard; a missing local description fails silently |
