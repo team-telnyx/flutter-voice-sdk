@@ -2155,6 +2155,13 @@ class Peer {
 
   // ── Per-call recovery surface (VSDK-680) ─────────────────────────────
 
+  /// Test seam: installs [peerConnection] as this peer's live session.
+  @visibleForTesting
+  void attachPeerConnectionForTest(RTCPeerConnection peerConnection) {
+    _sessions[_selfId] = Session(sid: _selfId, pid: _selfId)
+      ..peerConnection = peerConnection;
+  }
+
   RTCPeerConnection? get _recoveryPeerConnection =>
       _sessions[_selfId]?.peerConnection;
 
