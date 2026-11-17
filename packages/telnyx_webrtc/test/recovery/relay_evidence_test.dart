@@ -191,6 +191,62 @@ void main() {
       expect(client.hasRecoveryRelayOverrideForTest('call-1'), isFalse);
     });
 
+    test('a refused reattach drops evidence armed for it', () async {
+      final refusing = TelnyxClient(
+        connectivityChanges: () => const Stream.empty(),
+      )
+        ..txSocket = _FakeTxSocket()
+        ..connectWithCredential(
+          CredentialConfig(
+            sipUser: 'user',
+            sipPassword: 'pass',
+            sipCallerIDName: 'name',
+            sipCallerIDNumber: 'number',
+            logLevel: LogLevel.none,
+            debug: false,
+            autoReconnect: false,
+          ),
+        );
+      addTearDown(refusing.dispose);
+      await pumpEventQueue();
+
+      refusing.recordRecoveryCandidateEvidence('call-1', _vpnHost);
+      expect(await refusing.requestRecoveryReattach('call-1'), isFalse);
+      expect(refusing.hasRecoveryRelayOverrideForTest('call-1'), isFalse);
+    });
+
+    test('a network switch retires evidence captured on the old path',
+        () async {
+      final call = client.call..callId = 'call-1';
+      client.calls['call-1'] = call;
+      call.callHandler.changeState(CallState.active);
+
+      // Evidence already armed before the path changes.
+      client.recordRecoveryCandidateEvidence('call-1', _vpnHost);
+      expect(client.hasRecoveryRelayOverrideForTest('call-1'), isTrue);
+
+      connectivity.add([ConnectivityResult.wifi]);
+      await pumpEventQueue();
+      connectivity.add([ConnectivityResult.mobile]);
+      await pumpEventQueue();
+
+      expect(client.isRecoveryReconnecting, isTrue);
+      expect(client.hasRecoveryRelayOverrideForTest('call-1'), isFalse);
+    });
+
+    test('ending the call drops its override', () async {
+      final call = client.call..callId = 'call-1';
+      client.calls['call-1'] = call;
+      call.callHandler.changeState(CallState.active);
+      client.recordRecoveryCandidateEvidence('call-1', _vpnHost);
+
+      call.endCall();
+      await pumpEventQueue();
+
+      expect(client.calls.containsKey('call-1'), isFalse);
+      expect(client.hasRecoveryRelayOverrideForTest('call-1'), isFalse);
+    });
+
     test('a network switch cancels a running recovery episode', () async {
       final call = client.call..callId = 'call-1';
       client.calls['call-1'] = call;

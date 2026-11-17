@@ -434,6 +434,7 @@ class Call {
     _txClient.onCallStateChangedToActive(callId);
 
     _txClient.calls.remove(callId);
+    _txClient.discardCallRecoveryState(callId);
 
     // Cancel latency tracking for this call
     if (callId != null) {

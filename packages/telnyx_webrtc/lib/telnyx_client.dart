@@ -716,7 +716,12 @@ class TelnyxClient {
   Future<bool> requestRecoveryReattach(String callId) {
     final existing = _recoveryReattachWaiters[callId];
     if (existing != null) return existing.future;
-    if (_isTornDown || !_autoReconnectLogin) return Future.value(false);
+    if (_isTornDown || !_autoReconnectLogin) {
+      // No reattach will follow, so evidence armed for it must not outlive
+      // this refusal (Android arms the override only for an accepted one).
+      _recoveryRelayOverrides.remove(callId);
+      return Future.value(false);
+    }
 
     final waiter = Completer<bool>();
     _recoveryReattachWaiters[callId] = waiter;
@@ -756,9 +761,19 @@ class TelnyxClient {
     }
   }
 
-  /// Consumes the one-shot relay override for [callId].
+  /// Consumes the one-shot relay override for [callId]. Only the ATTACH for
+  /// the call whose recovery armed it receives it (call ids are unique per
+  /// call), whichever flow triggered that ATTACH.
   bool _consumeRecoveryRelayOverride(String? callId) =>
       callId != null && _recoveryRelayOverrides.remove(callId);
+
+  /// Internal: drops recovery state kept for [callId] once the call is torn
+  /// down, so a relay override cannot outlive its call (Android
+  /// `removeFromCalls`).
+  void discardCallRecoveryState(String? callId) {
+    if (callId == null) return;
+    _recoveryRelayOverrides.remove(callId);
+  }
 
   /// Test seam: whether a relay override is armed for [callId].
   @visibleForTesting
@@ -1472,10 +1487,13 @@ class TelnyxClient {
     GlobalLogger().i(
       'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)',
     );
-    // The client reconnect owns recovery for a path change (VSDK-680).
+    // The client reconnect owns recovery for a path change (VSDK-680). The
+    // replacement call runs on the new path, so relay evidence captured on
+    // the old one is retired (iOS resets it on every reconnect).
     for (final call in calls.values) {
       call.recoveryMonitor?.onNetworkPathChanged();
     }
+    _recoveryRelayOverrides.clear();
     _reconnectToSocket();
 
     for (var call in activeCalls().values) {
@@ -4024,7 +4042,9 @@ class TelnyxClient {
                   // networkType stat. Without a reliable VPN signal, relay
                   // escalation intentionally remains disabled.
                   // VSDK-680: live evidence captured by call recovery works
-                  // even without call reports; consume it once either way.
+                  // even without call reports. Only the ATTACH for the call
+                  // whose recovery armed the override receives it; it is
+                  // consumed once either way.
                   final relayFromRecovery =
                       _consumeRecoveryRelayOverride(attachCallId);
                   final forceRelayCandidateForRecovery = relayFromRecovery ||
@@ -4251,6 +4271,7 @@ class TelnyxClient {
                   );
 
                   calls.remove(byeCall.callId);
+                  discardCallRecoveryState(byeCall.callId);
 
                   // Cancel latency tracking for this call
                   if (byeCall.callId != null) {

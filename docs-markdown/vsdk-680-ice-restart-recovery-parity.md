@@ -43,7 +43,7 @@ internal (not exported) and lands as a stack of PRs:
 | Already-connected guard for ICE-triggered episodes | ✅ PR 2 | |
 | Ignore non-active calls and failures while the client reconnect flow owns recovery | ✅ PR 2 | |
 | Failure during media verification → immediate fallback | ✅ PR 2 | |
-| Network path change pre-empts per-call recovery | ✅ PR 4 | Android `onNetworkPathDidChange` |
+| Network path change pre-empts per-call recovery | ✅ PR 4 | Android `onNetworkPathDidChange`. Flutter cancels the episode (clearing the failed-reattach latch) instead of parking it in `reattaching`; new failures stay ignored while the client reconnect runs, and the reattached call starts a fresh monitor, matching iOS, which finishes recovery when the reattached call becomes active. Relay evidence from the old path is retired |
 
 ## Signaling gating
 
@@ -79,8 +79,8 @@ internal (not exported) and lands as a stack of PRs:
 | Behavior | Status | Notes |
 | --- | --- | --- |
 | Reattach via the client reconnect flow (VSDK-1197 attach rules) | ✅ PR 2 | |
-| Candidate evidence read bounded to 1 s; media episodes only | ✅ PR 4 | |
-| One-shot relay override for a failed direct VPN path, without mutating global config | ✅ PR 4 | Live `getStats()` evidence captured at fallback (works without call reports), consumed by the ATTACH for that call; the call-report heuristic still applies |
+| Candidate evidence read bounded to 1 s; media episodes only | ✅ PR 4 | Decision uses the selected pair's local candidate only (`networkType == vpn` and not `relay`), the same rule as iOS `selectedCandidateUsesDirectVPN` and Android `selectedCandidateUsesDirectVpn` |
+| One-shot relay override for a failed direct VPN path, without mutating global config | ✅ PR 4 | Live `getStats()` evidence captured at fallback (works without call reports), consumed by the ATTACH for that call; the call-report heuristic still applies. Cleared when the reattach is refused or fails, on a network path change, and when the call is torn down |
 
 ## Cleanup
 
