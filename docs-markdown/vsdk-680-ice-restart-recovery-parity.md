@@ -1,118 +1,107 @@
-# VSDK-680 — ICE restart recovery parity matrix
+# VSDK-680: ICE restart recovery parity
 
-> Status: **In Progress**. This matrix covers the per-call recovery
-> state machine that the Flutter SDK now has (`CallRecoveryCoordinator`)
-> and identifies what is **existing**, **newly added**, **gaps still in
-> the Flutter SDK**, or **intentionally non-applicable** (e.g. because
-> the behavior lives in another layer).
+Flutter is moving to the per-call `SignalingHealthMonitor` design already
+shipped on the other Telnyx mobile SDKs:
 
-The matrix compares the Flutter SDK against the production JS SDK
-(`packages/js/src/Modules/Verto/webrtc/Peer.ts`,
-`packages/js/src/Modules/Verto/BaseSession.ts`) and the merged iOS
-recovery series
-(`telnyx-webrtc-ios` PRs #379, #380, #381, #399).
+* iOS: `telnyx-webrtc-ios` #379, #380, #381, #399
+* Android: `telnyx-webrtc-android` #868 (VSDK-678)
+* React Native: `react-native-voice-commons` #133 (VSDK-679)
+
+The Flutter port is `CallRecoveryMonitor`
+(`packages/telnyx_webrtc/lib/src/recovery/call_recovery_monitor.dart`). It is
+internal (not exported) and lands as a stack of PRs:
+
+| PR | Scope |
+| --- | --- |
+| 1 | `CallRecoveryMonitor` state machine + deterministic tests. **No runtime behavior change.** |
+| 2 | Wire the monitor into `Peer` (native and web), `Call` and `TelnyxClient`; retire the client-level `SignalingHealthMonitor`. |
+| 3 | Public `Call.iceRestart()`, demo-app "Restart ICE" action, docs, CHANGELOG. |
+| 4 | Feed live selected-candidate evidence into the existing VPN relay override; network path change hand-off. |
 
 ## Legend
 
-* ✅ **Existing** — already implemented and tested in the Flutter SDK.
-* 🆕 **New in VSDK-680** — added in this PR (the per-call
-  `CallRecoveryCoordinator` state machine + tests).
-* ⏳ **Gap** — present in JS / iOS, not yet wired into Flutter (will
-  land in follow-up PRs once the coordinator is consumed by `Call` /
-  `SignalingHealthMonitor`).
-* ➖ **N/A** — intentionally not applicable (Flutter-specific reason).
+* ✅ on `main` today
+* 🧩 implemented in `CallRecoveryMonitor` (PR 1), not yet driving calls
+* 🔌 wired in PR 2 · 🧑‍💻 PR 3 · 🛰️ PR 4
 
 ## Recovery state machine
 
-| Behavior | Flutter SDK | Notes |
+| Behavior | Status | Notes |
 | --- | --- | --- |
-| Recovery phases (`idle → probing → iceRestarting → verifyingMedia → idle`) | 🆕 | `CallRecoveryCoordinator` enum + transitions |
-| `reattaching` fallback phase (one per generation) | 🆕 | `RecoveryPhase.reattaching` |
-| Generation counter; stale callbacks ignored | 🆕 | `_generation` check at every callback |
-| 15-second restart timeout with fire-time connected/completed guard | 🆕 | `RecoveryCoordinatorListener.onRestartTimeout` |
-| 5-second `verifyingMedia` window waiting for inbound RTP growth | 🆕 | `onAnswerApplied` + `noteInboundRtpBytes` |
-| 3-second `disconnected` debounce (cancelled on connected) | 🆕 | `onIceStateChanged(disconnected)` |
-| One fallback reattach per generation | 🆕 | `_fallbackFiredForGeneration` guard |
-| 30-second reattach cooldown across generations | 🆕 | `_lastFallbackAt` check |
-| Disposable on terminal call / logout / disposal | 🆕 | `dispose()` cancels all timers |
+| States `idle → probing → iceRestarting → verifyingMedia → idle`, `reattaching` fallback | 🧩 → 🔌 | `CallRecoveryState` |
+| Generation captured by every async continuation; `cancel()` bumps it | 🧩 → 🔌 | Late probes, offers, answers and stats reads are no-ops |
+| Duplicate failures suppressed while an episode runs | 🧩 → 🔌 | |
+| One reattach per episode; after a failed reattach no new episode until media is seen connected | 🧩 → 🔌 | `_recoveryFailedLatch` |
+| Sanitized logs (call-id prefix + generation; no SDP, addresses or credentials) | 🧩 → 🔌 | |
 
 ## Triggers
 
-| Behavior | Flutter SDK | Notes |
+| Behavior | Status | Notes |
 | --- | --- | --- |
-| ICE `failed` trigger for ACTIVE calls | ✅ | `SignalingHealthMonitor` + `Call.restartIce` path |
-| Peer `failed` trigger for ACTIVE calls | ✅ | `SignalingHealthMonitor` |
-| `ICE disconnected` for ACTIVE calls | 🆕→⏳ | Detection exists; debounce now centralized in coordinator (this PR adds the contract; wiring into `Call` is follow-up) |
-| Direct teardown / reattach on known path changes | ⏳ | Not yet wired in Flutter |
-| Recent signaling → restart | ✅ | `SignalingHealthMonitor` decides |
-| Stale signaling → exact-ID ping probe with 5-second timeout | ⏳ | Probe exists; exact-ID correlation is a follow-up |
-| Unhealthy signaling → reattach | ✅ | `SignalingHealthMonitor` path |
+| ICE `failed` on an active call | ✅ / 🧩 → 🔌 | Today: client-level `SignalingHealthMonitor.onPeerFailure` |
+| Peer-connection `failed`, even while ICE reports connected (DTLS) | 🧩 → 🔌 | Not handled on `main` |
+| ICE / peer-connection `disconnected` for 3 s, judged at fire time | 🧩 → 🔌 | `main` only emits `iceConnectivityLost` and stops stats |
+| Already-connected guard for ICE-triggered episodes | 🧩 → 🔌 | |
+| Ignore non-active calls and failures while the client reconnect flow owns recovery | 🧩 → 🔌 | |
+| Failure during media verification → immediate fallback | 🧩 → 🔌 | |
+| Network path change pre-empts per-call recovery | 🛰️ | Android `onNetworkPathDidChange` |
+
+## Signaling gating
+
+| Behavior | Status | Notes |
+| --- | --- | --- |
+| Inbound ≤ 3 s **and** confirmed request/response ≤ 45 s → ICE restart | 🧩 → 🔌 | `main` uses inbound activity only |
+| Stale signaling → one correlated `telnyx_rtc.ping` probe, 5 s timeout | ✅ partial / 🧩 → 🔌 | `main` matches the request id but also accepts a `null` id from any ping response; PR 2 removes that path |
+| Signaling unavailable → reattach | ✅ / 🧩 → 🔌 | |
+| Periodic 3 s active-call check: inbound idle ≥ 20 s or confirmed idle ≥ 45 s → health probe | 🧩 → 🔌 | Runs even while media is connected |
+| Media failure during a health probe is deferred, not dropped | 🧩 → 🔌 | |
 
 ## Restart handshake
 
-| Behavior | Flutter SDK | Notes |
+| Behavior | Status | Notes |
 | --- | --- | --- |
-| `restartIce` → local offer → `telnyx_rtc.modify updateMedia` → answer | ✅ | `Peer.restartIce` path |
-| State remains `iceRestarting` until the answer is applied | 🆕 | Coordinator holds phase until `onAnswerApplied` |
-| ICE restart applied before late answer | ⏳ | Late-answer correlation is a follow-up |
+| `createOffer(IceRestart)` → `telnyx_rtc.modify` `updateMedia` → answer on the same peer | ✅ | `Peer.startIceRenegotiation` / `handleUpdateMediaResponse` |
+| Answer correlated with the request that carried the offer | 🔌 | `main` applies any `updateMedia` response |
+| State stays `iceRestarting` until the answer is applied | 🧩 → 🔌 | |
+| 15 s restart timeout; media reconnected at fire time → verification, else fallback | 🧩 → 🔌 | |
+| Offer / send / apply failure → fallback | 🧩 → 🔌 | `main` logs `iceRestartFailed` and reconnects without a one-shot guard; a missing local description fails silently |
+| A restart that already fell back cannot send its late offer | 🧩 → 🔌 | Stricter than RN #133 |
 
-## Verification phase
+## Media verification
 
-| Behavior | Flutter SDK | Notes |
+| Behavior | Status | Notes |
 | --- | --- | --- |
-| Verify inbound RTP growth within 5 seconds | 🆕 | `noteInboundRtpBytes` (strictly-greater check) |
-| Verification with call reports enabled | ✅ | Reuses existing `CallReportCollector` samples (no duplication) |
-| Verification with reports disabled | ➖ | N/A in Flutter: call reports are an opt-in stream; when disabled, no samples are emitted and the coordinator simply waits for `noteInboundRtpBytes` from any other observer (e.g., the platform RTC stats callback the demo wires up). |
-| One fallback reattach per generation on restart/SDP/answer/timeout/no-RTP failure | 🆕 | `requestFallbackReattach(reason: …)` |
+| Baseline sampled on entry; first poll is a warm-up; growth required within 5 s | 🧩 → 🔌 | |
+| Deadline armed before the first stats read | 🧩 → 🔌 | |
+| Works with call reports disabled | 🔌 | Reads `getStats()` directly rather than call-report samples |
+
+## Fallback / relay
+
+| Behavior | Status | Notes |
+| --- | --- | --- |
+| Reattach via the client reconnect flow (VSDK-1197 attach rules) | ✅ / 🔌 | |
+| Candidate evidence read bounded to 1 s; media episodes only | 🧩 → 🛰️ | |
+| One-shot relay override for a failed direct VPN path, without mutating global config | ✅ partial / 🛰️ | `main` derives it from call-report samples at reattach; PR 4 feeds live evidence |
 
 ## Cleanup
 
-| Behavior | Flutter SDK | Notes |
+| Behavior | Status | Notes |
 | --- | --- | --- |
-| Cleanup on terminal call | ✅ | `Call.bye` + `dispose()` path; coordinator `dispose()` cancels timers |
-| Cleanup on logout | ✅ | `TelnyxClient.disconnect` cascades to calls; coordinator disposed |
-| Cleanup on disposal | 🆕 | `CallRecoveryCoordinator.dispose()` |
-| Cleanup on replacement-call `ACTIVE` | ⏳ | Follow-up: surface from `CallManager` when an active replacement arrives |
+| Cancel on terminal call, hangup, peer disposal, logout / disconnect | 🧩 → 🔌 | `cancel()` / `dispose()` |
+| Cancel when a replacement call becomes active | 🔌 | |
 
-## Path changes / relay
+## Public API
 
-| Behavior | Flutter SDK | Notes |
+| Behavior | Status | Notes |
 | --- | --- | --- |
-| Evidence-based, one-shot VPN direct-path relay override without mutating global configuration | ⏳ | Not yet implemented; the iOS reference uses a dedicated `DirectPathMonitor`. The Flutter SDK already has `ICE server override` plumbing (`VSDK-283`); this PR adds the **coordinator** that future path-change work will call into. |
-| Sanitized recovery / call-report logs | ✅ | Logging system already strips credentials; recovery callbacks log only the `callId` + reason |
+| `Call.iceRestart(): bool` rejected when not active / no signaling / no peer / recovery running | 🧩 → 🧑‍💻 | `CallRecoveryMonitor.requestIceRestart()` implements the policy |
+| Forward to the replacement call after reattach | 🧑‍💻 | |
+| `Call.restartIce()` kept as a deprecated alias | 🧑‍💻 | |
+| Demo-app "Restart ICE" action on active calls | 🧑‍💻 | |
 
-## Deterministic test coverage added in VSDK-680
+## Out of scope
 
-* `startRestart` bumps generation and transitions to `iceRestarting`.
-* Repeated `startRestart` supersedes the prior generation's timer
-  (stale callbacks no-op'd by generation check).
-* 15-second restart timeout fires `onRestartTimeout`.
-* Connected ICE during restart cancels the 15-second timer.
-* `verifyingMedia` confirms on strictly-greater inbound RTP bytes.
-* `verifyingMedia` timeout fires when no growth observed.
-* `disconnected` ICE starts a 3-second debounce; `connected`
-  cancels it (and emits `RecoveryDismissReason.recovered`).
-* Disconnected debounce expires → `onDisconnectedDebounceExpired`.
-* Stale-generation callbacks (`onAnswerApplied`, `noteInboundRtpBytes`,
-  `onIceStateChanged`, `requestFallbackReattach`) are ignored.
-* One fallback reattach per generation (subsequent requests rejected).
-* `dispose()` cancels all timers and ignores subsequent callbacks.
-* Disconnected ICE during `iceRestarting` does **not** downgrade to
-  `probing` (no nested debounce).
-
-Test results on this branch
-(`packages/telnyx_webrtc`):
-
-```
-00:01 +12: All tests passed!   (call_recovery_coordinator_test.dart)
-00:21 +706 ~8: All tests passed!  (full package, +12 vs main)
-```
-
-## Residual hardware checks (out of scope for the AFK bot)
-
-These checks require physical / emulator device interaction and are
-tracked separately for manual QA:
-
-* Media blackhole on degraded network.
-* Path switching (Wi-Fi ↔ cellular) with reports disabled.
-* Restored inbound / outbound audio after media-verification timeout.
+* Verto message changes (Android added `trickle` to `ModifyParams`); not
+  planned without explicit approval.
+* Hardware QA (media blackhole, Wi-Fi ↔ cellular, reports disabled), run
+  after PR 2.
