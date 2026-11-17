@@ -5,11 +5,11 @@ import 'dart:async';
 /// Each call to [track] starts a [Timer] keyed by the request ID. If the
 /// timer fires before [resolve] is called for that ID, the [onTimeout]
 /// callback is invoked with the method name, request ID, and timeout
-/// duration. This enables the [SignalingHealthMonitor] to detect stalled
-/// signaling and trigger recovery.
+/// duration. `TelnyxClient` uses it to detect stalled signaling and force a
+/// socket reconnect.
 ///
 /// Design notes:
-/// - Optional: only instantiated when the health monitor is enabled.
+/// - Optional: only instantiated when signaling-health recovery is enabled.
 /// - Only critical methods (modify, bye, ping) should be tracked —
 ///   non-critical fire-and-forget requests must not trigger recovery.
 /// - Callers are responsible for calling [resolve] when a response arrives

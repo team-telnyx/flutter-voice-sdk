@@ -375,6 +375,22 @@ class CallRecoveryMonitor {
     }
   }
 
+  /// Observes sustained missing RTP while the transport still looks
+  /// connected (the `LOW_BYTES_RECEIVED` / `LOW_BYTES_SENT` quality
+  /// warnings, VSDK-416).
+  ///
+  /// Starts an episode only when idle: while an episode runs, RTP
+  /// verification is the arbiter, and lingering low-byte intervals from
+  /// before the restart must not force a premature fallback. Like a
+  /// peer-connection failure, it bypasses the ICE already-connected guard.
+  void onMediaStalled() {
+    if (_disposed || _state != CallRecoveryState.idle) return;
+    _requestMediaRecovery(
+      RecoveryFailureKind.failed,
+      _FailureSource.peerConnection,
+    );
+  }
+
   /// Periodic active-call signaling health check. The owner calls this every
   /// [CallRecoveryConfig.signalingHealthCheckInterval] while the call is
   /// active. It intentionally ignores ICE state: media can stay connected
