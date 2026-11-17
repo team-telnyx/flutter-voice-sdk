@@ -35,6 +35,7 @@ import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
 import 'package:telnyx_webrtc/model/errors/media_permission_recovery.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+import 'package:telnyx_webrtc/src/recovery/call_recovery_monitor.dart';
 import 'package:telnyx_webrtc/src/recovery/ice_restart_support.dart';
 
 /// Function signature for acquiring a local media stream, allowing tests to
@@ -1945,6 +1946,18 @@ class Peer {
     final peerConnection = _recoveryPeerConnection;
     if (peerConnection == null) return null;
     return inboundAudioPacketsFromReports(await peerConnection.getStats());
+  }
+
+  /// Selected candidate pair from live `getStats()`, captured when recovery
+  /// falls back to reattach so a failed direct VPN path can be retried over
+  /// relay. Independent of call reports.
+  Future<CandidateEvidence?> selectedCandidateEvidence(String callId) async {
+    final peerConnection = _recoveryPeerConnection;
+    if (peerConnection == null) return null;
+    return selectedCandidateEvidenceFromReports(
+      await peerConnection.getStats(),
+      callId: callId,
+    );
   }
 
   /// Records a sanitized recovery lifecycle event in the call report.

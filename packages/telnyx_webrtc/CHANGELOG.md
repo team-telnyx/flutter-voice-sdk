@@ -1,6 +1,7 @@
 ## [Unreleased]
 ### Enhancement
 - Added per-call ICE / signaling recovery matching the iOS, Android and React Native SDKs (VSDK-680): ICE restart on the same peer when signaling is healthy, a correlated `telnyx_rtc.ping` probe when it is stale, inbound-RTP verification, and a single reconnect / reattach fallback. A 3-second disconnected debounce avoids restarting on transient drops, and verification reads `getStats()` directly so it works with call reports disabled
+- When recovery falls back to reattach from a direct VPN path, the replacement call uses relay-only ICE once, based on live `getStats()` candidate evidence (no call reports required); network switches hand recovery to the client reconnect
 - Added `Call.iceRestart()` to restart ICE on an active call through the same coordinated recovery; `Call.restartIce()` is deprecated
 - Example app: "Restart ICE" action in the in-call menu (replaces "Force ICE Renegotiation")
 
