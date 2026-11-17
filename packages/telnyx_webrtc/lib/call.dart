@@ -658,6 +658,12 @@ class Call {
   /// When a reattach has replaced this call, the request is forwarded to the
   /// replacement call with the same call ID.
   ///
+  /// The timeout, media verification and fallback above apply only while
+  /// call recovery is enabled (`enableSignalingHealthMonitor`, the default).
+  /// With it disabled, this falls back to the legacy direct ICE
+  /// renegotiation: the offer is sent and the answer applied, without
+  /// recovery's timeout, media verification or reattach fallback.
+  ///
   /// Returns `true` when the restart was accepted, and `false` when the call
   /// is not active, the signaling socket is not connected, the peer
   /// connection is unavailable, or a recovery is already in progress.

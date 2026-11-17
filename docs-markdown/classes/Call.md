@@ -67,4 +67,4 @@ To restart ICE yourself on an active call, for example from a "Restart ICE" debu
     }
 ```
 
-`true` means the restart was accepted; it uses the same timeout, media verification and reattach fallback as automatic recovery. If a reattach replaced the call, the request is forwarded to the replacement call. `restartIce()` is deprecated in favor of `iceRestart()`.
+`true` means the restart was accepted; with recovery enabled (the default) it uses the same timeout, media verification and reattach fallback as automatic recovery. With `enableSignalingHealthMonitor: false`, `iceRestart()` uses the legacy direct ICE renegotiation instead: it sends the offer and applies the answer, without the timeout, media verification or reattach fallback. If a reattach replaced the call, the request is forwarded to the replacement call. `restartIce()` is deprecated in favor of `iceRestart()`.
