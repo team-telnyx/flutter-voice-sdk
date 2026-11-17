@@ -59,6 +59,8 @@ import 'package:telnyx_webrtc/model/errors/telnyx_warning.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_factory.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
+import 'package:telnyx_webrtc/src/recovery/call_recovery_monitor.dart';
+import 'package:telnyx_webrtc/src/recovery/ice_restart_support.dart';
 import 'package:telnyx_webrtc/src/recovery/recovery_signaling.dart';
 import 'package:telnyx_webrtc/services/reconnect_token_store.dart';
 import 'package:telnyx_webrtc/services/request_timeout_tracker.dart';
@@ -412,6 +414,10 @@ class TelnyxClient {
       <String, Completer<bool>>{};
   final Map<String, Timer> _recoveryReattachTimers = <String, Timer>{};
 
+  /// Calls whose recovery reattach should use a one-shot relay-only
+  /// replacement, based on live candidate evidence (VSDK-680).
+  final Set<String> _recoveryRelayOverrides = <String>{};
+
   /// Signaling methods whose request timeout means the socket is unusable.
   static const Set<String> _criticalSignalingMethods = <String>{
     'telnyx_rtc.modify',
@@ -710,7 +716,12 @@ class TelnyxClient {
   Future<bool> requestRecoveryReattach(String callId) {
     final existing = _recoveryReattachWaiters[callId];
     if (existing != null) return existing.future;
-    if (_isTornDown || !_autoReconnectLogin) return Future.value(false);
+    if (_isTornDown || !_autoReconnectLogin) {
+      // No reattach will follow, so evidence armed for it must not outlive
+      // this refusal (Android arms the override only for an accepted one).
+      _recoveryRelayOverrides.remove(callId);
+      return Future.value(false);
+    }
 
     final waiter = Completer<bool>();
     _recoveryReattachWaiters[callId] = waiter;
@@ -731,9 +742,48 @@ class TelnyxClient {
     return waiter.future;
   }
 
+  /// Internal: records the selected candidate pair captured when [callId]'s
+  /// recovery fell back to reattach. A failed direct VPN path arms a
+  /// one-shot relay-only override for the replacement call; anything else
+  /// clears it (fail closed). The global config is never changed.
+  void recordRecoveryCandidateEvidence(
+    String callId,
+    CandidateEvidence evidence,
+  ) {
+    if (shouldForceRelayForEvidence(evidence)) {
+      GlobalLogger().w(
+        'Call recovery: direct VPN path failed, replacement call for '
+        '$callId will use relay-only ICE once',
+      );
+      _recoveryRelayOverrides.add(callId);
+    } else {
+      _recoveryRelayOverrides.remove(callId);
+    }
+  }
+
+  /// Consumes the one-shot relay override for [callId]. Only the ATTACH for
+  /// the call whose recovery armed it receives it (call ids are unique per
+  /// call), whichever flow triggered that ATTACH.
+  bool _consumeRecoveryRelayOverride(String? callId) =>
+      callId != null && _recoveryRelayOverrides.remove(callId);
+
+  /// Internal: drops recovery state kept for [callId] once the call is torn
+  /// down, so a relay override cannot outlive its call (Android
+  /// `removeFromCalls`).
+  void discardCallRecoveryState(String? callId) {
+    if (callId == null) return;
+    _recoveryRelayOverrides.remove(callId);
+  }
+
+  /// Test seam: whether a relay override is armed for [callId].
+  @visibleForTesting
+  bool hasRecoveryRelayOverrideForTest(String callId) =>
+      _recoveryRelayOverrides.contains(callId);
+
   /// Completes the recovery reattach waiter for [callId], if any. Returns
   /// whether a waiter existed.
   bool _completeRecoveryReattach(String callId, bool reattached) {
+    if (!reattached) _recoveryRelayOverrides.remove(callId);
     _recoveryReattachTimers.remove(callId)?.cancel();
     final waiter = _recoveryReattachWaiters.remove(callId);
     if (waiter == null) return false;
@@ -749,6 +799,7 @@ class TelnyxClient {
     for (final callId in _recoveryReattachWaiters.keys.toList()) {
       _completeRecoveryReattach(callId, false);
     }
+    _recoveryRelayOverrides.clear();
     recoverySignaling.reset();
   }
 
@@ -778,7 +829,7 @@ class TelnyxClient {
     // Legacy self-heal when the monitor is disabled: direct ICE restart, but
     // only when the failure followed a disconnect.
     if (afterDisconnect) {
-      calls[callId]?.restartIce();
+      calls[callId]?.startLegacyIceRenegotiation();
     }
   }
 
@@ -1436,6 +1487,13 @@ class TelnyxClient {
     GlobalLogger().i(
       'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)',
     );
+    // The client reconnect owns recovery for a path change (VSDK-680). The
+    // replacement call runs on the new path, so relay evidence captured on
+    // the old one is retired (iOS resets it on every reconnect).
+    for (final call in calls.values) {
+      call.recoveryMonitor?.onNetworkPathChanged();
+    }
+    _recoveryRelayOverrides.clear();
     _reconnectToSocket();
 
     for (var call in activeCalls().values) {
@@ -3983,9 +4041,16 @@ class TelnyxClient {
                   // Mobile flutter_webrtc commonly omits the non-standard ICE
                   // networkType stat. Without a reliable VPN signal, relay
                   // escalation intentionally remains disabled.
-                  final forceRelayCandidateForRecovery = existingCall
-                          ?.peerConnection?.shouldForceRelayForRecovery ??
-                      false;
+                  // VSDK-680: live evidence captured by call recovery works
+                  // even without call reports. Only the ATTACH for the call
+                  // whose recovery armed the override receives it; it is
+                  // consumed once either way.
+                  final relayFromRecovery =
+                      _consumeRecoveryRelayOverride(attachCallId);
+                  final forceRelayCandidateForRecovery = relayFromRecovery ||
+                      (existingCall
+                              ?.peerConnection?.shouldForceRelayForRecovery ??
+                          false);
                   if (forceRelayCandidateForRecovery) {
                     GlobalLogger().w(
                       'ATTACH :: forcing relay-only ICE for stalled VPN media path on $attachCallId',
@@ -4206,6 +4271,7 @@ class TelnyxClient {
                   );
 
                   calls.remove(byeCall.callId);
+                  discardCallRecoveryState(byeCall.callId);
 
                   // Cancel latency tracking for this call
                   if (byeCall.callId != null) {

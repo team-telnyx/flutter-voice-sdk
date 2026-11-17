@@ -1579,32 +1579,19 @@ class TelnyxClientViewModel with ChangeNotifier {
   }
 
   /// Forces ICE renegotiation for the current call
-  void forceIceRenegotiation() {
-    if (currentCall == null) {
-      logger.w('TelnyxClientViewModel.forceIceRenegotiation: No active call');
-      return;
+  /// Restarts ICE on the current call through the SDK's coordinated
+  /// recovery (VSDK-680). Returns whether the SDK accepted the request.
+  bool restartIce() {
+    final call = currentCall;
+    if (call == null) {
+      logger.w('TelnyxClientViewModel.restartIce: No active call');
+      return false;
     }
-
-    try {
-      logger.i(
-        'TelnyxClientViewModel.forceIceRenegotiation: Starting renegotiation for call ${currentCall!.callId}',
-      );
-
-      // Access the peer through the call's peerConnection property and call the public method
-      // Use the call's session ID as the session ID for renegotiation
-      currentCall?.peerConnection?.startIceRenegotiation(
-        currentCall!.callId!,
-        currentCall!.peerConnection?.currentSession?.sid ?? '',
-      );
-
-      logger.i(
-        'TelnyxClientViewModel.forceIceRenegotiation: Renegotiation initiated',
-      );
-    } catch (e) {
-      logger.e(
-        'TelnyxClientViewModel.forceIceRenegotiation: Error during renegotiation: $e',
-      );
-    }
+    final accepted = call.iceRestart();
+    logger.i(
+      'TelnyxClientViewModel.restartIce: accepted=$accepted for call ${call.callId}',
+    );
+    return accepted;
   }
 
   @override

@@ -162,9 +162,9 @@ class DebugConfigTab extends StatelessWidget {
         DiagnosticsUnavailableTile(
           title: 'Signaling health',
           reason:
-              'SignalingHealthMonitor is not exported from the package and '
-              'Peer does not implement ISignalingHealthSession, so there is no '
-              'production session to observe.',
+              'Per-call ICE / signaling recovery runs inside the SDK and is '
+              'not exposed for observation. Use Restart ICE from the call '
+              'menu to trigger it; outcomes surface as recovery warnings.',
         ),
       ],
     );

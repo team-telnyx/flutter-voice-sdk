@@ -10,6 +10,7 @@ import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_error_event.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
+import 'package:telnyx_webrtc/peer/peer.dart';
 import 'package:telnyx_webrtc/src/recovery/call_recovery_monitor.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 import 'package:telnyx_webrtc/tx_socket.dart';
@@ -58,10 +59,17 @@ class _SpyCall extends Call {
   }
 
   int restartCount = 0;
+  int iceRestartCount = 0;
 
   @override
-  bool restartIce() {
+  bool startLegacyIceRenegotiation() {
     restartCount++;
+    return true;
+  }
+
+  @override
+  bool iceRestart() {
+    iceRestartCount++;
     return true;
   }
 }
@@ -378,5 +386,66 @@ void main() {
     client.calls['call-1'] = _SpyCall(socket, client)..callId = 'call-1';
 
     expect(monitor.requestIceRestart(), isFalse);
+  });
+
+  group('Call.iceRestart()', () {
+    Call activeCallWithPeer(String id) {
+      final call = client.call
+        ..peerConnection = Peer(socket, false, client, false, false);
+      return activate(call, id);
+    }
+
+    test('starts a coordinated restart through the recovery monitor', () async {
+      await connect();
+      final call = activeCallWithPeer('call-1');
+
+      expect(call.iceRestart(), isTrue);
+      expect(call.recoveryMonitor!.state, isNot(CallRecoveryState.idle));
+      expect(
+        call.iceRestart(),
+        isFalse,
+        reason: 'a recovery is already running',
+      );
+    });
+
+    test('is rejected when the call is not active', () async {
+      await connect();
+      final call = activeCallWithPeer('call-1');
+      call.callHandler.changeState(CallState.held);
+
+      expect(call.iceRestart(), isFalse);
+    });
+
+    test('is rejected when signaling is not connected', () {
+      client.applyStructuredConfigForTest(_config());
+      final call = activeCallWithPeer('call-1');
+
+      expect(call.iceRestart(), isFalse);
+    });
+
+    test('is rejected without a peer connection', () async {
+      await connect();
+
+      expect(addActiveCall('call-1').iceRestart(), isFalse);
+    });
+
+    test('is forwarded to the call that replaced it after a reattach',
+        () async {
+      await connect();
+      final original = activeCallWithPeer('call-1');
+      final replacement = _SpyCall(socket, client)..callId = 'call-1';
+      client.calls['call-1'] = replacement;
+
+      expect(original.iceRestart(), isTrue);
+      expect(replacement.iceRestartCount, 1);
+    });
+
+    test('uses the legacy renegotiation when recovery is disabled', () async {
+      await connect(recovery: false);
+      final call = activeCallWithPeer('call-1');
+
+      expect(call.recoveryMonitor, isNull);
+      expect(call.iceRestart(), isTrue);
+    });
   });
 }
