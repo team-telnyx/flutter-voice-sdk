@@ -52,3 +52,19 @@ To put a call on hold, you can simply call the .onHoldUnholdPressed() method:
 ```dart
     _telnyxClient.call.onHoldUnholdPressed();
 ```
+
+### Restart ICE
+
+The SDK recovers active calls automatically. When ICE or the peer connection fails (or stays disconnected for 3 seconds), it restarts ICE on the same peer connection if signaling is healthy, probes signaling first if it is stale, and falls back to a single reconnect / reattach if media does not resume within 5 seconds. Recovery is enabled by default and controlled by `enableSignalingHealthMonitor` on `CredentialConfig` / `TokenConfig`.
+
+To restart ICE yourself on an active call, for example from a "Restart ICE" debug action, call `.iceRestart()`:
+
+```dart
+    final started = _telnyxClient.call.iceRestart();
+    if (!started) {
+      // The call is not active, signaling is down, there is no peer
+      // connection, or a recovery is already running.
+    }
+```
+
+`true` means the restart was accepted; with recovery enabled (the default) it uses the same timeout, media verification and reattach fallback as automatic recovery. With `enableSignalingHealthMonitor: false`, `iceRestart()` uses the legacy direct ICE renegotiation instead: it sends the offer and applies the answer, without the timeout, media verification or reattach fallback. If a reattach replaced the call, the request is forwarded to the replacement call. `restartIce()` is deprecated in favor of `iceRestart()`.

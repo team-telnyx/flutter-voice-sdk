@@ -903,6 +903,24 @@ void main() {
       expect(delegate.appliedAnswers, <String>['fresh-answer']);
     });
 
+    test('a network path change hands an episode to the client reconnect',
+        () async {
+      delegate.updateMediaCompleter = Completer<String>();
+
+      monitor.onIceConnectionStateChanged(_iceFailed);
+      await timers.elapse(Duration.zero);
+      expect(monitor.state, CallRecoveryState.iceRestarting);
+
+      monitor.onNetworkPathChanged();
+      expect(monitor.state, CallRecoveryState.idle);
+
+      delegate.updateMediaCompleter!.complete('late-answer');
+      await timers.elapse(_s(30));
+      expect(delegate.appliedAnswers, isEmpty);
+      expect(delegate.reattachCalls, 0);
+      expect(delegate.evidenceCalls, 0);
+    });
+
     test('dispose cancels timers and ignores later inputs', () async {
       monitor
         ..onIceConnectionStateChanged(_iceDisconnected)

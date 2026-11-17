@@ -1,5 +1,15 @@
 ## [Unreleased]
+### Enhancement
+- Added per-call ICE / signaling recovery matching the iOS, Android and React Native SDKs (VSDK-680): ICE restart on the same peer when signaling is healthy, a correlated `telnyx_rtc.ping` probe when it is stale, inbound-RTP verification, and a single reconnect / reattach fallback. A 3-second disconnected debounce avoids restarting on transient drops, and verification reads `getStats()` directly so it works with call reports disabled
+- When recovery falls back to reattach from a direct VPN path, the replacement call uses relay-only ICE once, based on live `getStats()` candidate evidence (no call reports required); network switches hand recovery to the client reconnect
+- Added `Call.iceRestart()` to restart ICE on an active call through the same coordinated recovery; `Call.restartIce()` is deprecated
+- Example app: "Restart ICE" action in the in-call menu (replaces "Force ICE Renegotiation")
+
+### Deprecated
+- `TelnyxClient.healthMonitor` and `SignalingHealthMonitor` (VSDK-680): call recovery now runs per call and is controlled by `enableSignalingHealthMonitor`. The getter always returns `null` and the class is a no-op; both will be removed in the next major version
+
 ### Bug Fix
+- Fixed the ICE restart path never running on native and web (the peer session was looked up by the signaling session id), sending the restart offer before new candidates were gathered, and the disconnected → failed self-heal never firing when recovery is disabled
 - Fixed macOS trickle ICE race that could end the candidate stream before late relay/srflx candidates arrived (VSUP-279 / GH #297) — the primary end-of-candidates signal is now `RTCIceGatheringStateComplete`, with the per-candidate timer demoted to a 5-second bounded safety-net fallback
 
 ## [4.5.1](https://pub.dev/packages/telnyx_webrtc/versions/4.5.1) (2026-10-20)

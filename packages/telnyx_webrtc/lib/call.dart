@@ -16,6 +16,8 @@ import 'package:telnyx_webrtc/model/verto/send/modify_message_body.dart';
 import 'package:telnyx_webrtc/model/verto/send/conversation_message.dart';
 import 'package:telnyx_webrtc/peer/peer.dart'
     if (dart.library.html) 'package:telnyx_webrtc/peer/web/peer.dart';
+import 'package:telnyx_webrtc/src/recovery/call_recovery_binding.dart';
+import 'package:telnyx_webrtc/src/recovery/call_recovery_monitor.dart';
 import 'package:telnyx_webrtc/tx_socket.dart'
     if (dart.library.js) 'package:telnyx_webrtc/tx_socket_web.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
@@ -83,6 +85,7 @@ class CallHandler {
   ///
   void changeState(CallState state) {
     call?.callState = state;
+    call?._syncRecoveryWithState(state);
     onCallStateChanged(state);
 
     // Post call report when call ends (regardless of who initiated the BYE)
@@ -431,6 +434,7 @@ class Call {
     _txClient.onCallStateChangedToActive(callId);
 
     _txClient.calls.remove(callId);
+    _txClient.discardCallRecoveryState(callId);
 
     // Cancel latency tracking for this call
     if (callId != null) {
@@ -596,13 +600,109 @@ class Call {
     }
   }
 
-  /// Triggers a WebRTC ICE restart for this call by starting an ICE
-  /// renegotiation on the underlying peer connection.
+  // ── Per-call recovery (VSDK-680) ─────────────────────────────────────
+
+  CallRecoveryMonitor? _recoveryMonitor;
+  Timer? _recoveryHealthTimer;
+
+  /// Internal: the per-call ICE / signaling recovery monitor, present while
+  /// the call is active and recovery is enabled. Not part of the public API.
+  CallRecoveryMonitor? get recoveryMonitor => _recoveryMonitor;
+
+  /// Keeps the recovery monitor in step with the call state: running while
+  /// ACTIVE, cancelled while held / reconnecting, disposed once terminal.
+  void _syncRecoveryWithState(CallState state) {
+    if (state.isActive) {
+      _startRecovery();
+    } else if (state.isDone || state.isDropped || state == CallState.error) {
+      disposeRecovery();
+    } else {
+      _recoveryMonitor?.cancel('call-state-${state.name}');
+    }
+  }
+
+  void _startRecovery() {
+    final id = callId;
+    if (id == null || !_txClient.isCallRecoveryEnabled) return;
+    var monitor = _recoveryMonitor;
+    if (monitor == null || monitor.isDisposed) {
+      monitor = CallRecoveryMonitor(
+        callId: id,
+        delegate: CallRecoveryBinding(this, _txClient),
+      );
+      _recoveryMonitor = monitor;
+    }
+    _recoveryHealthTimer ??= Timer.periodic(
+      monitor.config.signalingHealthCheckInterval,
+      (_) => _recoveryMonitor?.checkSignalingHealth(),
+    );
+  }
+
+  /// Internal: stops recovery for this call and releases its timers.
+  void disposeRecovery() {
+    _recoveryHealthTimer?.cancel();
+    _recoveryHealthTimer = null;
+    _recoveryMonitor?.dispose();
+    _recoveryMonitor = null;
+  }
+
+  /// Restarts ICE for this active call without replacing the peer
+  /// connection (VSDK-680).
   ///
-  /// Used by the [SignalingHealthMonitor] recovery authority when signaling is
-  /// healthy but media has degraded. Returns `true` when a restart could be
-  /// started (a peer connection and call ID are present).
-  bool restartIce() {
+  /// The SDK creates an ICE-restart offer, exchanges it with Telnyx through a
+  /// `telnyx_rtc.modify` (`updateMedia`) request, applies the answer and
+  /// verifies that inbound audio resumes. If that fails, the normal single
+  /// reconnect / reattach recovery fallback runs. Completion is observable
+  /// through the call state and the `onTelnyxWarning` / `onTelnyxError`
+  /// callbacks.
+  ///
+  /// When a reattach has replaced this call, the request is forwarded to the
+  /// replacement call with the same call ID.
+  ///
+  /// The timeout, media verification and fallback above apply only while
+  /// call recovery is enabled (`enableSignalingHealthMonitor`, the default).
+  /// With it disabled, this falls back to the legacy direct ICE
+  /// renegotiation: the offer is sent and the answer applied, without
+  /// recovery's timeout, media verification or reattach fallback.
+  ///
+  /// Returns `true` when the restart was accepted, and `false` when the call
+  /// is not active, the signaling socket is not connected, the peer
+  /// connection is unavailable, or a recovery is already in progress.
+  bool iceRestart() {
+    final current = _txClient.calls[callId];
+    if (current != null && !identical(current, this)) {
+      GlobalLogger().d('Call :: forwarding ICE restart to the reattached call');
+      return current.iceRestart();
+    }
+    if (!callState.isActive) {
+      GlobalLogger().w('Call :: ICE restart skipped, call is not active');
+      return false;
+    }
+    if (!_txClient.isConnected()) {
+      GlobalLogger().w('Call :: ICE restart skipped, signaling is down');
+      return false;
+    }
+    if (peerConnection == null || callId == null) {
+      GlobalLogger().e('Call :: ICE restart failed, no peer connection');
+      return false;
+    }
+    final monitor = _recoveryMonitor;
+    if (monitor != null) {
+      return monitor.requestIceRestart();
+    }
+    // Recovery disabled: legacy direct renegotiation.
+    return startLegacyIceRenegotiation();
+  }
+
+  /// Triggers a WebRTC ICE restart for this call.
+  @Deprecated('Use iceRestart() instead')
+  bool restartIce() => iceRestart();
+
+  /// Internal: legacy direct ICE renegotiation, used when per-call recovery
+  /// is disabled (`Config.enableSignalingHealthMonitor: false`). Returns
+  /// `true` when a restart could be started (a peer connection and call ID
+  /// are present).
+  bool startLegacyIceRenegotiation() {
     final peer = peerConnection;
     final id = callId;
     if (peer == null || id == null) {
