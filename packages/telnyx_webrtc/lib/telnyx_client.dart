@@ -512,7 +512,11 @@ class TelnyxClient {
 
   /// Test seam: deliver a request timeout as the tracker would.
   @visibleForTesting
-  void onRequestTimeoutForTest(String method, String requestId, int timeoutMs) =>
+  void onRequestTimeoutForTest(
+    String method,
+    String requestId,
+    int timeoutMs,
+  ) =>
       _onRequestTimeout(method, requestId, timeoutMs);
 
   /// Test seam: apply the structured-config flags/recovery from [config]
