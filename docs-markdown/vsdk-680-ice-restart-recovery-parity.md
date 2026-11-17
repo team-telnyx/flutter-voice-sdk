@@ -54,7 +54,7 @@ internal (not exported) and lands as a stack of PRs:
 | Stale signaling → one correlated `telnyx_rtc.ping` probe, 5 s timeout | ✅ partial / 🧩 → 🔌 | `main` matches the request id but also accepts a `null` id from any ping response; PR 2 removes that path |
 | Signaling unavailable → reattach | ✅ / 🧩 → 🔌 | |
 | Periodic 3 s active-call check: inbound idle ≥ 20 s or confirmed idle ≥ 45 s → health probe | 🧩 → 🔌 | Runs even while media is connected |
-| Media failure during a health probe is deferred, not dropped | 🧩 → 🔌 | |
+| Media failure during a health probe is deferred, not dropped | 🧩 → 🔌 | Kept per source and re-checked against the live ICE / peer state when the probe settles, so ICE reconnecting cannot erase a still-failed peer connection (Android behavior; RN #133 keeps one slot) |
 
 ## Restart handshake
 
@@ -71,7 +71,7 @@ internal (not exported) and lands as a stack of PRs:
 
 | Behavior | Status | Notes |
 | --- | --- | --- |
-| Baseline sampled on entry; first poll is a warm-up; growth required within 5 s | 🧩 → 🔌 | |
+| Baseline sampled on entry; first poll is a warm-up; growth required within 5 s | 🧩 → 🔌 | An unavailable read is not a baseline: the first later usable counter is (iOS / Android use the first post-answer sample). The deadline is not extended |
 | Deadline armed before the first stats read | 🧩 → 🔌 | |
 | Works with call reports disabled | 🔌 | Reads `getStats()` directly rather than call-report samples |
 

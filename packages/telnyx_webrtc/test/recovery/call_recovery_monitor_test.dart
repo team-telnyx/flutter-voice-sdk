@@ -562,6 +562,34 @@ void main() {
       expect(delegate.recovered, <RecoveryOutcome>[RecoveryOutcome.reattach]);
     });
 
+    test('an unavailable first read takes the next usable counter as baseline',
+        () async {
+      delegate.packetSamples = <int?>[null, 100, 150, 200, 250, 300];
+
+      monitor.onIceConnectionStateChanged(_iceFailed);
+      await timers.elapse(_s(1));
+      expect(monitor.state, CallRecoveryState.verifyingMedia);
+
+      await timers.elapse(_s(1));
+      expect(monitor.state, CallRecoveryState.idle);
+      expect(delegate.recovered, <RecoveryOutcome>[RecoveryOutcome.iceRestart]);
+      expect(delegate.reattachCalls, 0);
+    });
+
+    test('a late baseline still requires growth and keeps the deadline',
+        () async {
+      // Counters only become readable at 4 s and never grow afterwards.
+      delegate.packetSamples = <int?>[null, null, null, null, 100];
+
+      monitor.onIceConnectionStateChanged(_iceFailed);
+      await timers.elapse(_s(4.9));
+      expect(monitor.state, CallRecoveryState.verifyingMedia);
+
+      await timers.elapse(_s(0.1));
+      expect(delegate.reattachCalls, 1);
+      expect(delegate.recovered, <RecoveryOutcome>[RecoveryOutcome.reattach]);
+    });
+
     test('a new failure during verification falls back immediately', () async {
       monitor.onIceConnectionStateChanged(_iceFailed);
       await timers.elapse(Duration.zero);
@@ -740,6 +768,34 @@ void main() {
       delegate.probeCompleter!.complete(SignalingProbeResult.ok);
       await timers.elapse(Duration.zero);
       expect(delegate.restartCalls, 1);
+    });
+
+    test('ICE recovering does not erase a still-failed peer connection',
+        () async {
+      delegate
+        ..peerIceState = _iceConnected
+        ..inboundSignalingIdle = _s(20)
+        ..probeCompleter = Completer<SignalingProbeResult>();
+
+      monitor.checkSignalingHealth();
+      await timers.elapse(Duration.zero);
+
+      delegate.peerConnectionState = _pcFailed;
+      monitor.onPeerConnectionStateChanged(_pcFailed);
+      delegate.peerIceState = _iceFailed;
+      monitor.onIceConnectionStateChanged(_iceFailed);
+      delegate.peerIceState = _iceConnected;
+      monitor.onIceConnectionStateChanged(_iceConnected);
+      await timers.elapse(Duration.zero);
+      expect(delegate.restartCalls, 0);
+
+      delegate.probeCompleter!.complete(SignalingProbeResult.ok);
+      await timers.elapse(Duration.zero);
+      expect(delegate.restartCalls, 1);
+
+      // The episode is owned by the peer connection, so ICE `connected`
+      // cannot cancel it.
+      expect(monitor.state, isNot(CallRecoveryState.idle));
     });
 
     test('a deferred failure cleared by reconnect returns to idle', () async {

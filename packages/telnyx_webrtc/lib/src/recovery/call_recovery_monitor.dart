@@ -224,13 +224,6 @@ enum _FailureSource { ice, peerConnection }
 
 enum _ProbePurpose { mediaRecovery, healthCheck }
 
-class _PendingMediaRecovery {
-  const _PendingMediaRecovery(this.kind, this.source);
-
-  final RecoveryFailureKind kind;
-  final _FailureSource source;
-}
-
 /// Per-call signaling-health and ICE-recovery monitor (VSDK-680).
 ///
 /// Dart port of the `SignalingHealthMonitor` shared by the iOS, Android
@@ -283,9 +276,13 @@ class CallRecoveryMonitor {
   _FailureSource? _episodeSource;
   _ProbePurpose? _probePurpose;
 
-  /// A media failure observed while a signaling health probe was in flight;
-  /// acted on when that probe settles instead of being dropped.
-  _PendingMediaRecovery? _pendingMediaRecovery;
+  /// Media failures observed while a signaling health probe was in flight,
+  /// kept per source and acted on when that probe settles instead of being
+  /// dropped. Per source so an ICE recovery cannot erase a peer connection
+  /// that is still failed (Android upgrades the probe and never downgrades
+  /// it; RN #133 keeps a single slot).
+  final Map<_FailureSource, RecoveryFailureKind> _pendingMediaRecovery =
+      <_FailureSource, RecoveryFailureKind>{};
 
   int? _verifyBaseline;
 
@@ -429,7 +426,7 @@ class CallRecoveryMonitor {
     _shouldEvaluateRelayFallback = false;
     _episodeSource = null;
     _probePurpose = null;
-    _pendingMediaRecovery = null;
+    _pendingMediaRecovery.clear();
     _generation += 1;
     _state = CallRecoveryState.idle;
   }
@@ -527,7 +524,7 @@ class CallRecoveryMonitor {
 
     if (_state == CallRecoveryState.probing &&
         _probePurpose == _ProbePurpose.healthCheck) {
-      _pendingMediaRecovery = _PendingMediaRecovery(kind, source);
+      _pendingMediaRecovery[source] = kind;
       _shouldEvaluateRelayFallback = true;
       _log(
         'Media failure during a signaling health probe; recovery deferred '
@@ -546,9 +543,8 @@ class CallRecoveryMonitor {
   }
 
   void _clearPendingMediaRecovery(_FailureSource source) {
-    if (_pendingMediaRecovery?.source != source) return;
-    _pendingMediaRecovery = null;
-    _shouldEvaluateRelayFallback = false;
+    if (_pendingMediaRecovery.remove(source) == null) return;
+    if (_pendingMediaRecovery.isEmpty) _shouldEvaluateRelayFallback = false;
     _log('${_describe(source)} reconnected; deferred recovery cleared');
   }
 
@@ -651,9 +647,22 @@ class CallRecoveryMonitor {
 
     if (!_isCurrent(generation, CallRecoveryState.probing)) return;
     _probePurpose = null;
-    final pending =
-        purpose == _ProbePurpose.healthCheck ? _pendingMediaRecovery : null;
-    _pendingMediaRecovery = null;
+    // Re-evaluate every deferred source against the live transport state. A
+    // failed peer connection outranks ICE: ICE can report connected while the
+    // peer connection itself has failed.
+    final pending = purpose != _ProbePurpose.healthCheck
+        ? null
+        : <_FailureSource>[
+            _FailureSource.peerConnection,
+            _FailureSource.ice,
+          ]
+            .where(
+              (source) =>
+                  _pendingMediaRecovery.containsKey(source) &&
+                  !_isMediaTransportConnected(source),
+            )
+            .firstOrNull;
+    _pendingMediaRecovery.clear();
 
     if (result != SignalingProbeResult.ok) {
       // A deferred media failure keeps relay evaluation on for this fallback.
@@ -666,10 +675,10 @@ class CallRecoveryMonitor {
     }
 
     if (purpose == _ProbePurpose.healthCheck) {
-      if (pending != null && !_isMediaTransportConnected(pending.source)) {
+      if (pending != null) {
         // The answered probe proved signaling is alive, so the deferred media
         // failure goes straight to an ICE restart.
-        _episodeSource = pending.source;
+        _episodeSource = pending;
         _log('Health probe answered; starting deferred media recovery');
         await _runRestart();
         return;
@@ -743,7 +752,10 @@ class CallRecoveryMonitor {
 
     // Sample immediately so the window starts from a known point, then poll.
     // The first poll is a warm-up: restarted media needs a moment to produce
-    // packets, so growth is judged from the second poll onward.
+    // packets, so growth is judged from the second poll onward. If a read is
+    // unavailable, the first later usable counter becomes the baseline
+    // (iOS / Android take the first post-answer sample); the deadline above
+    // is never extended.
     final baseline = await _readInboundPackets();
     if (!_isCurrent(generation, CallRecoveryState.verifyingMedia)) return;
     _verifyBaseline = baseline;
@@ -758,10 +770,9 @@ class CallRecoveryMonitor {
         if (!_isCurrent(generation, CallRecoveryState.verifyingMedia)) return;
         pollsCompleted += 1;
         final base = _verifyBaseline;
-        if (pollsCompleted > 1 &&
-            fresh != null &&
-            base != null &&
-            fresh > base) {
+        if (base == null) {
+          _verifyBaseline = fresh;
+        } else if (pollsCompleted > 1 && fresh != null && fresh > base) {
           _log('Inbound RTP verified, recovery succeeded');
           _cancelVerifyTimers();
           _setState(CallRecoveryState.idle);
@@ -888,7 +899,7 @@ class CallRecoveryMonitor {
     if (next == CallRecoveryState.idle) {
       _episodeSource = null;
       _probePurpose = null;
-      _pendingMediaRecovery = null;
+      _pendingMediaRecovery.clear();
     }
     _state = next;
   }
