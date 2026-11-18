@@ -609,6 +609,9 @@ class Call {
   /// the call is active and recovery is enabled. Not part of the public API.
   CallRecoveryMonitor? get recoveryMonitor => _recoveryMonitor;
 
+  /// Whether coordinated ICE/signaling recovery is currently in progress.
+  bool get isRecoveryActive => _recoveryMonitor?.isRecoveryActive ?? false;
+
   /// Keeps the recovery monitor in step with the call state: running while
   /// ACTIVE, cancelled while held / reconnecting, disposed once terminal.
   void _syncRecoveryWithState(CallState state) {

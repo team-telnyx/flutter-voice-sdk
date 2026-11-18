@@ -188,15 +188,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _restartIce() {
-    final accepted =
-        Provider.of<TelnyxClientViewModel>(context, listen: false).restartIce();
+    final viewModel =
+        Provider.of<TelnyxClientViewModel>(context, listen: false);
+    final accepted = viewModel.restartIce();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           accepted
               ? 'ICE restart started'
-              : 'ICE restart unavailable: call not active, signaling down, '
-                  'or recovery already running',
+              : 'ICE restart not started: '
+                  '${viewModel.iceRestartUnavailableReason ?? 'unavailable'}',
         ),
         duration: const Duration(seconds: 2),
       ),

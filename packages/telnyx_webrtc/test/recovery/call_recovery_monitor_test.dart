@@ -100,6 +100,7 @@ class _FakeDelegate extends CallRecoveryDelegate {
   Completer<String>? restartCompleter;
   Object? restartError;
   int restartCalls = 0;
+  final List<bool> applicationRequestedRestarts = <bool>[];
 
   Completer<String>? updateMediaCompleter;
   final List<String> sentOffers = <String>[];
@@ -131,8 +132,9 @@ class _FakeDelegate extends CallRecoveryDelegate {
   }
 
   @override
-  Future<String> restartIce() {
+  Future<String> restartIce({bool applicationRequested = false}) {
     restartCalls += 1;
+    applicationRequestedRestarts.add(applicationRequested);
     if (restartError != null) return Future.error(restartError!);
     return restartCompleter?.future ?? Future.value('offer-$restartCalls');
   }
@@ -828,6 +830,7 @@ void main() {
 
       expect(delegate.probeCalls, 0);
       expect(delegate.restartCalls, 1);
+      expect(delegate.applicationRequestedRestarts, <bool>[true]);
       expect(monitor.state, CallRecoveryState.verifyingMedia);
 
       await verifyWithGrowth();

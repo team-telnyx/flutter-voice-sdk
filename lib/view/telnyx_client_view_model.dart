@@ -1581,13 +1581,29 @@ class TelnyxClientViewModel with ChangeNotifier {
   /// Forces ICE renegotiation for the current call
   /// Restarts ICE on the current call through the SDK's coordinated
   /// recovery (VSDK-680). Returns whether the SDK accepted the request.
+  String? _iceRestartUnavailableReason;
+  String? get iceRestartUnavailableReason => _iceRestartUnavailableReason;
+
   bool restartIce() {
     final call = currentCall;
     if (call == null) {
+      _iceRestartUnavailableReason = 'No active call';
       logger.w('TelnyxClientViewModel.restartIce: No active call');
       return false;
     }
+    if (call.isRecoveryActive) {
+      _iceRestartUnavailableReason = 'ICE recovery is already in progress';
+      logger.i(
+        'TelnyxClientViewModel.restartIce: recovery already in progress '
+        'for call ${call.callId}',
+      );
+      return false;
+    }
     final accepted = call.iceRestart();
+    _iceRestartUnavailableReason = accepted
+        ? null
+        : 'Call is not active, signaling is unavailable, or the peer '
+              'connection is missing';
     logger.i(
       'TelnyxClientViewModel.restartIce: accepted=$accepted for call ${call.callId}',
     );

@@ -62,14 +62,16 @@ class CallRecoveryBinding extends CallRecoveryDelegate {
       _client.recoverySignaling.sendProbe();
 
   @override
-  Future<String> restartIce() async {
+  Future<String> restartIce({bool applicationRequested = false}) async {
     final peer = _requirePeer();
-    _client.emitWarningCode(
-      TelnyxWarningCodes.mediaRecoveryRequired,
-      callId: _callId,
-      reason: 'Signaling healthy, media degraded — restarting ICE',
-      source: 'call_recovery',
-    );
+    if (!applicationRequested) {
+      _client.emitWarningCode(
+        TelnyxWarningCodes.mediaRecoveryRequired,
+        callId: _callId,
+        reason: 'Signaling healthy, media degraded — restarting ICE',
+        source: 'call_recovery',
+      );
+    }
     peer.recordRecoveryEvent('ice_restart_started');
     return peer.createIceRestartOffer(_callId);
   }

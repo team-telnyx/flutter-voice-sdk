@@ -401,6 +401,12 @@ void main() {
 
       expect(call.iceRestart(), isTrue);
       expect(call.recoveryMonitor!.state, isNot(CallRecoveryState.idle));
+      await pumpEventQueue();
+      expect(
+        warningCodes(),
+        isNot(contains(TelnyxWarningCodes.mediaRecoveryRequired)),
+        reason: 'a manual restart is not evidence of degraded media',
+      );
       expect(
         call.iceRestart(),
         isFalse,

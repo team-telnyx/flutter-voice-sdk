@@ -182,8 +182,9 @@ abstract class CallRecoveryDelegate {
   Future<SignalingProbeResult> sendSignalingProbe();
 
   /// Creates an ICE-restart offer on the existing peer connection and
-  /// returns the local offer SDP.
-  Future<String> restartIce();
+  /// returns the local offer SDP. [applicationRequested] distinguishes a
+  /// manual restart from automatic media recovery.
+  Future<String> restartIce({bool applicationRequested = false});
 
   /// Sends `telnyx_rtc.modify` (`updateMedia`) with [offerSdp] and returns
   /// the answer SDP from the matching response.
@@ -316,11 +317,27 @@ class CallRecoveryMonitor {
   /// call with connected signaling, outside the client reconnect flow, and
   /// with no recovery already running.
   bool requestIceRestart() {
-    if (_disposed ||
-        !_delegate.isCallActive ||
-        !_delegate.isSignalingAvailable ||
-        _delegate.isClientReconnecting ||
-        _state != CallRecoveryState.idle) {
+    if (_disposed) {
+      _log('ICE restart request ignored; recovery monitor is disposed');
+      return false;
+    }
+    if (!_delegate.isCallActive) {
+      _log('ICE restart request ignored; call is not active');
+      return false;
+    }
+    if (_state != CallRecoveryState.idle) {
+      _log(
+        'ICE restart request ignored; recovery is already in progress '
+        '(state=${_state.name})',
+      );
+      return false;
+    }
+    if (!_delegate.isSignalingAvailable) {
+      _log('ICE restart request ignored; signaling is unavailable');
+      return false;
+    }
+    if (_delegate.isClientReconnecting) {
+      _log('ICE restart request ignored; client reconnect is in progress');
       return false;
     }
     _cancelIceDisconnectedTimer();
@@ -330,7 +347,7 @@ class CallRecoveryMonitor {
     _episodeSource = _FailureSource.ice;
     _shouldEvaluateRelayFallback = true;
     _log('ICE restart requested by application');
-    unawaited(_runRestart());
+    unawaited(_runRestart(applicationRequested: true));
     return true;
   }
 
@@ -719,7 +736,7 @@ class CallRecoveryMonitor {
     await _runRestart();
   }
 
-  Future<void> _runRestart() async {
+  Future<void> _runRestart({bool applicationRequested = false}) async {
     final generation = _generation;
     _setState(CallRecoveryState.iceRestarting);
     _cancelRestartTimeout();
@@ -746,7 +763,9 @@ class CallRecoveryMonitor {
             _state == CallRecoveryState.verifyingMedia);
 
     try {
-      final offerSdp = await _delegate.restartIce();
+      final offerSdp = await _delegate.restartIce(
+        applicationRequested: applicationRequested,
+      );
       if (!ownsExchange()) return;
       final answerSdp = await _delegate.sendUpdateMedia(offerSdp);
       if (!ownsExchange()) return;
