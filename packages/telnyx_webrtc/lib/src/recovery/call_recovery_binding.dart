@@ -7,7 +7,7 @@ import 'package:telnyx_webrtc/peer/peer.dart'
 import 'package:telnyx_webrtc/src/recovery/call_recovery_monitor.dart';
 import 'package:telnyx_webrtc/telnyx_client.dart';
 
-/// Connects a [CallRecoveryMonitor] to one [Call] (VSDK-680).
+/// Connects a [CallRecoveryMonitor] to one [Call].
 ///
 /// The monitor decides; this binding performs the side effects through the
 /// call's current [Peer] (same-peer ICE restart, answer, stats) and the

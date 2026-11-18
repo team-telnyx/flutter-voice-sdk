@@ -45,7 +45,7 @@ int? inboundAudioPacketsFromReports(Iterable<StatsReport> reports) {
 }
 
 /// Selected ICE candidate pair from live `getStats()` [reports], captured
-/// when recovery falls back to reattach (VSDK-680). Prefers the transport's
+/// when recovery falls back to reattach. Prefers the transport's
 /// `selectedCandidatePairId`, then a selected / nominated succeeded pair.
 /// Returns `null` when no selected pair or local candidate is reported.
 CandidateEvidence? selectedCandidateEvidenceFromReports(

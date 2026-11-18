@@ -1580,7 +1580,7 @@ class TelnyxClientViewModel with ChangeNotifier {
 
   /// Forces ICE renegotiation for the current call
   /// Restarts ICE on the current call through the SDK's coordinated
-  /// recovery (VSDK-680). Returns whether the SDK accepted the request.
+  /// recovery. Returns whether the SDK accepted the request.
   String? _iceRestartUnavailableReason;
   String? get iceRestartUnavailableReason => _iceRestartUnavailableReason;
 

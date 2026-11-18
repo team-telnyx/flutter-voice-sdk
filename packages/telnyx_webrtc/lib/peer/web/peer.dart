@@ -1128,7 +1128,7 @@ class Peer {
         );
         final previousIceState = _previousIceConnectionState;
         _previousIceConnectionState = state;
-        // Per-call recovery monitor owns ICE recovery decisions (VSDK-680).
+        // The per-call recovery monitor owns ICE recovery decisions.
         _txClient.calls[callId]?.recoveryMonitor
             ?.onIceConnectionStateChanged(state);
         switch (state) {
@@ -1778,7 +1778,7 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error during ICE renegotiation: $e');
-      // Native/web parity (VSDK-415): structured ICE-restart failure.
+      // Match native by reporting through the structured error API.
       _txClient.emitStructuredErrorCode(
         TelnyxErrorCodes.iceRestartFailed,
         originalError: e,
@@ -1866,7 +1866,7 @@ class Peer {
     }
   }
 
-  // ── Per-call recovery surface (VSDK-680) ─────────────────────────────
+  // Per-call recovery surface.
 
   RTCPeerConnection? get _recoveryPeerConnection =>
       _sessions[_selfId]?.peerConnection;

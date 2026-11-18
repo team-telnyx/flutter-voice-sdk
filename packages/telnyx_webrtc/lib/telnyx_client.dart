@@ -372,8 +372,8 @@ class TelnyxClient {
   bool _enableStructuredErrors = true;
 
   /// Whether signaling-health recovery is enabled for the current session:
-  /// the per-call recovery monitor (VSDK-680) and the critical-request
-  /// timeout reconnect (VSDK-416).
+  /// the per-call recovery monitor and the critical-request timeout
+  /// reconnect.
   bool _enableSignalingHealthMonitor = true;
 
   /// The media-permission recovery configuration retained from [Config].
@@ -384,17 +384,17 @@ class TelnyxClient {
   MediaPermissionsRecoveryConfig? get mediaPermissionsRecovery =>
       _mediaPermissionsRecovery;
 
-  /// Former client-wide signaling-health monitor. Recovery runs per call
-  /// since VSDK-680, so this is always `null`.
+  /// Former client-wide signaling-health monitor. Recovery now runs per call,
+  /// so this is always `null`.
   @Deprecated(
-    'Call recovery is per call since VSDK-680 and is controlled by '
+    'Call recovery is per call and is controlled by '
     'enableSignalingHealthMonitor. Always null; will be removed in the next '
     'major version.',
   )
   // ignore: deprecated_member_use_from_same_package
   SignalingHealthMonitor? get healthMonitor => null;
 
-  /// Internal: whether calls run the per-call recovery monitor (VSDK-680).
+  /// Internal: whether calls run the per-call recovery monitor.
   bool get isCallRecoveryEnabled => _enableSignalingHealthMonitor;
 
   /// Internal: true while the client-level reconnect flow owns recovery, so
@@ -403,19 +403,19 @@ class TelnyxClient {
       _connectionStatus == ConnectionStatus.reconnecting;
 
   /// Internal: signaling freshness and correlated recovery requests used by
-  /// the per-call recovery monitor (VSDK-680). Not part of the public API.
+  /// the per-call recovery monitor. Not part of the public API.
   late final RecoverySignaling recoverySignaling = RecoverySignaling(
     send: (message) => txSocket.send(message),
   );
 
   /// Pending recovery reattach requests by call id; completed `true` when the
-  /// backend re-attaches that call (VSDK-680).
+  /// backend re-attaches that call.
   final Map<String, Completer<bool>> _recoveryReattachWaiters =
       <String, Completer<bool>>{};
   final Map<String, Timer> _recoveryReattachTimers = <String, Timer>{};
 
   /// Calls whose recovery reattach should use a one-shot relay-only
-  /// replacement, based on live candidate evidence (VSDK-680).
+  /// replacement, based on live candidate evidence.
   final Set<String> _recoveryRelayOverrides = <String>{};
 
   /// Signaling methods whose request timeout means the socket is unusable.
@@ -497,8 +497,8 @@ class TelnyxClient {
     // login message is sent (VSDK-415/416 adversarial hardening).
     _autoReconnectLogin = config.autoReconnect ?? true;
 
-    // Critical-request timeouts force a socket reconnect (VSDK-416). Per-call
-    // ICE / signaling recovery lives in each Call's recovery monitor.
+    // Critical-request timeouts force a socket reconnect. Per-call ICE /
+    // signaling recovery lives in each Call's recovery monitor.
     if (_enableSignalingHealthMonitor) {
       _requestTimeoutTracker?.cancelAll();
       _requestTimeoutTracker = RequestTimeoutTracker(
@@ -511,7 +511,7 @@ class TelnyxClient {
   }
 
   /// A critical request (modify, bye, ping) that times out while a call is
-  /// active means the socket is unusable: force a reconnect (VSDK-416).
+  /// active means the socket is unusable: force a reconnect.
   void _onRequestTimeout(String method, String requestId, int timeoutMs) {
     GlobalLogger().w(
       'Request timeout: $method (id=$requestId) after ${timeoutMs}ms',
@@ -684,7 +684,7 @@ class TelnyxClient {
     );
   }
 
-  // ── Signaling recovery (VSDK-416 / VSDK-680) ─────────────────────────
+  // Signaling recovery.
 
   /// Signaling recovery authority: force a socket reconnect/reattach when
   /// signaling is unhealthy.
@@ -708,7 +708,7 @@ class TelnyxClient {
             Constants.reconnectionTimeout,
       );
 
-  /// Internal: per-call recovery fallback (VSDK-680). Forces one socket
+  /// Internal: per-call recovery fallback. Forces one socket
   /// reconnect so the backend re-attaches [callId]; completes `true` when the
   /// ATTACH for [callId] arrives, `false` when reconnecting is not allowed,
   /// the attach does not arrive within the reconnection timeout, or the
@@ -803,7 +803,7 @@ class TelnyxClient {
     recoverySignaling.reset();
   }
 
-  /// Peer-connection ICE failure entry point (VSDK-416 / VSDK-680).
+  /// Peer-connection ICE failure entry point.
   ///
   /// Called by both the native and web [Peer] implementations. Emits a
   /// structured `peerConnectionFailed` warning. When recovery is enabled the
@@ -833,7 +833,7 @@ class TelnyxClient {
     }
   }
 
-  /// Peer-connection state failure entry point (VSDK-416 / VSDK-680).
+  /// Peer-connection state failure entry point.
   ///
   /// Emits a structured `peerConnectionFailed` warning. Recovery is owned by
   /// the call's recovery monitor, which the peer feeds directly. Shared by
@@ -1487,7 +1487,7 @@ class TelnyxClient {
     GlobalLogger().i(
       'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)',
     );
-    // The client reconnect owns recovery for a path change (VSDK-680). The
+    // The client reconnect owns recovery for a path change. The
     // replacement call runs on the new path, so relay evidence captured on
     // the old one is retired (iOS resets it on every reconnect).
     for (final call in calls.values) {
@@ -3569,7 +3569,7 @@ class TelnyxClient {
   void _onMessage(dynamic data) async {
     if (_isTornDown) return;
 
-    // Every inbound WebSocket message is signaling activity (VSDK-416/680).
+    // Every inbound WebSocket message is signaling activity.
     recoverySignaling.onInboundFrame();
 
     GlobalLogger().i(
@@ -3594,8 +3594,7 @@ class TelnyxClient {
               messageJson,
             );
             // An error response still proves the signaling path is alive.
-            // Only a recovery request with the same id is resolved by it
-            // (VSDK-416 Gap 1, VSDK-680).
+            // Only a recovery request with the same id is resolved by it.
             recoverySignaling.onResponse(errorResult.id, messageJson);
             if (errorResult.id != null) {
               _requestTimeoutTracker?.resolve(errorResult.id!);
@@ -3618,8 +3617,7 @@ class TelnyxClient {
               messageJson,
             );
             // Resolve the recovery probe / updateMedia with this exact id.
-            // Unrelated inbound frames never resolve them (VSDK-416 Gap 1,
-            // VSDK-680).
+            // Unrelated inbound frames never resolve them.
             final isRecoveryResponse =
                 recoverySignaling.onResponse(stateMessage.id, messageJson);
             // Resolve any pending request-timeout timer for this response.
@@ -3843,7 +3841,7 @@ class TelnyxClient {
                   final resultMap = rawData['result'] as Map<String, dynamic>;
                   if (resultMap['action'] == 'updateMedia' &&
                       isRecoveryResponse) {
-                    // Applied by the call's recovery monitor (VSDK-680).
+                    // Applied by the call's recovery monitor.
                     GlobalLogger().i('Received recovery updateMedia response');
                   } else if (resultMap['action'] == 'updateMedia' &&
                       recoverySignaling.ownsUpdateMediaResponse(
@@ -3852,8 +3850,7 @@ class TelnyxClient {
                       )) {
                     // Only the answer to the recovery request's own id may
                     // touch the peer while recovery owns negotiation, and a
-                    // late answer to an expired request never does
-                    // (VSDK-680, Android parity).
+                    // late answer to an expired request never does.
                     GlobalLogger().w(
                       'Ignoring stale updateMedia response '
                       '(id=${stateMessage.id})',
@@ -4041,8 +4038,8 @@ class TelnyxClient {
                   // Mobile flutter_webrtc commonly omits the non-standard ICE
                   // networkType stat. Without a reliable VPN signal, relay
                   // escalation intentionally remains disabled.
-                  // VSDK-680: live evidence captured by call recovery works
-                  // even without call reports. Only the ATTACH for the call
+                  // Live evidence captured by call recovery works even
+                  // without call reports. Only the ATTACH for the call
                   // whose recovery armed the override receives it; it is
                   // consumed once either way.
                   final relayFromRecovery =
@@ -4088,8 +4085,8 @@ class TelnyxClient {
                         wasSpeakerPhoneEnabled; // Preserve the state
                   updateCall(offerCall);
 
-                  // VSDK-680: the backend re-attached this call. Resolve a
-                  // pending recovery reattach, then retire the replaced
+                  // The backend re-attached this call. Resolve a pending
+                  // recovery reattach, then retire the replaced
                   // call's recovery after its continuation has run.
                   if (attachCallId != null) {
                     _completeRecoveryReattach(attachCallId, true);

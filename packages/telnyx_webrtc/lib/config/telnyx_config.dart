@@ -213,7 +213,7 @@ class Config {
   /// Whether the SDK runs per-call ICE / signaling recovery during active
   /// calls (default: true): ICE restart on the same peer when signaling is
   /// healthy, a correlated probe when it is stale, and one reconnect /
-  /// reattach when restart cannot recover media (VSDK-680). Also enables the
+  /// reattach when restart cannot recover media. Also enables the
   /// reconnect on critical signaling request timeouts. When disabled, only
   /// the legacy direct ICE renegotiation after a disconnect → failed
   /// transition runs.

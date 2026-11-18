@@ -600,7 +600,7 @@ class Call {
     }
   }
 
-  // ── Per-call recovery (VSDK-680) ─────────────────────────────────────
+  // Per-call recovery.
 
   CallRecoveryMonitor? _recoveryMonitor;
   Timer? _recoveryHealthTimer;
@@ -650,7 +650,7 @@ class Call {
   }
 
   /// Restarts ICE for this active call without replacing the peer
-  /// connection (VSDK-680).
+  /// connection.
   ///
   /// The SDK creates an ICE-restart offer, exchanges it with Telnyx through a
   /// `telnyx_rtc.modify` (`updateMedia`) request, applies the answer and

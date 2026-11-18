@@ -1291,7 +1291,7 @@ class Peer {
       );
       final previousIceState = _previousIceConnectionState;
       _previousIceConnectionState = state;
-      // Per-call recovery monitor owns ICE recovery decisions (VSDK-680).
+      // The per-call recovery monitor owns ICE recovery decisions.
       _txClient.calls[callId]?.recoveryMonitor
           ?.onIceConnectionStateChanged(state);
       switch (state) {
@@ -1612,7 +1612,7 @@ class Peer {
     // Quality-warning monitor: interprets per-interval stats and emits
     // structured warnings (LOW_BYTES_*, HIGH_RTT, LOW_MOS, …). The
     // LOW_BYTES_RECEIVED / LOW_BYTES_SENT warnings are bridged into the call's
-    // recovery monitor as stalled-media evidence (VSDK-416 Gap 2, VSDK-680).
+    // recovery monitor as stalled-media evidence.
     _qualityWarningMonitor = QualityWarningMonitor(
       callId: callId,
       onWarning: (warning) {
@@ -2067,7 +2067,7 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Peer :: Error during ICE renegotiation: $e');
-      // Structured ICE-restart failure (VSDK-415).
+      // Report ICE-restart failures through the structured error API.
       _txClient.emitStructuredErrorCode(
         TelnyxErrorCodes.iceRestartFailed,
         originalError: e,
@@ -2154,7 +2154,7 @@ class Peer {
     }
   }
 
-  // ── Per-call recovery surface (VSDK-680) ─────────────────────────────
+  // Per-call recovery surface.
 
   /// Test seam: installs [peerConnection] as this peer's live session.
   @visibleForTesting

@@ -22,7 +22,7 @@ class RecoverySignalingException implements Exception {
   String toString() => 'RecoverySignalingException: $message';
 }
 
-/// Signaling side of per-call recovery (VSDK-680), owned by `TelnyxClient`.
+/// Signaling side of per-call recovery, owned by `TelnyxClient`.
 ///
 /// * Tracks the last inbound frame and the last inbound frame that answered
 ///   one of our requests, so recovery can tell "recent" from "stale"

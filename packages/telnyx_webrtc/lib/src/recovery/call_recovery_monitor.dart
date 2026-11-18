@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:telnyx_webrtc/utils/logging/global_logger.dart';
 
-/// Phases of the per-call recovery state machine (VSDK-680).
+/// Phases of the per-call recovery state machine.
 ///
 /// ```text
 ///   idle ──(ICE failed / disconnected > 3 s)──▶ probing ──▶ iceRestarting
@@ -225,11 +225,10 @@ enum _FailureSource { ice, peerConnection }
 
 enum _ProbePurpose { mediaRecovery, healthCheck }
 
-/// Per-call signaling-health and ICE-recovery monitor (VSDK-680).
+/// Per-call signaling-health and ICE-recovery monitor.
 ///
-/// Dart port of the `SignalingHealthMonitor` shared by the iOS, Android
-/// (telnyx-webrtc-android #868) and React Native (react-native-voice-commons
-/// #133) SDKs:
+/// Dart port of the `SignalingHealthMonitor` behavior shared by the iOS,
+/// Android and React Native SDKs:
 ///
 /// * ICE `failed` / peer-connection `failed` start an episode immediately;
 ///   `disconnected` starts one only if it persists for 3 s (judged at fire
@@ -280,8 +279,8 @@ class CallRecoveryMonitor {
   /// Media failures observed while a signaling health probe was in flight,
   /// kept per source and acted on when that probe settles instead of being
   /// dropped. Per source so an ICE recovery cannot erase a peer connection
-  /// that is still failed (Android upgrades the probe and never downgrades
-  /// it; RN #133 keeps a single slot).
+  /// that is still failed. This preserves Android's upgrade-only behavior
+  /// while safely tracking more than one failure source.
   final Map<_FailureSource, RecoveryFailureKind> _pendingMediaRecovery =
       <_FailureSource, RecoveryFailureKind>{};
 
@@ -394,7 +393,7 @@ class CallRecoveryMonitor {
 
   /// Observes sustained missing RTP while the transport still looks
   /// connected (the `LOW_BYTES_RECEIVED` / `LOW_BYTES_SENT` quality
-  /// warnings, VSDK-416).
+  /// warnings).
   ///
   /// Starts an episode only when idle: while an episode runs, RTP
   /// verification is the arbiter, and lingering low-byte intervals from

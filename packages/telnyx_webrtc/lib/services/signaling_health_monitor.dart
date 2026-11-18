@@ -1,5 +1,4 @@
-/// Compatibility shim for the client-wide signaling health monitor removed by
-/// VSDK-680.
+/// Compatibility shim for the removed client-wide signaling health monitor.
 ///
 /// Recovery now runs per call (ICE restart, correlated probes, media
 /// verification and a single reattach fallback) and is controlled by
@@ -10,7 +9,7 @@ library;
 
 /// No-op replacement for the former client-wide monitor.
 @Deprecated(
-  'Call recovery is per call since VSDK-680 and is controlled by '
+  'Call recovery is per call and is controlled by '
   'enableSignalingHealthMonitor. This class does nothing and will be '
   'removed in the next major version.',
 )
