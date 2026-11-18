@@ -79,6 +79,10 @@ jobs:
           done
           awk -v h="## [$VERSION]" 'index($0, h) == 1 {found=1} END {exit !found}' "$PKG/CHANGELOG.md" \
             || { echo "::error::CHANGELOG.md has no '## [$VERSION]' section"; exit 1; }
+          if grep -qF '<!-- AI-DRAFT' "$PKG/CHANGELOG.md"; then
+            echo "::error::CHANGELOG.md still contains an unreviewed Copilot draft ('<!-- AI-DRAFT' line)"
+            exit 1
+          fi
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "::error::Tag $TAG already exists"
             exit 1
