@@ -1,6 +1,14 @@
-## [Unreleased]
-### Bug Fix
+## [4.5.2](https://pub.dev/packages/telnyx_webrtc/versions/4.5.2) (2026-11-18)
+### Enhancement
+- Added an optional `pushNotificationEnvironment` override to `CredentialConfig` and `TokenConfig`, forwarded verbatim as `push_notification_environment` on login and push-attach payloads; use it when the APNs / FCM environment does not match the Flutter build mode. Default behavior is unchanged for callers that do not set the override
+
+### Bug Fixing
 - Fixed macOS trickle ICE race that could end the candidate stream before late relay/srflx candidates arrived (VSUP-279 / GH #297) — the primary end-of-candidates signal is now `RTCIceGatheringStateComplete`, with the per-candidate timer demoted to a 5-second bounded safety-net fallback
+- Fresh logins no longer reuse a previous session's `voice_sdk_id` or send `attach_call`/`sessid`: reattachment parameters are now only included when actually resuming a live session (answering a push notification, or an automatic recovery reconnect / cold start with calls to restore), so a fresh login no longer inherits stale gateway or session affinity
+- Guarded superseded asynchronous logins so a login that was disconnected or replaced before completing can no longer open a stale connection or replay stale credentials; the standalone deprecated login methods remain supported
+
+### Documentation
+- Clarified push notification docs for ringing a mobile device while the same identity is active on a web client: the JavaScript web client must also opt in with `pushWhenActive: true` and reconnect with a fresh browser login so `push_when_active` and `pn_late_fanout` are sent on login. Documentation only; no runtime behavior change
 
 ## [4.5.1](https://pub.dev/packages/telnyx_webrtc/versions/4.5.1) (2026-10-20)
 ### Enhancement
