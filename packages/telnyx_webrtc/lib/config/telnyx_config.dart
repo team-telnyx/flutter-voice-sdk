@@ -210,9 +210,13 @@ class Config {
   /// but no structured error/warning callbacks are fired.
   final bool enableStructuredErrors;
 
-  /// Whether the SDK runs the [SignalingHealthMonitor] during active calls to
-  /// detect signaling/media degradation and choose a single recovery path
-  /// (default: true).
+  /// Whether the SDK runs per-call ICE / signaling recovery during active
+  /// calls (default: true): ICE restart on the same peer when signaling is
+  /// healthy, a correlated probe when it is stale, and one reconnect /
+  /// reattach when restart cannot recover media. Also enables the
+  /// reconnect on critical signaling request timeouts. When disabled, only
+  /// the legacy direct ICE renegotiation after a disconnect → failed
+  /// transition runs.
   final bool enableSignalingHealthMonitor;
 
   /// Optional configuration for inbound media-permission recovery.

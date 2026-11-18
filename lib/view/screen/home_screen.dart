@@ -174,9 +174,8 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Assistant Login':
         _showAssistantLoginDialog();
         break;
-      case 'Force ICE Renegotiation':
-        Provider.of<TelnyxClientViewModel>(context, listen: false)
-            .forceIceRenegotiation();
+      case 'Restart ICE':
+        _restartIce();
         break;
       case 'Start Call Muted On':
       case 'Start Call Muted Off':
@@ -186,6 +185,23 @@ class _HomeScreenState extends State<HomeScreen> {
         _injectAudioSetupRace();
         break;
     }
+  }
+
+  void _restartIce() {
+    final viewModel =
+        Provider.of<TelnyxClientViewModel>(context, listen: false);
+    final accepted = viewModel.restartIce();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          accepted
+              ? 'ICE restart started'
+              : 'ICE restart not started: '
+                  '${viewModel.iceRestartUnavailableReason ?? 'unavailable'}',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _injectAudioSetupRace() async {
@@ -294,7 +310,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Export Logs',
                       'Diagnostics',
                       'Disable Push Notifications',
-                      'Force ICE Renegotiation',
                     ].map((String choice) {
                       return PopupMenuItem<String>(
                         value: choice,
@@ -318,7 +333,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Diagnostics',
                   debugToggleText,
                   'Assistant Login',
-                  'Force ICE Renegotiation',
                 ].map((String choice) {
                   return PopupMenuItem<String>(
                     value: choice,
@@ -335,7 +349,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onSelected: handleOptionClick,
               itemBuilder: (BuildContext context) {
                 return [
-                  'Force ICE Renegotiation',
+                  if (clientState == CallStateStatus.ongoingCall) 'Restart ICE',
                   'Export Logs',
                   'Diagnostics',
                   if (enableAudioRaceDebug) 'Inject Audio Setup Race',

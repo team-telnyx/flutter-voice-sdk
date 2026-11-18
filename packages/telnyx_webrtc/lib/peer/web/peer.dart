@@ -35,6 +35,8 @@ import 'package:telnyx_webrtc/model/errors/telnyx_error_factory.dart';
 import 'package:telnyx_webrtc/model/errors/media_permission_recovery.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_error_codes.dart';
+import 'package:telnyx_webrtc/src/recovery/call_recovery_monitor.dart';
+import 'package:telnyx_webrtc/src/recovery/ice_restart_support.dart';
 
 /// Function signature for acquiring a local media stream, allowing tests to
 /// inject a deterministic `getUserMedia` implementation (web parity, VSDK-417).
@@ -462,8 +464,10 @@ class Peer {
           sessid: session.sid,
           userAgent: userAgent,
           trickle: _useTrickleIce,
-          mobileSdkName: _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
-          mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ?? VersionUtils.getSDKVersion(),
+          mobileSdkName:
+              _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+          mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ??
+              VersionUtils.getSDKVersion(),
         );
 
         final inviteMessage = InviteAnswerMessage(
@@ -851,8 +855,10 @@ class Peer {
       userAgent: userAgent,
       trickle: _useTrickleIce,
       answeredDeviceToken: answeredDeviceToken,
-      mobileSdkName: _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
-      mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ?? VersionUtils.getSDKVersion(),
+      mobileSdkName:
+          _txClient.activeConfig?.effectiveSdkName ?? 'webrtc-flutter',
+      mobileSdkVersion: _txClient.activeConfig?.effectiveSdkVersion ??
+          VersionUtils.getSDKVersion(),
     );
 
     final answerMessage = InviteAnswerMessage(
@@ -1120,7 +1126,11 @@ class Peer {
           callId: callId,
           state: state.name,
         );
+        final previousIceState = _previousIceConnectionState;
         _previousIceConnectionState = state;
+        // The per-call recovery monitor owns ICE recovery decisions.
+        _txClient.calls[callId]?.recoveryMonitor
+            ?.onIceConnectionStateChanged(state);
         switch (state) {
           case RTCIceConnectionState.RTCIceConnectionStateConnected:
             CallTimingBenchmark.end();
@@ -1143,12 +1153,12 @@ class Peer {
             // Cancel any reconnection timer for this call
             _txClient.onCallStateChangedToActive(callId);
           case RTCIceConnectionState.RTCIceConnectionStateFailed:
-            // Native/web parity (VSDK-415/416): route to the single recovery
-            // authority, which emits a structured warning and takes exactly
-            // one recovery action.
+            // Structured warning. Recovery is owned by the call's recovery
+            // monitor (fed above); without one, the legacy direct
+            // renegotiation runs when the failure followed a disconnect.
             _txClient.handlePeerIceConnectionFailed(
               callId,
-              afterDisconnect: _previousIceConnectionState ==
+              afterDisconnect: previousIceState ==
                   RTCIceConnectionState.RTCIceConnectionStateDisconnected,
             );
             break;
@@ -1169,6 +1179,8 @@ class Peer {
       ..onConnectionState = (state) {
         GlobalLogger().i('Peer :: Peer Connection State change :: $state');
         CallTimingBenchmark.mark('peer_state_${state.name}');
+        _txClient.calls[callId]?.recoveryMonitor
+            ?.onPeerConnectionStateChanged(state);
         if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
           final Call? currentCall = _txClient.calls[callId];
           currentCall?.callHandler.changeState(CallState.active);
@@ -1711,19 +1723,26 @@ class Peer {
   }
 
   /// Starts ICE renegotiation process when ICE connection fails
+  ///
+  /// Legacy path, used only when the per-call recovery monitor is disabled.
+  /// [sessionId] is the signaling session id sent in `updateMedia`; the local
+  /// peer session is always keyed by this peer's own id.
   Future<void> startIceRenegotiation(String callId, String sessionId) async {
     try {
       GlobalLogger()
           .i('Web Peer :: Starting ICE renegotiation for call: $callId');
-      if (_sessions[sessionId] != null) {
-        onCallStateChange?.call(_sessions[sessionId]!, CallState.renegotiation);
-        final peerConnection = _sessions[sessionId]?.peerConnection;
+      final session = _sessions[_selfId];
+      if (session != null) {
+        onCallStateChange?.call(session, CallState.renegotiation);
+        final peerConnection = session.peerConnection;
         if (peerConnection == null) {
           GlobalLogger().e(
-            'Web Peer :: No peer connection found for session: $sessionId',
+            'Web Peer :: No peer connection found for session: $_selfId',
           );
           return;
         }
+        // Wait for candidates gathered for this offer, not the original ones.
+        _lastCandidateTime = null;
 
         // Create constraints with IceRestart flag to force ICE restart
         final constraints = {
@@ -1759,14 +1778,12 @@ class Peer {
       }
     } catch (e) {
       GlobalLogger().e('Web Peer :: Error during ICE renegotiation: $e');
-      // Native/web parity (VSDK-415/416): structured ICE-restart failure +
-      // escalate to a socket reconnect via the recovery authority.
+      // Match native by reporting through the structured error API.
       _txClient.emitStructuredErrorCode(
         TelnyxErrorCodes.iceRestartFailed,
         originalError: e,
         callId: callId,
       );
-      _txClient.healthMonitor?.onIceRestartFailed(callId);
     }
   }
 
@@ -1847,6 +1864,108 @@ class Peer {
         callId: response.callID,
       );
     }
+  }
+
+  // Per-call recovery surface.
+
+  RTCPeerConnection? get _recoveryPeerConnection =>
+      _sessions[_selfId]?.peerConnection;
+
+  /// Current ICE connection state of the live peer connection, used by the
+  /// call recovery monitor to judge disconnected delays at fire time.
+  RTCIceConnectionState? get recoveryIceConnectionState =>
+      _recoveryPeerConnection?.iceConnectionState;
+
+  /// Current peer connection state of the live peer connection.
+  RTCPeerConnectionState? get recoveryPeerConnectionState =>
+      _recoveryPeerConnection?.connectionState;
+
+  /// Creates an ICE-restart offer on the existing peer connection and returns
+  /// the local SDP once gathering of the new candidates has finished.
+  ///
+  /// Does not change the call state: recovery keeps the call ACTIVE. Throws
+  /// when the offer cannot be created.
+  Future<String> createIceRestartOffer(String callId) async {
+    final peerConnection = _recoveryPeerConnection;
+    if (peerConnection == null) {
+      throw StateError('No peer connection for ICE restart');
+    }
+    try {
+      final offer = await peerConnection.createOffer({
+        'mandatory': {'IceRestart': true},
+        'optional': [],
+      });
+      await peerConnection.setLocalDescription(offer);
+      await waitForIceRestartGathering(() => peerConnection.iceGatheringState);
+      final local = await peerConnection.getLocalDescription();
+      final sdp = local?.sdp;
+      if (sdp == null || sdp.isEmpty) {
+        throw StateError('ICE restart offer has no local SDP');
+      }
+      GlobalLogger().i('Web Peer :: ICE restart offer ready for call $callId');
+      return sdp;
+    } catch (e) {
+      GlobalLogger().e('Web Peer :: ICE restart offer failed: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.iceRestartFailed,
+        originalError: e,
+        callId: callId,
+      );
+      rethrow;
+    }
+  }
+
+  /// Applies the `updateMedia` answer for an ICE restart. Unlike
+  /// [handleUpdateMediaResponse], failures are rethrown so recovery can fall
+  /// back instead of verifying media against an answer that was never set.
+  Future<void> applyIceRestartAnswer(String callId, String sdp) async {
+    final peerConnection = _recoveryPeerConnection;
+    if (peerConnection == null) {
+      throw StateError('No peer connection for ICE restart answer');
+    }
+    try {
+      await peerConnection.setRemoteDescription(
+        RTCSessionDescription(sdp, 'answer'),
+      );
+      GlobalLogger()
+          .i('Web Peer :: ICE restart answer applied for call $callId');
+    } catch (e) {
+      GlobalLogger().e('Web Peer :: ICE restart answer failed: $e');
+      _txClient.emitStructuredErrorCode(
+        TelnyxErrorCodes.sdpSetRemoteDescriptionFailed,
+        originalError: e,
+        callId: callId,
+      );
+      rethrow;
+    }
+  }
+
+  /// Total inbound audio RTP packets read directly from `getStats()`, so
+  /// media verification works whether or not call reports are enabled.
+  Future<int?> inboundAudioPacketsReceived() async {
+    final peerConnection = _recoveryPeerConnection;
+    if (peerConnection == null) return null;
+    return inboundAudioPacketsFromReports(await peerConnection.getStats());
+  }
+
+  /// Selected candidate pair from live `getStats()`, captured when recovery
+  /// falls back to reattach so a failed direct VPN path can be retried over
+  /// relay. Independent of call reports.
+  Future<CandidateEvidence?> selectedCandidateEvidence(String callId) async {
+    final peerConnection = _recoveryPeerConnection;
+    if (peerConnection == null) return null;
+    return selectedCandidateEvidenceFromReports(
+      await peerConnection.getStats(),
+      callId: callId,
+    );
+  }
+
+  /// Records a sanitized recovery lifecycle event in the call report.
+  void recordRecoveryEvent(String event) {
+    _callReportLogCollector?.addLog(
+      level: 'info',
+      message: 'call_recovery_$event',
+    );
   }
 
   /// Applies audio codec preferences to the peer connection's audio transceiver.

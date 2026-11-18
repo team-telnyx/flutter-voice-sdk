@@ -59,9 +59,12 @@ import 'package:telnyx_webrtc/model/errors/telnyx_warning.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_codes.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_factory.dart';
 import 'package:telnyx_webrtc/model/errors/telnyx_warning_event.dart';
-import 'package:telnyx_webrtc/services/signaling_health_monitor.dart';
+import 'package:telnyx_webrtc/src/recovery/call_recovery_monitor.dart';
+import 'package:telnyx_webrtc/src/recovery/ice_restart_support.dart';
+import 'package:telnyx_webrtc/src/recovery/recovery_signaling.dart';
 import 'package:telnyx_webrtc/services/reconnect_token_store.dart';
 import 'package:telnyx_webrtc/services/request_timeout_tracker.dart';
+import 'package:telnyx_webrtc/services/signaling_health_monitor.dart';
 
 /// Callback for when the socket receives a message
 typedef OnSocketMessageReceived = void Function(TelnyxMessage message);
@@ -358,8 +361,6 @@ class TelnyxClient {
       );
       _cancelReconnectionTimer(callId);
     }
-    // Keep the signaling-health monitor lifecycle in sync with active calls.
-    _syncHealthMonitorLifecycle();
     // Persist a narrow recovery marker for the current active calls.
     _persistActiveCallsMarker();
   }
@@ -370,7 +371,9 @@ class TelnyxClient {
   /// session. Set from [Config.enableStructuredErrors] during connect.
   bool _enableStructuredErrors = true;
 
-  /// Whether the [SignalingHealthMonitor] is enabled for the current session.
+  /// Whether signaling-health recovery is enabled for the current session:
+  /// the per-call recovery monitor and the critical-request timeout
+  /// reconnect.
   bool _enableSignalingHealthMonitor = true;
 
   /// The media-permission recovery configuration retained from [Config].
@@ -381,11 +384,46 @@ class TelnyxClient {
   MediaPermissionsRecoveryConfig? get mediaPermissionsRecovery =>
       _mediaPermissionsRecovery;
 
-  /// The signaling-health monitor instance, created when enabled.
-  SignalingHealthMonitor? _healthMonitor;
+  /// Former client-wide signaling-health monitor. Recovery now runs per call,
+  /// so this is always `null`.
+  @Deprecated(
+    'Call recovery is per call and is controlled by '
+    'enableSignalingHealthMonitor. Always null; will be removed in the next '
+    'major version.',
+  )
+  // ignore: deprecated_member_use_from_same_package
+  SignalingHealthMonitor? get healthMonitor => null;
 
-  /// The signaling-health monitor for the current session (test/inspection).
-  SignalingHealthMonitor? get healthMonitor => _healthMonitor;
+  /// Internal: whether calls run the per-call recovery monitor.
+  bool get isCallRecoveryEnabled => _enableSignalingHealthMonitor;
+
+  /// Internal: true while the client-level reconnect flow owns recovery, so
+  /// per-call recovery stays passive.
+  bool get isRecoveryReconnecting =>
+      _connectionStatus == ConnectionStatus.reconnecting;
+
+  /// Internal: signaling freshness and correlated recovery requests used by
+  /// the per-call recovery monitor. Not part of the public API.
+  late final RecoverySignaling recoverySignaling = RecoverySignaling(
+    send: (message) => txSocket.send(message),
+  );
+
+  /// Pending recovery reattach requests by call id; completed `true` when the
+  /// backend re-attaches that call.
+  final Map<String, Completer<bool>> _recoveryReattachWaiters =
+      <String, Completer<bool>>{};
+  final Map<String, Timer> _recoveryReattachTimers = <String, Timer>{};
+
+  /// Calls whose recovery reattach should use a one-shot relay-only
+  /// replacement, based on live candidate evidence.
+  final Set<String> _recoveryRelayOverrides = <String>{};
+
+  /// Signaling methods whose request timeout means the socket is unusable.
+  static const Set<String> _criticalSignalingMethods = <String>{
+    'telnyx_rtc.modify',
+    'telnyx_rtc.bye',
+    'telnyx_rtc.ping',
+  };
 
   /// Per-request timeout tracker for critical JSON-RPC methods (VSDK-416).
   /// Active only when the health monitor is enabled; null otherwise.
@@ -459,51 +497,44 @@ class TelnyxClient {
     // login message is sent (VSDK-415/416 adversarial hardening).
     _autoReconnectLogin = config.autoReconnect ?? true;
 
-    // Instantiate the health monitor when enabled (idempotent per session).
+    // Critical-request timeouts force a socket reconnect. Per-call ICE /
+    // signaling recovery lives in each Call's recovery monitor.
     if (_enableSignalingHealthMonitor) {
-      _healthMonitor ??= SignalingHealthMonitor(_TelnyxHealthSession(this));
-      // Create the request-timeout tracker alongside the health monitor.
-      // It feeds SignalingHealthMonitor.onRequestTimeout() when critical
-      // methods (modify, bye, ping) don't receive a response in time.
+      _requestTimeoutTracker?.cancelAll();
       _requestTimeoutTracker = RequestTimeoutTracker(
-        onTimeout: (method, requestId, timeoutMs) {
-          GlobalLogger().w(
-            'Request timeout: $method (id=$requestId) after ${timeoutMs}ms',
-          );
-          _healthMonitor?.onRequestTimeout(requestId, timeoutMs, method);
-          // Also emit a structured error for critical methods.
-          if (SignalingHealthMonitor.isCriticalMethod(method)) {
-            emitStructuredErrorCode(
-              TelnyxErrorCodes.webSocketError,
-              message:
-                  'Signaling request $method timed out after ${timeoutMs}ms',
-              originalError:
-                  'request_timeout:$method:$requestId:${timeoutMs}ms',
-            );
-          }
-        },
+        onTimeout: _onRequestTimeout,
       );
     } else {
-      _healthMonitor?.stop();
-      _healthMonitor = null;
       _requestTimeoutTracker?.cancelAll();
       _requestTimeoutTracker = null;
     }
-
-    // Reset health-monitor transient state on every fresh/reconnect config
-    // application so no pending/probe state from a prior session survives a
-    // reconnect. Stop clears all transient state (probe-in-flight, pending
-    // media recovery, last-inbound timestamp), then lifecycle sync restarts it
-    // only when an initialized active call exists.
-    final monitor = _healthMonitor;
-    if (monitor != null) {
-      monitor.stop();
-      // Cancel any pending request-timeout timers from the prior session so
-      // stale responses on a new socket don't fire against a dead tracker.
-      _requestTimeoutTracker?.cancelAll();
-      _syncHealthMonitorLifecycle();
-    }
   }
+
+  /// A critical request (modify, bye, ping) that times out while a call is
+  /// active means the socket is unusable: force a reconnect.
+  void _onRequestTimeout(String method, String requestId, int timeoutMs) {
+    GlobalLogger().w(
+      'Request timeout: $method (id=$requestId) after ${timeoutMs}ms',
+    );
+    if (!_criticalSignalingMethods.contains(method)) return;
+    if (isConnected() && activeCalls().isNotEmpty) {
+      _healthSocketDisconnect();
+    }
+    emitStructuredErrorCode(
+      TelnyxErrorCodes.webSocketError,
+      message: 'Signaling request $method timed out after ${timeoutMs}ms',
+      originalError: 'request_timeout:$method:$requestId:${timeoutMs}ms',
+    );
+  }
+
+  /// Test seam: deliver a request timeout as the tracker would.
+  @visibleForTesting
+  void onRequestTimeoutForTest(
+    String method,
+    String requestId,
+    int timeoutMs,
+  ) =>
+      _onRequestTimeout(method, requestId, timeoutMs);
 
   /// Test seam: apply the structured-config flags/recovery from [config]
   /// without opening a socket. Mirrors what the connect paths do.
@@ -653,21 +684,12 @@ class TelnyxClient {
     );
   }
 
-  // ── Signaling-health session hooks (VSDK-416) ───────────────────────
-  //
-  // TelnyxClient owns a lightweight production adapter
-  // ([_TelnyxHealthSession]) that implements [ISignalingHealthSession] and
-  // delegates to these methods. An adapter is used instead of `implements`
-  // because the interface's `isConnected` getter would collide with the
-  // long-standing public `isConnected()` method.
+  // Signaling recovery.
 
   /// Signaling recovery authority: force a socket reconnect/reattach when
-  /// signaling is unhealthy. Never also triggers ICE restart — the monitor
-  /// guarantees exactly one recovery path.
+  /// signaling is unhealthy.
   void _healthSocketDisconnect() {
-    GlobalLogger().i(
-      'SignalingHealthMonitor requested socket reconnect (signaling unhealthy)',
-    );
+    GlobalLogger().i('Signaling unhealthy, forcing socket reconnect');
     emitTelnyxWarning(
       createTelnyxWarning(TelnyxWarningCodes.signalingRecoveryRequired),
       reason: 'Signaling unhealthy — reconnecting socket',
@@ -680,89 +702,115 @@ class TelnyxClient {
     }
   }
 
-  /// Media recovery authority: restart ICE for [callId] when signaling is
-  /// healthy but media has degraded.
-  TriggerIceRestartResult _healthTriggerIceRestart(String? callId) {
-    if (callId == null) {
-      return const TriggerIceRestartResult(started: false);
-    }
-    final call = calls[callId];
-    if (call == null) {
-      return const TriggerIceRestartResult(started: false);
-    }
-    emitTelnyxWarning(
-      createTelnyxWarning(TelnyxWarningCodes.mediaRecoveryRequired),
-      callId: callId,
-      reason: 'Signaling healthy, media degraded — restarting ICE',
-      source: 'health_monitor',
-    );
-    final started = call.restartIce();
-    if (!started) {
-      // ICE restart could not start — the call is likely in a terminal state
-      // (peer already closed, no active connection). This is benign, not a
-      // failure. Log and return without escalating to socket reconnect.
-      // JS mirrors: BaseSession.triggerIceRestart() → started:false → log only.
-      // (VSDK-397)
-      GlobalLogger().d(
-        'ICE restart not started for call $callId — call may be in terminal state',
+  Duration get _recoveryReattachTimeout => Duration(
+        milliseconds: _storedCredentialConfig?.reconnectionTimeout ??
+            _storedTokenConfig?.reconnectionTimeout ??
+            Constants.reconnectionTimeout,
       );
+
+  /// Internal: per-call recovery fallback. Forces one socket
+  /// reconnect so the backend re-attaches [callId]; completes `true` when the
+  /// ATTACH for [callId] arrives, `false` when reconnecting is not allowed,
+  /// the attach does not arrive within the reconnection timeout, or the
+  /// client is disconnected first.
+  Future<bool> requestRecoveryReattach(String callId) {
+    final existing = _recoveryReattachWaiters[callId];
+    if (existing != null) return existing.future;
+    if (_isTornDown || !_autoReconnectLogin) {
+      // No reattach will follow, so evidence armed for it must not outlive
+      // this refusal (Android arms the override only for an accepted one).
+      _recoveryRelayOverrides.remove(callId);
+      return Future.value(false);
     }
-    return TriggerIceRestartResult(started: started);
+
+    final waiter = Completer<bool>();
+    _recoveryReattachWaiters[callId] = waiter;
+    _recoveryReattachTimers[callId] = Timer(_recoveryReattachTimeout, () {
+      GlobalLogger().w('Recovery reattach timed out for call $callId');
+      _completeRecoveryReattach(callId, false);
+    });
+
+    emitTelnyxWarning(
+      createTelnyxWarning(TelnyxWarningCodes.signalingRecoveryRequired),
+      callId: callId,
+      reason: 'Call recovery fallback — reconnecting to reattach the call',
+      source: 'call_recovery',
+    );
+    if (!isRecoveryReconnecting) {
+      _reconnectToSocket();
+    }
+    return waiter.future;
   }
 
-  /// Signaling probe authority: send a `telnyx_rtc.ping` on the current socket
-  /// so the [SignalingHealthMonitor] can resolve "unknown" signaling health by
-  /// provoking a response (VSDK-416). The JSON is the standard, already
-  /// supported ping request — only the SDK is now the sender.
-  ///
-  /// NOTE: The probe is NOT tracked by [_requestTimeoutTracker] because the
-  /// health monitor already bounds probe timeout via [_probeTimeout] (5 s).
-  /// Adding a second timer would be redundant and can leak in tests.
-  void _sendSignalingProbe() {
-    try {
-      final probeId = const Uuid().v4();
-      final probe = <String, dynamic>{
-        'jsonrpc': JsonRPCConstant.jsonrpc,
-        'id': probeId,
-        'method': SocketMethod.ping,
-        'params': <String, dynamic>{},
-      };
-      txSocket.send(jsonEncode(probe));
-      // Attach the probe request id to the health monitor so it can release
-      // the in-flight probe only when the matching JSON-RPC response arrives
-      // (not for any unrelated inbound frame). See
-      // [SignalingHealthMonitor.attachProbeRequestId] and
-      // [SignalingHealthMonitor.resolveProbe].
-      _healthMonitor?.attachProbeRequestId(probeId);
-    } catch (e) {
-      GlobalLogger().w('Failed to send signaling probe: $e');
-    }
-  }
-
-  /// Start the health monitor when a call becomes active; stop it when there
-  /// are no active calls. Idempotent — safe to call repeatedly.
-  void _syncHealthMonitorLifecycle() {
-    final monitor = _healthMonitor;
-    if (monitor == null) return;
-    if (activeCalls().isNotEmpty) {
-      monitor.start();
+  /// Internal: records the selected candidate pair captured when [callId]'s
+  /// recovery fell back to reattach. A failed direct VPN path arms a
+  /// one-shot relay-only override for the replacement call; anything else
+  /// clears it (fail closed). The global config is never changed.
+  void recordRecoveryCandidateEvidence(
+    String callId,
+    CandidateEvidence evidence,
+  ) {
+    if (shouldForceRelayForEvidence(evidence)) {
+      GlobalLogger().w(
+        'Call recovery: direct VPN path failed, replacement call for '
+        '$callId will use relay-only ICE once',
+      );
+      _recoveryRelayOverrides.add(callId);
     } else {
-      monitor.stop();
+      _recoveryRelayOverrides.remove(callId);
     }
   }
 
-  /// Single recovery authority for a peer-connection ICE failure (VSDK-416).
+  /// Consumes the one-shot relay override for [callId]. Only the ATTACH for
+  /// the call whose recovery armed it receives it (call ids are unique per
+  /// call), whichever flow triggered that ATTACH.
+  bool _consumeRecoveryRelayOverride(String? callId) =>
+      callId != null && _recoveryRelayOverrides.remove(callId);
+
+  /// Internal: drops recovery state kept for [callId] once the call is torn
+  /// down, so a relay override cannot outlive its call (Android
+  /// `removeFromCalls`).
+  void discardCallRecoveryState(String? callId) {
+    if (callId == null) return;
+    _recoveryRelayOverrides.remove(callId);
+  }
+
+  /// Test seam: whether a relay override is armed for [callId].
+  @visibleForTesting
+  bool hasRecoveryRelayOverrideForTest(String callId) =>
+      _recoveryRelayOverrides.contains(callId);
+
+  /// Completes the recovery reattach waiter for [callId], if any. Returns
+  /// whether a waiter existed.
+  bool _completeRecoveryReattach(String callId, bool reattached) {
+    if (!reattached) _recoveryRelayOverrides.remove(callId);
+    _recoveryReattachTimers.remove(callId)?.cancel();
+    final waiter = _recoveryReattachWaiters.remove(callId);
+    if (waiter == null) return false;
+    if (!waiter.isCompleted) waiter.complete(reattached);
+    return true;
+  }
+
+  /// Stops all recovery work on explicit disconnect / disposal.
+  void _resetCallRecovery() {
+    for (final call in calls.values) {
+      call.disposeRecovery();
+    }
+    for (final callId in _recoveryReattachWaiters.keys.toList()) {
+      _completeRecoveryReattach(callId, false);
+    }
+    _recoveryRelayOverrides.clear();
+    recoverySignaling.reset();
+  }
+
+  /// Peer-connection ICE failure entry point.
   ///
-  /// Called by both the native and web [Peer] implementations so the recovery
-  /// behavior is identical across platforms. Emits a structured
-  /// `peerConnectionFailed` warning, then takes *exactly one* recovery action:
-  ///
-  /// - When the signaling-health monitor is enabled it is the sole authority —
-  ///   it decides ICE restart (healthy signaling) vs. socket reconnect
-  ///   (unhealthy). The peer must NOT also renegotiate directly.
-  /// - When the monitor is disabled, the legacy self-heal applies: a direct ICE
-  ///   restart, but only when the failure followed a disconnect
-  ///   ([afterDisconnect]).
+  /// Called by both the native and web [Peer] implementations. Emits a
+  /// structured `peerConnectionFailed` warning. When recovery is enabled the
+  /// call's recovery monitor (fed every ICE state by the peer) is the sole
+  /// authority, so nothing else runs here. When disabled, the legacy
+  /// self-heal applies: a direct ICE restart, but only when the failure
+  /// followed a disconnect ([afterDisconnect]).
   void handlePeerIceConnectionFailed(
     String callId, {
     required bool afterDisconnect,
@@ -773,24 +821,23 @@ class TelnyxClient {
       reason: 'ICE connection failed',
       source: 'peer_failure',
     );
-    final monitor = _healthMonitor;
-    if (monitor != null) {
-      // The monitor owns recovery — it decides ICE restart vs. socket
-      // reconnect. Do NOT also renegotiate directly (would double-restart).
-      monitor.onPeerFailure(callId, PeerFailureEvidence.iceFailed);
+    if (isCallRecoveryEnabled) {
+      // The call's recovery monitor owns recovery. Do NOT also renegotiate
+      // directly (would double-restart).
       return;
     }
     // Legacy self-heal when the monitor is disabled: direct ICE restart, but
     // only when the failure followed a disconnect.
     if (afterDisconnect) {
-      calls[callId]?.restartIce();
+      calls[callId]?.startLegacyIceRenegotiation();
     }
   }
 
-  /// Single recovery authority for a peer-connection state failure (VSDK-416).
+  /// Peer-connection state failure entry point.
   ///
-  /// Emits a structured `peerConnectionFailed` warning and routes the failure
-  /// to the health monitor (when enabled). Shared by native and web peers.
+  /// Emits a structured `peerConnectionFailed` warning. Recovery is owned by
+  /// the call's recovery monitor, which the peer feeds directly. Shared by
+  /// native and web peers.
   void handlePeerConnectionFailed(String callId) {
     emitWarningCode(
       TelnyxWarningCodes.peerConnectionFailed,
@@ -798,7 +845,6 @@ class TelnyxClient {
       reason: 'Peer connection failed',
       source: 'peer_failure',
     );
-    _healthMonitor?.onPeerFailure(callId, PeerFailureEvidence.connectionFailed);
   }
 
   // ── Reconnect / session persistence (VSDK-418) ──────────────────────
@@ -1441,6 +1487,13 @@ class TelnyxClient {
     GlobalLogger().i(
       'Handling network reconnection (reason: $reason, autoReconnect: $_autoReconnectLogin)',
     );
+    // The client reconnect owns recovery for a path change. The
+    // replacement call runs on the new path, so relay evidence captured on
+    // the old one is retired (iOS resets it on every reconnect).
+    for (final call in calls.values) {
+      call.recoveryMonitor?.onNetworkPathChanged();
+    }
+    _recoveryRelayOverrides.clear();
     _reconnectToSocket();
 
     for (var call in activeCalls().values) {
@@ -3251,7 +3304,7 @@ class TelnyxClient {
     // Explicit user disconnect/logout clears all persisted recovery data
     // (VSDK-418) and stops the signaling-health monitor (VSDK-416).
     _explicitDisconnectInProgress = true;
-    _healthMonitor?.stop();
+    _resetCallRecovery();
     _clearTokenExpiryTimer();
     unawaited(_clearPersistedRecovery(_recoveryEpoch));
     if (_closed) {
@@ -3291,7 +3344,7 @@ class TelnyxClient {
     // Explicit user disconnect/logout clears all persisted recovery data
     // (VSDK-418) and stops the signaling-health monitor (VSDK-416).
     _explicitDisconnectInProgress = true;
-    _healthMonitor?.stop();
+    _resetCallRecovery();
     _clearTokenExpiryTimer();
     unawaited(_clearPersistedRecovery(_recoveryEpoch));
     if (_closed) return;
@@ -3311,7 +3364,7 @@ class TelnyxClient {
     final shouldCloseSocket = !_closed;
     _disposed = true;
     _closed = true;
-    _healthMonitor?.stop();
+    _resetCallRecovery();
     _clearTokenExpiryTimer();
     _requestTimeoutTracker?.cancelAll();
     _invalidateConnectionGeneration();
@@ -3516,8 +3569,8 @@ class TelnyxClient {
   void _onMessage(dynamic data) async {
     if (_isTornDown) return;
 
-    // Every inbound WebSocket message is signaling-health activity (VSDK-416).
-    _healthMonitor?.onSocketActivity();
+    // Every inbound WebSocket message is signaling activity.
+    recoverySignaling.onInboundFrame();
 
     GlobalLogger().i(
       'TelnyxClient._onMessage: RAW WebSocket data received: ${data?.toString().trim()}',
@@ -3540,11 +3593,9 @@ class TelnyxClient {
             final ReceivedResult errorResult = ReceivedResult.fromJson(
               messageJson,
             );
-            // Resolve the in-flight signaling probe (if any) when the JSON-RPC
-            // error matches the probe's request id. An error response still
-            // proves the signaling path is alive (the server answered), even
-            // if the ping itself was rejected — VSDK-416 Gap 1 hardening.
-            _healthMonitor?.resolveProbe(errorResult.id);
+            // An error response still proves the signaling path is alive.
+            // Only a recovery request with the same id is resolved by it.
+            recoverySignaling.onResponse(errorResult.id, messageJson);
             if (errorResult.id != null) {
               _requestTimeoutTracker?.resolve(errorResult.id!);
             }
@@ -3565,10 +3616,10 @@ class TelnyxClient {
             final ReceivedResult stateMessage = ReceivedResult.fromJson(
               messageJson,
             );
-            // Resolve the in-flight signaling probe (if any) when the JSON-RPC
-            // result matches the probe's request id. Unrelated inbound frames
-            // MUST NOT release the probe — VSDK-416 Gap 1 hardening.
-            _healthMonitor?.resolveProbe(stateMessage.id);
+            // Resolve the recovery probe / updateMedia with this exact id.
+            // Unrelated inbound frames never resolve them.
+            final isRecoveryResponse =
+                recoverySignaling.onResponse(stateMessage.id, messageJson);
             // Resolve any pending request-timeout timer for this response.
             if (stateMessage.id != null) {
               _requestTimeoutTracker?.resolve(stateMessage.id!);
@@ -3788,7 +3839,23 @@ class TelnyxClient {
                 );
                 if (rawData.containsKey('result') && rawData['result'] is Map) {
                   final resultMap = rawData['result'] as Map<String, dynamic>;
-                  if (resultMap['action'] == 'updateMedia') {
+                  if (resultMap['action'] == 'updateMedia' &&
+                      isRecoveryResponse) {
+                    // Applied by the call's recovery monitor.
+                    GlobalLogger().i('Received recovery updateMedia response');
+                  } else if (resultMap['action'] == 'updateMedia' &&
+                      recoverySignaling.ownsUpdateMediaResponse(
+                        stateMessage.id,
+                        resultMap['callID'] as String?,
+                      )) {
+                    // Only the answer to the recovery request's own id may
+                    // touch the peer while recovery owns negotiation, and a
+                    // late answer to an expired request never does.
+                    GlobalLogger().w(
+                      'Ignoring stale updateMedia response '
+                      '(id=${stateMessage.id})',
+                    );
+                  } else if (resultMap['action'] == 'updateMedia') {
                     GlobalLogger().i('Received updateMedia response');
 
                     final updateMediaResponse = UpdateMediaResponse.fromJson(
@@ -3971,9 +4038,16 @@ class TelnyxClient {
                   // Mobile flutter_webrtc commonly omits the non-standard ICE
                   // networkType stat. Without a reliable VPN signal, relay
                   // escalation intentionally remains disabled.
-                  final forceRelayCandidateForRecovery = existingCall
-                          ?.peerConnection?.shouldForceRelayForRecovery ??
-                      false;
+                  // Live evidence captured by call recovery works even
+                  // without call reports. Only the ATTACH for the call
+                  // whose recovery armed the override receives it; it is
+                  // consumed once either way.
+                  final relayFromRecovery =
+                      _consumeRecoveryRelayOverride(attachCallId);
+                  final forceRelayCandidateForRecovery = relayFromRecovery ||
+                      (existingCall
+                              ?.peerConnection?.shouldForceRelayForRecovery ??
+                          false);
                   if (forceRelayCandidateForRecovery) {
                     GlobalLogger().w(
                       'ATTACH :: forcing relay-only ICE for stalled VPN media path on $attachCallId',
@@ -4010,6 +4084,16 @@ class TelnyxClient {
                     ..speakerPhone =
                         wasSpeakerPhoneEnabled; // Preserve the state
                   updateCall(offerCall);
+
+                  // The backend re-attached this call. Resolve a pending
+                  // recovery reattach, then retire the replaced
+                  // call's recovery after its continuation has run.
+                  if (attachCallId != null) {
+                    _completeRecoveryReattach(attachCallId, true);
+                  }
+                  if (existingCall != null) {
+                    unawaited(Future<void>(existingCall.disposeRecovery));
+                  }
 
                   onSocketMessageReceived.call(message);
 
@@ -4184,6 +4268,7 @@ class TelnyxClient {
                   );
 
                   calls.remove(byeCall.callId);
+                  discardCallRecoveryState(byeCall.callId);
 
                   // Cancel latency tracking for this call
                   if (byeCall.callId != null) {
@@ -4599,29 +4684,4 @@ class TelnyxClient {
   SocketConnectionMetrics getConnectionMetrics() {
     return txSocket.getConnectionMetrics();
   }
-}
-
-/// Production adapter that exposes a [TelnyxClient] to the
-/// [SignalingHealthMonitor] via the [ISignalingHealthSession] interface
-/// (VSDK-416). Owned by the client; delegates every call back to it.
-class _TelnyxHealthSession implements ISignalingHealthSession {
-  _TelnyxHealthSession(this._client);
-
-  final TelnyxClient _client;
-
-  @override
-  bool? get isConnected => _client.isConnected();
-
-  @override
-  bool? hasActiveCall() => _client.activeCalls().isNotEmpty;
-
-  @override
-  void socketDisconnect() => _client._healthSocketDisconnect();
-
-  @override
-  TriggerIceRestartResult? triggerIceRestart(String? callId) =>
-      _client._healthTriggerIceRestart(callId);
-
-  @override
-  void sendProbe() => _client._sendSignalingProbe();
 }
