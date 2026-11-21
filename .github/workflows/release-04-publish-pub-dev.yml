@@ -1,4 +1,9 @@
-name: Publish to pub.dev
+# Step 4 of the release flow: publishes packages/telnyx_webrtc to pub.dev from a vX.Y.Z tag.
+#
+# release-03-create-gh-release starts this automatically on the new tag. To run it by
+# hand (for example to retry a failed publish), choose the vX.Y.Z tag, not main, in
+# "Use workflow from"; runs on a branch are skipped.
+name: release-04-publish-pub-dev
 
 on:
   push:
