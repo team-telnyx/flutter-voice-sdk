@@ -26,3 +26,7 @@ jobs:
           done
           awk -v h="## [$VERSION]" 'index($0, h) == 1 {found=1} END {exit !found}' "$PKG/CHANGELOG.md" \
             || { echo "Add a '## [$VERSION]' section to $PKG/CHANGELOG.md" >&2; exit 1; }
+          if grep -qF '<!-- AI-DRAFT' "$PKG/CHANGELOG.md"; then
+            echo "::error::Review the Copilot-drafted section in $PKG/CHANGELOG.md, then delete its '<!-- AI-DRAFT' line"
+            exit 1
+          fi
